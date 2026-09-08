@@ -37,6 +37,9 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 def init_db() -> None:
     """初始化已注册模型对应的数据表。"""
 
+    # 延迟导入，避免 Base 定义期间的循环依赖，同时保证应用启动时模型已注册。
+    from . import models  # noqa: F401
+
     Base.metadata.create_all(bind=engine)
 
 
