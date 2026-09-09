@@ -36,7 +36,7 @@
 
 ### Task 4: 验证
 
-- [ ] `npm run build`
-- [ ] 前端分析客户端测试
-- [ ] 后端 pytest
-- [ ] Playwright 375px/390px 检查页面级宽度、菜单、主题和关键页面。
+- [x] `npm run build`（59 modules）
+- [x] 前端分析客户端测试（8/8）
+- [x] 后端 pytest（64/64）
+- [x] Playwright 375px/390px 检查页面级宽度、菜单、主题和关键页面；四页 `scrollWidth === clientWidth`，移动菜单与 Esc、主题切换通过。
