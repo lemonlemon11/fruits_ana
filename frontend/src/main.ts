@@ -1,18 +1,19 @@
-import { createApp, h } from 'vue'
-import { createRouter, createWebHistory, RouterView } from 'vue-router'
+import { createApp } from 'vue'
+import { createRouter, createWebHistory } from 'vue-router'
 
-const makePage = (title: string) => ({
-  render: () => h('main', { class: 'page' }, [h('h1', title)]),
-})
+import AppShell from './AppShell.vue'
+import ContainerView from './views/ContainerView.vue'
+import ImportView from './views/ImportView.vue'
+import OverviewView from './views/OverviewView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', redirect: '/overview' },
-    { path: '/overview', component: makePage('全局总览') },
-    { path: '/containers', component: makePage('货柜诊断') },
-    { path: '/imports', component: makePage('导入与数据质量') },
+    { path: '/overview', component: OverviewView },
+    { path: '/containers', component: ContainerView },
+    { path: '/imports', component: ImportView },
   ],
 })
 
-createApp({ render: () => h(RouterView) }).use(router).mount('#app')
+createApp(AppShell).use(router).mount('#app')

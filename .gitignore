@@ -1,6 +1,8 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.pytest-tmp/
+.playwright-cli/
 backend/data/
 frontend/node_modules/
 frontend/dist/
