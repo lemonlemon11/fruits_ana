@@ -277,4 +277,10 @@ onMounted(refresh)
   .overview-grade-structure :deep(.pie-layout) { min-height: 166px; grid-template-columns: minmax(124px, .9fr) minmax(135px, 1.1fr); }
   .overview-grade-structure :deep(.pie-chart) { width: min(100%, 148px); }
 }
+
+@media (max-width: 380px) {
+  .overview-grade-structure :deep(.pie-layout) { grid-template-columns: 1fr; }
+  .overview-grade-structure :deep(.pie-graphic) { justify-items: center; }
+  .overview-grade-structure :deep(.pie-legend) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 </style>

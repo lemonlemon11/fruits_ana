@@ -115,4 +115,10 @@ function dashOffset(index: number): number {
   .pie-layout { grid-template-columns: 136px minmax(0, 1fr); gap: 10px; }
   .pie-chart { width: 136px; }
 }
+
+@media (max-width: 380px) {
+  .pie-layout { grid-template-columns: 1fr; gap: 10px; }
+  .pie-chart { width: 136px; }
+  .pie-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+}
 </style>
