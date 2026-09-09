@@ -1,0 +1,331 @@
+/* 管理工作台壳层：导航、品牌与跨设备交互的统一视觉层 */
+.app-sidebar {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 92%, var(--primary-soft)), var(--surface-soft));
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--line) 65%, transparent);
+}
+
+.brand-block {
+  min-height: 58px;
+  align-items: center;
+}
+
+.brand-copy strong {
+  letter-spacing: .01em;
+}
+
+.sidebar-toggle {
+  width: 100%;
+  min-height: 44px;
+  justify-content: flex-start;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.sidebar-toggle-icon {
+  display: inline-flex;
+  width: 22px;
+  justify-content: center;
+  color: var(--primary);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.app-sidebar nav {
+  gap: 7px;
+}
+
+.app-sidebar nav a {
+  position: relative;
+  min-height: 52px;
+  gap: 11px;
+  border: 1px solid transparent;
+}
+
+.app-sidebar nav a::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+  transition: background-color 180ms ease;
+}
+
+.app-sidebar nav a:hover {
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--surface) 72%, var(--primary-soft));
+}
+
+.app-sidebar nav a.router-link-active {
+  border-color: color-mix(in srgb, var(--primary) 18%, transparent);
+  background: color-mix(in srgb, var(--primary-dark) 94%, var(--surface));
+}
+
+.app-sidebar nav a.router-link-active::before {
+  background: var(--primary);
+}
+
+.nav-index {
+  display: inline-flex;
+  min-width: 26px;
+  justify-content: center;
+  color: var(--muted);
+  font-family: Bahnschrift, "Microsoft YaHei", sans-serif;
+  font-size: .67rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .08em;
+}
+
+.nav-label {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.nav-label b {
+  font-size: .88rem;
+}
+
+.nav-label small {
+  color: var(--muted);
+  font-size: .66rem;
+  line-height: 1.25;
+}
+
+.app-sidebar nav a.router-link-active .nav-label small,
+.app-sidebar nav a.router-link-active .nav-index {
+  color: color-mix(in srgb, white 74%, var(--primary));
+}
+
+.theme-switcher {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.theme-switcher button {
+  min-height: 40px;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.theme-switcher button:hover {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+
+.sidebar-foot {
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.mobile-brand,
+.mobile-nav-panel {
+  display: none;
+}
+
+.mobile-menu-toggle {
+  display: inline-flex;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.mobile-menu-toggle:hover {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+
+.menu-glyph {
+  display: grid;
+  width: 18px;
+  gap: 4px;
+}
+
+.menu-glyph i {
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.mobile-brand-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.mobile-brand-copy > div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.mobile-brand-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .88rem;
+}
+
+.mobile-brand-copy > div > span {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .64rem;
+}
+
+.mobile-header-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+@media (max-width: 820px) {
+  .app-shell,
+  .app-shell.sidebar-collapsed {
+    display: block;
+  }
+
+  .app-sidebar {
+    display: none;
+  }
+
+  .mobile-brand {
+    position: sticky;
+    z-index: 30;
+    top: 0;
+    display: flex;
+    min-height: 60px;
+    padding: 8px 14px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 95%, transparent);
+    box-shadow: 0 3px 14px color-mix(in srgb, var(--ink) 8%, transparent);
+    backdrop-filter: blur(12px);
+  }
+
+  .mobile-theme-control {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .mobile-theme-select {
+    width: 104px;
+    min-height: 44px;
+    max-width: 104px;
+    padding-inline: 8px 24px;
+    background: var(--surface);
+  }
+
+  .mobile-nav-panel {
+    position: sticky;
+    z-index: 29;
+    top: 60px;
+    display: grid;
+    gap: 6px;
+    padding: 10px 14px 12px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--ink) 12%, transparent);
+  }
+
+  .mobile-nav-panel a {
+    display: flex;
+    min-height: 48px;
+    align-items: center;
+    gap: 11px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    color: var(--ink);
+    text-decoration: none;
+    transition: border-color 180ms ease, background-color 180ms ease;
+  }
+
+  .mobile-nav-panel a:hover,
+  .mobile-nav-panel a.router-link-active {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+  }
+
+  .mobile-nav-panel a > span:last-child {
+    display: grid;
+    min-width: 0;
+    gap: 1px;
+  }
+
+  .mobile-nav-panel a b {
+    font-size: .82rem;
+  }
+
+  .mobile-nav-panel a small {
+    color: var(--muted);
+    font-size: .64rem;
+  }
+
+  .app-workspace > main {
+    padding-top: 20px;
+  }
+}
+
+@media (max-width: 560px) {
+  .mobile-brand {
+    min-height: 56px;
+    padding-inline: 12px;
+  }
+
+  .mobile-nav-panel {
+    top: 56px;
+    padding-inline: 12px;
+  }
+
+  .mobile-theme-select {
+    width: 96px;
+    max-width: 96px;
+  }
+
+  .mobile-brand-copy .brand-mark {
+    width: 28px;
+    height: 28px;
+    flex-basis: 28px;
+  }
+
+  .mobile-brand-copy .brand-mark i {
+    left: 13px;
+    top: 6px;
+    height: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar nav a,
+  .theme-switcher button,
+  .sidebar-toggle,
+  .mobile-menu-toggle,
+  .mobile-nav-panel a {
+    transition: none;
+  }
+}
+
+:root[data-theme="command"] .mobile-brand {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+}
+
+:root[data-theme="contrast"] .mobile-brand,
+:root[data-theme="contrast"] .mobile-nav-panel {
+  box-shadow: none;
+}
