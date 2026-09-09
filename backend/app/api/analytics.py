@@ -48,9 +48,15 @@ def trend(filters: dict = Depends(_filters), db: Session = Depends(get_db)):
 
 @router.get("/container-comparison")
 def container_comparison(
-    filters: dict = Depends(_filters), db: Session = Depends(get_db)
+    filters: dict = Depends(_filters),
+    include_all_containers: bool = False,
+    db: Session = Depends(get_db),
 ):
-    return {"containers": get_container_comparison(db, **filters)}
+    return {
+        "containers": get_container_comparison(
+            db, **filters, include_all_containers=include_all_containers
+        )
+    }
 
 
 @router.get("/containers/{container_id}")

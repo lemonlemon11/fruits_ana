@@ -4,6 +4,7 @@ export interface AnalyticsFilters {
   startDate?: string
   endDate?: string
   containerId?: string
+  includeAllContainers?: boolean
 }
 
 export interface MetricTotal {
@@ -48,6 +49,10 @@ export interface ContainerComparisonItem extends MetricTotal {
   grades: GradeMetric[]
   startDate: string
   endDate: string
+  rank?: { salesQuantity?: number; salesAmount?: number; weightedAvgPrice?: number }
+  salesQuantityShare?: number | null
+  salesAmountShare?: number | null
+  gradeContribution?: Record<Grade, number | null>
 }
 
 export interface SettlementSummary {

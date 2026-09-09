@@ -121,20 +121,106 @@ def get_container_comparison(
     start_date: date | None = None,
     end_date: date | None = None,
     container_id: str | None = None,
+    include_all_containers: bool = False,
 ) -> list[dict]:
+    scope_container_id = None if include_all_containers else container_id
+    records = _records(
+        db,
+        start_date=start_date,
+        end_date=end_date,
+        container_id=scope_container_id,
+    )
     grouped = defaultdict(list)
-    for record in _records(
-        db, start_date=start_date, end_date=end_date, container_id=container_id
-    ):
+    for record in records:
         grouped[record.container_id].append(record)
+
+    totals = {current_id: _raw_metrics(items) for current_id, items in grouped.items()}
+    overall_quantity = sum(
+        (metrics["quantity"] for metrics in totals.values()), Decimal("0")
+    )
+    overall_amount = sum(
+        (metrics["amount"] for metrics in totals.values()), Decimal("0")
+    )
+    rank_fields = {
+        "sales_quantity": _rank_values(totals, "quantity"),
+        "sales_amount": _rank_values(totals, "amount"),
+        "weighted_avg_price": _rank_values(totals, "average"),
+    }
     return [
         {
             "container_id": current_id,
             "total": _metrics(grouped[current_id]),
             "grades": _grade_metrics(grouped[current_id]),
+            "rank": {
+                field: ranks[current_id] for field, ranks in rank_fields.items()
+            },
+            "sales_quantity_share": _share(
+                totals[current_id]["quantity"], overall_quantity
+            ),
+            "sales_amount_share": _share(
+                totals[current_id]["amount"], overall_amount
+            ),
+            "grade_contribution": _grade_contribution(
+                grouped[current_id], overall_quantity
+            ),
         }
         for current_id in sorted(grouped)
     ]
+
+
+def _raw_metrics(records: list[SaleRecord]) -> dict[str, Decimal | None]:
+    quantity = sum((item.quantity for item in records), Decimal("0"))
+    amount = sum((item.amount for item in records), Decimal("0"))
+    return {
+        "quantity": quantity,
+        "amount": amount,
+        "average": amount / quantity if quantity else None,
+    }
+
+
+def _rank_values(
+    totals: dict[str, dict[str, Decimal | None]], field: str
+) -> dict[str, int | None]:
+    ordered = sorted(
+        (
+            item
+            for item in totals.items()
+            if item[1][field] is not None
+        ),
+        key=lambda item: item[1][field],
+        reverse=True,
+    )
+    ranks: dict[str, int | None] = {container_id: None for container_id in totals}
+    previous: Decimal | None = None
+    previous_rank = 0
+    for position, (container_id, metrics) in enumerate(ordered, start=1):
+        value = metrics[field]
+        if value is None:
+            continue
+        if previous is None or value != previous:
+            previous_rank = position
+            previous = value
+        ranks[container_id] = previous_rank
+    return ranks
+
+
+def _share(part: Decimal, total: Decimal) -> float | None:
+    return _rounded(part / total) if total else None
+
+
+def _grade_contribution(
+    records: list[SaleRecord], overall_quantity: Decimal
+) -> dict[str, float | None]:
+    return {
+        grade.value: _share(
+            sum(
+                (record.quantity for record in records if record.grade == grade),
+                Decimal("0"),
+            ),
+            overall_quantity,
+        )
+        for grade in GRADES
+    }
 
 
 def _grade_shares(records: list[SaleRecord]) -> dict[StandardGrade, Decimal] | None:

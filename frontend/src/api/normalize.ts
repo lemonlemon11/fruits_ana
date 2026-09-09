@@ -26,6 +26,7 @@ export function buildAnalyticsQuery(filters: AnalyticsFilters): string {
   if (filters.startDate) params.set('start_date', filters.startDate)
   if (filters.endDate) params.set('end_date', filters.endDate)
   if (filters.containerId) params.set('container_id', filters.containerId)
+  if (filters.includeAllContainers) params.set('include_all_containers', 'true')
   const query = params.toString()
   return query ? `?${query}` : ''
 }
@@ -116,8 +117,26 @@ export function normalizeContainerComparison(payload: unknown): ContainerCompari
       grades: overview.grades,
       startDate: stringOr(pick(row, 'start_date', 'startDate', 'sale_start'), ''),
       endDate: stringOr(pick(row, 'end_date', 'endDate', 'sale_end'), ''),
+      rank: normalizeRank(row.rank),
+      salesQuantityShare: nullableNumber(pick(row, 'sales_quantity_share', 'salesQuantityShare')),
+      salesAmountShare: nullableNumber(pick(row, 'sales_amount_share', 'salesAmountShare')),
+      gradeContribution: normalizeGradeContribution(row.grade_contribution ?? row.gradeContribution),
     }
   })
+}
+
+function normalizeRank(value: unknown): ContainerComparisonItem['rank'] {
+  const record = asRecord(value)
+  return {
+    salesQuantity: nullableNumber(pick(record, 'sales_quantity', 'salesQuantity')) ?? undefined,
+    salesAmount: nullableNumber(pick(record, 'sales_amount', 'salesAmount')) ?? undefined,
+    weightedAvgPrice: nullableNumber(pick(record, 'weighted_avg_price', 'weightedAvgPrice')) ?? undefined,
+  }
+}
+
+function normalizeGradeContribution(value: unknown): ContainerComparisonItem['gradeContribution'] {
+  const record = asRecord(value)
+  return { A: nullableNumber(record.A), B: nullableNumber(record.B), C: nullableNumber(record.C) }
 }
 
 export function normalizeContainerDetail(payload: unknown, id: string): ContainerDetail {

@@ -38,7 +38,7 @@ async function refresh() {
   try {
     const query = { ...filters }
     const [nextOverview, nextTrend, nextContainers] = await Promise.all([
-      getOverview(query), getTrend(query), getContainerComparison(query),
+      getOverview(query), getTrend(query), getContainerComparison({ ...query, includeAllContainers: true }),
     ])
     if (version !== requestVersion) return
     overview.value = nextOverview

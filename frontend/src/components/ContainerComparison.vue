@@ -48,7 +48,7 @@ const sortedItems = computed(() => [...props.items].sort((left, right) => (
         @click="emit('select', item.containerId)"
       >
         <span class="container-identity">
-          <strong>{{ item.containerName }}</strong>
+          <strong>销售额第{{ item.rank?.salesAmount ?? '—' }}名 · {{ item.containerName }}</strong>
           <small>{{ formatNumber(item.salesQuantity) }} 销量 · {{ formatCurrency(item.salesAmount) }}</small>
         </span>
         <span class="grade-structure">
@@ -60,7 +60,7 @@ const sortedItems = computed(() => [...props.items].sort((left, right) => (
               :style="{ width: `${Math.max(0, (grade.quantityShare ?? 0) * 100)}%` }"
             />
           </span>
-          <small>{{ item.grades.map((grade) => `${grade.grade} ${formatPercent(grade.quantityShare)}`).join(' · ') }}</small>
+          <small>{{ item.grades.map((grade) => `${grade.grade} ${formatPercent(grade.quantityShare)}`).join(' · ') }} · 整体销量贡献 {{ formatPercent(item.salesQuantityShare) }}</small>
         </span>
         <span class="grade-prices">
           <span v-for="grade in item.grades" :key="grade.grade">
