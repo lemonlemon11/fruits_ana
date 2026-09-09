@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from .api.auth import router as auth_router
 from .api.analytics import router as analytics_router
 from .api.exports import router as exports_router
 from .api.imports import router as imports_router
@@ -23,6 +24,7 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+app.include_router(auth_router)
 app.include_router(analytics_router)
 app.include_router(exports_router)
 app.include_router(imports_router)

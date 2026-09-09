@@ -19,4 +19,5 @@ os.environ["FRUIT_ANALYSIS_DB_PATH"] = str(TEST_DATABASE_PATH)
 def prepare_pytest_basetemp(tmp_path_factory):
     """在任何数据库连接建立前完成 pytest 对 basetemp 的初始化清理。"""
 
+    tmp_path_factory._given_basetemp = BACKEND_DIR / ".pytest-tmp" / "runtime"
     tmp_path_factory.getbasetemp()

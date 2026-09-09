@@ -42,6 +42,48 @@ class StandardGrade(str, Enum):
 Grade = StandardGrade
 
 
+class User(Base):
+    """平台认证用户。"""
+
+    __tablename__ = "user"
+    __table_args__ = (Index("ux_user_email", "email", unique=True),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+
+    sessions: Mapped[list[UserSession]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class UserSession(Base):
+    """可撤销的服务端会话记录，只保存 opaque token 的哈希。"""
+
+    __tablename__ = "user_session"
+    __table_args__ = (Index("ux_user_session_token_hash", "token_hash", unique=True),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="sessions")
+
+
 class ImportBatch(Base):
     """一次或一组文件导入的处理结果。"""
 
@@ -208,4 +250,6 @@ __all__ = [
     "SaleRecord",
     "SourceFile",
     "StandardGrade",
+    "User",
+    "UserSession",
 ]

@@ -16,6 +16,27 @@ class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserRead(BaseModel):
+    id: int
+    display_name: str
+    email: str
+
+
+class RegisterRequest(BaseModel):
+    display_name: str = Field(min_length=1, max_length=80)
+    email: str = Field(min_length=1, max_length=320)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(min_length=1, max_length=320)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AuthResponse(BaseModel):
+    user: UserRead
+
+
 class ImportBatchCreate(BaseModel):
     file_name: str | None = None
 
@@ -112,12 +133,16 @@ __all__ = [
     "ContainerSummaryRead",
     "DataIssueCreate",
     "DataIssueRead",
+    "AuthResponse",
     "ImportBatchCreate",
     "ImportBatchRead",
+    "LoginRequest",
+    "RegisterRequest",
     "SaleRecordBase",
     "SaleRecordCreate",
     "SaleRecordRead",
     "SourceFileCreate",
     "SourceFileRead",
     "StandardGrade",
+    "UserRead",
 ]
