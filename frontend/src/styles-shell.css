@@ -1,4 +1,17 @@
 /* 管理工作台壳层：导航、品牌与跨设备交互的统一视觉层 */
+:root {
+  --mobile-header-height: 56px;
+  --mobile-header-total: calc(var(--mobile-header-height) + env(safe-area-inset-top));
+}
+
+.app-workspace > main {
+  padding-top: 16px;
+}
+
+.app-workspace > main:focus {
+  outline: none;
+}
+
 .app-sidebar {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 92%, var(--primary-soft)), var(--surface-soft));
@@ -208,9 +221,9 @@
     z-index: 30;
     top: 0;
     display: flex;
-    min-height: 60px;
-    padding: 8px 14px;
-    padding-top: max(8px, env(safe-area-inset-top));
+    min-height: var(--mobile-header-total);
+    padding: 4px 14px;
+    padding-top: max(4px, env(safe-area-inset-top));
     border-bottom: 1px solid var(--line);
     background: color-mix(in srgb, var(--surface) 95%, transparent);
     box-shadow: 0 3px 14px color-mix(in srgb, var(--ink) 8%, transparent);
@@ -234,7 +247,7 @@
   .mobile-nav-panel {
     position: sticky;
     z-index: 29;
-    top: 60px;
+    top: var(--mobile-header-total);
     display: grid;
     gap: 6px;
     padding: 10px 14px 12px;
@@ -278,18 +291,24 @@
   }
 
   .app-workspace > main {
-    padding-top: 20px;
+    padding-top: 16px;
   }
 }
 
 @media (max-width: 560px) {
+  :root {
+    --mobile-header-height: 52px;
+    --mobile-header-total: calc(var(--mobile-header-height) + env(safe-area-inset-top));
+  }
+
   .mobile-brand {
-    min-height: 56px;
-    padding-inline: 12px;
+    min-height: var(--mobile-header-total);
+    padding: 4px 12px;
+    padding-top: max(4px, env(safe-area-inset-top));
   }
 
   .mobile-nav-panel {
-    top: 56px;
+    top: var(--mobile-header-total);
     padding-inline: 12px;
   }
 
@@ -308,6 +327,10 @@
     left: 13px;
     top: 6px;
     height: 16px;
+  }
+
+  .app-workspace > main {
+    padding-top: 14px;
   }
 }
 

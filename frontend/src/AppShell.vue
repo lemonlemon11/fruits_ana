@@ -58,7 +58,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
         <span>{{ sidebarCollapsed ? '展开菜单' : '收起菜单' }}</span>
       </button>
       <nav id="primary-nav" aria-label="主要导航">
-        <RouterLink v-for="item in navItems" :key="item.path" :to="item.path" :title="item.label">
+        <RouterLink v-for="item in navItems" :key="item.path" :to="item.path" :title="item.label" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
           <span class="nav-index" aria-hidden="true">{{ item.index }}</span>
           <span class="nav-label"><b>{{ item.label }}</b><small>{{ item.caption }}</small></span>
         </RouterLink>
@@ -70,7 +70,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
       <p class="sidebar-foot">A / B / C 等级统一经营口径<br>C果包含原始 BC 等级</p>
     </aside>
     <div class="app-workspace">
-      <header class="mobile-brand">
+      <header class="mobile-brand" aria-label="移动端应用工具栏">
         <div class="mobile-brand-copy">
           <span class="brand-mark" aria-hidden="true"><i /></span>
           <div>

@@ -46,6 +46,29 @@ const baselineRows = computed(() => detail.value?.grades.map((grade) => {
   return { ...grade, baselinePrice: reference?.weightedAvgPrice ?? null, delta }
 }) ?? [])
 
+const salesKpis = computed(() => [
+  {
+    label: '销售量',
+    value: detail.value ? formatNumber(detail.value.total.salesQuantity) : '—',
+    note: selectedOption.value?.salesQuantityShare == null ? '当前筛选范围' : `占全局 ${formatPercent(selectedOption.value.salesQuantityShare)}`,
+  },
+  {
+    label: '销售额',
+    value: detail.value ? formatCurrency(detail.value.total.salesAmount) : '—',
+    note: selectedOption.value?.salesAmountShare == null ? '当前筛选范围' : `占全局 ${formatPercent(selectedOption.value.salesAmountShare)}`,
+  },
+  {
+    label: '加权均价',
+    value: detail.value ? formatPrice(detail.value.total.weightedAvgPrice) : '—',
+    note: '销售额 ÷ 销售量',
+  },
+  {
+    label: '销售额排名',
+    value: selectedOption.value?.rank?.salesAmount ? `第${selectedOption.value.rank.salesAmount}名` : '—',
+    note: options.value.length ? `当前共 ${options.value.length} 个货柜` : '暂无横向排名',
+  },
+])
+
 async function loadOptions() {
   options.value = await getContainerComparison({ startDate: filters.startDate, endDate: filters.endDate })
   if (!filters.containerId && options.value.length) filters.containerId = options.value[0].containerId
@@ -126,7 +149,15 @@ onMounted(refresh)
           <span class="status-dot" aria-hidden="true" />
           <div><span class="eyebrow">CURRENT CONTAINER</span><strong>{{ detail?.containerName ?? selectedOption?.containerName ?? filters.containerId }}</strong><small>{{ filters.containerId }} · {{ periodLabel }}</small></div>
         </div>
-        <div class="container-context__rank" v-if="selectedOption?.rank?.salesAmount"><span>销售额排名</span><strong>第{{ selectedOption.rank.salesAmount }}名</strong><small>在当前筛选范围内</small></div>
+        <div class="container-context__rank"><span>复盘重点</span><strong>A / B / C 销售结构</strong><small>回款与结算仅作辅助参考</small></div>
+      </section>
+
+      <section class="sales-kpi-strip" aria-label="销售核心指标">
+        <article v-for="item in salesKpis" :key="item.label" class="sales-kpi">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+          <small>{{ item.note }}</small>
+        </article>
       </section>
 
       <GradeSummary
@@ -143,20 +174,20 @@ onMounted(refresh)
         <div><span>等级待确认</span><strong :class="{ 'is-alert': unknownGradeCount }">{{ unknownGradeCount }}</strong><small>{{ unknownGradeCount ? '原始值未映射到 A/B/C' : '等级已完成归一化' }}</small></div>
       </section>
 
-      <div class="two-column-layout analytics-visuals">
+      <div class="two-column-layout container-analysis">
+        <TrendChart :points="trend" :loading="loading" title="该柜每日量价变化" />
         <GradePieChart :grades="detail?.grades ?? []" :loading="loading" />
+      </div>
+
+      <div class="two-column-layout analytics-visuals">
         <ComparisonPanel
           :global-grades="baseline?.grades ?? []"
           :global-total="baseline?.total"
           :selected-grades="detail?.grades"
           :selected-total="detail?.total"
         />
-      </div>
-
-      <div class="two-column-layout container-analysis">
-        <TrendChart :points="trend" :loading="loading" title="该柜每日量价变化" />
         <section class="dashboard-section price-reference" aria-labelledby="baseline-title">
-          <header class="section-heading"><div><p class="eyebrow">PRICE REFERENCE</p><h2 id="baseline-title">等级价格参照</h2></div><p class="section-note">同期整体，仅用于定位价差</p></header>
+          <header class="section-heading"><div><p class="eyebrow">BENCHMARK</p><h2 id="baseline-title">横向基准与等级价差</h2></div><p class="section-note">同期整体，仅用于定位价差</p></header>
           <div v-if="loading" class="baseline-skeleton skeleton-block">正在计算同期基线</div>
           <div v-else class="baseline-list">
             <div v-for="row in baselineRows" :key="row.grade" class="baseline-row">
@@ -168,17 +199,22 @@ onMounted(refresh)
         </section>
       </div>
 
+      <section class="dashboard-section anomaly-section" aria-labelledby="anomaly-title">
+        <header class="section-heading"><div><p class="eyebrow">ATTENTION</p><h2 id="anomaly-title">经营异常</h2></div><p class="section-note">优先复核量、价与等级结构偏离</p></header>
+        <div v-if="!detail?.operatingAnomalies.length" class="empty-state compact"><strong>当前未发现经营异常</strong><span>量价与等级结构暂未触发提示。</span></div>
+        <ul v-else class="alert-list inline-alerts">
+          <li v-for="(item, index) in detail.operatingAnomalies" :key="index" class="alert-item danger"><span class="alert-code">经营</span><div><strong>{{ item.reason }}</strong><p>当前 {{ formatAnomalyValue(item.type, item.metric) }}，同期基线 {{ formatAnomalyValue(item.type, item.baseline) }}</p></div></li>
+        </ul>
+      </section>
+
       <section class="dashboard-section dashboard-section--muted" aria-labelledby="settlement-title">
-        <header class="section-heading"><div><p class="eyebrow">SETTLEMENT CONTEXT</p><h2 id="settlement-title">结算辅助信息</h2></div><p class="section-note">不作为等级经营主指标</p></header>
+        <header class="section-heading"><div><p class="eyebrow">SETTLEMENT CONTEXT</p><h2 id="settlement-title">回款与结算辅助</h2></div><p class="section-note">不作为等级经营主指标</p></header>
         <dl class="settlement-strip">
           <div><dt>售后金额</dt><dd>{{ detail?.settlement.afterSalesAmount == null ? '暂无数据' : formatCurrency(detail.settlement.afterSalesAmount) }}</dd></div>
           <div><dt>费用合计</dt><dd>{{ detail?.settlement.feeAmount == null ? '暂无数据' : formatCurrency(detail.settlement.feeAmount) }}</dd></div>
           <div><dt>清关税费</dt><dd>{{ detail?.settlement.customsTax == null ? '暂无数据' : formatCurrency(detail.settlement.customsTax) }}</dd></div>
           <div><dt>应付结算</dt><dd>{{ detail?.settlement.payableAmount == null ? '暂无数据' : formatCurrency(detail.settlement.payableAmount) }}</dd></div>
         </dl>
-        <ul v-if="detail?.operatingAnomalies.length" class="alert-list inline-alerts">
-          <li v-for="(item, index) in detail.operatingAnomalies" :key="index" class="alert-item danger"><span class="alert-code">经营</span><div><strong>{{ item.reason }}</strong><p>当前 {{ formatAnomalyValue(item.type, item.metric) }}，同期基线 {{ formatAnomalyValue(item.type, item.baseline) }}</p></div></li>
-        </ul>
       </section>
 
       <section class="dashboard-section trace-section" aria-labelledby="records-title">
@@ -210,8 +246,11 @@ onMounted(refresh)
 .container-context__identity { gap: 10px; }.container-context__identity > div { display: grid; align-items: start; gap: 2px; }
 .container-context__identity .eyebrow { margin: 0; font-size: .6rem; }.container-context__identity strong { overflow-wrap: anywhere; font-size: .98rem; }.container-context__identity small { color: var(--muted); font-size: .67rem; overflow-wrap: anywhere; }
 .container-context__rank { display: grid; justify-items: end; gap: 2px; text-align: right; }.container-context__rank span, .container-context__rank small { color: var(--muted); font-size: .65rem; }.container-context__rank strong { color: var(--primary-dark); font-size: .86rem; }
+.sales-kpi-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow); }
+.sales-kpi { display: grid; gap: 4px; min-width: 0; padding: 12px 14px; border-right: 1px solid var(--line); }
+.sales-kpi:last-child { border-right: 0; }.sales-kpi span, .sales-kpi small { color: var(--muted); font-size: .65rem; }.sales-kpi strong { overflow-wrap: anywhere; color: var(--ink); font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: 1.08rem; font-variant-numeric: tabular-nums; }
 .diagnostic-insight { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); background: var(--surface); }.diagnostic-insight > div { display: grid; gap: 3px; min-width: 0; padding: 10px 12px; border-right: 1px solid var(--line); }.diagnostic-insight > div:last-child { border-right: 0; }.diagnostic-insight span { color: var(--muted); font-size: .65rem; }.diagnostic-insight strong { overflow-wrap: anywhere; font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .86rem; }.diagnostic-insight small { color: var(--muted); font-size: .62rem; line-height: 1.4; }.diagnostic-insight .is-alert { color: var(--danger); }
-.price-reference { min-width: 0; }.dashboard-section--muted { border-top-color: var(--line-strong); }.traceability-strip { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: -3px 0 12px; color: var(--muted); font-size: .68rem; }.traceability-strip span { display: inline-flex; align-items: baseline; gap: 4px; }.traceability-strip strong { color: var(--ink); font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .82rem; }
-@media (max-width: 720px) { .container-context { align-items: flex-start; flex-direction: column; gap: 9px; }.container-context__rank { justify-items: start; text-align: left; }.diagnostic-insight { grid-template-columns: repeat(2, minmax(0, 1fr)); }.diagnostic-insight > div:nth-child(2) { border-right: 0; }.diagnostic-insight > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); } }
-@media (max-width: 430px) { .header-link { width: 100%; }.diagnostic-insight > div { padding: 9px 10px; }.diagnostic-insight strong { font-size: .8rem; }.traceability-strip { gap: 5px 12px; } }
+.price-reference, .anomaly-section { min-width: 0; }.dashboard-section--muted { border-top-color: var(--line-strong); }.traceability-strip { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: -3px 0 12px; color: var(--muted); font-size: .68rem; }.traceability-strip span { display: inline-flex; align-items: baseline; gap: 4px; }.traceability-strip strong { color: var(--ink); font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .82rem; }
+@media (max-width: 720px) { .container-context { align-items: flex-start; flex-direction: column; gap: 9px; }.container-context__rank { justify-items: start; text-align: left; }.sales-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }.sales-kpi:nth-child(2) { border-right: 0; }.sales-kpi:nth-child(-n+2) { border-bottom: 1px solid var(--line); }.diagnostic-insight { grid-template-columns: repeat(2, minmax(0, 1fr)); }.diagnostic-insight > div:nth-child(2) { border-right: 0; }.diagnostic-insight > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); } }
+@media (max-width: 430px) { .header-link { width: 100%; }.sales-kpi { padding: 10px 11px; }.sales-kpi strong { font-size: .95rem; }.diagnostic-insight > div { padding: 9px 10px; }.diagnostic-insight strong { font-size: .8rem; }.traceability-strip { gap: 5px 12px; } }
 </style>
