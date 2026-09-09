@@ -15,6 +15,8 @@ import {
   type TrendPoint,
 } from '../api/client'
 import GradeSummary from '../components/GradeSummary.vue'
+import ComparisonPanel from '../components/ComparisonPanel.vue'
+import GradePieChart from '../components/GradePieChart.vue'
 import TrendChart from '../components/TrendChart.vue'
 import { formatAnomalyValue, formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
 
@@ -112,6 +114,15 @@ onMounted(refresh)
         :loading="loading"
         :title="`${detail?.containerName ?? (filters.containerId || '当前货柜')} 等级表现`"
       />
+      <div class="two-column-layout analytics-visuals">
+        <GradePieChart :grades="detail?.grades ?? []" :loading="loading" />
+        <ComparisonPanel
+          :global-grades="baseline?.grades ?? []"
+          :global-total="baseline?.total"
+          :selected-grades="detail?.grades"
+          :selected-total="detail?.total"
+        />
+      </div>
       <div class="two-column-layout container-analysis">
         <TrendChart :points="trend" :loading="loading" title="该柜每日量价变化" />
         <section class="dashboard-section" aria-labelledby="baseline-title">

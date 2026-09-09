@@ -12,7 +12,9 @@ import {
   type TrendPoint,
 } from '../api/client'
 import ContainerComparison from '../components/ContainerComparison.vue'
+import ComparisonPanel from '../components/ComparisonPanel.vue'
 import GradeSummary from '../components/GradeSummary.vue'
+import GradePieChart from '../components/GradePieChart.vue'
 import TrendChart from '../components/TrendChart.vue'
 import { formatAnomalyValue } from '../utils/format'
 
@@ -107,6 +109,11 @@ onMounted(refresh)
       :total="overview?.total ?? { salesQuantity: 0, salesAmount: 0, weightedAvgPrice: null }"
       :loading="loading"
     />
+
+    <div class="two-column-layout analytics-visuals">
+      <GradePieChart :grades="overview?.grades ?? []" :loading="loading" />
+      <ComparisonPanel :global-grades="overview?.grades ?? []" :global-total="overview?.total" />
+    </div>
 
     <div class="two-column-layout">
       <TrendChart :points="trend" :loading="loading" />
