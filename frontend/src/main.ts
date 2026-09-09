@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
 import AppShell from './AppShell.vue'
+import ContainerComparisonView from './views/ContainerComparisonView.vue'
 import ContainerView from './views/ContainerView.vue'
 import ImportView from './views/ImportView.vue'
 import OverviewView from './views/OverviewView.vue'
@@ -11,6 +12,7 @@ const router = createRouter({
   routes: [
     { path: '/', redirect: '/overview' },
     { path: '/overview', component: OverviewView },
+    { path: '/container-comparison', component: ContainerComparisonView },
     { path: '/containers', component: ContainerView },
     { path: '/imports', component: ImportView },
   ],

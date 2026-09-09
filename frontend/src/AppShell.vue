@@ -14,8 +14,9 @@ const themes: Array<{ id: Theme; label: string }> = [
 ]
 const navItems = [
   { path: '/overview', index: '01', label: '全局总览', caption: '经营盘面' },
-  { path: '/containers', index: '02', label: '单柜诊断', caption: '货柜对比' },
-  { path: '/imports', index: '03', label: '导入与质量', caption: '数据治理' },
+  { path: '/container-comparison', index: '02', label: '货柜重点对比', caption: '横向表现' },
+  { path: '/containers', index: '03', label: '单柜诊断', caption: '深入复盘' },
+  { path: '/imports', index: '04', label: '导入与质量', caption: '数据治理' },
 ]
 const currentNav = computed(() => navItems.find((item) => route.path.startsWith(item.path)) ?? navItems[0])
 
