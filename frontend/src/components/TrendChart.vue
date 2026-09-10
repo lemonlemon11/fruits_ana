@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import type { Grade, TrendPoint } from '../api/client'
-import { gradeLabel } from '../api/client'
+import type { TrendPoint } from '../api/client'
 import { formatCurrency, formatDate, formatNumber, formatPrice } from '../utils/format'
 
 const props = defineProps<{
@@ -14,13 +13,7 @@ const props = defineProps<{
 const chart = { width: 760, height: 258, left: 42, right: 18, top: 20, bottom: 34 }
 const plotWidth = chart.width - chart.left - chart.right
 const plotHeight = chart.height - chart.top - chart.bottom
-const gradeOrder: Grade[] = ['A', 'B', 'C']
-const gradeColors: Record<Grade, string> = { A: '#16856b', B: '#bd7414', C: '#b94a3c' }
-
-const maxQuantity = computed(() => Math.max(
-  ...props.points.flatMap((point) => gradeOrder.map((grade) => point.grades.find((item) => item.grade === grade)?.salesQuantity ?? 0)),
-  1,
-))
+const maxQuantity = computed(() => Math.max(...props.points.map((point) => point.salesQuantity), 1))
 const maxPrice = computed(() => Math.max(...props.points.map((point) => point.weightedAvgPrice ?? 0), 1))
 
 const xStep = computed(() => props.points.length > 1 ? plotWidth / (props.points.length - 1) : plotWidth)
@@ -41,12 +34,8 @@ function yPosition(value: number, max: number): number {
   return chart.top + plotHeight - (Math.max(value, 0) / max) * plotHeight
 }
 
-function gradeValue(point: TrendPoint, grade: Grade): number {
-  return point.grades.find((item) => item.grade === grade)?.salesQuantity ?? 0
-}
-
-function linePoints(grade: Grade): string {
-  return props.points.map((point, index) => `${xPosition(index)},${yPosition(gradeValue(point, grade), maxQuantity.value)}`).join(' ')
+function linePoints(): string {
+  return props.points.map((point, index) => `${xPosition(index)},${yPosition(point.salesQuantity, maxQuantity.value)}`).join(' ')
 }
 
 function priceLinePoints(): string {
@@ -65,13 +54,10 @@ function priceTickLabel(ratio: number): string {
 <template>
   <section class="dashboard-section trend-section" aria-labelledby="trend-title">
     <header class="section-heading">
-      <div>
-        <p class="eyebrow">DAILY PULSE</p>
-        <h2 id="trend-title">{{ title ?? '每日量价趋势' }}</h2>
-      </div>
+      <h2 id="trend-title">{{ title ?? '每日销量和均价' }}</h2>
       <div class="chart-legend" aria-label="图例">
-        <span v-for="grade in gradeOrder" :key="grade" class="legend-item" :class="`legend-${grade.toLowerCase()}`">{{ gradeLabel(grade) }}</span>
-        <span class="legend-item legend-price">加权均价</span>
+        <span class="legend-item legend-quantity">每日销量</span>
+        <span class="legend-item legend-price">平均每件售价</span>
       </div>
     </header>
 
@@ -89,10 +75,10 @@ function priceTickLabel(ratio: number): string {
           class="trend-chart"
           :viewBox="`0 0 ${chart.width} ${chart.height}`"
           role="img"
-          :aria-label="`${points.length} 天等级销量与加权均价折线图。最高单等级销量 ${formatNumber(maxQuantity)}`"
+          :aria-label="`${points.length} 天销量与平均每件售价折线图。最高日销量 ${formatNumber(maxQuantity)}`"
         >
           <title>{{ title ?? '每日量价趋势' }}</title>
-          <desc>实线表示 A、B、C 各等级每日销量，虚线表示每日加权均价。</desc>
+          <desc>实线表示每日销量，虚线表示每日平均每件售价。</desc>
           <g class="chart-grid" aria-hidden="true">
             <line
               v-for="ratio in yTicks"
@@ -106,24 +92,22 @@ function priceTickLabel(ratio: number): string {
           <line class="chart-axis" :x1="chart.left" :x2="chart.left" :y1="chart.top" :y2="chart.height - chart.bottom" />
           <line class="chart-axis" :x1="chart.left" :x2="chart.width - chart.right" :y1="chart.height - chart.bottom" :y2="chart.height - chart.bottom" />
           <polyline
-            v-for="grade in gradeOrder"
-            :key="grade"
+            key="quantity-line"
             class="trend-line"
-            :class="`line-${grade.toLowerCase()}`"
-            :points="linePoints(grade)"
-            :stroke="gradeColors[grade]"
+            :points="linePoints()"
+            stroke="var(--primary)"
           />
           <polyline class="trend-line line-price" :points="priceLinePoints()" />
-          <g v-for="grade in gradeOrder" :key="`dots-${grade}`" class="trend-dots">
+          <g class="trend-dots">
             <circle
               v-for="(point, index) in points"
-              :key="`${grade}-${point.date}`"
+              :key="`quantity-${point.date}`"
               :cx="xPosition(index)"
-              :cy="yPosition(gradeValue(point, grade), maxQuantity)"
+              :cy="yPosition(point.salesQuantity, maxQuantity)"
               r="3"
-              :fill="gradeColors[grade]"
+              fill="var(--primary)"
             >
-              <title>{{ formatDate(point.date) }} · {{ gradeLabel(grade) }}销量 {{ formatNumber(gradeValue(point, grade)) }}</title>
+              <title>{{ formatDate(point.date) }} · 销量 {{ formatNumber(point.salesQuantity) }}</title>
             </circle>
           </g>
           <g class="price-dots">
@@ -134,7 +118,7 @@ function priceTickLabel(ratio: number): string {
               :cy="yPosition(point.weightedAvgPrice ?? 0, maxPrice)"
               r="3"
             >
-              <title>{{ formatDate(point.date) }} · 加权均价 {{ formatPrice(point.weightedAvgPrice) }}</title>
+              <title>{{ formatDate(point.date) }} · 平均每件售价 {{ formatPrice(point.weightedAvgPrice) }}</title>
             </circle>
           </g>
           <g class="chart-x-labels" aria-hidden="true">
@@ -145,13 +129,13 @@ function priceTickLabel(ratio: number): string {
           <span v-for="ratio in [...yTicks].reverse()" :key="`price-${ratio}`">{{ priceTickLabel(ratio) }}</span>
         </div>
       </div>
-      <div class="scale-hint"><span>左轴：各等级销量</span><span>右轴：加权均价</span></div>
+      <div class="scale-hint"><span>左轴：每日销量</span><span>右轴：平均每件售价</span></div>
 
       <details class="data-details">
         <summary>查看趋势数据表</summary>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>日期</th><th>销量</th><th>销售额</th><th>加权均价</th></tr></thead>
+            <thead><tr><th>日期</th><th>销量</th><th>销售额</th><th>平均每件售价</th></tr></thead>
             <tbody>
               <tr v-for="point in points" :key="point.date">
                 <td>{{ point.date }}</td><td>{{ formatNumber(point.salesQuantity) }}</td>

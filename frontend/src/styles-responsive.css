@@ -2,7 +2,6 @@
   .app-shell { grid-template-columns: 196px minmax(0, 1fr); }
   .app-sidebar { padding-inline: 14px; }
   .two-column-layout { grid-template-columns: 1fr; }
-  .container-row { grid-template-columns: 130px minmax(160px, 1fr) minmax(230px, 1fr) 20px; gap: 12px; }
   .batch-row { grid-template-columns: minmax(180px, 1fr) auto minmax(210px, .7fr) auto; }
   .batch-error { grid-column: 1 / 4; }
 }
@@ -14,11 +13,8 @@
   .filter-bar .primary-button { min-height: 44px; }
   .grade-grid { grid-template-columns: 1fr; }
   .grade-card { min-height: auto; }
-  .container-row { grid-template-columns: minmax(120px, .75fr) minmax(180px, 1.25fr) 20px; }
-  .grade-prices { grid-column: 1 / 3; padding-top: 8px; border-top: 1px solid var(--line); }
-  .row-arrow { grid-column: 3; grid-row: 1 / 3; }
   .upload-workbench { grid-template-columns: 1fr; }
-  .upload-queue, .progress-line, .form-message { grid-column: 1; }
+  .upload-queue, .form-message { grid-column: 1; }
   .batch-row { grid-template-columns: minmax(0, 1fr) auto; }
   .batch-counts, .batch-error { grid-column: 1 / 3; }
 }
@@ -32,18 +28,10 @@
   .page-header { align-items: stretch; flex-direction: column; gap: 16px; padding-bottom: 17px; }
   .page-header-actions { width: 100%; justify-items: stretch; }
   .page-header > div:first-child > p:last-child { font-size: .82rem; line-height: 1.65; }
-  .scenario-switch { align-self: stretch; width: 100%; }
-  .scenario-switch button { flex: 1; }
-  .period-stamp { min-width: 0; width: 100%; padding: 9px 11px; }
-  .period-stamp strong { display: block; overflow-wrap: anywhere; line-height: 1.45; }
-  .view-switch { width: 100%; }
-  .view-switch a { flex: 1; padding-inline: 10px; text-align: center; }
   .filter-bar { grid-template-columns: minmax(0, 1fr); gap: 11px; padding: 14px; }
   .filter-bar > *, .filter-bar label, .filter-bar .primary-button { grid-column: 1; min-width: 0; }
   .filter-bar input, .filter-bar select { max-width: 100%; min-width: 0; }
   .filter-bar .primary-button { width: 100%; }
-  .context-bar { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: start; gap: 6px 8px; min-width: 0; margin-top: -8px; line-height: 1.5; }
-  .context-bar > :last-child { min-width: 0; overflow-wrap: anywhere; }
   .total-strip { grid-template-columns: 1fr; }
   .total-strip > div { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 16px; padding: 12px 14px; border-right: 0; border-bottom: 1px solid var(--line); }
   .total-strip > div:last-child { border-bottom: 0; }
@@ -57,17 +45,6 @@
   .section-heading .compact-field { width: 100%; align-self: stretch; grid-template-columns: auto minmax(0, 1fr); }
   .section-note { line-height: 1.5; }
   .chart-legend { justify-content: flex-start; }
-  .trend-axis, .trend-row { grid-template-columns: 50px minmax(80px, 1fr) 100px; gap: 7px; }
-  .price-track strong { font-size: .61rem; }
-  .container-row { grid-template-columns: minmax(0, 1fr) 20px; gap: 10px; min-width: 0; min-height: 132px; padding: 13px 12px; }
-  .container-identity, .grade-structure, .grade-prices { grid-column: 1; }
-  .row-arrow { grid-column: 2; grid-row: 1 / 4; }
-  .container-identity strong { font-size: .98rem; line-height: 1.4; }
-  .container-row small { line-height: 1.45; overflow-wrap: anywhere; }
-  .grade-prices { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding-top: 9px; }
-  .grade-prices > span { min-width: 0; }
-  .grade-prices strong { overflow-wrap: anywhere; font-size: .82rem; }
-  .row-arrow { align-self: center; }
   .settlement-strip { grid-template-columns: repeat(2, 1fr); }
   .settlement-strip > div:nth-child(2) { border-right: 0; }
   .settlement-strip > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
@@ -76,18 +53,10 @@
   .baseline-row { grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; }
   .baseline-row small { overflow-wrap: anywhere; line-height: 1.45; }
   .delta-pill { white-space: nowrap; }
-  .table-wrap, .comparison-panel__rows { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  .table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
   .table-wrap table { min-width: 520px; }
-  .record-table-wrap table { min-width: 760px; }
   .table-wrap th, .table-wrap td { white-space: nowrap; }
-  .record-table-wrap .source-link { min-width: 132px; justify-content: flex-end; }
-  .comparison-panel__totals > div { min-width: 0; }
-  .comparison-panel__totals strong, .comparison-panel__totals small { overflow-wrap: anywhere; }
-  .comparison-panel__pending { min-width: 0; }
-  .comparison-panel__pending div { min-width: 0; }
-  .comparison-panel__rows { touch-action: pan-x pan-y; }
   .upload-workbench { padding: 18px 14px; }
-  .drop-zone { flex-direction: column; }
   .batch-row { gap: 10px; }.batch-row .compact-button { grid-column: 1 / 3; }
   .error-banner { align-items: stretch; flex-direction: column; gap: 8px; padding: 12px 14px; }
   .error-banner span { min-width: 0; flex-direction: column; gap: 3px; overflow-wrap: anywhere; }
@@ -98,7 +67,6 @@
 
 @media (max-width: 380px) {
   .app-workspace > main { padding-inline: 12px; }
-  .scenario-switch button, .view-switch a { padding-inline: 8px; font-size: .8rem; }
   .metric-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .metric-list div:last-child { grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid var(--line); }
 }
@@ -106,11 +74,5 @@
 @media (max-width: 560px) {
   body { overflow-x: hidden; }
   .app-workspace > main { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
-  .table-wrap, .comparison-grid { position: relative; scrollbar-gutter: stable; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-shell, .app-sidebar nav a, .container-row, .drop-zone { transition: none !important; }
-  .skeleton-block::after { animation: none !important; transform: none; opacity: .35; }
-  .progress-line span { width: 100%; animation: none !important; transform: none; }
+  .table-wrap { position: relative; scrollbar-gutter: stable; }
 }

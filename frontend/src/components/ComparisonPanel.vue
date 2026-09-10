@@ -66,7 +66,7 @@ function totalContribution(part: number, total: number): number | null {
   <section class="comparison-panel" aria-labelledby="comparison-panel-title">
     <header class="comparison-panel__heading">
       <div>
-        <p class="comparison-panel__eyebrow">GRADE CONTRIBUTION</p>
+        <p class="comparison-panel__eyebrow">等级贡献</p>
         <h2 id="comparison-panel-title">货柜横向表现与等级贡献</h2>
       </div>
       <p class="comparison-panel__note">等级贡献结构概览 · 货柜横向排名待接入货柜清单</p>
@@ -85,7 +85,7 @@ function totalContribution(part: number, total: number): number | null {
           <small>{{ formatCurrency(globalTotalValue.salesAmount) }}</small>
         </div>
         <div>
-          <span>筛选范围均价</span>
+          <span>筛选范围平均每件售价</span>
           <strong>{{ formatPrice(globalTotalValue.weightedAvgPrice) }}</strong>
           <small>整体销售额口径</small>
         </div>
@@ -119,7 +119,7 @@ function totalContribution(part: number, total: number): number | null {
           <span role="columnheader">等级</span>
           <span role="columnheader">整体销量 / 占比</span>
           <span role="columnheader">销售额贡献 / 占比</span>
-          <span role="columnheader">加权均价</span>
+          <span role="columnheader">平均每件售价</span>
           <span role="columnheader">当前单柜贡献</span>
         </div>
         <div
@@ -169,7 +169,7 @@ function totalContribution(part: number, total: number): number | null {
 <style scoped>
 .comparison-panel { min-width: 0; padding-top: 18px; border-top: 2px solid var(--ink); }
 .comparison-panel__heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
-.comparison-panel__eyebrow { margin: 0 0 3px; color: var(--primary); font-family: Bahnschrift, sans-serif; font-size: .66rem; font-weight: 700; letter-spacing: .1em; }
+.comparison-panel__eyebrow { margin: 0 0 3px; color: var(--primary); font-size: .76rem; font-weight: 700; }
 .comparison-panel h2 { margin: 0; font-size: 1.05rem; line-height: 1.35; }
 .comparison-panel__note, .comparison-panel__hint { margin: 0; color: var(--muted); font-size: .7rem; line-height: 1.45; }
 .comparison-panel__empty { display: flex; min-height: 148px; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 1px dashed var(--line-strong); color: var(--muted); text-align: center; font-size: .75rem; }

@@ -14,11 +14,8 @@ defineProps<{
 <template>
   <section class="dashboard-section" aria-labelledby="grade-summary-title">
     <header class="section-heading">
-      <div>
-        <p class="eyebrow">GRADE MIX</p>
-        <h2 id="grade-summary-title">{{ title ?? '等级经营概览' }}</h2>
-      </div>
-      <p class="section-note">均价按销售额 ÷ 销量加权计算</p>
+      <h2 id="grade-summary-title">{{ title ?? '等级销售情况' }}</h2>
+      <p class="section-note">平均每件售价 = 销售额 ÷ 销量</p>
     </header>
 
     <div v-if="loading" class="grade-grid" aria-live="polite" aria-busy="true">
@@ -38,7 +35,7 @@ defineProps<{
           <strong>{{ formatCurrency(total.salesAmount) }}</strong>
         </div>
         <div>
-          <span>整体加权均价</span>
+          <span>平均每件售价</span>
           <strong>{{ formatPrice(total.weightedAvgPrice) }}</strong>
         </div>
       </div>
@@ -70,7 +67,7 @@ defineProps<{
               <dd>{{ formatCurrency(item.salesAmount) }}</dd>
             </div>
             <div>
-              <dt>加权均价</dt>
+              <dt>平均每件售价</dt>
               <dd>{{ formatPrice(item.weightedAvgPrice) }}</dd>
             </div>
           </dl>

@@ -46,7 +46,6 @@ function dashOffset(index: number): number {
   <section class="dashboard-section grade-pie-section" aria-labelledby="grade-pie-title">
     <header class="section-heading">
       <div>
-        <p class="eyebrow">GRADE MIX</p>
         <h2 id="grade-pie-title">等级销量结构</h2>
       </div>
       <p class="section-note">按销量占比</p>
