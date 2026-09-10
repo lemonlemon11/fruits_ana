@@ -10,7 +10,7 @@ P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏
 
 ## Current Status
 
-状态：P0-1 / P0-2 / P0-3 / P0-4 均已完成；本轮修复待提交
+状态：P0-1 / P0-2 / P0-3 / P0-4 均已完成 / COMMITTED
 
 当前进度：
 1. 上一批「商号维度重构」已由本会话复核并拆分为 7 个提交（`0160fdf`..`2160b38`），工作区已收口。
@@ -59,9 +59,7 @@ P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏
 
 ## In Progress
 
-1. 提交本轮 P0 修复：`SeriesGradeTables.vue` 移动端溢出修复与回归测试、
-   `README.md` / `docs/ARCHITECTURE.md` 文件类型口径修正、`docs/DECISIONS.md` ADR-010 修正、
-   `docs/HANDOFF.md` / `docs/TODO.md` 状态收口。
+无；P0 已收口。下一阶段按 `docs/TODO.md` 的 P1 继续。
 
 「系列对比」与「到达日期」文案统一均已完成开发与自动化验证；「系列对比」页及 AI 分析结论
 仍等待真实浏览器验收（见 `docs/TODO.md`）。
@@ -313,6 +311,9 @@ Branch：`dev`
 Latest commits：
 
 ```text
+bbbce09 docs: 修正导入文件类型与日期接口参数口径
+09dfb4b fix(frontend): 修复系列对比移动端横向溢出
+168f126 docs: 记录果农版简化设计并更新交接与待办
 a1e8bfd test(frontend): 更新界面与筛选交互守卫
 4dbe9b8 style(frontend): 全站字号统一并修正表格文字对齐
 c773dd8 fix(frontend): 修复系列对比均价柱状图高度塌缩
@@ -333,6 +334,5 @@ aaea0f8 feat(auth): 认证页接入本地榴莲主图
 0160fdf refactor(backend): 以商号替换柜号作为结算单唯一键
 ```
 
-Uncommitted changes：仅剩 `docs/HANDOFF.md`、`docs/TODO.md` 与新增
-`docs/superpowers/specs/2026-09-10-farmer-simplification-design.md`，将随本次文档收口提交。
-`.superpowers/`、`.superpowersigeria/`、`attachments/` 已加入 `.gitignore`，不会被提交。
+Uncommitted changes：无；`.superpowers/`、`.superpowersigeria/`、`attachments/`
+已加入 `.gitignore`，不会被提交。
