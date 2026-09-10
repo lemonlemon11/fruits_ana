@@ -9,7 +9,7 @@
 开发环境由 Vite 代理到 `127.0.0.1:8000`。
 
 ```text
-Browser (Vue 3 SPA, Vite dev server :53001)
+Browser (Vue 3 SPA, Vite dev server :53000)
         │  /api/*  (Vite proxy)
         ▼
 FastAPI (:8000)  backend/app/main.py
@@ -62,7 +62,8 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   `ContainerView`（单柜诊断）、`ImportView`（导入）、`LoginView` / `RegisterView` / `PublicPreviewView`。
 - 图表为手写 SVG 组件，不引入图表库。
 - API 契约集中在 `api/types.ts` + `api/normalize.ts` + `api/client.ts`，后端字段变更必须同步这三处。
-- 路由守卫在 `main.ts`：`requiresAuth` 保护业务页，`/preview` 为公开演示页，`/` 重定向到 `/preview`。
+- 路由守卫在 `main.ts`：`requiresAuth` 保护业务页，`guestOnly` 让已登录用户跳过登录/注册页；
+  `/` 重定向到 `/login`（已登录时经 `guestOnly` 再跳 `/overview`），`/preview` 保留为公开演示页但不再作为默认入口。
 
 ## Data Flow
 
