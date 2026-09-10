@@ -27,7 +27,7 @@
   h2 { font-size: 1.02rem; }
   .page-header { align-items: stretch; flex-direction: column; gap: 16px; padding-bottom: 17px; }
   .page-header-actions { width: 100%; justify-items: stretch; }
-  .page-header > div:first-child > p:last-child { font-size: .82rem; line-height: 1.65; }
+  .page-header > div:first-child > p:last-child { font-size: .85rem; line-height: 1.65; }
   .filter-bar { grid-template-columns: minmax(0, 1fr); gap: 11px; padding: 14px; }
   .filter-bar > *, .filter-bar label, .filter-bar .primary-button { grid-column: 1; min-width: 0; }
   .filter-bar input, .filter-bar select { max-width: 100%; min-width: 0; }

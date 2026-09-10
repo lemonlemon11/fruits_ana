@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Boxes, ChartColumn, GitCompareArrows, LogOut, Menu, PackageSearch, Table2, Upload, X } from '@lucide/vue'
+import { Boxes, ChartColumn, GitCompareArrows, LogOut, Menu, PackageSearch, Table2, Upload } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
@@ -10,14 +10,19 @@ const mobileNavOpen = ref(false)
 const signingOut = ref(false)
 const route = useRoute()
 const router = useRouter()
-const navItems = [
-  { path: '/overview', label: '销售总览', icon: ChartColumn },
-  { path: '/settlements', label: '数据明细', icon: Table2 },
-  { path: '/settlement-comparison', label: '结算单对比', icon: GitCompareArrows },
-  { path: '/settlement-detail', label: '结算单详情', icon: PackageSearch },
-  { path: '/series-comparison', label: '系列对比', icon: Boxes },
+// 面向果农的主导航只保留三个大入口，其余功能收进「更多」，避免同名页面点错。
+const primaryNavItems = [
+  { path: '/overview', label: '卖得怎么样', icon: ChartColumn },
+  { path: '/settlements', label: '每一单', icon: Table2 },
   { path: '/imports', label: '数据导入', icon: Upload },
 ]
+const moreNavItems = [
+  { path: '/settlement-detail', label: '结算单详情', icon: PackageSearch },
+  { path: '/settlement-comparison', label: '结算单对比', icon: GitCompareArrows },
+  { path: '/series-comparison', label: '系列对比', icon: Boxes },
+]
+const navItems = [...primaryNavItems, ...moreNavItems]
+const moreNavActive = computed(() => moreNavItems.some((item) => route.path.startsWith(item.path)))
 const authPage = computed(() => Boolean(route.meta.guestOnly || route.meta.publicPreview))
 const currentNav = computed(() => navItems.find((item) => route.path.startsWith(item.path)) ?? navItems[0])
 
@@ -63,7 +68,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
           </div>
         </div>
         <nav id="primary-nav" aria-label="主要导航">
-          <RouterLink v-for="item in navItems" :key="item.path" :to="item.path" :title="item.label" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+          <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+            <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
+            <span>{{ item.label }}</span>
+          </RouterLink>
+          <p class="nav-group-label">更多功能</p>
+          <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :title="item.label" class="nav-secondary" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
             <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
             <span>{{ item.label }}</span>
           </RouterLink>
@@ -86,20 +96,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
               <span>{{ currentNav.label }}</span>
             </div>
           </div>
-          <button
-            class="mobile-menu-toggle"
-            type="button"
-            aria-controls="mobile-nav"
-            :aria-expanded="mobileNavOpen"
-            :aria-label="mobileNavOpen ? '关闭导航菜单' : '打开导航菜单'"
-            @click="mobileNavOpen = !mobileNavOpen"
-          >
-            <X v-if="mobileNavOpen" :size="24" aria-hidden="true" />
-            <Menu v-else :size="24" aria-hidden="true" />
-          </button>
         </header>
         <nav v-if="mobileNavOpen" id="mobile-nav" class="mobile-nav-panel" aria-label="移动端主要导航">
-          <RouterLink v-for="item in navItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+          <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
             <component :is="item.icon" class="nav-icon" :size="20" aria-hidden="true" />
             <span>{{ item.label }}</span>
           </RouterLink>
@@ -108,6 +107,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
         <main id="main-content" tabindex="-1">
           <RouterView />
         </main>
+        <nav class="mobile-tabbar" aria-label="主要导航（移动端）">
+          <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+            <component :is="item.icon" :size="28" :stroke-width="2" aria-hidden="true" />
+            <span>{{ item.label }}</span>
+          </RouterLink>
+          <button
+            class="mobile-tabbar-more"
+            type="button"
+            aria-controls="mobile-nav"
+            :aria-expanded="mobileNavOpen"
+            :class="{ 'is-active': moreNavActive }"
+            @click="mobileNavOpen = !mobileNavOpen"
+          >
+            <Menu :size="28" aria-hidden="true" />
+            <span>更多</span>
+          </button>
+        </nav>
       </div>
     </div>
   </template>
