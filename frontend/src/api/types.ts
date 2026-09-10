@@ -15,8 +15,8 @@ export type RegisterPayload = LoginPayload
 export interface AnalyticsFilters {
   startDate?: string
   endDate?: string
-  containerId?: string
-  includeAllContainers?: boolean
+  merchantNo?: string
+  includeAllSettlements?: boolean
 }
 
 export interface MetricTotal {
@@ -43,7 +43,7 @@ export interface IssueCounts {
 export interface OperatingAnomaly {
   type: string
   reason: string
-  containerId: string
+  merchantNo: string
   metric: number | null
   baseline: number | null
 }
@@ -55,9 +55,11 @@ export interface OverviewData {
   operatingAnomalies: OperatingAnomaly[]
 }
 
-export interface ContainerComparisonItem extends MetricTotal {
-  containerId: string
-  containerName: string
+export interface SettlementComparisonItem extends MetricTotal {
+  merchantNo: string
+  orderNo: string
+  containerNo: string
+  vehicleNo: string
   grades: GradeMetric[]
   startDate: string
   endDate: string
@@ -74,7 +76,7 @@ export interface SettlementSummary {
   payableAmount: number | null
 }
 
-export interface ContainerRecord {
+export interface SettlementRecord {
   id: number | string
   sourceFileId: number | string | null
   saleDate: string
@@ -86,13 +88,48 @@ export interface ContainerRecord {
   amount: number
 }
 
-export interface ContainerDetail extends OverviewData {
-  containerId: string
-  containerName: string
+export interface SettlementDetail extends OverviewData {
+  merchantNo: string
+  orderNo: string
+  containerNo: string
+  vehicleNo: string
   startDate: string
   endDate: string
   settlement: SettlementSummary
-  records: ContainerRecord[]
+  records: SettlementRecord[]
+}
+
+export interface SettlementListItem {
+  merchantNo: string
+  orderNo: string
+  containerNo: string
+  vehicleNo: string
+  saleDateStart: string
+  saleDateEnd: string
+  salesAmount: number
+  totalQuantity: number
+  averagePrice: number | null
+  gradeQuantities: Record<Grade, number>
+  recordCount: number
+}
+
+export interface SettlementDateRange {
+  startDate: string
+  endDate: string
+  isDefault: boolean
+}
+
+export interface SettlementListData {
+  dateRange: SettlementDateRange | null
+  settlements: SettlementListItem[]
+}
+
+export interface SettlementRecordsData {
+  merchantNo: string
+  orderNo: string
+  containerNo: string
+  vehicleNo: string
+  records: SettlementRecord[]
 }
 
 export interface ImportBatch {

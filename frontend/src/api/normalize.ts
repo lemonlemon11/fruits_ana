@@ -1,8 +1,5 @@
 import type {
   AnalyticsFilters,
-  ContainerComparisonItem,
-  ContainerDetail,
-  ContainerRecord,
   Grade,
   GradeMetric,
   ImportBatch,
@@ -10,6 +7,12 @@ import type {
   IssueCounts,
   OperatingAnomaly,
   OverviewData,
+  SettlementComparisonItem,
+  SettlementDetail,
+  SettlementListData,
+  SettlementListItem,
+  SettlementRecord,
+  SettlementRecordsData,
   TrendPoint,
 } from './types.ts'
 
@@ -25,8 +28,8 @@ export function buildAnalyticsQuery(filters: AnalyticsFilters): string {
   const params = new URLSearchParams()
   if (filters.startDate) params.set('start_date', filters.startDate)
   if (filters.endDate) params.set('end_date', filters.endDate)
-  if (filters.containerId) params.set('container_id', filters.containerId)
-  if (filters.includeAllContainers) params.set('include_all_containers', 'true')
+  if (filters.merchantNo) params.set('merchant_no', filters.merchantNo)
+  if (filters.includeAllSettlements) params.set('include_all_settlements', 'true')
   const query = params.toString()
   return query ? `?${query}` : ''
 }
@@ -105,15 +108,17 @@ export function normalizeTrend(payload: unknown): TrendPoint[] {
   })
 }
 
-export function normalizeContainerComparison(payload: unknown): ContainerComparisonItem[] {
+export function normalizeSettlementComparison(payload: unknown): SettlementComparisonItem[] {
   const body = unwrap(payload)
-  return asArray(Array.isArray(body) ? body : body.containers ?? body.items ?? body.comparison).map((row) => {
+  return asArray(Array.isArray(body) ? body : body.settlements ?? body.items ?? body.comparison).map((row) => {
     const overview = normalizeOverview(row)
-    const containerId = stringOr(pick(row, 'container_id', 'containerId', 'container_no', 'id'), '未编号')
+    const merchantNo = stringOr(pick(row, 'merchant_no', 'merchantNo'), '未编号')
     return {
       ...overview.total,
-      containerId,
-      containerName: stringOr(pick(row, 'container_name', 'containerName', 'name'), containerId),
+      merchantNo,
+      orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
+      containerNo: stringOr(pick(row, 'container_no', 'containerNo'), ''),
+      vehicleNo: stringOr(pick(row, 'vehicle_no', 'vehicleNo'), ''),
       grades: overview.grades,
       startDate: stringOr(pick(row, 'start_date', 'startDate', 'sale_start'), ''),
       endDate: stringOr(pick(row, 'end_date', 'endDate', 'sale_end'), ''),
@@ -125,7 +130,7 @@ export function normalizeContainerComparison(payload: unknown): ContainerCompari
   })
 }
 
-function normalizeRank(value: unknown): ContainerComparisonItem['rank'] {
+function normalizeRank(value: unknown): SettlementComparisonItem['rank'] {
   const record = asRecord(value)
   return {
     salesQuantity: nullableNumber(pick(record, 'sales_quantity', 'salesQuantity')) ?? undefined,
@@ -134,20 +139,22 @@ function normalizeRank(value: unknown): ContainerComparisonItem['rank'] {
   }
 }
 
-function normalizeGradeContribution(value: unknown): ContainerComparisonItem['gradeContribution'] {
+function normalizeGradeContribution(value: unknown): SettlementComparisonItem['gradeContribution'] {
   const record = asRecord(value)
   return { A: nullableNumber(record.A), B: nullableNumber(record.B), C: nullableNumber(record.C) }
 }
 
-export function normalizeContainerDetail(payload: unknown, id: string): ContainerDetail {
+export function normalizeSettlementDetail(payload: unknown, merchantNo: string): SettlementDetail {
   const body = unwrap(payload)
   const overview = normalizeOverview(body)
   const settlement = asRecord(body.settlement ?? body.settlement_summary ?? body.summary_detail)
   const period = asRecord(body.sales_period ?? body.salesPeriod)
   return {
     ...overview,
-    containerId: stringOr(pick(body, 'container_id', 'containerId', 'container_no', 'id'), id),
-    containerName: stringOr(pick(body, 'container_name', 'containerName', 'name'), id),
+    merchantNo: stringOr(pick(body, 'merchant_no', 'merchantNo'), merchantNo),
+    orderNo: stringOr(pick(body, 'order_no', 'orderNo'), ''),
+    containerNo: stringOr(pick(body, 'container_no', 'containerNo'), ''),
+    vehicleNo: stringOr(pick(body, 'vehicle_no', 'vehicleNo'), ''),
     startDate: stringOr(pick(period, 'start_date', 'startDate'), ''),
     endDate: stringOr(pick(period, 'end_date', 'endDate'), ''),
     settlement: {
@@ -156,11 +163,11 @@ export function normalizeContainerDetail(payload: unknown, id: string): Containe
       customsTax: nullableNumber(pick(settlement, 'customs_tax', 'customsTax', 'customs_amount')),
       payableAmount: nullableNumber(pick(settlement, 'payable_amount', 'payableAmount', 'settlement_amount', 'settlementAmount')),
     },
-    records: normalizeContainerRecords(body.records ?? body.sale_records),
+    records: normalizeSettlementRecords(body.records ?? body.sale_records),
   }
 }
 
-export function normalizeContainerRecords(input: unknown): ContainerRecord[] {
+export function normalizeSettlementRecords(input: unknown): SettlementRecord[] {
   return asArray(input).map((row) => ({
     id: idOrEmpty(pick(row, 'id', 'record_id', 'recordId')),
     sourceFileId: nullableId(pick(row, 'source_file_id', 'sourceFileId')),
@@ -172,6 +179,56 @@ export function normalizeContainerRecords(input: unknown): ContainerRecord[] {
     unitPrice: numberOr(pick(row, 'unit_price', 'unitPrice'), 0),
     amount: numberOr(row.amount, 0),
   }))
+}
+
+export function normalizeSettlementList(payload: unknown): SettlementListData {
+  const body = unwrap(payload)
+  const range = asRecord(body.date_range ?? body.dateRange)
+  const startDate = stringOr(pick(range, 'start_date', 'startDate'), '')
+  const endDate = stringOr(pick(range, 'end_date', 'endDate'), '')
+  return {
+    dateRange: startDate && endDate
+      ? {
+          startDate,
+          endDate,
+          isDefault: pick(range, 'is_default', 'isDefault') === true,
+        }
+      : null,
+    settlements: asArray(Array.isArray(body) ? body : body.settlements ?? body.items)
+      .map(normalizeSettlementListItem),
+  }
+}
+
+export function normalizeSettlementRecordsData(payload: unknown): SettlementRecordsData {
+  const body = unwrap(payload)
+  return {
+    merchantNo: stringOr(pick(body, 'merchant_no', 'merchantNo'), ''),
+    orderNo: stringOr(pick(body, 'order_no', 'orderNo'), ''),
+    containerNo: stringOr(pick(body, 'container_no', 'containerNo'), ''),
+    vehicleNo: stringOr(pick(body, 'vehicle_no', 'vehicleNo'), ''),
+    records: normalizeSettlementRecords(body.records ?? body.sale_records),
+  }
+}
+
+function normalizeSettlementListItem(row: JsonRecord): SettlementListItem {
+  const quantities = asRecord(row.grade_quantities ?? row.gradeQuantities)
+  return {
+    merchantNo: stringOr(pick(row, 'merchant_no', 'merchantNo'), '未编号'),
+    orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
+    containerNo: stringOr(pick(row, 'container_no', 'containerNo'), ''),
+    vehicleNo: stringOr(pick(row, 'vehicle_no', 'vehicleNo'), ''),
+    saleDateStart: stringOr(pick(row, 'sale_date_start', 'saleDateStart'), ''),
+    saleDateEnd: stringOr(pick(row, 'sale_date_end', 'saleDateEnd'), ''),
+    salesAmount: numberOr(pick(row, 'sales_amount', 'salesAmount'), 0),
+    totalQuantity: numberOr(pick(row, 'total_quantity', 'totalQuantity'), 0),
+    averagePrice: nullableNumber(pick(row, 'average_price', 'averagePrice')),
+    gradeQuantities: {
+      A: numberOr(pick(quantities, 'A', 'a'), 0),
+      B: numberOr(pick(quantities, 'B', 'b'), 0),
+      C: numberOr(pick(quantities, 'C', 'c'), 0),
+    },
+    recordCount: numberOr(pick(row, 'record_count', 'recordCount'), 0),
+  }
 }
 
 export function normalizeImportBatch(row: JsonRecord): ImportBatch {
@@ -213,7 +270,7 @@ function normalizeAnomaly(row: JsonRecord): OperatingAnomaly {
   return {
     type: stringOr(pick(row, 'type', 'issue_type', 'issueType'), 'operating_anomaly'),
     reason: stringOr(row.reason ?? row.message, '发现经营指标异常'),
-    containerId: stringOr(pick(row, 'container_id', 'containerId'), ''),
+    merchantNo: stringOr(pick(row, 'merchant_no', 'merchantNo'), ''),
     metric: nullableNumber(row.metric),
     baseline: nullableNumber(row.baseline),
   }

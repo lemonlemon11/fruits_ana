@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 
-import { getContainerComparison, type ContainerComparisonItem } from '../api/client'
-import ContainerComparison from '../components/ContainerComparison.vue'
+import { getSettlementComparison, type SettlementComparisonItem } from '../api/client'
+import SettlementComparison from '../components/SettlementComparison.vue'
 
 const filters = reactive({ startDate: '', endDate: '' })
-const containers = ref<ContainerComparisonItem[]>([])
+const settlements = ref<SettlementComparisonItem[]>([])
 const loading = ref(true)
 const error = ref('')
 let requestVersion = 0
@@ -19,10 +19,10 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    const next = await getContainerComparison({ ...filters, includeAllContainers: true })
-    if (version === requestVersion) containers.value = next
+    const next = await getSettlementComparison({ ...filters, includeAllSettlements: true })
+    if (version === requestVersion) settlements.value = next
   } catch (caught) {
-    if (version === requestVersion) error.value = caught instanceof Error ? caught.message : '货柜对比加载失败'
+    if (version === requestVersion) error.value = caught instanceof Error ? caught.message : '结算单对比加载失败'
   } finally {
     if (version === requestVersion) loading.value = false
   }
@@ -34,7 +34,7 @@ onMounted(refresh)
 <template>
   <div class="page-stack comparison-page">
     <header class="page-header comparison-page-header">
-      <div><h1>货柜对比</h1><p>按日期查看各货柜的销量、销售额和平均售价。</p></div>
+      <div><h1>结算单对比</h1><p>按日期查看各结算单（按商号归集）的销量、销售额和平均售价。</p></div>
     </header>
     <section class="how-to" aria-label="查看方法">
       <strong>怎么查看</strong>
@@ -45,8 +45,8 @@ onMounted(refresh)
       <label>结束日期<input v-model="filters.endDate" type="date"></label>
       <button class="primary-button" type="submit" :disabled="loading">{{ loading ? '正在查询' : '查看结果' }}</button>
     </form>
-    <div v-if="error" class="error-banner" role="alert"><span><strong>货柜数据没有加载成功</strong>请检查网络后重新查询。{{ error }}</span><button type="button" @click="refresh">重新查询</button></div>
-    <ContainerComparison :items="containers" :loading="loading" />
+    <div v-if="error" class="error-banner" role="alert"><span><strong>结算单数据没有加载成功</strong>请检查网络后重新查询。{{ error }}</span><button type="button" @click="refresh">重新查询</button></div>
+    <SettlementComparison :items="settlements" :loading="loading" />
   </div>
 </template>
 

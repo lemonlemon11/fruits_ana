@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-import type { ContainerComparisonItem } from '../api/client'
+import type { SettlementComparisonItem } from '../api/client'
+import { settlementOptionLabel } from '../utils/settlementComparison'
 import { formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
 
-const props = defineProps<{ items: ContainerComparisonItem[]; loading?: boolean }>()
+const props = defineProps<{ items: SettlementComparisonItem[]; loading?: boolean }>()
 const sortBy = ref<'salesAmount' | 'salesQuantity' | 'weightedAvgPrice'>('salesAmount')
 const sortedItems = computed(() => [...props.items].sort(
   (left, right) => (right[sortBy.value] ?? -1) - (left[sortBy.value] ?? -1),
 ))
 
-function gradeShare(item: ContainerComparisonItem, grade: 'A' | 'B' | 'C') {
+function gradeShare(item: SettlementComparisonItem, grade: 'A' | 'B' | 'C') {
   return item.grades.find((row) => row.grade === grade)?.quantityShare
 }
 </script>
@@ -19,7 +20,7 @@ function gradeShare(item: ContainerComparisonItem, grade: 'A' | 'B' | 'C') {
   <section class="dashboard-section comparison-section" aria-labelledby="comparison-title">
     <header class="section-heading comparison-heading">
       <div>
-        <h2 id="comparison-title">货柜销售情况</h2>
+        <h2 id="comparison-title">结算单销售情况</h2>
         <p class="section-note">按销售额、销量或平均每件售价排序查看</p>
       </div>
       <label class="compact-field">排序
@@ -31,20 +32,20 @@ function gradeShare(item: ContainerComparisonItem, grade: 'A' | 'B' | 'C') {
       </label>
     </header>
 
-    <div v-if="loading" class="comparison-skeleton skeleton-block">正在加载货柜数据</div>
+    <div v-if="loading" class="comparison-skeleton skeleton-block">正在加载结算单数据</div>
     <div v-else-if="!items.length" class="empty-state">
-      <strong>当前没有货柜数据</strong>
+      <strong>当前没有结算单数据</strong>
       <span>请先导入销售数据，或调整查询日期。</span>
     </div>
     <div v-else class="simple-container-list">
       <article
         v-for="item in sortedItems"
-        :key="item.containerId"
+        :key="item.merchantNo"
         class="simple-container-row"
       >
         <span class="simple-container-name">
-          <strong>{{ item.containerName }}</strong>
-          <small>{{ item.containerId }}</small>
+          <strong>{{ settlementOptionLabel(item) }}</strong>
+          <small>{{ item.containerNo ? `柜号 ${item.containerNo}` : '未登记柜号' }}</small>
         </span>
         <span class="simple-metric"><small>销售额</small><strong>{{ formatCurrency(item.salesAmount) }}</strong></span>
         <span class="simple-metric"><small>销量</small><strong>{{ formatNumber(item.salesQuantity) }}</strong></span>

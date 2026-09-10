@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
 import { getImportIssues, getImports, issuesCsvUrl, uploadImports, type ImportBatch, type ImportIssue } from '../api/client'
 import { formatDateTime } from '../utils/format'
+import { addSelectedFiles, isFileDrag } from '../utils/importFiles'
 import { summarizeImportResults } from '../utils/importStatus'
 
 const batches = ref<ImportBatch[]>([])
@@ -11,25 +12,60 @@ const loading = ref(true)
 const uploading = ref(false)
 const error = ref('')
 const notice = ref('')
+const conflictFiles = ref<File[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
 const expandedBatch = ref('')
 const loadingIssues = ref('')
 const issuesByBatch = reactive<Record<string, ImportIssue[]>>({})
 const issueErrors = reactive<Record<string, string>>({})
+const dragging = ref(false)
+let dragDepth = 0
 
 const warningBatches = computed(() => batches.value.filter((batch) => batch.warningCount > 0).length)
 const failedBatches = computed(() => batches.value.filter((batch) => batch.failureCount > 0 || batch.status.toLowerCase() === 'failed').length)
 const totalIssues = computed(() => batches.value.reduce((total, batch) => total + batch.warningCount + batch.failureCount, 0))
 const latestBatch = computed(() => batches.value[0])
 
-function selectFiles(files: File[]) {
-  const allowed = files.filter((file) => /\.(csv|xlsx)$/i.test(file.name))
-  selectedFiles.value = allowed
-  error.value = allowed.length === files.length ? '' : '已忽略不支持的文件格式，请选择表格文件。'
+function selectFiles(files: File[], append = true) {
+  if (!files.length) return
+  const { files: merged, ignored } = addSelectedFiles(append ? selectedFiles.value : [], files)
+  selectedFiles.value = merged
+  error.value = ignored ? '已忽略不支持的文件格式，请选择表格文件。' : ''
 }
 
 function onInput(event: Event) { selectFiles(Array.from((event.target as HTMLInputElement).files ?? [])) }
 function openFilePicker() { fileInput.value?.click() }
+function clearFiles() { selectedFiles.value = []; if (fileInput.value) fileInput.value.value = '' }
+
+function onDragEnter(event: DragEvent) {
+  if (!isFileDrag(event.dataTransfer)) return
+  dragDepth += 1
+  dragging.value = true
+}
+
+function onDragOver(event: DragEvent) {
+  if (!isFileDrag(event.dataTransfer)) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+}
+
+function onDragLeave(event: DragEvent) {
+  if (!isFileDrag(event.dataTransfer)) return
+  dragDepth = Math.max(0, dragDepth - 1)
+  if (!dragDepth) dragging.value = false
+}
+
+function onDrop(event: DragEvent) {
+  if (!isFileDrag(event.dataTransfer)) return
+  event.preventDefault()
+  dragDepth = 0
+  dragging.value = false
+  selectFiles(Array.from(event.dataTransfer?.files ?? []))
+}
+
+function preventBrowserFileOpen(event: DragEvent) {
+  if (isFileDrag(event.dataTransfer)) event.preventDefault()
+}
 
 async function loadBatches() {
   loading.value = true
@@ -39,21 +75,36 @@ async function loadBatches() {
   finally { loading.value = false }
 }
 
-async function submit() {
+async function submit(overwrite = false) {
   if (!selectedFiles.value.length) return
+  // 按钮绑定可能把点击事件当作参数传入，这里只认显式 true，避免误触发覆盖。
+  const forceOverwrite = overwrite === true
+  const files = [...selectedFiles.value]
   uploading.value = true
   error.value = ''
   notice.value = ''
+  conflictFiles.value = []
   try {
-    const result = await uploadImports(selectedFiles.value)
+    const result = await uploadImports(files, { overwrite: forceOverwrite })
     selectedFiles.value = []
     if (fileInput.value) fileInput.value.value = ''
     await loadBatches()
     const summary = summarizeImportResults(result)
+    if (!forceOverwrite) conflictFiles.value = files.filter(
+      (file) => result.some(
+        (item) => item.status.toLowerCase() === 'conflict' && item.fileName === file.name,
+      ),
+    )
     if (result.some((item) => item.status.toLowerCase() === 'failed')) error.value = summary
     else notice.value = summary
   } catch (caught) { error.value = caught instanceof Error ? caught.message : '文件上传失败' }
   finally { uploading.value = false }
+}
+
+async function overwriteConflicts() {
+  if (!conflictFiles.value.length) return
+  selectedFiles.value = [...conflictFiles.value]
+  await submit(true)
 }
 
 async function toggleIssues(batchId: string | number) {
@@ -69,13 +120,13 @@ async function toggleIssues(batchId: string | number) {
 }
 
 function statusLabel(status: string): string {
-  const labels: Record<string, string> = { success: '成功', completed: '成功', warning: '有警告', partial: '有警告', failed: '失败' }
+  const labels: Record<string, string> = { success: '成功', completed: '成功', warning: '有警告', partial: '有警告', conflict: '已存在待确认', failed: '失败' }
   return labels[status.toLowerCase()] ?? '待确认'
 }
 
 function statusTone(status: string): string {
   const normalized = status.toLowerCase()
-  return normalized === 'failed' ? 'status-failed' : normalized === 'warning' || normalized === 'partial' ? 'status-warning' : 'status-success'
+  return normalized === 'failed' ? 'status-failed' : ['warning', 'partial', 'conflict'].includes(normalized) ? 'status-warning' : 'status-success'
 }
 
 function severityLabel(severity: string): string {
@@ -93,7 +144,7 @@ function formatFileSize(bytes: number): string {
 function fieldLabel(fieldName: string): string {
   const labels: Record<string, string> = {
     amount: '金额', quantity: '数量', unit_price: '单价', sale_date: '销售日期',
-    grade: '等级', container_id: '货柜号', container_name: '货柜名称',
+    grade: '等级', merchant_no: '商号', order_no: '单号', container_no: '柜号', vehicle_no: '转运车号',
   }
   return labels[fieldName.toLowerCase()] ?? (fieldName || '—')
 }
@@ -111,7 +162,16 @@ function issueTypeLabel(issueType: string): string {
   return labels[issueType.toLowerCase()] ?? '数据需要核对'
 }
 
-onMounted(loadBatches)
+onMounted(() => {
+  loadBatches()
+  // 拖到拖拽区外时避免浏览器直接打开文件、把单页应用顶掉。
+  window.addEventListener('dragover', preventBrowserFileOpen)
+  window.addEventListener('drop', preventBrowserFileOpen)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('dragover', preventBrowserFileOpen)
+  window.removeEventListener('drop', preventBrowserFileOpen)
+})
 </script>
 
 <template>
@@ -122,22 +182,36 @@ onMounted(loadBatches)
 
     <section class="how-to" aria-label="导入方法">
       <strong>怎么查看</strong>
-      <span>第一步：点击“选择结算单”并选好文件。第二步：点击“开始导入”，然后查看导入结果。</span>
+      <span>第一步：点击“选择结算单”选好文件，或把多个文件直接拖进下面的方框。第二步：点击“开始导入”，然后查看导入结果。</span>
     </section>
 
     <section class="upload-workbench upload-workbench--compact" aria-labelledby="upload-title">
-      <div class="upload-copy"><h2 id="upload-title">选择结算单</h2><p>可以一次选择多个文件。系统会记录导入结果，方便以后核对。</p></div>
-      <div class="file-picker-panel">
+      <div class="upload-copy"><h2 id="upload-title">选择结算单</h2><p>可以一次选择或拖入多个文件。系统会记录导入结果，方便以后核对。</p></div>
+      <div
+        class="file-picker-panel"
+        :class="{ 'is-dragging': dragging }"
+        @dragenter.prevent.stop="onDragEnter"
+        @dragover.prevent.stop="onDragOver"
+        @dragleave.prevent.stop="onDragLeave"
+        @drop.prevent.stop="onDrop"
+      >
         <input id="settlement-files" ref="fileInput" class="sr-only" type="file" multiple accept=".csv,.xlsx" @click.stop @change="onInput">
         <button class="primary-button" type="button" @click="openFilePicker">选择结算单</button>
-        <span>支持常见表格文件，单个文件不超过 20 兆字节</span>
+        <span>支持常见表格文件，单个文件不超过 20 兆字节；也可以把多个文件一起拖到这里</span>
       </div>
       <div v-if="selectedFiles.length" class="upload-queue" aria-live="polite">
         <div><strong>已选择 {{ selectedFiles.length }} 个文件</strong><span>{{ formatFileSize(selectedFiles.reduce((total, file) => total + file.size, 0)) }}</span></div>
         <ul><li v-for="file in selectedFiles" :key="`${file.name}-${file.size}`"><span>{{ file.name }}</span><small>{{ formatFileSize(file.size) }}</small></li></ul>
-        <button class="primary-button" type="button" :disabled="uploading" @click="submit">{{ uploading ? '正在导入' : '开始导入' }}</button>
+        <div class="upload-queue-actions">
+          <button class="secondary-button" type="button" :disabled="uploading" @click="clearFiles">清空选择</button>
+          <button class="primary-button" type="button" :disabled="uploading" @click="submit()">{{ uploading ? '正在导入' : '开始导入' }}</button>
+        </div>
       </div>
       <p v-if="error" class="form-message error" role="alert">{{ error }}</p><p v-if="notice" class="form-message success" aria-live="polite">{{ notice }}</p>
+      <div v-if="conflictFiles.length" class="overwrite-prompt" role="status">
+        <span><strong>{{ conflictFiles.length }} 张结算单已存在</strong>继续导入会用新文件覆盖原有明细和结算信息。</span>
+        <button class="primary-button" type="button" :disabled="uploading" @click="overwriteConflicts">{{ uploading ? '正在覆盖' : '覆盖并重新导入' }}</button>
+      </div>
     </section>
 
     <section class="quality-summary" aria-label="数据质量概览">
@@ -176,6 +250,8 @@ onMounted(loadBatches)
 .upload-workbench--compact { grid-template-columns: minmax(240px, .7fr) minmax(280px, 1.3fr); gap: 18px 24px; padding: 20px; }
 .upload-copy p { margin: 8px 0 0; color: var(--muted); font-size: .9rem; line-height: 1.6; }
 .file-picker-panel { display: flex; min-height: 92px; align-items: center; gap: 16px; padding: 16px; border: 1px solid var(--line-strong); background: var(--surface-soft); }
+.file-picker-panel.is-dragging { border-style: dashed; border-color: var(--primary); background: var(--primary-soft); }
+.upload-queue-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .file-picker-panel .primary-button { min-width: 132px; }
 .file-picker-panel > span { color: var(--muted); font-size: .86rem; line-height: 1.5; }
 .upload-queue { gap: 10px; }
@@ -195,6 +271,9 @@ onMounted(loadBatches)
 .issue-severity { display: inline-flex; padding: 4px 7px; border-radius: var(--radius-sm); font-size: .78rem; font-weight: 700; }
 .issue-warning { background: #f8edda; color: var(--warning); }
 .issue-error { background: #f8e4e2; color: var(--danger); }
+.overwrite-prompt { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border-left: 4px solid var(--warning); background: #fff7df; }
+.overwrite-prompt span { color: #5c5545; font-size: .88rem; line-height: 1.5; }
+.overwrite-prompt strong { display: block; color: var(--ink); font-size: .92rem; }
 
 @media (max-width: 820px) {
   .upload-workbench--compact { grid-template-columns: 1fr; }

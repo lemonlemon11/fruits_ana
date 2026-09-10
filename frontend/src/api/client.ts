@@ -1,24 +1,28 @@
 import {
   asArray,
   buildAnalyticsQuery,
-  normalizeContainerComparison,
-  normalizeContainerDetail,
   normalizeImportBatch,
   normalizeImportIssues,
   normalizeOverview,
+  normalizeSettlementComparison,
+  normalizeSettlementDetail,
+  normalizeSettlementList,
+  normalizeSettlementRecordsData,
   normalizeTrend,
   unwrap,
 } from './normalize.ts'
 import type {
   AnalyticsFilters,
   AuthUser,
-  ContainerComparisonItem,
-  ContainerDetail,
   ImportBatch,
   ImportIssue,
   LoginPayload,
   OverviewData,
   RegisterPayload,
+  SettlementComparisonItem,
+  SettlementDetail,
+  SettlementListData,
+  SettlementRecordsData,
   TrendPoint,
 } from './types.ts'
 
@@ -68,13 +72,22 @@ export async function getTrend(filters: AnalyticsFilters = {}): Promise<TrendPoi
   return normalizeTrend(await request(`${API_ROOT}/analytics/trend${buildAnalyticsQuery(filters)}`))
 }
 
-export async function getContainerComparison(filters: AnalyticsFilters = {}): Promise<ContainerComparisonItem[]> {
-  return normalizeContainerComparison(await request(`${API_ROOT}/analytics/container-comparison${buildAnalyticsQuery(filters)}`))
+export async function getSettlementComparison(filters: AnalyticsFilters = {}): Promise<SettlementComparisonItem[]> {
+  return normalizeSettlementComparison(await request(`${API_ROOT}/analytics/settlement-comparison${buildAnalyticsQuery(filters)}`))
 }
 
-export async function getContainerDetail(id: string, filters: AnalyticsFilters = {}): Promise<ContainerDetail> {
-  const path = `${API_ROOT}/analytics/containers/${encodeURIComponent(id)}`
-  return normalizeContainerDetail(await request(`${path}${buildAnalyticsQuery(filters)}`), id)
+export async function getSettlementDetail(merchantNo: string, filters: AnalyticsFilters = {}): Promise<SettlementDetail> {
+  const path = `${API_ROOT}/analytics/settlements/${encodeURIComponent(merchantNo)}`
+  return normalizeSettlementDetail(await request(`${path}${buildAnalyticsQuery(filters)}`), merchantNo)
+}
+
+export async function getSettlements(filters: AnalyticsFilters = {}): Promise<SettlementListData> {
+  return normalizeSettlementList(await request(`${API_ROOT}/settlements${buildAnalyticsQuery(filters)}`))
+}
+
+export async function getSettlementRecords(merchantNo: string): Promise<SettlementRecordsData> {
+  const path = `${API_ROOT}/settlements/${encodeURIComponent(merchantNo)}/records`
+  return normalizeSettlementRecordsData(await request(path))
 }
 
 export async function getImports(): Promise<ImportBatch[]> {
@@ -87,10 +100,14 @@ export async function getImportIssues(batchId: string | number): Promise<ImportI
   return normalizeImportIssues(await request(path))
 }
 
-export async function uploadImports(files: File[]): Promise<ImportBatch[]> {
+export async function uploadImports(
+  files: File[],
+  options: { overwrite?: boolean } = {},
+): Promise<ImportBatch[]> {
   const form = new FormData()
   files.forEach((file) => form.append('files', file))
-  const body = unwrap(await request(`${API_ROOT}/imports`, { method: 'POST', body: form }))
+  const query = options.overwrite ? '?overwrite=true' : ''
+  const body = unwrap(await request(`${API_ROOT}/imports${query}`, { method: 'POST', body: form }))
   return asArray(Array.isArray(body) ? body : body.imports ?? body.items).map(normalizeImportBatch)
 }
 

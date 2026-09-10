@@ -20,8 +20,8 @@
 }
 
 @media (max-width: 560px) {
-  .app-shell, .app-workspace, .app-workspace > main, .page-stack { min-width: 0; max-width: 100%; }
-  .page-stack > *, .page-header > *, .filter-bar > *, .section-heading > * { min-width: 0; max-width: 100%; }
+  .app-shell, .app-workspace, .app-workspace > main, .page-stack, .settlement-dashboard { min-width: 0; max-width: 100%; }
+  .page-stack > *, .settlement-dashboard > *, .page-header > *, .filter-bar > *, .section-heading > * { min-width: 0; max-width: 100%; }
   .page-stack { gap: 16px; }
   h1 { font-size: 1.58rem; text-wrap: balance; }
   h2 { font-size: 1.02rem; }

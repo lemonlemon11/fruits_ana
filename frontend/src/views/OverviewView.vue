@@ -2,23 +2,24 @@
 import { onMounted, reactive, ref } from 'vue'
 
 import {
-  getContainerComparison,
   getOverview,
+  getSettlementComparison,
   getTrend,
   type AnalyticsFilters,
-  type ContainerComparisonItem,
   type OverviewData,
+  type SettlementComparisonItem,
   type TrendPoint,
 } from '../api/client'
-import ContainerComparison from '../components/ContainerComparison.vue'
 import GradeSummary from '../components/GradeSummary.vue'
+import SettlementComparison from '../components/SettlementComparison.vue'
 import TrendChart from '../components/TrendChart.vue'
 import { formatAnomalyValue } from '../utils/format'
+import { settlementOptionLabel } from '../utils/settlementComparison'
 
-const filters = reactive<Required<AnalyticsFilters>>({ startDate: '', endDate: '', containerId: '' })
+const filters = reactive({ startDate: '', endDate: '', merchantNo: '' })
 const overview = ref<OverviewData | null>(null)
 const trend = ref<TrendPoint[]>([])
-const containers = ref<ContainerComparisonItem[]>([])
+const settlements = ref<SettlementComparisonItem[]>([])
 const loading = ref(true)
 const error = ref('')
 let requestVersion = 0
@@ -32,14 +33,14 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    const query = { ...filters }
-    const [nextOverview, nextTrend, nextContainers] = await Promise.all([
-      getOverview(query), getTrend(query), getContainerComparison({ ...query, includeAllContainers: true }),
+    const query: AnalyticsFilters = { ...filters }
+    const [nextOverview, nextTrend, nextSettlements] = await Promise.all([
+      getOverview(query), getTrend(query), getSettlementComparison({ ...query, includeAllSettlements: true }),
     ])
     if (version !== requestVersion) return
     overview.value = nextOverview
     trend.value = nextTrend
-    containers.value = nextContainers
+    settlements.value = nextSettlements
   } catch (caught) {
     if (version === requestVersion) error.value = caught instanceof Error ? caught.message : '看板数据加载失败'
   } finally {
@@ -55,22 +56,22 @@ onMounted(refresh)
     <header class="page-header">
       <div>
         <h1>销售总览</h1>
-        <p>查看所有货柜卖了多少、卖了多少钱，以及各等级水果的销售情况。</p>
+        <p>查看所有结算单卖了多少、卖了多少钱，以及各等级水果的销售情况。</p>
       </div>
     </header>
 
     <section class="how-to" aria-label="查看方法">
       <strong>怎么查看</strong>
-      <span>第一步：选择日期和货柜。第二步：点击“查看结果”。不选择日期就是查看全部数据。</span>
+      <span>第一步：选择日期和单号。第二步：点击“查看结果”。不选择日期就是查看全部数据。</span>
     </section>
 
     <form class="filter-bar" @submit.prevent="refresh">
       <label>开始日期<input v-model="filters.startDate" type="date"></label>
       <label>结束日期<input v-model="filters.endDate" type="date"></label>
-      <label>货柜
-        <select v-model="filters.containerId">
-          <option value="">全部货柜</option>
-          <option v-for="item in containers" :key="item.containerId" :value="item.containerId">{{ item.containerName }}</option>
+      <label>单号
+        <select v-model="filters.merchantNo">
+          <option value="">全部结算单</option>
+          <option v-for="item in settlements" :key="item.merchantNo" :value="item.merchantNo">{{ settlementOptionLabel(item) }}</option>
         </select>
       </label>
       <button class="primary-button" type="submit" :disabled="loading">{{ loading ? '正在查询' : '查看结果' }}</button>
@@ -89,9 +90,9 @@ onMounted(refresh)
       />
     </div>
 
-    <ContainerComparison
-      class="overview-container-comparison"
-      :items="containers"
+    <SettlementComparison
+      class="overview-settlement-comparison"
+      :items="settlements"
       :loading="loading"
     />
 
@@ -111,9 +112,9 @@ onMounted(refresh)
             <span class="alert-code">数据</span>
             <div><strong>{{ overview.issueCounts.total }} 条数据质量提示</strong><p>请从左侧菜单进入“数据导入”，查看问题明细并核对结算单。</p></div>
           </li>
-          <li v-for="(item, index) in overview?.operatingAnomalies" :key="`${item.containerId}-${index}`" class="alert-item danger">
+          <li v-for="(item, index) in overview?.operatingAnomalies" :key="`${item.merchantNo}-${index}`" class="alert-item danger">
             <span class="alert-code">经营</span>
-            <div><strong>{{ item.containerId || '货柜' }} · {{ item.reason }}</strong>
+            <div><strong>{{ item.merchantNo || '结算单' }} · {{ item.reason }}</strong>
               <p>当前 {{ formatAnomalyValue(item.type, item.metric) }}，同期基线 {{ formatAnomalyValue(item.type, item.baseline) }}</p>
             </div>
           </li>
@@ -151,7 +152,7 @@ onMounted(refresh)
   margin-bottom: 12px;
 }
 
-.overview-container-comparison {
+.overview-settlement-comparison {
   margin-top: 0;
   padding-top: 18px;
 }

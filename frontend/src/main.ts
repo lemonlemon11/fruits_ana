@@ -3,13 +3,14 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import AppShell from './AppShell.vue'
 import { currentUser, restoreSession } from './auth'
-import ContainerComparisonView from './views/ContainerComparisonView.vue'
-import ContainerView from './views/ContainerView.vue'
 import ImportView from './views/ImportView.vue'
 import LoginView from './views/LoginView.vue'
 import OverviewView from './views/OverviewView.vue'
 import PublicPreviewView from './views/PublicPreviewView.vue'
 import RegisterView from './views/RegisterView.vue'
+import SettlementComparisonView from './views/SettlementComparisonView.vue'
+import SettlementListView from './views/SettlementListView.vue'
+import SettlementView from './views/SettlementView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -19,8 +20,11 @@ const router = createRouter({
     { path: '/login', component: LoginView, meta: { guestOnly: true } },
     { path: '/register', component: RegisterView, meta: { guestOnly: true } },
     { path: '/overview', component: OverviewView, meta: { requiresAuth: true } },
-    { path: '/container-comparison', component: ContainerComparisonView, meta: { requiresAuth: true } },
-    { path: '/containers', component: ContainerView, meta: { requiresAuth: true } },
+    { path: '/settlements', component: SettlementListView, meta: { requiresAuth: true } },
+    { path: '/settlement-comparison', component: SettlementComparisonView, meta: { requiresAuth: true } },
+    { path: '/settlement-detail', component: SettlementView, meta: { requiresAuth: true } },
+    { path: '/container-comparison', redirect: '/settlement-comparison' },
+    { path: '/containers', redirect: '/settlement-detail' },
     { path: '/imports', component: ImportView, meta: { requiresAuth: true } },
   ],
 })

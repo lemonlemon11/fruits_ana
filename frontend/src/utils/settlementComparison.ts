@@ -1,24 +1,35 @@
-import type { ContainerComparisonItem, Grade, GradeMetric } from '../api/types'
+import type { Grade, GradeMetric, SettlementComparisonItem } from '../api/types'
 
-export const MAX_COMPARISON_CONTAINERS = 3
-export const MIN_COMPARISON_CONTAINERS = 2
+export const MAX_COMPARISON_SETTLEMENTS = 3
+export const MIN_COMPARISON_SETTLEMENTS = 2
 
-export function toggleComparisonSelection(selectedIds: string[], containerId: string): string[] {
-  if (selectedIds.includes(containerId)) return selectedIds.filter((id) => id !== containerId)
-  if (selectedIds.length >= MAX_COMPARISON_CONTAINERS) return selectedIds
-  return [...selectedIds, containerId]
+/** 下拉框以商号作为唯一取值，展示单号，避免柜号重复造成的误选。 */
+export function settlementOptionLabel(item: {
+  merchantNo?: string | null
+  orderNo?: string | null
+}): string {
+  const orderNo = item.orderNo?.trim()
+  const merchantNo = item.merchantNo?.trim()
+  if (orderNo && merchantNo) return `${orderNo}（商号 ${merchantNo}）`
+  return orderNo || merchantNo || '未知结算单'
 }
 
-export function initialComparisonSelection(items: ContainerComparisonItem[]): string[] {
-  return items.slice(0, MAX_COMPARISON_CONTAINERS - 1).map((item) => item.containerId)
+export function toggleComparisonSelection(selectedIds: string[], settlementId: string): string[] {
+  if (selectedIds.includes(settlementId)) return selectedIds.filter((id) => id !== settlementId)
+  if (selectedIds.length >= MAX_COMPARISON_SETTLEMENTS) return selectedIds
+  return [...selectedIds, settlementId]
 }
 
-export function buildOtherContainerGradeBaseline(
-  items: ContainerComparisonItem[],
-  activeContainerId: string,
+export function initialComparisonSelection(items: SettlementComparisonItem[]): string[] {
+  return items.slice(0, MAX_COMPARISON_SETTLEMENTS - 1).map((item) => item.merchantNo)
+}
+
+export function buildOtherSettlementGradeBaseline(
+  items: SettlementComparisonItem[],
+  activeMerchantNo: string,
 ): GradeMetric[] {
   const grades: Grade[] = ['A', 'B', 'C']
-  const peers = items.filter((item) => item.containerId !== activeContainerId)
+  const peers = items.filter((item) => item.merchantNo !== activeMerchantNo)
   const overallQuantity = peers.reduce((total, item) => total + item.salesQuantity, 0)
   return grades.map((grade) => {
     const rows = peers.flatMap((item) => item.grades.filter((row) => row.grade === grade))

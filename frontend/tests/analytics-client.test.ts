@@ -5,10 +5,11 @@ import {
   buildAnalyticsQuery,
   getImportIssues,
   gradeLabel,
-  normalizeContainerDetail,
   normalizeGradeMetrics,
   normalizeImportIssues,
   normalizeOverview,
+  normalizeSettlementDetail,
+  normalizeSettlementList,
   recordSourceUrl,
 } from '../src/api/client.ts'
 import { formatAnomalyValue } from '../src/utils/format.ts'
@@ -18,11 +19,15 @@ test('buildAnalyticsQuery sends only populated contract filters', () => {
     buildAnalyticsQuery({
       startDate: '2026-01-01',
       endDate: '2026-01-31',
-      containerId: 'C 625',
+      merchantNo: '单 625',
     }),
-    '?start_date=2026-01-01&end_date=2026-01-31&container_id=C+625',
+    '?start_date=2026-01-01&end_date=2026-01-31&merchant_no=%E5%8D%95+625',
   )
-  assert.equal(buildAnalyticsQuery({ startDate: '', endDate: '', containerId: '' }), '')
+  assert.equal(buildAnalyticsQuery({ startDate: '', endDate: '', merchantNo: '' }), '')
+  assert.equal(
+    buildAnalyticsQuery({ includeAllSettlements: true }),
+    '?include_all_settlements=true',
+  )
 })
 
 test('normalizeGradeMetrics keeps A/B/C visible and maps BC into C', () => {
@@ -51,16 +56,23 @@ test('normalizeOverview accepts wrapped payload and snake_case fields', () => {
   assert.deepEqual(overview.issueCounts, { total: 2, amount_mismatch: 2 })
 })
 
-test('normalizeContainerDetail exposes settlement and traceable records', () => {
-  const detail = normalizeContainerDetail({
-    container_id: '625',
+test('normalizeSettlementDetail exposes settlement and traceable records', () => {
+  const detail = normalizeSettlementDetail({
+    merchant_no: '640',
+    order_no: '宝贝L004',
+    container_no: 'CBHU2970762',
+    vehicle_no: '桂ABF330',
     settlement: { after_sales_amount: 10, fee_amount: 20, customs_tax: 30, payable_amount: 940 },
     records: [{
       id: 7, source_file_id: 2, sale_date: '2026-01-02', grade_raw: 'BC6', grade: 'C',
       quantity: 4, unit_price: 8, amount: 32,
     }],
-  }, '625')
+  }, '640')
 
+  assert.equal(detail.merchantNo, '640')
+  assert.equal(detail.orderNo, '宝贝L004')
+  assert.equal(detail.containerNo, 'CBHU2970762')
+  assert.equal(detail.vehicleNo, '桂ABF330')
   assert.equal(detail.settlement.feeAmount, 20)
   assert.equal(detail.settlement.afterSalesAmount, 10)
   assert.equal(detail.settlement.customsTax, 30)
@@ -72,6 +84,32 @@ test('normalizeContainerDetail exposes settlement and traceable records', () => 
   assert.equal(detail.records[0].unitPrice, 8)
   assert.equal(detail.records[0].sourceFileId, 2)
   assert.equal(recordSourceUrl(detail.records[0].id), '/api/exports/records/7/source')
+})
+
+test('normalizeSettlementList reads the default range and grade quantities', () => {
+  const list = normalizeSettlementList({
+    date_range: { start_date: '2026-08-09', end_date: '2026-09-09', is_default: true },
+    settlements: [{
+      merchant_no: '640', order_no: '宝贝L004', container_no: 'CBHU2970762',
+      vehicle_no: '桂ABF330', sale_date_start: '2026-09-09', sale_date_end: '2026-09-09',
+      sales_amount: 8000, total_quantity: 20, average_price: 400,
+      grade_quantities: { A: 12, B: 6, C: 2 }, record_count: 3,
+    }],
+  })
+
+  assert.deepEqual(list.dateRange, { startDate: '2026-08-09', endDate: '2026-09-09', isDefault: true })
+  assert.equal(list.settlements[0].merchantNo, '640')
+  assert.equal(list.settlements[0].orderNo, '宝贝L004')
+  assert.deepEqual(list.settlements[0].gradeQuantities, { A: 12, B: 6, C: 2 })
+  assert.equal(list.settlements[0].averagePrice, 400)
+  assert.equal(list.settlements[0].recordCount, 3)
+})
+
+test('normalizeSettlementList tolerates an empty payload', () => {
+  assert.deepEqual(normalizeSettlementList({ date_range: null, settlements: [] }), {
+    dateRange: null,
+    settlements: [],
+  })
 })
 
 test('normalizeImportIssues accepts issue_type and nullable fields', () => {
