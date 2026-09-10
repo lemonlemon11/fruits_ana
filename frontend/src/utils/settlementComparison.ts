@@ -15,6 +15,14 @@ export function settlementOptionLabel(item: {
   return orderNo || '未知结算单'
 }
 
+/** 总览页：下拉候选保持全部结算单，展示列表跟随所选商号收窄到该商号自己的数据。 */
+export function filterSettlementsByMerchant(
+  items: SettlementComparisonItem[],
+  merchantNo: string,
+): SettlementComparisonItem[] {
+  return merchantNo ? items.filter((item) => item.merchantNo === merchantNo) : items
+}
+
 export function toggleComparisonSelection(selectedIds: string[], settlementId: string): string[] {
   if (selectedIds.includes(settlementId)) return selectedIds.filter((id) => id !== settlementId)
   if (selectedIds.length >= MAX_COMPARISON_SETTLEMENTS) return selectedIds

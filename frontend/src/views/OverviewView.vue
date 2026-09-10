@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import {
   getOverview,
@@ -14,15 +14,26 @@ import GradeSummary from '../components/GradeSummary.vue'
 import SettlementComparison from '../components/SettlementComparison.vue'
 import TrendChart from '../components/TrendChart.vue'
 import { formatAnomalyValue } from '../utils/format'
-import { settlementOptionLabel } from '../utils/settlementComparison'
+import { filterSettlementsByMerchant, settlementOptionLabel } from '../utils/settlementComparison'
 
 const filters = reactive({ startDate: '', endDate: '', merchantNo: '' })
 const overview = ref<OverviewData | null>(null)
 const trend = ref<TrendPoint[]>([])
-const settlements = ref<SettlementComparisonItem[]>([])
+// 下拉框候选始终是筛选范围内的全部结算单，避免选中后无法切回。
+const settlementOptions = ref<SettlementComparisonItem[]>([])
 const loading = ref(true)
 const error = ref('')
 let requestVersion = 0
+
+const selectedSettlement = computed(
+  () => settlementOptions.value.find((item) => item.merchantNo === filters.merchantNo) ?? null,
+)
+const settlements = computed(() => filterSettlementsByMerchant(settlementOptions.value, filters.merchantNo))
+const trendTitle = computed(() => (
+  selectedSettlement.value
+    ? `每日销量和均价 · ${settlementOptionLabel(selectedSettlement.value)}`
+    : '每日销量和均价'
+))
 
 async function refresh() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
@@ -40,7 +51,7 @@ async function refresh() {
     if (version !== requestVersion) return
     overview.value = nextOverview
     trend.value = nextTrend
-    settlements.value = nextSettlements
+    settlementOptions.value = nextSettlements
   } catch (caught) {
     if (version === requestVersion) error.value = caught instanceof Error ? caught.message : '看板数据加载失败'
   } finally {
@@ -62,16 +73,16 @@ onMounted(refresh)
 
     <section class="how-to" aria-label="查看方法">
       <strong>怎么查看</strong>
-      <span>第一步：选择到达日期和商号。第二步：点击“查看结果”。不选择到达日期就是查看全部数据。</span>
+      <span>第一步：选择到达日期和商号，切换商号会立即刷新。第二步：改完到达日期后点击“查看结果”。不选择到达日期就是查看全部数据。</span>
     </section>
 
     <form class="filter-bar" @submit.prevent="refresh">
       <label>到达日期起<input v-model="filters.startDate" type="date"></label>
       <label>到达日期止<input v-model="filters.endDate" type="date"></label>
       <label>商号
-        <select v-model="filters.merchantNo">
+        <select v-model="filters.merchantNo" @change="refresh">
           <option value="">全部结算单</option>
-          <option v-for="item in settlements" :key="item.merchantNo" :value="item.merchantNo">{{ settlementOptionLabel(item) }}</option>
+          <option v-for="item in settlementOptions" :key="item.merchantNo" :value="item.merchantNo">{{ settlementOptionLabel(item) }}</option>
         </select>
       </label>
       <button class="primary-button" type="submit" :disabled="loading">{{ loading ? '正在查询' : '查看结果' }}</button>
@@ -97,7 +108,7 @@ onMounted(refresh)
     />
 
     <div class="overview-trend-layout">
-      <TrendChart :points="trend" :loading="loading" />
+      <TrendChart :points="trend" :loading="loading" :title="trendTitle" />
       <section class="dashboard-section alerts-section" aria-labelledby="alerts-title">
         <header class="section-heading">
           <h2 id="alerts-title">需要关注</h2>
