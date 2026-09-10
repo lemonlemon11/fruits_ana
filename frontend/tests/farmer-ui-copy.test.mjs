@@ -12,9 +12,21 @@ const source = files.map((file) => fs.readFileSync(file, 'utf8')).join('\n')
 
 test('菜单使用确认后的中文入口', () => {
   const shell = fs.readFileSync(path.join(root, 'AppShell.vue'), 'utf8')
-  for (const label of ['销售总览', '数据明细', '结算单对比', '结算单详情', '系列对比', '数据导入']) assert.match(shell, new RegExp(label))
-  for (const icon of ['ChartColumn', 'Table2', 'GitCompareArrows', 'PackageSearch', 'Boxes', 'Upload']) assert.match(shell, new RegExp(icon))
-  assert.doesNotMatch(shell, /经营总览|单柜详情|导入数据|货柜对比|货柜详情/)
+  // 面向果农的主导航只保留三个大白话入口，其余收进「更多功能」。
+  for (const label of ['卖得怎么样', '每一单', '数据导入']) assert.match(shell, new RegExp(label))
+  for (const icon of ['ChartColumn', 'Table2', 'Upload']) assert.match(shell, new RegExp(icon))
+  assert.match(shell, /const primaryNavItems = \[[\s\S]*?\]/)
+  assert.doesNotMatch(shell, /经营总览|单柜详情|导入数据|货柜对比|货柜详情|销售总览|数据明细/)
+})
+
+test('移动端用底部大按钮导航，完整功能收进「更多」', () => {
+  const shell = fs.readFileSync(path.join(root, 'AppShell.vue'), 'utf8')
+  assert.match(shell, /class="mobile-tabbar"/)
+  assert.match(shell, /mobile-tabbar-more/)
+  assert.match(shell, /const moreNavItems = \[[\s\S]*?\]/)
+  for (const label of ['结算单详情', '结算单对比', '系列对比']) {
+    assert.match(shell.split('const moreNavItems')[1].split(']')[0], new RegExp(label))
+  }
 })
 
 test('页面内部不出现跨菜单跳转入口', () => {
@@ -30,8 +42,27 @@ test('结算单列表只展示当前页面的对比结果', () => {
   assert.doesNotMatch(comparison, /查看详情|前往详情|进入详情/)
 })
 
-test('筛选控件不通过 change 自动查询', () => {
-  assert.doesNotMatch(source, /@change\s*=\s*["'][^"']*(refresh|loadBatches)/)
+test('所有商号下拉在切换后自动查询，日期筛选仍需点击按钮', () => {
+  const autoQuery = /@change\s*=\s*["'][^"']*(refresh|loadBatches)[^"']*["']/g
+  const merchantSelectViews = ['OverviewView.vue', 'SettlementView.vue', 'SettlementListView.vue']
+  for (const file of files) {
+    const content = fs.readFileSync(file, 'utf8')
+    const matches = content.match(autoQuery) ?? []
+    const name = path.basename(file)
+    if (merchantSelectViews.includes(name)) {
+      assert.deepEqual(matches, ['@change="refresh"'], `${name} 商号下拉应在切换后自动查询`)
+      assert.match(content, /<select v-model="filters\.merchantNo"[^>]*@change="refresh"/)
+      assert.doesNotMatch(content, /type="date"[^>]*@change/)
+    } else {
+      assert.deepEqual(matches, [], `${name} 不应在 change 时自动查询`)
+    }
+  }
+})
+
+test('结算单详情商号下拉默认选中第一张，范围变化后回落到新的第一张', () => {
+  const detailView = fs.readFileSync(path.join(root, 'views', 'SettlementView.vue'), 'utf8')
+  assert.match(detailView, /filters\.merchantNo = options\.value\[0\]\?\.merchantNo \?\? ''/)
+  assert.match(detailView, /!options\.value\.some\(\(item\) => item\.merchantNo === filters\.merchantNo\)/)
 })
 
 test('结算单详情只使用最近一次成功查询的商号展示结果', () => {
