@@ -41,7 +41,7 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 ### Import Pipeline（`backend/app/api/imports.py`、`services/import_service.py`、`parser/`）
 
-- 职责：接收 `.xlsx` / `.xls` / `.csv`，解析结算单版式，写入批次、源文件、销售记录、
+- 职责：接收 `.xlsx` / `.csv`，解析结算单版式，写入批次、源文件、销售记录、
   结算摘要与数据问题。
 - 身份：以商号（`import_batch.merchant_no`）作为结算单唯一业务键；柜号可为空且可重复。
 - 覆盖：同一商号再次上传返回 `conflict`，确认后以 `?overwrite=true` 在同一事务内替换旧结算单。
