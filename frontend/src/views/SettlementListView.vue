@@ -157,6 +157,9 @@ onMounted(() => {
 .settlement-list-filter { grid-template-columns: repeat(3, minmax(160px, 1fr)) auto; }
 .range-note { margin: 0; color: var(--muted); font-size: .86rem; }
 .settlement-table table { min-width: 900px; }
+/* 表格的 min-width 会把 .page-stack 的网格轨道顶到 900px，在 640–1177px 之间整页被撑出横向滚动；
+   让网格项可收缩，宽度不够时交给 .table-wrap 自己内部滚动。 */
+.settlement-list-page > * { min-width: 0; }
 .settlement-table th:first-child,
 .settlement-table td:first-child,
 .settlement-table th:nth-child(2),
