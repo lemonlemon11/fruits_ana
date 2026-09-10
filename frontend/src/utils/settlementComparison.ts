@@ -3,15 +3,16 @@ import type { Grade, GradeMetric, SettlementComparisonItem } from '../api/types'
 export const MAX_COMPARISON_SETTLEMENTS = 3
 export const MIN_COMPARISON_SETTLEMENTS = 2
 
-/** 下拉框以商号作为唯一取值，展示单号，避免柜号重复造成的误选。 */
+/** 下拉框以商号作为唯一取值，并按「商号（单号）」展示，避免重复柜号或重复单号造成误选。 */
 export function settlementOptionLabel(item: {
   merchantNo?: string | null
   orderNo?: string | null
 }): string {
   const orderNo = item.orderNo?.trim()
   const merchantNo = item.merchantNo?.trim()
-  if (orderNo && merchantNo) return `${orderNo}（商号 ${merchantNo}）`
-  return orderNo || merchantNo || '未知结算单'
+  if (merchantNo && orderNo) return `商号 ${merchantNo}（${orderNo}）`
+  if (merchantNo) return `商号 ${merchantNo}`
+  return orderNo || '未知结算单'
 }
 
 export function toggleComparisonSelection(selectedIds: string[], settlementId: string): string[] {

@@ -17,9 +17,9 @@ test('allows deselection and re-selection without duplicates', () => {
   assert.deepEqual(toggleComparisonSelection(['B'], 'A'), ['B', 'A'])
 })
 
-test('labels dropdown options with the order number and keeps the merchant number unambiguous', () => {
-  assert.equal(settlementOptionLabel({ orderNo: '宝贝L004', merchantNo: '640' }), '宝贝L004（商号 640）')
-  assert.equal(settlementOptionLabel({ orderNo: '', merchantNo: '640' }), '640')
+test('下拉框按「商号（单号）」展示，取值仍是商号', () => {
+  assert.equal(settlementOptionLabel({ orderNo: '宝贝L004', merchantNo: '640' }), '商号 640（宝贝L004）')
+  assert.equal(settlementOptionLabel({ orderNo: '', merchantNo: '640' }), '商号 640')
   assert.equal(settlementOptionLabel({ orderNo: '宝贝01', merchantNo: '' }), '宝贝01')
   assert.equal(settlementOptionLabel({}), '未知结算单')
 })
