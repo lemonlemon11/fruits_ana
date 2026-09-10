@@ -9,6 +9,13 @@ export interface AnalysisSection {
 export const ANALYSIS_HEADINGS = ['整体行情', 'A果', 'B果', 'C果', '可以留意的地方'] as const
 
 const FALLBACK_TITLE = '分析结论'
+const HAS_CHINESE = /[\u4e00-\u9fff]/
+
+/** 把上游报错转成给果农看的中文提示；后端已经给中文时原样保留。 */
+export function friendlyAnalysisError(message: string, fallback = '生成失败，请稍后重试'): string {
+  const text = (message ?? '').trim()
+  return HAS_CHINESE.test(text) ? text : fallback
+}
 
 function cleanLine(rawLine: string): string {
   return rawLine.replace(/^[#>\s]+/, '').replace(/\*\*/g, '').trim()

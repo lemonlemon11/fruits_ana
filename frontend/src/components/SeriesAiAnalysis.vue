@@ -4,7 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { generateSeriesAnalysis } from '../api/client'
 import type { SeriesAnalysisResult } from '../api/types'
 import { formatDateTime } from '../utils/format'
-import { parseAnalysisSections } from '../utils/seriesAnalysis'
+import { friendlyAnalysisError, parseAnalysisSections } from '../utils/seriesAnalysis'
 
 const props = defineProps<{
   merchantNos: string[]
@@ -43,7 +43,7 @@ async function generate(refresh = false) {
       { refresh },
     )
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : '生成失败，请稍后重试'
+    error.value = friendlyAnalysisError(caught instanceof Error ? caught.message : '')
   } finally {
     loading.value = false
   }
