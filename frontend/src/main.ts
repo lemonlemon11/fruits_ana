@@ -14,7 +14,7 @@ import RegisterView from './views/RegisterView.vue'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', redirect: '/preview' },
+    { path: '/', redirect: '/login' },
     { path: '/preview', component: PublicPreviewView, meta: { publicPreview: true } },
     { path: '/login', component: LoginView, meta: { guestOnly: true } },
     { path: '/register', component: RegisterView, meta: { guestOnly: true } },
