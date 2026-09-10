@@ -85,12 +85,12 @@ onMounted(() => {
 
     <section class="how-to" aria-label="查看方法">
       <strong>怎么查看</strong>
-      <span>第一步：按商号选择结算单和到达日期。第二步：点击“查看结果”，再点右侧“查看明细”核对每一条销售记录。</span>
+      <span>第一步：按商号选择结算单和到达日期，切换商号会立即刷新。第二步：改完到达日期后点击“查看结果”，再点右侧“查看明细”核对每一条销售记录。</span>
     </section>
 
     <form class="filter-bar settlement-list-filter" @submit.prevent="refresh">
       <label>商号
-        <select v-model="filters.merchantNo">
+        <select v-model="filters.merchantNo" @change="refresh">
           <option value="">全部结算单</option>
           <option v-for="item in options" :key="item.merchantNo" :value="item.merchantNo">{{ settlementOptionLabel(item) }}</option>
         </select>
