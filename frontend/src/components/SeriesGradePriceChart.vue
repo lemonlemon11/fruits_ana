@@ -72,11 +72,11 @@ function barHeight(value: number | null): string {
 <style scoped>
 .price-chart { display: grid; gap: 18px; }
 .price-group { display: grid; gap: 8px; min-width: 0; }
-.price-group-label { color: var(--muted); font-size: .78rem; }
-.price-bars { display: flex; align-items: flex-end; gap: 10px; min-height: 132px; min-width: 0; overflow-x: auto; }
+.price-group-label { color: var(--muted); font-size: .85rem; }
+.price-bars { display: flex; align-items: stretch; gap: 10px; min-height: 132px; min-width: 0; overflow-x: auto; }
 .price-bar-item { display: grid; grid-template-rows: auto 1fr auto; align-items: end; justify-items: center; gap: 4px; min-width: 62px; flex: 1 1 62px; }
-.price-bar-value { font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .72rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.price-bar-value { font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .85rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .price-bar { width: 100%; max-width: 54px; min-height: 2px; border-radius: 4px 4px 0 0; transition: height 240ms ease; }
-.price-bar-item small { overflow-wrap: anywhere; color: var(--muted); font-size: .68rem; text-align: center; }
+.price-bar-item small { overflow-wrap: anywhere; color: var(--muted); font-size: .85rem; text-align: center; }
 .chart-skeleton { min-height: 172px; }
 </style>
