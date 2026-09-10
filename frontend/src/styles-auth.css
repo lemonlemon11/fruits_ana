@@ -1,40 +1,170 @@
-.auth-page {
+/* 登录 / 注册 Portal：左侧品牌视觉，右侧表单。 */
+
+.portal {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: minmax(260px, .8fr) minmax(320px, 460px);
-  align-items: center;
-  justify-content: center;
-  gap: 64px;
-  padding: 48px 28px;
+  grid-template-columns: minmax(0, 1.04fr) minmax(400px, .96fr);
+  background: var(--surface);
 }
 
-.auth-intro { max-width: 520px; }
-.auth-intro .brand-mark { margin-bottom: 20px; }
-.auth-intro h1 { font-size: 2rem; }
-.auth-intro p { color: var(--muted); font-size: 1rem; line-height: 1.7; }
+.portal-visual {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 44px clamp(34px, 4vw, 64px);
+  background-color: #123524;
+  background-image:
+    radial-gradient(120% 92% at 80% 4%, rgba(240, 179, 59, .30), transparent 56%),
+    radial-gradient(90% 76% at 8% 100%, rgba(23, 102, 63, .58), transparent 62%),
+    linear-gradient(158deg, #17422c 0%, #0c2417 74%);
+  color: #fff;
+}
 
-.auth-form {
+.portal-visual::after {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(132% 104% at 48% 44%, transparent 50%, rgba(6, 20, 13, .62));
+  content: '';
+  pointer-events: none;
+}
+
+.portal-fruit {
+  position: absolute;
+  right: max(-88px, -6%);
+  bottom: max(-96px, -11%);
+  width: min(52%, 400px);
+  height: auto;
+  opacity: .3;
+  pointer-events: none;
+}
+
+.portal-fruit-seam { fill: none; stroke: rgba(255, 244, 214, .34); stroke-width: 3; }
+
+.portal-brand,
+.portal-hero,
+.portal-features { position: relative; z-index: 1; }
+
+.portal-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.portal-mark {
   display: grid;
-  gap: 18px;
-  padding: 28px;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: 50%;
+  background: #f0b33b;
+  color: #173e28;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.portal-brand-copy strong { display: block; font-size: 1.05rem; }
+.portal-brand-copy small { display: block; margin-top: 3px; color: rgba(255, 255, 255, .66); font-size: .78rem; }
+
+.portal-hero { max-width: 470px; }
+.portal-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  color: #f3cc7d;
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+.portal-kicker::before { width: 22px; height: 1px; background: currentColor; content: ''; }
+
+.portal-hero h1 {
+  margin: 0 0 16px;
+  color: #fff;
+  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-size: clamp(2rem, 3.3vw, 3.05rem);
+  font-weight: 600;
+  line-height: 1.16;
+}
+
+.portal-lede { max-width: 380px; margin: 0; color: rgba(255, 255, 255, .8); font-size: .95rem; line-height: 1.75; }
+
+.portal-features { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 0; padding: 0; list-style: none; }
+.portal-features li { display: inline-flex; align-items: center; gap: 8px; color: rgba(255, 255, 255, .74); font-size: .8rem; }
+.portal-features li::before { width: 6px; height: 6px; border-radius: 50%; background: #efb441; content: ''; }
+
+.portal-panel {
+  display: grid;
+  place-items: center;
+  padding: 48px clamp(24px, 5vw, 72px);
+  background: #fbfcfa;
+}
+
+.portal-form-wrap { width: 100%; max-width: 392px; }
+
+/* 表单 */
+
+.auth-form { display: grid; gap: 18px; }
+.auth-form header h2 { font-size: 1.72rem; }
+.auth-form header p { margin: 8px 0 0; color: var(--muted); font-size: .92rem; line-height: 1.65; }
+
+.auth-field { display: grid; gap: 8px; }
+.auth-field > label { color: var(--ink); font-size: .86rem; font-weight: 700; }
+
+.auth-input { position: relative; display: flex; align-items: center; }
+.auth-input input {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 14px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
+  color: var(--ink);
 }
-.auth-form header p { margin: 6px 0 0; color: var(--muted); line-height: 1.6; }
-.auth-form label { display: grid; gap: 7px; font-weight: 700; }
-.auth-form label small { color: var(--muted); font-size: .82rem; font-weight: 400; }
-.auth-form input { min-height: 48px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); }
-.auth-form .primary-button { width: 100%; min-height: 48px; }
-.auth-form .form-message { grid-column: auto; }
-.auth-switch { margin: 0; color: var(--muted); text-align: center; }
-.auth-switch a { color: var(--primary-dark); font-weight: 700; }
+.auth-input input:hover { border-color: #8d9c92; }
+.auth-input.has-toggle input { padding-right: 48px; }
+.auth-input input[aria-invalid="true"] { border-color: var(--danger); background: #fdf6f5; }
 
-@media (max-width: 760px) {
-  .auth-page { min-height: 100svh; grid-template-columns: minmax(0, 460px); gap: 24px; padding: 28px 16px; }
-  .auth-intro { text-align: center; }
-  .auth-intro .brand-mark { margin: 0 auto 12px; }
-  .auth-intro h1 { margin-bottom: 4px; font-size: 1.65rem; }
-  .auth-intro p { margin-bottom: 0; font-size: .92rem; }
-  .auth-form { padding: 22px 18px; }
+.password-toggle {
+  position: absolute;
+  right: 5px;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+}
+.password-toggle:hover { background: var(--surface-soft); color: var(--primary-dark); }
+
+.auth-field .field-error { color: var(--danger); font-size: .78rem; }
+.auth-field .field-hint { color: var(--muted); font-size: .78rem; }
+
+.auth-form .form-message { grid-column: auto; margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); font-size: .82rem; }
+.auth-submit { width: 100%; min-height: 50px; margin-top: 2px; }
+.auth-switch { margin: 0; color: var(--muted); font-size: .88rem; text-align: center; }
+.auth-switch a { color: var(--primary-dark); font-weight: 700; }
+.auth-note { margin: 0; color: var(--muted); font-size: .74rem; line-height: 1.6; text-align: center; }
+
+@media (max-width: 900px) {
+  .portal { min-height: 100svh; grid-template-columns: minmax(0, 1fr); }
+  .portal-visual { gap: 22px; padding: 26px 22px 30px; }
+  .portal-fruit { top: -74px; right: -66px; bottom: auto; width: 205px; opacity: .26; }
+  .portal-hero h1 { margin-bottom: 0; font-size: clamp(1.6rem, 6.4vw, 2.1rem); }
+  .portal-kicker,
+  .portal-lede,
+  .portal-features { display: none; }
+  .portal-panel { padding: 30px 18px 44px; place-items: start center; }
+}
+
+@media (max-width: 420px) {
+  .portal-form-wrap { max-width: none; }
+  .auth-form header h2 { font-size: 1.5rem; }
 }
