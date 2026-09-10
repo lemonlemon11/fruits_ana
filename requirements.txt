@@ -1,0 +1,2 @@
+# 后端运行与测试依赖以 backend/pyproject.toml 为唯一版本来源。
+-e ./backend[dev]
