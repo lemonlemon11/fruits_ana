@@ -12,7 +12,7 @@ const FALLBACK_TITLE = '分析结论'
 const HAS_CHINESE = /[\u4e00-\u9fff]/
 
 /** 把上游报错转成给果农看的中文提示；后端已经给中文时原样保留。 */
-export function friendlyAnalysisError(message: string, fallback = '生成失败，请稍后重试'): string {
+export function friendlyErrorMessage(message: string, fallback = '生成失败，请稍后重试'): string {
   const text = (message ?? '').trim()
   return HAS_CHINESE.test(text) ? text : fallback
 }

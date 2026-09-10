@@ -5,7 +5,7 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { normalizeSeriesAnalysis } from '../src/api/normalize.ts'
-import { friendlyAnalysisError, parseAnalysisSections } from '../src/utils/seriesAnalysis.ts'
+import { friendlyErrorMessage, parseAnalysisSections } from '../src/utils/seriesAnalysis.ts'
 
 const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src')
 
@@ -58,10 +58,11 @@ test('parseAnalysisSections 兼容加粗标题、冒号与没有小标题的输�
   assert.deepEqual(parseAnalysisSections(''), [])
 })
 
-test('friendlyAnalysisError 把英文报错换成中文提示', () => {
-  assert.equal(friendlyAnalysisError('Not Found'), '生成失败，请稍后重试')
-  assert.equal(friendlyAnalysisError(''), '生成失败，请稍后重试')
-  assert.equal(friendlyAnalysisError('大模型服务返回错误（429），请稍后重试'), '大模型服务返回错误（429），请稍后重试')
+test('friendlyErrorMessage 把英文报错换成中文提示', () => {
+  assert.equal(friendlyErrorMessage('Not Found'), '生成失败，请稍后重试')
+  assert.equal(friendlyErrorMessage(''), '生成失败，请稍后重试')
+  assert.equal(friendlyErrorMessage('Not Found', '对比数据加载失败，请稍后重试'), '对比数据加载失败，请稍后重试')
+  assert.equal(friendlyErrorMessage('大模型服务返回错误（429），请稍后重试'), '大模型服务返回错误（429），请稍后重试')
 })
 
 test('AI 分析卡片使用果农能看懂的文案', () => {

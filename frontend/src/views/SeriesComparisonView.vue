@@ -10,6 +10,7 @@ import SeriesOverviewTable from '../components/SeriesOverviewTable.vue'
 import SeriesAiAnalysis from '../components/SeriesAiAnalysis.vue'
 import { formatNumber, formatPrice } from '../utils/format'
 import { settlementOptionLabel } from '../utils/settlementComparison'
+import { friendlyErrorMessage } from '../utils/seriesAnalysis'
 import {
   MAX_SERIES_COMPARISON,
   deselectSeries,
@@ -71,7 +72,10 @@ async function loadComparison() {
     if (version === requestVersion) result.value = next
   } catch (caught) {
     if (version === requestVersion) {
-      error.value = caught instanceof Error ? caught.message : '系列对比数据加载失败'
+      error.value = friendlyErrorMessage(
+        caught instanceof Error ? caught.message : '',
+        '对比数据加载失败，请稍后重试',
+      )
     }
   } finally {
     if (version === requestVersion) loadingComparison.value = false
@@ -95,7 +99,10 @@ async function loadOptions() {
       : options.value.slice(0, DEFAULT_SELECTION).map((item) => item.merchantNo)
     await loadComparison()
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : '结算单列表加载失败'
+    error.value = friendlyErrorMessage(
+      caught instanceof Error ? caught.message : '',
+      '结算单列表加载失败，请稍后重试',
+    )
   } finally {
     loadingOptions.value = false
   }
