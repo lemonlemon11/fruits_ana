@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..auth import require_current_user
@@ -15,6 +15,7 @@ from ..services.settlement_analytics_service import (
     get_settlement_comparison,
     get_settlement_detail,
 )
+from ..services.series_analytics_service import get_series_comparison
 
 
 router = APIRouter(
@@ -77,6 +78,25 @@ def settlement_detail(
     if detail is None:
         raise HTTPException(404, "结算单不存在")
     return detail
+
+
+@router.get("/series-comparison")
+def series_comparison(
+    merchant_no: list[str] | None = Query(default=None),
+    start_date: date | None = None,
+    end_date: date | None = None,
+    db: Session = Depends(get_db),
+):
+    """按勾选的结算单返回 A/B/C 独立对比、价差与系列汇总。"""
+
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(422, "start_date 不能晚于 end_date")
+    return get_series_comparison(
+        db,
+        merchant_nos=merchant_no or [],
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 __all__ = ["router"]

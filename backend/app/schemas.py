@@ -38,6 +38,7 @@ class AuthResponse(BaseModel):
 class SettlementListItem(BaseModel):
     merchant_no: str
     order_no: str | None
+    series: str
     container_no: str | None
     vehicle_no: str | None
     sale_date_start: date

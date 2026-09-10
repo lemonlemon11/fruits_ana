@@ -125,6 +125,7 @@ def test_settlement_item_exposes_sales_metrics(client):
     assert row == {
         "merchant_no": "640",
         "order_no": "宝贝L004",
+        "series": "宝贝",
         "container_no": "CBHU2970762",
         "vehicle_no": "桂ABF330",
         "sale_date_start": "2026-09-09",

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..models import ImportBatch, SaleRecord
 from .analytics_core import GRADES, rounded
+from .series_analytics_service import series_name
 
 
 def one_month_before(value: date) -> date:
@@ -93,6 +94,7 @@ def list_settlements(
             {
                 "merchant_no": batch.merchant_no,
                 "order_no": batch.order_no,
+                "series": series_name(batch.order_no),
                 "container_no": batch.container_no,
                 "vehicle_no": batch.vehicle_no,
                 "sale_date_start": min(dates),

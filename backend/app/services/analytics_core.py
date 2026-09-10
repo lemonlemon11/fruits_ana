@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -40,14 +41,20 @@ def records(
     start_date: date | None = None,
     end_date: date | None = None,
     merchant_no: str | None = None,
+    merchant_nos: Sequence[str] | None = None,
 ) -> list[SaleRecord]:
-    """按日期与商号筛选销售记录。"""
+    """按日期与商号筛选销售记录；``merchant_nos`` 用于一次筛选多张结算单。"""
 
     query = db.query(SaleRecord)
+    wanted = [item for item in (merchant_nos or []) if item]
     if merchant_no is not None:
         query = query.join(
             ImportBatch, SaleRecord.import_batch_id == ImportBatch.id
         ).filter(ImportBatch.merchant_no == merchant_no)
+    elif wanted:
+        query = query.join(
+            ImportBatch, SaleRecord.import_batch_id == ImportBatch.id
+        ).filter(ImportBatch.merchant_no.in_(wanted))
     if start_date is not None:
         query = query.filter(SaleRecord.sale_date >= start_date)
     if end_date is not None:
