@@ -15,12 +15,12 @@ Browser (Vue 3 SPA, Vite dev server :53000)
 FastAPI (:8000)  backend/app/main.py
         ├── api/auth.py      注册 / 登录 / 会话
         ├── api/imports.py   上传、批次列表、问题明细
-        ├── api/analytics.py 总览 / 趋势 / 结算单对比 / 结算单详情
+        ├── api/analytics.py 总览 / 趋势 / 结算单对比 / 结算单详情 / 系列对比
         ├── api/settlements.py 数据明细列表 / 单张结算单全部明细
         └── api/exports.py   总览 CSV、结算单 xlsx、原始文件下载
         ▼
-services/  analytics_core / settlement_analytics_service / overview_service
-           settlement_detail_service / settlement_list_service
+services/  analytics_core / settlement_analytics_service / series_analytics_service
+           overview_service / settlement_detail_service / settlement_list_service
            import_service / issue_service
         ▼
 parser/    settlement_parser / settlement_summary / decimal_values
@@ -57,6 +57,17 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 查询维度：`merchant_no`；柜号不再是查询条件。
 - 指标口径见 `README.md`，任何口径变化必须记入 `DECISIONS.md`。
 
+### Series Analytics（`backend/app/api/analytics.py`、`services/series_analytics_service.py`）
+
+- 职责：「系列对比」页的数据来源：按勾选的结算单（可跨系列）核算 A/B/C 独立指标、价差与系列汇总。
+- 路由：`GET /api/analytics/series-comparison`，参数为可重复的 `merchant_no`，外加
+  `start_date` / `end_date`；不传 `merchant_no` 时返回日期范围内全部结算单。
+- 系列识别：取结算单单号（`order_no`，如 `宝贝01`）开头连续的中文前缀作为系列名；
+  识别不出时归入「未识别系列」，不影响其余结算单参与对比。见 ADR-009。
+- 返回结构：`settlements`（逐结算单）、`series`（逐系列汇总）、`total`（全部所选合计），
+  三者使用同一套口径：`total` / `grades` / `grade_amount_shares` / `spread`。
+- 注意：系列只是分组标签，对比与查询的唯一键仍是商号 `merchant_no`。
+
 ### Settlement List（`backend/app/api/settlements.py`、`services/settlement_list_service.py`）
 
 - 职责：「数据明细」页列表与单张结算单全部明细。
@@ -70,7 +81,7 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 - 视图：`OverviewView`（总览看板）、`SettlementListView`（数据明细）、
   `SettlementComparisonView`（结算单对比）、`SettlementView`（结算单诊断）、`ImportView`（导入）、
-  `LoginView` / `RegisterView` / `PublicPreviewView`。
+  `SeriesComparisonView`（系列对比）、`LoginView` / `RegisterView` / `PublicPreviewView`。
 - 下拉框：展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
 - 图表为手写 SVG 组件，不引入图表库。
 - API 契约集中在 `api/types.ts` + `api/normalize.ts` + `api/client.ts`，后端字段变更必须同步这三处。
