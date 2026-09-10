@@ -1,5 +1,17 @@
 export type Grade = 'A' | 'B' | 'C'
 
+export interface AuthUser {
+  id: number
+  displayName: string
+}
+
+export interface LoginPayload {
+  displayName: string
+  password: string
+}
+
+export type RegisterPayload = LoginPayload
+
 export interface AnalyticsFilters {
   startDate?: string
   endDate?: string

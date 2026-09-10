@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.analytics import router
+from app.auth import require_current_user
 from app.db import Base, SessionLocal, engine
 from app.models import (
     ContainerSummary,
@@ -27,6 +28,7 @@ def clean_db():
 def client():
     app = FastAPI()
     app.include_router(router)
+    app.dependency_overrides[require_current_user] = lambda: object()
     return TestClient(app)
 
 

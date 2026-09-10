@@ -29,7 +29,6 @@ def client():
 def _credentials():
     return {
         "display_name": "张三",
-        "email": "  User@Example.COM ",
         "password": "correct horse battery staple",
     }
 
@@ -39,7 +38,7 @@ def test_register_creates_user_and_hashed_session(client):
 
     assert response.status_code == 201
     assert response.json()["user"]["display_name"] == "张三"
-    assert response.json()["user"]["email"] == "user@example.com"
+    assert "email" not in response.json()["user"]
     assert "password_hash" not in response.text
     assert "HttpOnly" in response.headers["set-cookie"]
     assert "samesite=lax" in response.headers["set-cookie"].lower()
@@ -48,14 +47,12 @@ def test_register_creates_user_and_hashed_session(client):
     assert raw_token
 
     with SessionLocal() as db:
-        user = db.execute(
-            text("SELECT email, password_hash FROM user")
-        ).mappings().one()
+        user = db.execute(text("SELECT display_name, password_hash FROM user")).mappings().one()
         session = db.execute(
             text("SELECT token_hash, created_at, expires_at FROM user_session")
         ).mappings().one()
 
-    assert user["email"] == "user@example.com"
+    assert user["display_name"] == "张三"
     assert user["password_hash"] != _credentials()["password"]
     assert user["password_hash"].startswith("$argon2")
     assert session["token_hash"] == hashlib.sha256(
@@ -64,13 +61,12 @@ def test_register_creates_user_and_hashed_session(client):
     assert session["token_hash"] != raw_token
 
 
-def test_register_rejects_duplicate_normalized_email(client):
+def test_register_rejects_duplicate_normalized_display_name(client):
     first = client.post("/api/auth/register", json=_credentials())
     second = client.post(
         "/api/auth/register",
         json={
-            "display_name": "李四",
-            "email": "USER@example.com",
+            "display_name": " 张三 ",
             "password": "another secure password",
         },
     )
@@ -79,22 +75,22 @@ def test_register_rejects_duplicate_normalized_email(client):
     assert second.status_code == 409
 
 
-def test_login_wrong_password_does_not_enumerate_accounts(client):
+def test_login_by_display_name_does_not_enumerate_accounts(client):
     client.post("/api/auth/register", json=_credentials())
 
     wrong_password = client.post(
         "/api/auth/login",
-        json={"email": "user@example.com", "password": "wrong password"},
+        json={"display_name": "张三", "password": "wrong password"},
     )
-    unknown_email = client.post(
+    unknown_name = client.post(
         "/api/auth/login",
-        json={"email": "nobody@example.com", "password": "wrong password"},
+        json={"display_name": "不存在", "password": "wrong password"},
     )
 
     assert wrong_password.status_code == 401
-    assert unknown_email.status_code == 401
-    assert wrong_password.json()["detail"] == "邮箱或密码错误"
-    assert unknown_email.json()["detail"] == wrong_password.json()["detail"]
+    assert unknown_name.status_code == 401
+    assert wrong_password.json()["detail"] == "用户名或密码错误"
+    assert unknown_name.json()["detail"] == wrong_password.json()["detail"]
 
 
 def test_me_and_logout_follow_session_lifecycle(client):
@@ -105,7 +101,8 @@ def test_me_and_logout_follow_session_lifecycle(client):
 
     me = client.get("/api/auth/me")
     assert me.status_code == 200
-    assert me.json()["user"]["email"] == "user@example.com"
+    assert me.json()["user"]["display_name"] == "张三"
+    assert "email" not in me.json()["user"]
     assert "password_hash" not in me.text
 
     logout = client.post("/api/auth/logout")
@@ -125,6 +122,21 @@ def test_expired_session_is_rejected_and_revoked(client):
         db.commit()
 
     assert client.get("/api/auth/me").status_code == 401
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", "/api/analytics/overview"),
+        ("GET", "/api/imports"),
+        ("GET", "/api/exports/overview.csv"),
+    ],
+)
+def test_business_api_requires_authentication(client, method, path):
+    response = client.request(method, path)
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "请先登录"}
 
     with SessionLocal() as db:
         assert db.execute(text("SELECT COUNT(*) FROM user_session")).scalar_one() == 0

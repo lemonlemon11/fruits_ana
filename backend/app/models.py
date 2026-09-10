@@ -19,6 +19,7 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy.dialects.mysql import DATETIME as MySQLDateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -40,23 +41,27 @@ class StandardGrade(str, Enum):
 
 # Grade 是对外更短的兼容别名，统一仍由 StandardGrade 定义取值。
 Grade = StandardGrade
+PRECISE_DATETIME = DateTime(timezone=True).with_variant(
+    MySQLDateTime(fsp=6),
+    "mysql",
+)
 
 
 class User(Base):
     """平台认证用户。"""
 
     __tablename__ = "user"
-    __table_args__ = (Index("ux_user_email", "email", unique=True),)
+    __table_args__ = (Index("ux_user_display_name", "display_name", unique=True),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # display_name 同时作为登录用户名，规范化后全局唯一。
     display_name: Mapped[str] = mapped_column(String(80), nullable=False)
-    email: Mapped[str] = mapped_column(String(320), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utc_now, nullable=False
+        PRECISE_DATETIME, default=utc_now, nullable=False
     )
     last_login_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        PRECISE_DATETIME, nullable=True
     )
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
 
@@ -77,9 +82,9 @@ class UserSession(Base):
     )
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utc_now, nullable=False
+        PRECISE_DATETIME, default=utc_now, nullable=False
     )
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(PRECISE_DATETIME, nullable=False)
 
     user: Mapped[User] = relationship(back_populates="sessions")
 
@@ -88,11 +93,10 @@ class ImportBatch(Base):
     """一次或一组文件导入的处理结果。"""
 
     __tablename__ = "import_batch"
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     imported_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utc_now, nullable=False
+        PRECISE_DATETIME, default=utc_now, nullable=False
     )
     status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
     success_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -127,7 +131,7 @@ class SourceFile(Base):
     file_hash: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     storage_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     stored_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utc_now, nullable=False
+        PRECISE_DATETIME, default=utc_now, nullable=False
     )
 
     import_batch: Mapped[ImportBatch] = relationship(back_populates="source_files")
@@ -234,7 +238,7 @@ class DataIssue(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     raw_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utc_now, nullable=False
+        PRECISE_DATETIME, default=utc_now, nullable=False
     )
 
     import_batch: Mapped[ImportBatch] = relationship(back_populates="data_issues")

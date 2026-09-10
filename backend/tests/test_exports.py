@@ -6,6 +6,7 @@ import openpyxl
 import pytest
 from fastapi.testclient import TestClient
 
+from app.auth import require_current_user
 from app.db import Base, SessionLocal, engine
 from app.main import app
 from app.models import ImportBatch, SaleRecord, SourceFile, StandardGrade
@@ -16,6 +17,13 @@ def clean_db():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
+
+
+@pytest.fixture(autouse=True)
+def authenticated_business_api():
+    app.dependency_overrides[require_current_user] = lambda: object()
+    yield
+    app.dependency_overrides.pop(require_current_user, None)
 
 
 def seed_sale():

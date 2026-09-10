@@ -3,8 +3,9 @@ from decimal import Decimal
 
 import pytest
 import pandas as pd
+from sqlalchemy.engine import make_url
 
-from app.db import Base, DATABASE_PATH, DEFAULT_DATABASE_PATH, SessionLocal, engine
+from app.db import Base, DATABASE_URL, SessionLocal, engine
 from app.services.import_service import import_file
 from app.models import ContainerSummary, DataIssue, ImportBatch, SaleRecord, SourceFile
 
@@ -22,9 +23,11 @@ def write_csv(tmp_path, content: str):
     return path
 
 
-def test_pytest_database_is_isolated_from_default_data_database():
-    assert DATABASE_PATH != DEFAULT_DATABASE_PATH
-    assert DATABASE_PATH.parent.name == ".pytest-tmp"
+def test_pytest_database_uses_isolated_data_database():
+    database_path = make_url(DATABASE_URL).database
+
+    assert database_path is not None
+    assert database_path.endswith("/.pytest-tmp/fruit-analysis-test.sqlite3")
 
 
 def test_import_hashes_file_without_reading_it_all_at_once(tmp_path, monkeypatch):

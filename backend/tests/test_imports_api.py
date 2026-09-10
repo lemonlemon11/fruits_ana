@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api import imports as imports_api
+from app.auth import require_current_user
 from app.db import Base, SessionLocal, engine
 from app.main import app
 from app.models import DataIssue, ImportBatch, SaleRecord, SourceFile
@@ -25,6 +26,13 @@ def isolated_upload_dir(tmp_path, monkeypatch):
     upload_dir.mkdir()
     monkeypatch.setattr(imports_api, "UPLOAD_DIR", upload_dir)
     return upload_dir
+
+
+@pytest.fixture(autouse=True)
+def authenticated_business_api():
+    app.dependency_overrides[require_current_user] = lambda: object()
+    yield
+    app.dependency_overrides.pop(require_current_user, None)
 
 
 def test_upload_lists_batch_and_downloads_issues_csv():

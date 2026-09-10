@@ -11,11 +11,14 @@ import {
 } from './normalize.ts'
 import type {
   AnalyticsFilters,
+  AuthUser,
   ContainerComparisonItem,
   ContainerDetail,
   ImportBatch,
   ImportIssue,
+  LoginPayload,
   OverviewData,
+  RegisterPayload,
   TrendPoint,
 } from './types.ts'
 
@@ -24,6 +27,38 @@ export type * from './types.ts'
 
 type JsonRecord = Record<string, unknown>
 const API_ROOT = '/api'
+
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
+export async function register(payload: RegisterPayload): Promise<AuthUser> {
+  return normalizeAuthUser(await request(`${API_ROOT}/auth/register`, jsonRequest({
+    display_name: payload.displayName,
+    password: payload.password,
+  })))
+}
+
+export async function login(payload: LoginPayload): Promise<AuthUser> {
+  return normalizeAuthUser(await request(`${API_ROOT}/auth/login`, jsonRequest({
+    display_name: payload.displayName,
+    password: payload.password,
+  })))
+}
+
+export async function getCurrentUser(): Promise<AuthUser> {
+  return normalizeAuthUser(await request(`${API_ROOT}/auth/me`))
+}
+
+export async function logout(): Promise<void> {
+  await request(`${API_ROOT}/auth/logout`, { method: 'POST' })
+}
 
 export async function getOverview(filters: AnalyticsFilters = {}): Promise<OverviewData> {
   return normalizeOverview(await request(`${API_ROOT}/analytics/overview${buildAnalyticsQuery(filters)}`))
@@ -68,12 +103,33 @@ export function recordSourceUrl(recordId: string | number): string {
 }
 
 async function request(url: string, options?: RequestInit): Promise<unknown> {
-  const response = await fetch(url, { headers: { Accept: 'application/json' }, ...options })
+  const response = await fetch(url, {
+    ...options,
+    credentials: 'include',
+    headers: { Accept: 'application/json', ...(options?.headers as Record<string, string> ?? {}) },
+  })
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as JsonRecord
     const message = typeof body.detail === 'string' ? body.detail : body.message
-    throw new Error(typeof message === 'string' ? message : `请求失败（${response.status}）`)
+    throw new ApiError(typeof message === 'string' ? message : `请求失败（${response.status}）`, response.status)
   }
   if (response.status === 204) return {}
   return response.json()
+}
+
+function jsonRequest(body: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }
+}
+
+function normalizeAuthUser(payload: unknown): AuthUser {
+  const body = unwrap(payload)
+  const user = (body.user && typeof body.user === 'object' ? body.user : body) as JsonRecord
+  return {
+    id: Number(user.id),
+    displayName: String(user.display_name ?? user.displayName ?? ''),
+  }
 }

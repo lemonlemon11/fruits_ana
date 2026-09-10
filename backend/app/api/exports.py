@@ -11,12 +11,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from ..auth import require_current_user
 from ..db import get_db
 from ..models import SaleRecord, SourceFile
 from ..services.analytics_service import get_grade_summary
 
 
-router = APIRouter(prefix="/api/exports", tags=["exports"])
+router = APIRouter(
+    prefix="/api/exports",
+    tags=["exports"],
+    dependencies=[Depends(require_current_user)],
+)
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 

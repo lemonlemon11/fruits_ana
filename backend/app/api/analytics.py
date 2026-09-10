@@ -7,6 +7,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from ..auth import require_current_user
 from ..db import get_db
 from ..services.analytics_service import (
     get_container_comparison,
@@ -18,7 +19,11 @@ from ..services.analytics_service import (
 )
 
 
-router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+router = APIRouter(
+    prefix="/api/analytics",
+    tags=["analytics"],
+    dependencies=[Depends(require_current_user)],
+)
 
 
 def _filters(

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import re
-
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,7 +13,7 @@ from ..auth import (
     create_session,
     cookie_secure,
     hash_password,
-    normalize_email,
+    normalize_username,
     require_current_user,
     revoke_session,
     set_session_cookie,
@@ -26,24 +25,26 @@ from ..schemas import AuthResponse, LoginRequest, RegisterRequest, UserRead
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def _validated_email(value: str) -> str:
-    email = normalize_email(value)
-    if not EMAIL_PATTERN.fullmatch(email):
-        raise HTTPException(status_code=422, detail="邮箱格式不正确")
-    return email
+def _validated_display_name(value: str) -> str:
+    display_name = value.strip()
+    if not display_name:
+        raise HTTPException(status_code=422, detail="用户名不能为空")
+    return display_name
+
+
+def _find_user_by_name(db: Session, display_name: str) -> User | None:
+    normalized = normalize_username(display_name)
+    return (
+        db.query(User)
+        .filter(func.lower(User.display_name) == normalized)
+        .first()
+    )
 
 
 def _user_payload(user: User) -> dict[str, UserRead]:
-    return {
-        "user": UserRead(
-            id=user.id,
-            display_name=user.display_name,
-            email=user.email,
-        )
-    }
+    return {"user": UserRead(id=user.id, display_name=user.display_name)}
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -52,16 +53,12 @@ def register(
     response: Response,
     db: Session = Depends(get_db),
 ):
-    email = _validated_email(payload.email)
-    display_name = payload.display_name.strip()
-    if not display_name:
-        raise HTTPException(status_code=422, detail="显示名称不能为空")
-    if db.query(User).filter(User.email == email).first() is not None:
-        raise HTTPException(status_code=409, detail="邮箱已注册")
+    display_name = _validated_display_name(payload.display_name)
+    if _find_user_by_name(db, display_name) is not None:
+        raise HTTPException(status_code=409, detail="用户名已被注册")
 
     user = User(
         display_name=display_name,
-        email=email,
         password_hash=hash_password(payload.password),
     )
     db.add(user)
@@ -71,7 +68,7 @@ def register(
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="邮箱已注册") from None
+        raise HTTPException(status_code=409, detail="用户名已被注册") from None
 
     set_session_cookie(response, raw_token)
     return _user_payload(user)
@@ -83,8 +80,7 @@ def login(
     response: Response,
     db: Session = Depends(get_db),
 ):
-    email = _validated_email(payload.email)
-    user = db.query(User).filter(User.email == email).first()
+    user = _find_user_by_name(db, payload.display_name)
     if user is None or not user.is_active or not verify_password(
         payload.password, user.password_hash if user else ""
     ):

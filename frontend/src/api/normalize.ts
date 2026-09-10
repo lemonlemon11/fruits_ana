@@ -183,7 +183,7 @@ export function normalizeImportBatch(row: JsonRecord): ImportBatch {
     successCount: numberOr(pick(row, 'success_count', 'successCount'), 0),
     warningCount: numberOr(pick(row, 'warning_count', 'warningCount'), 0),
     failureCount: numberOr(pick(row, 'failure_count', 'failureCount'), 0),
-    errorSummary: stringOr(pick(row, 'error_summary', 'errorSummary'), ''),
+    errorSummary: stringOr(pick(row, 'error_summary', 'errorSummary', 'error'), ''),
   }
 }
 

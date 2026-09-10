@@ -18,14 +18,15 @@ from .models import User, UserSession, utc_now
 
 SESSION_COOKIE = "fruit_session"
 SESSION_DAYS = 7
-AUTH_ERROR_DETAIL = "邮箱或密码错误"
+AUTH_ERROR_DETAIL = "用户名或密码错误"
 LOGIN_REQUIRED_DETAIL = "请先登录"
 PASSWORD_HASHER = PasswordHasher()
 
 
-def normalize_email(value: str) -> str:
-    """返回邮箱的规范化形式。"""
+def normalize_username(value: str) -> str:
+    """返回登录用户名的规范化形式，用于唯一性判断和查询。"""
 
+    # 与 SQL LOWER() 保持一致，避免 Python 与数据库的大小写折叠规则不同。
     return value.strip().lower()
 
 

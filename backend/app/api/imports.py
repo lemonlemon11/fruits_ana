@@ -15,12 +15,17 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
+from ..auth import require_current_user
 from ..db import BACKEND_DIR, SessionLocal, get_db
 from ..models import DataIssue, ImportBatch, SourceFile
 from ..services.import_service import import_file
 
 
-router = APIRouter(prefix="/api/imports", tags=["imports"])
+router = APIRouter(
+    prefix="/api/imports",
+    tags=["imports"],
+    dependencies=[Depends(require_current_user)],
+)
 UPLOAD_DIR = BACKEND_DIR / "data" / "uploads"
 MAX_UPLOAD_SIZE = 20 * 1024 * 1024
 UPLOAD_CHUNK_SIZE = 1024 * 1024
