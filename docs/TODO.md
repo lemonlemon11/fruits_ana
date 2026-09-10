@@ -8,24 +8,24 @@
 当前无 P0 阻塞项。
 
 > 已完成（2026-09-10）：在途改动拆分提交（`33a5aef`..`2a71d04`）；
-> 修复 `ImportView.vue` 导入失败提示被覆盖的缺陷；统一前端端口为 `53000`。
+> 修复 `ImportView.vue` 导入失败提示被覆盖的缺陷；统一前端端口为 `53000`；
+> 线上库结构迁移 `backfill_settlement_identity.py --apply` 执行成功并重启服务；
+> 浏览器端到端验收（登录 / 销售总览 / 数据明细 / 查看明细弹窗 / 结算单对比 / 结算单详情）
+> Playwright 15 项检查全部通过；
+> 修复「开始导入」按钮把点击事件当作覆盖参数、导致同商号重复导入被静默覆盖的缺陷；
+> 修复结算单详情页移动端横向溢出（`.settlement-dashboard` 缺少移动端 min-width 守卫）；
+> 补齐前端 `npm run test` / `npm run typecheck` 脚本与 `.gitignore` 忽略项；
+> 移动端布局与导入覆盖确认已用 Playwright 验收（23 项检查全部通过）。
 
 ## P1 — 当前阶段
 
-- [ ] 浏览器端手工验收：登录 / 注册 / 登出、密码可见切换、数据导入、
-  `/preview` 直达、移动端布局（自动化测试已通过，但无端到端验证）
-- [ ] 评估把 `.superpowers/`、`.superpowersigeria/`、`attachments/` 加入 `.gitignore`，
-  降低 `git status` 噪音并避免真实结算单误提交（属于配置变更，需确认后再改）
-- [ ] 为前端补 `npm test` / `typecheck` 脚本，统一测试入口，避免手写 `node --experimental-strip-types`
-- [ ] 结算单单号身份（`settlement_no`）：按 `docs/superpowers/plans/2026-09-10-settlement-number-identity.md` 实施，
-  实施前确认已有 MySQL 数据的回填与覆盖策略（ADR-008 仍为 Proposed）
-- [ ] 补充导入异常路径与问题明细（`data_issue`）的回归测试
+- [ ] 真实业绩数据（结算单）的浏览器端回归验收：目前只有 4 张示例结算单，覆盖不到的字段组合需在真实数据到位后复验
 
 ## P2 — 后续优化
 
 - [ ] 销售地区维度：`sales_region` 字段已预留，待源数据带上地区后回填并出报表
 - [ ] 利润测算（第二期）：依赖成本数据口径确认，见 ADR-003
-- [ ] `analytics_service` 等模块按职责拆分，降低单文件复杂度（随 ADR-008 一并评估）
+- [x] `analytics_service` 按职责拆分：`analytics_core` + `settlement_analytics_service`
 - [ ] 提升测试覆盖率；为「中间态提交」补一次 bisect 友好的验证策略
 
 ## Blocked
