@@ -44,3 +44,10 @@ test('每个业务页面的根容器都在移动端最小宽度守卫内', () =>
     )
   }
 })
+
+test('系列对比的等级表在移动端不固定 400px 列宽', () => {
+  const source = fs.readFileSync(path.join(src, 'components', 'SeriesGradeTables.vue'), 'utf8')
+  const mobile = source.match(/@media \(max-width: 560px\) \{[^}]*\}/)?.[0] ?? ''
+
+  assert.match(mobile, /grid-template-columns:\s*minmax\(0,\s*1fr\)/)
+})

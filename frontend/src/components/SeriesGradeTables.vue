@@ -114,4 +114,8 @@ th, td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: rig
 thead th { color: var(--muted); font-weight: 500; }
 tbody th, tfoot th { text-align: left; }
 tfoot td, tfoot th { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 700; }
+
+@media (max-width: 560px) {
+  .grade-tables { grid-template-columns: minmax(0, 1fr); }
+}
 </style>
