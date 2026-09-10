@@ -105,9 +105,9 @@ function dashOffset(index: number): number {
 .pie-legend { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
 .pie-legend li { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 7px; min-width: 0; }
 .pie-dot { width: 8px; height: 8px; border-radius: 50%; }
-.pie-grade { color: var(--ink); font-size: .76rem; }
-.pie-legend strong { font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .77rem; font-variant-numeric: tabular-nums; }
-.pie-legend small { grid-column: 2 / 4; margin-top: -5px; color: var(--muted); font-size: .65rem; }
+.pie-grade { color: var(--ink); font-size: .85rem; }
+.pie-legend strong { font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.pie-legend small { grid-column: 2 / 4; margin-top: -5px; color: var(--muted); font-size: .85rem; }
 .pie-skeleton { min-height: 172px; }
 
 @media (max-width: 560px) {

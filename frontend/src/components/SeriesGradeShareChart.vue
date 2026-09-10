@@ -79,10 +79,10 @@ const rows = computed(() =>
 .share-row { display: grid; grid-template-columns: minmax(120px, .8fr) minmax(160px, 1.4fr) minmax(180px, 1.4fr); align-items: center; gap: 14px; min-width: 0; }
 .share-label { display: grid; gap: 2px; min-width: 0; }
 .share-label strong { overflow-wrap: anywhere; font-size: .92rem; }
-.share-label small { color: var(--muted); font-size: .7rem; }
+.share-label small { color: var(--muted); font-size: .85rem; }
 .share-track { display: flex; height: 16px; border-radius: 999px; background: var(--surface-soft); overflow: hidden; }
 .share-segment { height: 100%; transition: width 240ms ease; }
-.share-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; font-size: .72rem; }
+.share-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; font-size: .85rem; }
 .share-legend span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
 .share-legend i { width: 8px; height: 8px; border-radius: 50%; }
 .chart-skeleton { min-height: 172px; }

@@ -213,9 +213,9 @@ onMounted(loadOptions)
 .series-group { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .series-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 8px; }
 .series-group-head strong { font-size: .95rem; }
-.series-group-head span { color: var(--muted); font-size: .72rem; }
+.series-group-head span { color: var(--muted); font-size: .85rem; }
 .series-group-actions { margin-left: auto; display: flex; gap: 10px; }
-.series-option { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: .82rem; }
+.series-option { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: .85rem; }
 .series-option-name { overflow-wrap: anywhere; }
 .series-option-metric { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 

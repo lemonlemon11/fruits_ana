@@ -66,7 +66,7 @@
 }
 
 .portal-brand-copy strong { display: block; font-size: 1.05rem; }
-.portal-brand-copy small { display: block; margin-top: 3px; color: rgba(255, 255, 255, .66); font-size: .78rem; }
+.portal-brand-copy small { display: block; margin-top: 3px; color: rgba(255, 255, 255, .66); font-size: .85rem; }
 
 .portal-hero { max-width: 470px; }
 .portal-kicker {
@@ -75,7 +75,7 @@
   gap: 9px;
   margin: 0 0 14px;
   color: #f3cc7d;
-  font-size: .76rem;
+  font-size: .85rem;
   font-weight: 800;
   letter-spacing: .14em;
 }
@@ -101,7 +101,7 @@
 }
 
 .portal-features { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 0; padding: 0; list-style: none; }
-.portal-features li { display: inline-flex; align-items: center; gap: 8px; color: rgba(255, 255, 255, .8); font-size: .8rem; }
+.portal-features li { display: inline-flex; align-items: center; gap: 8px; color: rgba(255, 255, 255, .8); font-size: .85rem; }
 .portal-features li::before { width: 6px; height: 6px; border-radius: 50%; background: #efb441; content: ''; }
 
 .portal-panel {
@@ -150,14 +150,14 @@
 }
 .password-toggle:hover { background: var(--surface-soft); color: var(--primary-dark); }
 
-.auth-field .field-error { color: var(--danger); font-size: .78rem; }
-.auth-field .field-hint { color: var(--muted); font-size: .78rem; }
+.auth-field .field-error { color: var(--danger); font-size: .85rem; }
+.auth-field .field-hint { color: var(--muted); font-size: .85rem; }
 
-.auth-form .form-message { grid-column: auto; margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); font-size: .82rem; }
+.auth-form .form-message { grid-column: auto; margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); font-size: .85rem; }
 .auth-submit { width: 100%; min-height: 50px; margin-top: 2px; }
 .auth-switch { margin: 0; color: var(--muted); font-size: .88rem; text-align: center; }
 .auth-switch a { color: var(--primary-dark); font-weight: 700; }
-.auth-note { margin: 0; color: var(--muted); font-size: .74rem; line-height: 1.6; text-align: center; }
+.auth-note { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.6; text-align: center; }
 
 @media (max-width: 900px) {
   .portal { min-height: 100svh; grid-template-columns: minmax(0, 1fr); }

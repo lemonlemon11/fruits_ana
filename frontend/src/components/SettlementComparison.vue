@@ -83,10 +83,10 @@ function gradeShare(item: SettlementComparisonItem, grade: 'A' | 'B' | 'C') {
 .simple-metric { display: grid; gap: 4px; }
 .simple-container-name strong { overflow-wrap: anywhere; font-size: 1rem; }
 .simple-container-name small,
-.simple-metric small { color: var(--muted); font-size: .8rem; }
+.simple-metric small { color: var(--muted); font-size: .85rem; }
 .simple-metric strong { overflow-wrap: anywhere; font-size: .9rem; }
 .simple-grade-shares { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.simple-grade-shares span { padding: 7px 6px; background: var(--surface-soft); text-align: center; font-size: .8rem; }
+.simple-grade-shares span { padding: 7px 6px; background: var(--surface-soft); text-align: center; font-size: .85rem; }
 @media (max-width: 1050px) {
   .simple-container-row { grid-template-columns: minmax(140px, 1fr) repeat(3, minmax(100px, .75fr)); }
   .simple-grade-shares { grid-column: 1 / -1; }

@@ -103,7 +103,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 }
 
 .records-head h2 { margin: 0 0 4px; font-size: 1.05rem; }
-.records-head p { margin: 0; color: var(--muted); font-size: .84rem; }
+.records-head p { margin: 0; color: var(--muted); font-size: .85rem; }
 
 .records-close {
   min-height: 40px;
@@ -119,5 +119,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 .records-close:hover { border-color: var(--primary); color: var(--primary-dark); }
 .records-table { max-height: 60vh; }
 .records-table table { min-width: 620px; }
-.records-table thead th { position: sticky; top: 0; background: var(--surface); }
+.records-table thead th { position: sticky; top: 0; background: var(--surface-soft); }
+/* 到达日期 / 等级 / 规格是文字列，左对齐才不参差；数量、单价、金额仍右对齐便于比大小。 */
+.records-table th:nth-child(1), .records-table td:nth-child(1),
+.records-table th:nth-child(2), .records-table td:nth-child(2),
+.records-table th:nth-child(3), .records-table td:nth-child(3) { text-align: left; }
 </style>

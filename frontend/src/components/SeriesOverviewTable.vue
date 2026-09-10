@@ -81,11 +81,13 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
 <style scoped>
 .table-skeleton { min-height: 140px; }
 table { width: 100%; min-width: 900px; border-collapse: collapse; }
-th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-size: .82rem; }
+th, td { padding: 9px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-size: 1rem; }
 thead th { color: var(--muted); font-weight: 500; }
 tbody th, tfoot th { text-align: left; }
+/* 「系列」「到达日期」是文字列，和其余页面的到达日期一样左对齐，避免数字表里夹着右对齐的文字。 */
+tbody td:nth-child(2), tbody td:nth-child(3) { text-align: left; }
 tbody th strong { display: block; font-size: .88rem; }
-tbody th small { color: var(--muted); font-size: .7rem; }
+tbody th small { color: var(--muted); font-size: .85rem; }
 tfoot td, tfoot th { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 700; }
 tbody tr:hover { background: var(--surface-soft); }
 </style>

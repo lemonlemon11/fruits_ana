@@ -105,11 +105,12 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
 </template>
 
 <style scoped>
-.grade-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+/* 卡片要放得下 5 列（单号/件数/金额/平均每件售价/金额占比），否则最后一列会被挤出去。 */
+.grade-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 14px; }
 .grade-table-card { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .grade-table-card h3 { margin: 0 0 8px; font-size: .92rem; }
 table { width: 100%; min-width: 320px; border-collapse: collapse; }
-th, td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-size: .8rem; }
+th, td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-size: .85rem; }
 thead th { color: var(--muted); font-weight: 500; }
 tbody th, tfoot th { text-align: left; }
 tfoot td, tfoot th { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 700; }

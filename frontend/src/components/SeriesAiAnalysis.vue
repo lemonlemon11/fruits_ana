@@ -111,6 +111,6 @@ async function generate(refresh = false) {
 .ai-block { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .ai-block h3 { margin: 0 0 8px; font-size: .92rem; }
 .ai-block ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
-.ai-block li { font-size: .84rem; line-height: 1.6; overflow-wrap: anywhere; }
-.ai-meta { margin: 0; color: var(--muted); font-size: .74rem; }
+.ai-block li { font-size: .85rem; line-height: 1.6; overflow-wrap: anywhere; }
+.ai-meta { margin: 0; color: var(--muted); font-size: .85rem; }
 </style>
