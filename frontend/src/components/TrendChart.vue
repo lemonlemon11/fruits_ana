@@ -15,6 +15,8 @@ const plotWidth = chart.width - chart.left - chart.right
 const plotHeight = chart.height - chart.top - chart.bottom
 const maxQuantity = computed(() => Math.max(...props.points.map((point) => point.salesQuantity), 1))
 const maxPrice = computed(() => Math.max(...props.points.map((point) => point.weightedAvgPrice ?? 0), 1))
+const isSinglePoint = computed(() => props.points.length === 1)
+const singlePoint = computed(() => props.points[0])
 
 const xStep = computed(() => props.points.length > 1 ? plotWidth / (props.points.length - 1) : plotWidth)
 const yTicks = computed(() => [0, 0.25, 0.5, 0.75, 1])
@@ -64,7 +66,7 @@ function priceTickLabel(ratio: number): string {
     <div v-if="loading" class="trend-skeleton skeleton-block" aria-live="polite">正在加载趋势数据</div>
     <div v-else-if="!points.length" class="empty-state">
       <strong>当前范围没有趋势数据</strong>
-      <span>调整到达日期或单号筛选后重试。</span>
+      <span>调整到达日期或商号筛选后重试。</span>
     </div>
     <template v-else>
       <div class="trend-chart-shell">
@@ -98,13 +100,29 @@ function priceTickLabel(ratio: number): string {
             stroke="var(--primary)"
           />
           <polyline class="trend-line line-price" :points="priceLinePoints()" />
+          <g v-if="isSinglePoint" class="single-point-guides" aria-hidden="true">
+            <line
+              class="guide-line guide-quantity"
+              :x1="chart.left"
+              :x2="chart.width - chart.right"
+              :y1="yPosition(singlePoint.salesQuantity, maxQuantity)"
+              :y2="yPosition(singlePoint.salesQuantity, maxQuantity)"
+            />
+            <line
+              class="guide-line guide-price"
+              :x1="chart.left"
+              :x2="chart.width - chart.right"
+              :y1="yPosition(singlePoint.weightedAvgPrice ?? 0, maxPrice)"
+              :y2="yPosition(singlePoint.weightedAvgPrice ?? 0, maxPrice)"
+            />
+          </g>
           <g class="trend-dots">
             <circle
               v-for="(point, index) in points"
               :key="`quantity-${point.date}`"
               :cx="xPosition(index)"
               :cy="yPosition(point.salesQuantity, maxQuantity)"
-              r="3"
+              :r="isSinglePoint ? 5 : 3"
               fill="var(--primary)"
             >
               <title>{{ formatDate(point.date) }} · 销量 {{ formatNumber(point.salesQuantity) }}</title>
@@ -116,7 +134,7 @@ function priceTickLabel(ratio: number): string {
               :key="`price-${point.date}`"
               :cx="xPosition(index)"
               :cy="yPosition(point.weightedAvgPrice ?? 0, maxPrice)"
-              r="3"
+              :r="isSinglePoint ? 5 : 3"
             >
               <title>{{ formatDate(point.date) }} · 平均每件售价 {{ formatPrice(point.weightedAvgPrice) }}</title>
             </circle>
@@ -130,6 +148,9 @@ function priceTickLabel(ratio: number): string {
         </div>
       </div>
       <div class="scale-hint"><span>左轴：每日销量</span><span>右轴：平均每件售价</span></div>
+      <p v-if="isSinglePoint" class="single-point-hint">
+        所选范围内只有 {{ formatDate(singlePoint.date) }} 一天数据，图中以虚线标出当天水平。
+      </p>
 
       <details class="data-details">
         <summary>查看趋势数据表</summary>
@@ -151,14 +172,14 @@ function priceTickLabel(ratio: number): string {
 
 <style scoped>
 .trend-section { min-width: 0; }
-.chart-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px 12px; color: var(--muted); font-size: .68rem; }
+.chart-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px 12px; color: var(--muted); font-size: 1rem; }
 .legend-item { display: inline-flex; align-items: center; white-space: nowrap; }
 .legend-item::before { content: ''; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: currentColor; }
 .legend-a { color: var(--grade-a); }.legend-b { color: var(--grade-b); }.legend-c { color: var(--grade-c); }.legend-price { color: var(--ink); }
 .legend-price::before { border: 1px dashed var(--ink); background: transparent; }
 .trend-chart-shell { display: grid; grid-template-columns: 44px minmax(0, 1fr) 54px; align-items: stretch; min-height: 260px; margin-top: 5px; }
 .trend-chart { width: 100%; min-width: 0; height: 258px; overflow: visible; }
-.chart-scale { display: flex; flex-direction: column; justify-content: space-between; padding: 17px 0 34px; color: var(--muted); font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .58rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.chart-scale { display: flex; flex-direction: column; justify-content: space-between; padding: 17px 0 34px; color: var(--muted); font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .85rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .chart-scale-left { align-items: flex-start; }.chart-scale-right { align-items: flex-end; }
 .chart-grid line { stroke: var(--line); stroke-dasharray: 2 4; stroke-width: 1; }
 .chart-axis { stroke: var(--line-strong); stroke-width: 1; }
@@ -166,8 +187,12 @@ function priceTickLabel(ratio: number): string {
 .line-price { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 4; }
 .trend-dots circle, .price-dots circle { vector-effect: non-scaling-stroke; stroke: white; stroke-width: 1.5; }
 .price-dots circle { fill: var(--ink); }
-.chart-x-labels text { fill: var(--muted); font-size: 10px; }
-.scale-hint { display: flex; justify-content: space-between; margin: -4px 44px 0; color: var(--muted); font-size: .62rem; }
+.guide-line { stroke-width: 1.5; stroke-dasharray: 6 5; opacity: .45; vector-effect: non-scaling-stroke; }
+.guide-quantity { stroke: var(--primary); }
+.guide-price { stroke: var(--ink); }
+.single-point-hint { margin: 10px 0 0; color: var(--muted); font-size: .95rem; }
+.chart-x-labels text { fill: var(--muted); font-size: 15px; }
+.scale-hint { display: flex; justify-content: space-between; margin: -4px 44px 0; color: var(--muted); font-size: .85rem; }
 .trend-skeleton { min-height: 258px; }
 .data-details { margin-top: 13px; }
 
@@ -175,8 +200,8 @@ function priceTickLabel(ratio: number): string {
   .chart-legend { justify-content: flex-start; }
   .trend-chart-shell { grid-template-columns: 35px minmax(0, 1fr) 44px; min-height: 220px; }
   .trend-chart { height: 220px; }
-  .chart-scale { padding-bottom: 34px; font-size: .52rem; }
-  .chart-x-labels text { font-size: 8px; }
-  .scale-hint { margin-inline: 35px 44px; font-size: .57rem; }
+  .chart-scale { padding-bottom: 34px; font-size: .85rem; }
+  .chart-x-labels text { font-size: 14px; }
+  .scale-hint { margin-inline: 35px 44px; font-size: .85rem; }
 }
 </style>
