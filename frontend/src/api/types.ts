@@ -169,6 +169,13 @@ export interface SeriesComparisonData {
   total: SeriesAggregate
 }
 
+export interface SeriesAnalysisResult {
+  content: string
+  model: string
+  generatedAt: string
+  cached: boolean
+}
+
 export interface ImportBatch {
   id: number | string
   fileName: string

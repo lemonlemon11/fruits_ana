@@ -9,6 +9,7 @@ import type {
   OverviewData,
   PriceSpread,
   SeriesAggregate,
+  SeriesAnalysisResult,
   SeriesComparisonData,
   SettlementComparisonItem,
   SettlementDetail,
@@ -293,6 +294,16 @@ export function normalizeSeriesComparison(payload: unknown): SeriesComparisonDat
       settlementCount: numberOr(pick(row, 'settlement_count', 'settlementCount'), 0),
     })),
     total: normalizeSeriesAggregate(asRecord(body.total)),
+  }
+}
+
+export function normalizeSeriesAnalysis(payload: unknown): SeriesAnalysisResult {
+  const body = unwrap(payload)
+  return {
+    content: stringOr(pick(body, 'content'), ''),
+    model: stringOr(pick(body, 'model'), '未知模型'),
+    generatedAt: stringOr(pick(body, 'generated_at', 'generatedAt'), ''),
+    cached: pick(body, 'cached') === true,
   }
 }
 

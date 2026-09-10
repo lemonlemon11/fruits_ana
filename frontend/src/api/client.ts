@@ -8,6 +8,7 @@ import {
   normalizeSettlementDetail,
   normalizeSettlementList,
   normalizeSettlementRecordsData,
+  normalizeSeriesAnalysis,
   normalizeSeriesComparison,
   normalizeTrend,
   unwrap,
@@ -24,6 +25,7 @@ import type {
   SettlementDetail,
   SettlementListData,
   SettlementRecordsData,
+  SeriesAnalysisResult,
   SeriesComparisonData,
   TrendPoint,
 } from './types.ts'
@@ -103,6 +105,22 @@ export async function getSeriesComparison(
   const query = params.toString()
   const path = `${API_ROOT}/analytics/series-comparison${query ? `?${query}` : ''}`
   return normalizeSeriesComparison(await request(path))
+}
+
+/** 按勾选的结算单生成 AI 分析结论；相同条件会直接返回后端缓存。 */
+export async function generateSeriesAnalysis(
+  merchantNos: string[],
+  filters: AnalyticsFilters = {},
+  options: { refresh?: boolean } = {},
+): Promise<SeriesAnalysisResult> {
+  const body = {
+    merchant_no: merchantNos,
+    start_date: filters.startDate || null,
+    end_date: filters.endDate || null,
+    refresh: options.refresh === true,
+  }
+  const path = `${API_ROOT}/analytics/series-comparison/analysis`
+  return normalizeSeriesAnalysis(await request(path, jsonRequest(body)))
 }
 
 export async function getImports(): Promise<ImportBatch[]> {

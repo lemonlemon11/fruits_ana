@@ -248,7 +248,24 @@ class DataIssue(Base):
     sale_record: Mapped[SaleRecord | None] = relationship(back_populates="data_issues")
 
 
+class AiAnalysis(Base):
+    """AI 分析结论缓存：按「功能 + 勾选条件 + 日期范围」缓存一份结论，避免重复调用大模型。"""
+
+    __tablename__ = "ai_analysis"
+    __table_args__ = (Index("ux_ai_analysis_cache_key", "cache_key", unique=True),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    cache_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    feature: Mapped[str] = mapped_column(String(64), nullable=False)
+    model: Mapped[str] = mapped_column(String(120), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, default=utc_now, nullable=False
+    )
+
+
 __all__ = [
+    "AiAnalysis",
     "DataIssue",
     "Grade",
     "ImportBatch",

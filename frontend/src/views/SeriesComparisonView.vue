@@ -7,6 +7,7 @@ import SeriesGradePriceChart from '../components/SeriesGradePriceChart.vue'
 import SeriesGradeShareChart from '../components/SeriesGradeShareChart.vue'
 import SeriesGradeTables from '../components/SeriesGradeTables.vue'
 import SeriesOverviewTable from '../components/SeriesOverviewTable.vue'
+import SeriesAiAnalysis from '../components/SeriesAiAnalysis.vue'
 import { formatNumber, formatPrice } from '../utils/format'
 import { settlementOptionLabel } from '../utils/settlementComparison'
 import {
@@ -188,6 +189,12 @@ onMounted(loadOptions)
     <SeriesGradeTables v-if="result.settlements.length" :items="result.settlements" :total="result.total" />
     <SeriesGradePriceChart :items="result.settlements" :loading="loadingComparison" />
     <SeriesGradeShareChart :items="result.settlements" :loading="loadingComparison" />
+    <SeriesAiAnalysis
+      :merchant-nos="selected"
+      :start-date="filters.startDate"
+      :end-date="filters.endDate"
+      :disabled="loadingComparison"
+    />
   </div>
 </template>
 

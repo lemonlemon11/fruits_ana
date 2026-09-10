@@ -9,6 +9,12 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_current_user
 from ..db import get_db
+from ..schemas import SeriesAnalysisRequest, SeriesAnalysisResponse
+from ..services.ai_analysis_service import (
+    AiCallFailed,
+    AiNotConfigured,
+    analyze_series_comparison,
+)
 from ..services.settlement_analytics_service import (
     get_daily_trend,
     get_overview,
@@ -16,6 +22,11 @@ from ..services.settlement_analytics_service import (
     get_settlement_detail,
 )
 from ..services.series_analytics_service import get_series_comparison
+
+
+# AI 分析一次最多覆盖的结算单数量，与前端勾选上限保持一致。
+MAX_ANALYSIS_SETTLEMENTS = 6
+MIN_ANALYSIS_SETTLEMENTS = 2
 
 
 router = APIRouter(
@@ -97,6 +108,39 @@ def series_comparison(
         start_date=start_date,
         end_date=end_date,
     )
+
+
+@router.post("/series-comparison/analysis", response_model=SeriesAnalysisResponse)
+def series_comparison_analysis(
+    payload: SeriesAnalysisRequest, db: Session = Depends(get_db)
+):
+    """按勾选的结算单生成 AI 分析结论；相同条件会直接返回缓存。"""
+
+    merchant_nos = list(
+        dict.fromkeys(
+            value.strip() for value in payload.merchant_no if value and value.strip()
+        )
+    )
+    if len(merchant_nos) < MIN_ANALYSIS_SETTLEMENTS:
+        raise HTTPException(422, "请至少选择两个结算单再生成分析")
+    if len(merchant_nos) > MAX_ANALYSIS_SETTLEMENTS:
+        raise HTTPException(
+            422, f"一次最多分析 {MAX_ANALYSIS_SETTLEMENTS} 张结算单"
+        )
+    if payload.start_date and payload.end_date and payload.start_date > payload.end_date:
+        raise HTTPException(422, "start_date 不能晚于 end_date")
+    try:
+        return analyze_series_comparison(
+            db,
+            merchant_nos=merchant_nos,
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            refresh=payload.refresh,
+        )
+    except AiNotConfigured as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except AiCallFailed as exc:
+        raise HTTPException(502, str(exc)) from exc
 
 
 __all__ = ["router"]

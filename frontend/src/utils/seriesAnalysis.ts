@@ -1,0 +1,62 @@
+/** AI 分析结论的展示解析：把大模型输出按固定小标题切成小节。 */
+
+export interface AnalysisSection {
+  title: string
+  points: string[]
+}
+
+/** 与后端提示词约定的小标题顺序保持一致。 */
+export const ANALYSIS_HEADINGS = ['整体行情', 'A果', 'B果', 'C果', '可以留意的地方'] as const
+
+const FALLBACK_TITLE = '分析结论'
+
+function cleanLine(rawLine: string): string {
+  return rawLine.replace(/^[#>\s]+/, '').replace(/\*\*/g, '').trim()
+}
+
+function matchHeading(line: string): string | null {
+  for (const heading of ANALYSIS_HEADINGS) {
+    if (line === heading) return heading
+    const rest = line.slice(heading.length)
+    if (line.startsWith(heading) && /^[：:，,。\s]/.test(rest)) return heading
+  }
+  return null
+}
+
+function stripBullet(line: string): string {
+  return line.replace(/^[-*·—•]\s*/, '').trim()
+}
+
+/** 把结论文本切成「小标题 + 要点」结构；没有小标题时归入「分析结论」。 */
+export function parseAnalysisSections(content: string): AnalysisSection[] {
+  const sections: AnalysisSection[] = []
+  let current: AnalysisSection | null = null
+
+  function push(title: string): AnalysisSection {
+    const section: AnalysisSection = { title, points: [] }
+    sections.push(section)
+    return section
+  }
+
+  for (const rawLine of (content ?? '').split(/\r?\n/)) {
+    const line = cleanLine(rawLine)
+    if (!line) continue
+
+    const heading = matchHeading(line)
+    if (heading) {
+      const remainder = stripBullet(line.slice(heading.length).replace(/^[：:，,。\s]+/, ''))
+      const section = push(heading)
+      if (remainder) section.points.push(remainder)
+      current = section
+      continue
+    }
+
+    const point = stripBullet(line)
+    if (!point) continue
+    if (current === null) current = push(FALLBACK_TITLE)
+    current.points.push(point)
+  }
+
+  const withPoints = sections.filter((section) => section.points.length > 0)
+  return withPoints.length ? withPoints : sections
+}

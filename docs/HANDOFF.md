@@ -1,6 +1,6 @@
 # HANDOFF
 
-Last updated：2026-09-10 16:16 (CST)
+Last updated：2026-09-10 16:34 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## Current Goal
@@ -55,8 +55,20 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## In Progress
 
-无在途开发任务；「系列对比」与「到达日期」文案统一均已完成开发与自动化验证，
-等待浏览器端手工验收（见 `docs/TODO.md`）。
+1. 「销售总览」商号筛选修复（未提交，2026-09-10）：
+   - `结算单销售情况` 之前固定用 `include_all_settlements=true` 的结果渲染列表，
+     选择商号后仍展示全部结算单；现已拆分为「下拉候选 = 全部结算单」+「展示列表 = 所选商号」。
+   - 单日商号的趋势图只剩一个 3px 圆点，看起来像「没生效」；现改为商号标题 +
+     加粗数据点 + 当天水平参考线 + 单日提示文案。
+   - 改动文件：`frontend/src/views/OverviewView.vue`、`frontend/src/components/TrendChart.vue`、
+     `frontend/src/utils/settlementComparison.ts`、`frontend/tests/overview-merchant-filter.test.ts`。
+2. 「系列对比」AI 分析结论（已实现并提交，等待浏览器验收）：
+   - 新增 `POST /api/analytics/series-comparison/analysis`（`backend/app/services/ai_analysis_service.py`、
+     `backend/app/ai_settings.py`、`ai_analysis` 缓存表）与前端 `SeriesAiAnalysis.vue` 卡片。
+   - 模型配置读仓库根 `.env`（`FRUIT_ANALYSIS_AI_*`），关闭「思考」后 2~3 秒返回，结果按条件缓存。
+   - 口径见 ADR-011；设计稿 `docs/superpowers/plans/2026-09-10-series-ai-analysis.md`。
+
+「系列对比」与「到达日期」文案统一均已完成开发与自动化验证，等待浏览器端手工验收（见 `docs/TODO.md`）。
 
 ## Incidents（已解决）
 
@@ -244,7 +256,24 @@ npm --prefix frontend run typecheck
 
 当前测试：PASS（2026-09-10 16:16 实测，对应「到达日期」文案统一后的工作区）
 
+### 追加验证（2026-09-10 16:30，商号筛选修复）
+
+- 前端 `npm --prefix frontend run test`：58 个用例通过，退出码 0
+  （含本次新增 `overview-merchant-filter.test.ts` 2 项；计数同时包含并行会话的 AI 分析用例）
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0
+- 前端 `vite build`：成功（1919 modules）
+- 后端 `pytest`：通过，退出码 0（本次未改后端，用于确认工作区未被破坏）
+- Playwright + Chromium 真实浏览器（真实 MySQL 数据）：选择商号后
+  `结算单销售情况` 收敛为该商号 1 行、趋势图标题带商号、单日商号显示参考线；未选择时为全部结算单
+
 已通过：
+
+- 后端 `pytest`：136 个用例全部通过，退出码 0（含本次 AI 分析 15 项）
+- 前端 `npm --prefix frontend run test`：58 个用例全部通过，退出码 0（含 AI 分析 5 项）
+- 前端 `npm --prefix frontend run typecheck`：通过（退出码 0）；`vite build`：成功
+- AI 分析真实联调（临时 8010 实例 + 真实 MySQL 数据 + 真实 DeepSeek 调用）：
+  3 张单据返回 200，件数 2848 / 金额 1242280 / 平均每件 436.19 元与表格一致；
+  同一条件二次调用 `cached=true` 且内容一致；联调期间创建的临时账号已清理。
 
 - 后端 `pytest`：121 个用例全部通过，退出码 0（商号维度 108 + 系列对比 13）
 - 前端 `npm --prefix frontend run test`：51 个用例全部通过，退出码 0（原有 43 + 系列对比 8；

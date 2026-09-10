@@ -178,6 +178,24 @@ class DataIssueRead(DataIssueCreate, ORMModel):
     created_at: datetime
 
 
+class SeriesAnalysisRequest(BaseModel):
+    """「系列对比」AI 分析的请求体。"""
+
+    merchant_no: list[str] = Field(default_factory=list)
+    start_date: date | None = None
+    end_date: date | None = None
+    refresh: bool = False
+
+
+class SeriesAnalysisResponse(BaseModel):
+    """AI 分析结论。"""
+
+    content: str
+    model: str
+    generated_at: datetime
+    cached: bool
+
+
 __all__ = [
     "DataIssueCreate",
     "DataIssueRead",
@@ -192,6 +210,8 @@ __all__ = [
     "SettlementDateRange",
     "SettlementListItem",
     "SettlementListResponse",
+    "SeriesAnalysisRequest",
+    "SeriesAnalysisResponse",
     "SettlementRecordRead",
     "SettlementRecordsResponse",
     "SourceFileCreate",
