@@ -78,14 +78,23 @@
 - Why：避免额外依赖体积与样式冲突，便于精确控制移动端布局与主题变量。
 - Consequences：新增图表需要自行实现，改动时注意移动端断点与主题变量一致性。
 
-## ADR-008 — 以「单号」作为结算单业务唯一键
+## ADR-008 — 以「商号」作为结算单业务唯一键
 
 - Date：2026-09-10
-- Status：Proposed（尚未实现，代码中暂无 `settlement_no`）
-- Context：同一柜号可能对应多张不同的结算单，仅用柜号会导致分析口径混淆。
-- Decision（拟）：保留 `import_batch.id` 作为内部主键，新增唯一业务键 `settlement_no`；
-  解析器从文件元数据读取单号，重复单号导入时由用户确认是否覆盖。
-- 依据文档：`docs/superpowers/specs/2026-09-10-settlement-number-identity-design.md`、
-  `docs/superpowers/plans/2026-09-10-settlement-number-identity.md`。
-- Consequences：涉及模型、导入服务、分析 API、前端筛选身份与数据回填脚本，属于跨层变更，
-  实施前需重新确认迁移与回填策略。若最终采纳，请将本条目状态改为 Accepted。
+- Status：Accepted
+- Context：柜号不唯一（637 与 640 两张结算单共用柜号 CBHU2970762），单号为客户侧编号且可能重复，
+  仅用柜号会导致分析口径混淆；商号是我司记录的商业合同唯一单据号。
+- Decision：`import_batch` 承担结算单职责并持有唯一业务键 `merchant_no`（商号），
+  同时保存 `order_no`（单号）、`container_no`（柜号，可为空）、`vehicle_no`（转运车号）；
+  分析、导出、前端全部以商号作为查询与归集维度，`sale_record` 不再保存柜号。
+  同一商号再次导入默认返回 `conflict`，用户确认后以覆盖方式替换整张结算单。
+- 界面约定：下拉框按用户要求展示**单号**，取值仍为商号（唯一键），避免重复柜号或重复单号造成误选。
+- Why：1) 商号来自我司合同，业务上唯一且可追溯；2) 柜号可能缺失或重复，不适合做身份；
+  3) 覆盖式导入保证「一张商号 = 一份最新结算单」，避免同一张单据出现多份明细。
+- Alternatives：以单号 `settlement_no` 作唯一键（不采用：单号为客户侧编号，规则上允许重复）；
+  以柜号作唯一键（不采用：已证明重复且可能缺失）。
+- 依据文档：`docs/superpowers/specs/2026-09-10-merchant-number-dimension-design.md`、
+  `docs/superpowers/plans/2026-09-10-merchant-number-dimension.md`；
+  早期「单号唯一键」方案（`2026-09-10-settlement-number-identity-*`）已被本条目取代。
+- Consequences：`sale_record.container_id/container_name`、`container_summary` 表已废弃，
+  线上库需执行 `backend/scripts/backfill_settlement_identity.py` 完成表结构迁移与商号回填（含 SQL 快照）。

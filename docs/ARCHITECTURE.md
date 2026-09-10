@@ -15,10 +15,12 @@ Browser (Vue 3 SPA, Vite dev server :53000)
 FastAPI (:8000)  backend/app/main.py
         ├── api/auth.py      注册 / 登录 / 会话
         ├── api/imports.py   上传、批次列表、问题明细
-        ├── api/analytics.py 总览 / 趋势 / 货柜对比 / 单柜详情
-        └── api/exports.py   总览 CSV、单柜 xlsx、原始文件下载
+        ├── api/analytics.py 总览 / 趋势 / 结算单对比 / 结算单详情
+        ├── api/settlements.py 数据明细列表 / 单张结算单全部明细
+        └── api/exports.py   总览 CSV、结算单 xlsx、原始文件下载
         ▼
-services/  analytics_service / overview_service / container_detail_service
+services/  analytics_core / settlement_analytics_service / overview_service
+           settlement_detail_service / settlement_list_service
            import_service / issue_service
         ▼
 parser/    settlement_parser / settlement_summary / decimal_values
@@ -40,26 +42,36 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 ### Import Pipeline（`backend/app/api/imports.py`、`services/import_service.py`、`parser/`）
 
 - 职责：接收 `.xlsx` / `.xls` / `.csv`，解析结算单版式，写入批次、源文件、销售记录、
-  货柜汇总与数据问题。
-- 幂等：按文件内容哈希识别重复导入，不产生重复销售记录。
+  结算摘要与数据问题。
+- 身份：以商号（`import_batch.merchant_no`）作为结算单唯一业务键；柜号可为空且可重复。
+- 覆盖：同一商号再次上传返回 `conflict`，确认后以 `?overwrite=true` 在同一事务内替换旧结算单。
 - 等级映射：`A/A6 → A`、`B/B6 → B`、`C/C6/BC/BC6 → C`。
 - 缺失字段或未知等级的行不写入销售事实，其余有效行继续导入，并生成 `data_issue` 明细。
 - 原始文件保存在 `backend/data/uploads/`（不入库、不提交 Git）。
 
 ### Analytics（`backend/app/api/analytics.py`、`services/*`）
 
-- 职责：总览指标、A/B/C 趋势、货柜对比、单柜摘要与明细。
-- `analytics_service` 为对外门面；`overview_service`、`container_detail_service` 负责具体聚合。
+- 职责：总览指标、A/B/C 趋势、结算单对比、结算单摘要与明细。
+- `analytics_service` 为兼容门面；`analytics_core` 提供筛选与指标，`settlement_analytics_service`
+  提供对比/详情/异常，`overview_service`、`settlement_detail_service` 负责具体聚合。
+- 查询维度：`merchant_no`；柜号不再是查询条件。
 - 指标口径见 `README.md`，任何口径变化必须记入 `DECISIONS.md`。
+
+### Settlement List（`backend/app/api/settlements.py`、`services/settlement_list_service.py`）
+
+- 职责：「数据明细」页列表与单张结算单全部明细。
+- 默认范围：最新销售日期往前一个自然月；可用 `start_date` / `end_date` / `merchant_no` 覆盖。
 
 ### Export（`backend/app/api/exports.py`）
 
-- 职责：总览 CSV 导出、单柜 xlsx 导出、单条记录关联的原始文件下载。
+- 职责：总览 CSV 导出、结算单 xlsx 导出、单条记录关联的原始文件下载。
 
 ### Frontend（`frontend/src`）
 
-- 视图：`OverviewView`（总览看板）、`ContainerComparisonView`（货柜对比）、
-  `ContainerView`（单柜诊断）、`ImportView`（导入）、`LoginView` / `RegisterView` / `PublicPreviewView`。
+- 视图：`OverviewView`（总览看板）、`SettlementListView`（数据明细）、
+  `SettlementComparisonView`（结算单对比）、`SettlementView`（结算单诊断）、`ImportView`（导入）、
+  `LoginView` / `RegisterView` / `PublicPreviewView`。
+- 下拉框：展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
 - 图表为手写 SVG 组件，不引入图表库。
 - API 契约集中在 `api/types.ts` + `api/normalize.ts` + `api/client.ts`，后端字段变更必须同步这三处。
 - 路由守卫在 `main.ts`：`requiresAuth` 保护业务页，`guestOnly` 让已登录用户跳过登录/注册页；
@@ -84,7 +96,7 @@ LoginView
 ImportView
   → POST /api/imports (multipart)
   → import_service 计算内容哈希 → 去重判断
-  → parser 解析结算单 → SaleRecord / ContainerSummary
+  → parser 解析结算单（商号/单号/柜号/转运车号 + 明细）→ SaleRecord / SettlementSummary
   → 校验异常 → DataIssue
   → 返回批次统计；问题明细走 GET /api/imports/{id}/issues[.csv]
 ```
@@ -92,9 +104,10 @@ ImportView
 ### 分析查询
 
 ```text
-OverviewView / ContainerView / ContainerComparisonView
-  → GET /api/analytics/overview | /trend | /containers/{id} | /container-comparison
-  → analytics_service 聚合（按日期范围筛选，按销售日期而非导入时间）
+OverviewView / SettlementView / SettlementComparisonView / SettlementListView
+  → GET /api/analytics/overview | /trend | /settlements/{merchant_no} | /settlement-comparison
+  → GET /api/settlements | /api/settlements/{merchant_no}/records
+  → 分析服务聚合（按日期与商号筛选，按销售日期而非导入时间）
   → normalize.ts 归一化 → SVG 图表渲染
 ```
 
@@ -104,15 +117,17 @@ OverviewView / ContainerView / ContainerComparisonView
 | --- | --- |
 | `user` | 登录账号（用户名唯一，Argon2 哈希） |
 | `user_session` | 服务端会话（token 哈希 + 过期时间） |
-| `import_batch` | 一次导入的处理结果与计数 |
+| `import_batch` | 一张结算单：商号（唯一）、单号、柜号、转运车号与导入计数 |
 | `source_file` | 原始文件引用 + 内容哈希 |
 | `sale_record` | 销售事实行（含等级、数量、单价、金额） |
-| `container_summary` | 按货柜/批次的汇总结算数据 |
+| `settlement_summary` | 按结算单（`import_batch_id` 唯一）的汇总结算数据 |
 | `data_issue` | 导入过程中的问题明细 |
 
 ## Constraints
 
-- 必须保持：现有 API 路径与响应字段的向后兼容；变更需同步前端 `api/types.ts`。
+- 必须保持：API 变更需同步前端 `api/types.ts` + `api/normalize.ts` + `api/client.ts`。
+- 已变更（2026-09-10）：柜号维度接口 `/api/analytics/containers*` 已被
+  `/api/analytics/settlements*` 取代，前端旧路由 `/containers`、`/container-comparison` 保留重定向。
 - 必须保持：`BC` 归入 `C` 的等级口径；报表展示仍为「C 果（含 BC）」。
 - 必须保持：日期筛选按销售日期计算，不按导入时间。
 - 必须保持：MySQL schema 变更需提供可重复执行的迁移脚本（参考 `backend/scripts/`）。
