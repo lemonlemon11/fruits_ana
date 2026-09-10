@@ -1,32 +1,42 @@
 # 水果等级销售经营分析平台
 
-面向管理者的水果等级销售工作台，重点比较 A/B/C 三类水果的销量、
-销售额、加权均价和数量占比。原始 `BC` 等级统一计入 C，并在页面中显示为
+面向果农的简明水果销售分析工具，重点查看 A/B/C 三类水果的销量、
+销售额、平均每件售价和数量占比。原始 `BC` 等级统一计入 C，并在页面中显示为
 “C 果（含 BC）”。回款、费用和清关数据仅用于解释单柜经营结果。
 
 ## 本地启动
 
-后端使用 FastAPI 和 SQLite。首次运行会在
-`backend/data/fruit_analysis.sqlite3` 创建本地数据库：
+后端使用 FastAPI、SQLAlchemy 和 MySQL。先在项目根目录安装依赖：
 
-```powershell
-cd backend
-python -m uvicorn app.main:app --reload
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+npm --prefix frontend ci
 ```
 
-健康检查：`http://127.0.0.1:8000/health`，接口文档：
-`http://127.0.0.1:8000/docs`。
+复制 `backend/.env.example` 为 `backend/.env`，填写 MySQL 密码。`.env` 已被
+Git 忽略，也可以直接通过系统环境变量提供同名配置。若设置
+`FRUIT_ANALYSIS_DATABASE_URL`，它的优先级高于各项 `FRUIT_ANALYSIS_DB_*` 配置。
 
-前端使用 Vue 3 和 Vite：
+然后使用脚本同时启动前后端：
 
-```powershell
-cd frontend
-npm install
-npm run dev
+```bash
+./start.sh
 ```
 
-默认前端地址为 `http://127.0.0.1:5173`。开发环境如需连接其他后端，设置
-`VITE_API_BASE_URL`；未设置时使用同源 `/api`。
+网页地址为 `http://127.0.0.1:53000`。后端健康检查为
+`http://127.0.0.1:8000/health`，接口文档为 `http://127.0.0.1:8000/docs`。
+
+也可以分别启动服务：
+
+```bash
+.venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
+npm --prefix frontend run dev -- --host 0.0.0.0 --port 53000 --strictPort
+```
+
+启动脚本支持通过 `BACKEND_HOST`、`BACKEND_PORT`、`FRONTEND_HOST` 和
+`FRONTEND_PORT` 覆盖默认监听地址及端口。前端开发环境使用同源 `/api`，由 Vite
+代理到 `http://127.0.0.1:8000`。
 
 ## 导入文件
 
@@ -36,7 +46,7 @@ npm run dev
 - 等级映射为 `A/A6 -> A`、`B/B6 -> B`、`C/C6/BC/BC6 -> C`。
 - 缺字段或未知等级的行不会写入销售事实；其他有效行继续导入。
 - 文件内容哈希相同会识别为重复导入，不产生重复销售记录。
-- 原始上传文件和 SQLite 数据库都位于 `backend/data/`，该目录不会提交到 Git。
+- 原始上传文件位于 `backend/data/uploads/`，业务数据保存在 MySQL；这些文件均不会提交到 Git。
 
 ## 指标口径
 
@@ -46,19 +56,42 @@ npm run dev
 - 数量占比：某等级销售数量 / 同一筛选范围总销售数量。
 - 日期筛选按销售日期计算，不按导入时间计算。
 
+## SQLite 数据迁移
+
+确认目标 MySQL 业务表为空后，在项目根目录执行：
+
+```bash
+.venv/bin/python -m scripts.migrate_sqlite_to_mysql
+```
+
+迁移工具读取 `backend/data/fruit_analysis.sqlite3`，自动创建 MySQL 表并按外键顺序
+复制数据，最后校验每张表的行数。若目标库已有业务数据会直接停止，不会覆盖。
+
+## 认证表结构变更
+
+注册已取消邮箱字段，登录改用“用户名 + 密码”，`user` 表以 `display_name` 作为唯一用户名。
+已建库的环境执行一次幂等迁移（会删除 `user.email` 列及其唯一索引；存在忽略大小写的重名用户时拒绝执行）：
+
+```bash
+.venv/bin/python -m scripts.migrate_user_to_username
+```
+
 ## 数据备份
 
-停止后端服务后，备份整个 `backend/data/` 目录即可保留数据库和上传文件。
-恢复时将备份放回相同位置。不要把该目录、真实结算单或其他业务附件提交到远程仓库。
+MySQL 数据应使用服务端备份策略，也可手动导出：
+
+```bash
+mysqldump -h <host> -P <port> -u <user> -p fruits_ana > fruits_ana.sql
+```
+
+`backend/data/uploads/` 仍需单独备份；迁移完成后建议暂时保留原 SQLite 文件作为
+只读回滚快照。不要把数据库导出、真实结算单或其他业务附件提交到远程仓库。
 
 ## 验证
 
-```powershell
-cd backend
-python -m pytest -q --basetemp=.pytest-tmp
-
-cd ..\frontend
-npm run build
+```bash
+.venv/bin/python -m pytest backend/tests -q --basetemp=backend/.pytest-tmp
+npm --prefix frontend run build
 ```
 
 ## 已预留待办
@@ -66,4 +99,3 @@ npm run build
 用户后续会提供一份包含更细数据详情的表格。收到后需确认主键、柜号/日期关联键、
 新增字段和重复数据规则，再扩展导入与分析；当前模型已保留 `spec_raw`、`remark`、
 `sales_region`、批次 ID 和源文件 ID，首期不臆测该文件结构。
-
