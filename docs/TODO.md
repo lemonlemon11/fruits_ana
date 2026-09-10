@@ -5,7 +5,8 @@
 
 ## P0 — 当前必须完成
 
-- [ ] 统一 README 与代码的前端端口描述（README 写 `53000`，`start.sh` / `vite.config.ts` 用 `53001`）
+- [ ] 端口描述：并发会话已在工作区把 `start.sh` / `vite.config.ts` 改为 `53000`（与 README 一致），
+  尚未提交；确认其改动完整后收口提交
 
 > 已完成并移除：在途改动拆分提交（`33a5aef`..`f892c49`）、修复 `farmer-ui-copy` 断言失败。
 

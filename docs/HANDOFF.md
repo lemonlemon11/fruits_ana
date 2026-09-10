@@ -1,6 +1,6 @@
 # HANDOFF
 
-Last updated：2026-09-10 14:45 (CST)
+Last updated：2026-09-10 14:35 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## Current Goal
@@ -44,7 +44,7 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 1. 只读复述当前状态并与用户确认，再决定做哪一项。
 2. 候选任务（优先级从高到低）：
    a. 浏览器端手工验收公开预览页与登录流程（自动化测试已通过，但无端到端验证）。
-   b. 统一前端端口描述：README 写 `53000`，`start.sh` / `vite.config.ts` 用 `53001`。
+   b. 端口描述已由并发会话在工作区统一为 `53000`（`start.sh` / `vite.config.ts`），待确认后收口提交。
    c. 把 `.superpowers/`、`.superpowersigeria/`、`attachments/` 加入 `.gitignore`（配置变更，需确认）。
    d. 结算单单号身份 `settlement_no`（ADR-008 仍为 Proposed，启动前必须确认数据回填与覆盖策略）。
 3. 每次改动后运行基线验证，再按功能提交。
@@ -74,7 +74,13 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 ## Important Context
 
 - 项目状态以文件 + Git 为准，不要依赖任何单次对话上下文。
-- 当前分支 `dev`，本批提交范围 `8e2ce11..f892c49`。
+- 当前分支 `dev`，本批提交范围 `8e2ce11..b2df429`。
+- ⚠️ 2026-09-10 14:31–14:32 检测到**另一个会话在并发修改工作区**：
+  `frontend/src/components/AuthPortal.vue`（新增）、`views/LoginView.vue`、`views/RegisterView.vue`、
+  `styles-auth.css`（认证页 Portal 重构），以及 `vite.config.ts` / `start.sh`（端口改回 `53000`）。
+  这些改动**未被本批任何提交包含**，请勿与本批提交混为一谈；接手前先确认并发会话是否已结束。
+- 本批 `c197322` 提交的认证页版本不依赖 `AuthPortal.vue`（已核对），可与后续重构并存，
+  但若并发会话已重构认证页，请以最新工作区为准重新核对该提交内容。
 - 仓库未配置全局 git 身份，已设置**仓库级** `user.name=Thomas Lin` / `user.email=bill56789@126.com`
   以与历史提交保持一致；如需更换请自行修改。
 - 前端没有 `npm test` / `lint` / `typecheck` 脚本，前端测试需手动执行：
@@ -145,7 +151,10 @@ node --experimental-strip-types --test frontend/tests/*.test.ts frontend/tests/*
 
 ## Test Status
 
-当前测试：PASS（最终提交 `f892c49` 实测，2026-09-10 14:44）
+当前测试：PASS（2026-09-10 14:30 实测，覆盖当时的完整工作区）
+
+注意：该结果早于 14:31–14:32 的并发改动，尚未覆盖并发会话正在改的认证页 Portal 重构。
+接手后请重新执行下列命令确认（不要直接沿用本结论）。
 
 已通过：
 
