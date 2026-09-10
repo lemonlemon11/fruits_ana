@@ -7,7 +7,7 @@ PYTHON_BIN="$PROJECT_DIR/.venv/bin/python"
 BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_HOST="${FRONTEND_HOST:-0.0.0.0}"
-FRONTEND_PORT="${FRONTEND_PORT:-53001}"
+FRONTEND_PORT="${FRONTEND_PORT:-53000}"
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
   echo "错误：未找到虚拟环境，请先运行 python3 -m venv .venv。" >&2
