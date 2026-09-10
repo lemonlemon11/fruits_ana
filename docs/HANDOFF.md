@@ -1,29 +1,35 @@
 # HANDOFF
 
-Last updated：2026-09-10 15:58 (CST)
+Last updated：2026-09-10 16:20 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## Current Goal
 
-把结算单身份从「柜号」重构为「商号」，并新增「数据明细」页；代码、测试、文档、
-线上库迁移与浏览器端到端验收均已完成，**等待统一提交**。
+新增「系列对比」页与 `GET /api/analytics/series-comparison`：按勾选的业务单（可同系列、可跨系列）
+输出 A/B/C 独立指标、价差与可视化图表。开发与自动化验证已完成并提交，
+**等待浏览器端手工验收**。
 
 ## Current Status
 
-状态：IMPLEMENTATION COMPLETE / MIGRATED / ACCEPTED（待提交）
+状态：IMPLEMENTATION COMPLETE / COMMITTED / 待浏览器验收
 
 当前进度：
-1. 后端已完成商号维度重构：解析、模型、导入覆盖、分析拆分、数据明细 API 与导出。
-2. 前端已完成改名与口径替换：新增「数据明细」页与查看明细弹窗，下拉框改为按单号展示、商号取值。
-3. 迁移脚本 `backend/scripts/backfill_settlement_identity.py` 已完成并在 SQLite 上验证，
-   对线上 MySQL 的 dry-run 输出符合预期（4 个批次可解析出 单637 / 单624 / 626 / 640）。
-4. 线上 MySQL 已于 2026-09-10 15:40 完成结构迁移（`--apply`）并重启 `fruits-ana`；
-   迁移前快照 `backend/data/snapshot-settlement-20260910-154020.sql`。
-5. 浏览器端到端验收 15 项全部 PASS（Playwright + Chromium，`http://127.0.0.1:53000`）。
-6. 本批改动尚未提交（仓库由并发会话统一提交）。
+1. 上一批「商号维度重构」已由本会话复核并拆分为 7 个提交（`0160fdf`..`2160b38`），工作区已收口。
+2. 系列识别口径落定为「单号中文前缀」，写入 ADR-009；均价口径为元/件（用户确认）。
+3. 后端新增 `series_analytics_service` 与 `/api/analytics/series-comparison`，
+   `GET /api/settlements` 追加 `series` 字段，新增 13 项后端用例。
+4. 前端新增「系列对比」页（勾选业务单 + 总览表 + A/B/C 独立表 + 价差表 + 两张图表），
+   新增 8 项前端用例并同步响应式与菜单守卫测试。
+5. 真实数据核对：线上 4 张结算单结果与设计稿基线完全一致；其中宝贝01/02/003 三张的
+   A/B/C 件数、金额、均价、价差与用户手算结果**逐项一致**。
+6. 本批 3 个提交已入库，工作区干净；等待浏览器端手工验收。
 
 ## Completed
 
+- [x] `57468ee feat(backend): 增加按系列组织的结算单对比分析`（13 项用例）
+- [x] `7703981 feat(frontend): 增加系列对比页面与图表`（8 项用例）
+- [x] `58d164b docs: 记录系列对比口径与实现范围`（ADR-009 + 设计稿修订段落）
+- [x] `0160fdf`..`2160b38` 商号维度重构与本批次收口提交（7 个）
 - [x] 商号维度重构（解析 / 模型 / 导入 / 分析 / 导出 / 前端）
 - [x] 新增「数据明细」页与结算单明细弹窗
 - [x] 下拉框改为「单号展示 + 商号取值」，柜号退回为普通字段
@@ -43,7 +49,7 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## In Progress
 
-无在途开发任务；仅剩最终提交与少量待办（见 `docs/TODO.md`）。
+无在途开发任务；「系列对比」已完成开发与自动化验证，等待浏览器端手工验收（见 `docs/TODO.md`）。
 
 ## Incidents（已解决）
 
@@ -92,10 +98,10 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 1. 只读复述当前状态并与用户确认，再决定做哪一项。
 2. 候选任务（优先级从高到低）：
-   a. 把本批商号维度改动按功能提交（本仓库由并发会话统一提交，先与用户确认）。
-   b. 移动端布局手工验收；导入覆盖确认（`?overwrite=true`）的浏览器端验收。
-   c. 把 `.superpowers/`、`.superpowersigeria/`、`attachments/` 加入 `.gitignore`（配置变更，需确认）。
-   d. 为前端补 `npm test` / `typecheck` 脚本，统一测试入口。
+   a. 浏览器端验收「系列对比」页：勾选同系列与跨系列业务单、确认四张表与两张图正确、移动端不溢出。
+   b. 系列对比的后续能力：到港日期字段与一次库迁移、元/KG 口径、AI 分析结论、Excel 导出、系列别名字典。
+   c. 真实业绩数据到位后的整体回归验收（目前线上只有 4 张示例结算单）。
+   d. 根目录 `.env` 中未使用的 `FRUIT_ANALYSIS_AI_*` 配置确认去留（见 Known Issues 1）。
 3. 每次改动后运行基线验证，再按功能提交。
 
 ## Known Issues
@@ -112,6 +118,12 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 - 已补 `frontend/package.json` 的 `test` / `typecheck` 脚本；
   `tsconfig.json` 增加 `allowImportingTsExtensions` + `noEmit`、`include` 收敛到 `src`，
   并新增 `src/shims-vue.d.ts` 声明 `*.vue`，因此无需引入 `vue-tsc` 或 `@types/node`。
+
+### Issue 3 — 系列识别依赖单号命名规范（已知限制）
+
+- 问题：系列取自单号的中文前缀，单号不规范（如 `626`、空单号）会归入「未识别系列」。
+- 当前判断：这是 ADR-009 的既定取舍，不阻塞分析，但系列名可能不等于业务预期品牌。
+- 下一步：若业务需要固定品牌名与别名，再考虑新增品牌字典（见 `docs/TODO.md`）。
 
 ### 已修复（留档）
 
@@ -139,6 +151,10 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
   新增或修改认证页时请复用该骨架，不要各自复制布局。
 - 默认路由：`/` → `/login`；已登录用户经 `guestOnly` 守卫跳 `/overview`；
   `/preview` 仍是公开只读演示页，但需直接访问，不再是默认入口。
+- 系列与对比口径（ADR-009）：系列 = 单号 `order_no` 开头连续中文前缀；对比主体是结算单（商号），
+  均价 = 销售金额 ÷ 件数（元/件）；一次最多勾选 6 张结算单；不传 `merchant_no` 时返回范围内全部结算单。
+- 「系列对比」页的勾选变化会立即重新请求 `GET /api/analytics/series-comparison`（带 requestVersion 竞态保护），
+  日期筛选仍需点击按钮，符合「筛选控件不自动查询」的既有约定。
 - 仓库未配置全局 git 身份，已设置**仓库级** `user.name=Thomas Lin` / `user.email=bill56789@126.com`
   以与历史提交保持一致；如需更换请自行修改。
 - 前端测试命令统一为 `npm --prefix frontend run test`，类型检查为 `npm --prefix frontend run typecheck`
@@ -179,6 +195,10 @@ frontend/src/components/AuthPortal.vue   # 登录/注册共用骨架
 frontend/src/api/types.ts                # API 契约
 frontend/src/views/ImportView.vue        # 导入页（本轮修复点）
 frontend/src/views/PublicPreviewView.vue # 免登录演示页（/preview）
+backend/app/services/series_analytics_service.py  # 系列识别、A/B/C 指标、价差与系列汇总
+frontend/src/views/SeriesComparisonView.vue       # 系列对比页
+frontend/src/components/SeriesGradePriceChart.vue # A/B/C 均价对比图
+frontend/src/components/SeriesGradeShareChart.vue # 等级件数占比图
 docs/ARCHITECTURE.md
 docs/DECISIONS.md
 docs/TODO.md
@@ -211,45 +231,44 @@ npm --prefix frontend run typecheck
 
 ## Test Status
 
-当前测试：PASS（2026-09-10 15:45 实测，对应**未提交**的商号维度工作区）
+当前测试：PASS（2026-09-10 16:15 实测，对应已提交的 `58d164b` 工作区）
 
 已通过：
 
-- 后端 `pytest`：108 个用例全部通过，退出码 0
-- 前端 `npm --prefix frontend run test`：43 个用例全部通过，退出码 0
-- 前端 `npm --prefix frontend run typecheck`：通过（新增 `src/shims-vue.d.ts`）
+- 后端 `pytest`：121 个用例全部通过，退出码 0（商号维度 108 + 系列对比 13）
+- 前端 `npm --prefix frontend run test`：51 个用例全部通过，退出码 0（原有 43 + 系列对比 8）
+- 前端 `npm --prefix frontend run typecheck`：通过
 - 前端 `vite build`：成功
-- 浏览器端到端（Playwright + Chromium）：桌面端 15 项 + 移动端/导入覆盖 23 项检查全部通过
-
-- 浏览器端到端（Playwright + Chromium）：15 项检查全部通过
-- 线上 MySQL 迁移后真实数据联调：4 张结算单（单637 / 单624 / 626 / 640）、86 条明细、
-  `settlement_summary` 4 行
+- 线上 MySQL 真实数据核对（`series_analytics_service`，2026-09-10 16:10）：
+  4 张结算单合计 3,821 件 / ¥1,654,520 / 均价 ¥433.0071，与设计稿基线（¥433.01）一致；
+  宝贝01/02/003 三张的 A/B/C 件数、金额、均价、价差与用户手算结果逐项一致。
+- 浏览器端到端（Playwright + Chromium）：商号维度批次 15 + 23 项检查通过（系列对比页尚未做）。
 
 失败：无
 
 尚未测试：
 
+- 「系列对比」页的浏览器端手工与端到端验收（自动化用例已覆盖，但无真实浏览器验收）
 - 真实业务数据（当前线上只有 4 张示例结算单）覆盖不到的字段组合
 
 ## Git State
 
 Branch：`dev`
 
-Latest commits（本批）：
+Latest commits：
 
 ```text
-2a71d04 feat(ui): 默认入口改为登录页
-3a67116 fix(config): 统一前端端口为 53000
-d9ea10a feat(auth): 重构登录注册为门户布局
-9172d8d docs(agent): 校正交接时间并记录并发改动
-b2df429 docs(agent): 更新交接状态与待办
-f892c49 docs: 更新启动、数据库与认证说明
-2e68deb feat(ui): 重构总览与货柜对比页面
-c197322 feat(auth): 增加用户名认证与免登录预览
-710e483 chore(project): 迁移 MySQL 配置并补齐依赖与启动脚本
-66d4a81 docs(agent): 建立多模型交接机制
-33a5aef docs: 归档设计与实施计划文档
+58d164b docs: 记录系列对比口径与实现范围
+7703981 feat(frontend): 增加系列对比页面与图表
+57468ee feat(backend): 增加按系列组织的结算单对比分析
+2160b38 docs(agent): 更新交接状态
+e0ce64b chore(project): 忽略本地工具状态与业务附件
+9270c4b docs: 记录商号维度设计与迁移决策
+bbcd09e refactor(frontend): 页面口径切换到商号维度
+72e6d66 chore(frontend): 补充 test 与 typecheck 脚本
+aaea0f8 feat(auth): 认证页接入本地榴莲主图
+0160fdf refactor(backend): 以商号替换柜号作为结算单唯一键
 ```
 
-Uncommitted changes：本批商号维度改动（后端 + 前端 + 文档）全部未提交；
-另有 3 个未跟踪目录（`.superpowers/`、`.superpowersigeria/`、`attachments/`）不应提交。
+Uncommitted changes：无；`.superpowers/`、`.superpowersigeria/`、`attachments/`
+已加入 `.gitignore`，不会被提交。
