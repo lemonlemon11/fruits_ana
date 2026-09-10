@@ -1,4 +1,4 @@
-"""货柜详情的结算摘要、销售周期和来源明细。"""
+"""结算单详情的结算摘要、销售周期和来源明细。"""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from ..models import ContainerSummary, ImportBatch, SaleRecord
+from ..models import ImportBatch, SaleRecord, SettlementSummary
 
 
 SETTLEMENT_FIELDS = {
@@ -25,25 +25,16 @@ def _empty_settlement() -> dict:
     return {field: None for field in SETTLEMENT_FIELDS}
 
 
-def _settlement(
-    db: Session, container_id: str, records: list[SaleRecord]
-) -> dict:
-    batch_ids = {
-        record.import_batch_id
-        for record in records
-        if record.import_batch_id is not None
-    }
-    query = (
-        db.query(ContainerSummary)
-        .join(ImportBatch, ContainerSummary.import_batch_id == ImportBatch.id)
-        .filter(ContainerSummary.container_id == container_id)
-        .order_by(ImportBatch.imported_at.desc(), ContainerSummary.id.desc())
+def _settlement(db: Session, batch_id: int) -> dict:
+    summary = (
+        db.query(SettlementSummary)
+        .filter(SettlementSummary.import_batch_id == batch_id)
+        .first()
     )
-    if batch_ids:
-        query = query.filter(ContainerSummary.import_batch_id.in_(batch_ids))
-    summary = query.first()
-    return _empty_settlement() if summary is None else {
-        field: _number(getattr(summary, model_field)) if summary else None
+    if summary is None:
+        return _empty_settlement()
+    return {
+        field: _number(getattr(summary, model_field))
         for field, model_field in SETTLEMENT_FIELDS.items()
     }
 
@@ -60,11 +51,12 @@ def _record_payload(record: SaleRecord) -> dict:
         "quantity": _number(record.quantity),
         "unit_price": _number(record.unit_price),
         "amount": _number(record.amount),
+        "remark": record.remark,
     }
 
 
-def get_container_context(
-    db: Session, container_id: str, records: list[SaleRecord]
+def get_settlement_context(
+    db: Session, batch: ImportBatch, records: list[SaleRecord]
 ) -> dict:
     """返回详情页所需的结算、销售周期和来源明细。"""
 
@@ -74,9 +66,20 @@ def get_container_context(
             "start_date": min(dates).isoformat() if dates else None,
             "end_date": max(dates).isoformat() if dates else None,
         },
-        "settlement": _settlement(db, container_id, records),
+        "settlement": _settlement(db, batch.id),
         "records": [_record_payload(record) for record in records],
     }
 
 
-__all__ = ["get_container_context"]
+def get_settlement_records(db: Session, batch_id: int) -> list[dict]:
+    """返回该结算单的全部销售明细，供「查看明细」使用。"""
+
+    query = (
+        db.query(SaleRecord)
+        .filter(SaleRecord.import_batch_id == batch_id)
+        .order_by(SaleRecord.sale_date, SaleRecord.id)
+    )
+    return [_record_payload(record) for record in query.all()]
+
+
+__all__ = ["get_settlement_context", "get_settlement_records"]

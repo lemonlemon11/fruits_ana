@@ -90,11 +90,18 @@ class UserSession(Base):
 
 
 class ImportBatch(Base):
-    """一次或一组文件导入的处理结果。"""
+    """一张结算单（以商号为业务唯一键）的导入结果。"""
 
     __tablename__ = "import_batch"
+    __table_args__ = (Index("ux_import_batch_merchant_no", "merchant_no", unique=True),)
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # 商号是我司商业合同唯一单据号；单号/柜号/转运车号允许重复或缺失。
+    merchant_no: Mapped[str] = mapped_column(String(128), nullable=False)
+    order_no: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    container_no: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    vehicle_no: Mapped[str | None] = mapped_column(String(128), nullable=True)
     imported_at: Mapped[datetime] = mapped_column(
         PRECISE_DATETIME, default=utc_now, nullable=False
     )
@@ -110,7 +117,7 @@ class ImportBatch(Base):
     sale_records: Mapped[list[SaleRecord]] = relationship(
         back_populates="import_batch", cascade="all, delete-orphan"
     )
-    container_summaries: Mapped[list[ContainerSummary]] = relationship(
+    settlement_summaries: Mapped[list[SettlementSummary]] = relationship(
         back_populates="import_batch", cascade="all, delete-orphan"
     )
     data_issues: Mapped[list[DataIssue]] = relationship(
@@ -146,7 +153,6 @@ class SaleRecord(Base):
     __table_args__ = (
         CheckConstraint("grade IN ('A', 'B', 'C')", name="ck_sale_record_grade"),
         Index("ix_sale_record_sale_date", "sale_date"),
-        Index("ix_sale_record_container_id", "container_id"),
         Index("ix_sale_record_grade", "grade"),
     )
 
@@ -157,8 +163,6 @@ class SaleRecord(Base):
     source_file_id: Mapped[int | None] = mapped_column(
         ForeignKey("source_file.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    container_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    container_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sale_date: Mapped[date] = mapped_column(Date, nullable=False)
     fruit_type: Mapped[str] = mapped_column(String(64), default="榴莲", nullable=False)
     grade_raw: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -184,20 +188,18 @@ class SaleRecord(Base):
     data_issues: Mapped[list[DataIssue]] = relationship(back_populates="sale_record")
 
 
-class ContainerSummary(Base):
-    """按货柜保存的结算摘要，作为销售明细的辅助解释信息。"""
+class SettlementSummary(Base):
+    """按结算单保存的结算摘要，作为销售明细的辅助解释信息。"""
 
-    __tablename__ = "container_summary"
+    __tablename__ = "settlement_summary"
     __table_args__ = (
-        Index("ix_container_summary_container_id", "container_id"),
+        Index("ux_settlement_summary_batch", "import_batch_id", unique=True),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     import_batch_id: Mapped[int] = mapped_column(
         ForeignKey("import_batch.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    container_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    container_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sales_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
     after_sale_amount: Mapped[Decimal | None] = mapped_column(
         Numeric(18, 4), nullable=True
@@ -209,7 +211,7 @@ class ContainerSummary(Base):
     payable_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
     remark: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    import_batch: Mapped[ImportBatch] = relationship(back_populates="container_summaries")
+    import_batch: Mapped[ImportBatch] = relationship(back_populates="settlement_summaries")
 
 
 class DataIssue(Base):
@@ -247,11 +249,11 @@ class DataIssue(Base):
 
 
 __all__ = [
-    "ContainerSummary",
     "DataIssue",
     "Grade",
     "ImportBatch",
     "SaleRecord",
+    "SettlementSummary",
     "SourceFile",
     "StandardGrade",
     "User",

@@ -7,7 +7,7 @@ from sqlalchemy.engine import make_url
 
 from app.db import Base, DATABASE_URL, SessionLocal, engine
 from app.services.import_service import import_file
-from app.models import ContainerSummary, DataIssue, ImportBatch, SaleRecord, SourceFile
+from app.models import DataIssue, ImportBatch, SaleRecord, SettlementSummary, SourceFile
 
 
 @pytest.fixture(autouse=True)
@@ -18,8 +18,12 @@ def clean_db():
 
 
 def write_csv(tmp_path, content: str):
+    """写 CSV fixture，并自动补齐商号列（商号为结算单唯一键）。"""
+
+    header, *rows = content.strip().splitlines()
     path = tmp_path / "sales.csv"
-    path.write_text(content, encoding="utf-8-sig")
+    lines = [f"商号,{header}", *[f"单624,{row}" for row in rows]]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
     return path
 
 
@@ -61,7 +65,7 @@ def test_csv_success_imports_normalized_sales(tmp_path):
     assert result.status == "success"
     assert result.success_count == 1
     record = db.query(SaleRecord).one()
-    assert record.container_id == "C001"
+    assert db.query(ImportBatch).one().merchant_no == "单624"
     assert record.sale_date == date(2026, 8, 1)
     assert record.grade_raw == "A6"
     assert record.grade.value == "A"
@@ -117,22 +121,75 @@ def test_missing_unit_price_is_derived_from_amount(tmp_path):
     db.close()
 
 
-def test_duplicate_file_returns_duplicate_without_new_records(tmp_path):
+def test_same_merchant_no_returns_conflict_without_changes(tmp_path):
     path = write_csv(
         tmp_path,
         "container_no,sale_date,grade,quantity,unit_price,amount\n"
         "C005,2026-08-05,A,1,2,2\n",
     )
+    changed = tmp_path / "changed.csv"
+    changed.write_text(
+        "商号,container_no,sale_date,grade,quantity,unit_price,amount\n"
+        "单624,C005,2026-08-06,A,5,2,10\n",
+        encoding="utf-8-sig",
+    )
     db = SessionLocal()
     first = import_file(db, path)
-    second = import_file(db, path, original_filename="renamed.csv")
+
+    second = import_file(db, changed)
 
     assert first.status == "success"
-    assert second.status == "duplicate"
+    assert second.status == "conflict"
     assert second.batch_id == first.batch_id
+    assert second.existing_batch_id == first.batch_id
+    assert second.merchant_no == "单624"
     assert db.query(SourceFile).count() == 1
     assert db.query(ImportBatch).count() == 1
     assert db.query(SaleRecord).count() == 1
+    db.close()
+
+
+def test_overwrite_replaces_previous_batch(tmp_path):
+    path = write_csv(
+        tmp_path,
+        "container_no,sale_date,grade,quantity,unit_price,amount\n"
+        "C005,2026-08-05,A,1,2,2\n",
+    )
+    changed = tmp_path / "changed.csv"
+    changed.write_text(
+        "商号,container_no,sale_date,grade,quantity,unit_price,amount\n"
+        "单624,C005,2026-08-06,A,5,2,10\n",
+        encoding="utf-8-sig",
+    )
+    db = SessionLocal()
+    first = import_file(db, path)
+
+    replaced = import_file(db, changed, overwrite=True)
+
+    assert replaced.status == "success"
+    assert replaced.obsolete_storage_path == str(path)
+    assert db.query(ImportBatch).filter_by(merchant_no="单624").count() == 1
+    assert first.batch_id is not None
+    assert db.query(ImportBatch).one().success_count == 1
+    assert [row.quantity for row in db.query(SaleRecord).all()] == [Decimal("5.0000")]
+    assert db.query(SourceFile).count() == 1
+    db.close()
+
+
+def test_missing_merchant_no_fails_with_file_level_error(tmp_path):
+    path = tmp_path / "no-merchant.csv"
+    path.write_text(
+        "container_no,sale_date,grade,quantity,unit_price,amount\n"
+        "C005,2026-08-05,A,1,2,2\n",
+        encoding="utf-8-sig",
+    )
+    db = SessionLocal()
+
+    result = import_file(db, path)
+
+    assert result.status == "failed"
+    assert "缺少商号" in (result.error_summary or "")
+    assert db.query(ImportBatch).count() == 0
     db.close()
 
 
@@ -159,6 +216,7 @@ def test_unknown_grade_and_missing_numeric_field_create_issues_and_skip_rows(tmp
 def test_excel_import_persists_container_summary_without_importing_summary_rows(tmp_path):
     path = tmp_path / "settlement.xlsx"
     rows = [[None] * 6 for _ in range(9)]
+    rows[4][1:3] = ["商号：", "单624"]
     rows[5][1:3] = ["柜号：", "MWCU0000003"]
     rows.extend(
         [
@@ -181,9 +239,10 @@ def test_excel_import_persists_container_summary_without_importing_summary_rows(
     result = import_file(db, path)
 
     assert result.success_count == 1
+    assert result.merchant_no == "单624"
+    assert result.container_no == "MWCU0000003"
     assert db.query(SaleRecord).count() == 1
-    summary = db.query(ContainerSummary).one()
-    assert summary.container_id == "MWCU0000003"
+    summary = db.query(SettlementSummary).one()
     assert summary.sales_amount == Decimal("1000.0000")
     assert summary.after_sale_amount == Decimal("-20.0000")
     assert summary.goods_amount == Decimal("980.0000")
@@ -213,5 +272,122 @@ def test_transaction_failure_rolls_back_all_import_objects(tmp_path, monkeypatch
     assert db.query(SourceFile).count() == 0
     assert db.query(SaleRecord).count() == 0
     assert db.query(DataIssue).count() == 0
-    assert db.query(ContainerSummary).count() == 0
+    assert db.query(SettlementSummary).count() == 0
+    db.close()
+
+
+def write_excel_settlement(tmp_path, file_name, merchant_no, container_no, sales_rows, payable):
+    """写 Excel 结算单 fixture：B5 商号 / B6 柜号 + 明细区 + 结算区摘要。"""
+
+    padding = [[None] * 6 for _ in range(9)]
+    padding[4][1:3] = ["商号：", merchant_no]
+    padding[5][1:3] = ["柜号：", container_no]
+    rows = [
+        *padding,
+        [None, "销售日期", "品种(规格)", "数量", "单价", "金额"],
+        *[[None, *row] for row in sales_rows],
+        [None, None, None, None, None, None],
+        [None, None, None, None, "销售金额：", payable],
+        [None, "应付贵方总金额(RMB)", None, None, None, payable],
+    ]
+    path = tmp_path / file_name
+    pd.DataFrame(rows).to_excel(path, index=False, header=False)
+    return path
+
+
+def test_overwrite_purges_previous_issues_and_summary_rows(tmp_path):
+    first_path = write_excel_settlement(
+        tmp_path,
+        "first.xlsx",
+        "单624",
+        "MWCU0000001",
+        [
+            ["2026-08-27", "A6", 2, 500, 1000],
+            ["2026-08-27", "X6", 1, 500, 500],
+        ],
+        payable=1000,
+    )
+    second_path = write_excel_settlement(
+        tmp_path,
+        "second.xlsx",
+        "单624",
+        "MWCU0000002",
+        [["2026-08-28", "A6", 4, 500, 2000]],
+        payable=2000,
+    )
+    db = SessionLocal()
+
+    first = import_file(db, first_path)
+
+    assert first.status == "partial"
+    assert db.query(DataIssue).count() == 1
+    assert db.query(SettlementSummary).count() == 1
+
+    replaced = import_file(db, second_path, overwrite=True)
+
+    assert replaced.status == "success"
+    assert replaced.container_no == "MWCU0000002"
+    assert replaced.failure_count == 0
+    assert db.query(ImportBatch).count() == 1
+    assert db.query(SaleRecord).count() == 1
+    assert db.query(DataIssue).count() == 0
+    assert replaced.issues == []
+    summary = db.query(SettlementSummary).one()
+    assert summary.payable_amount == Decimal("2000.0000")
+    db.close()
+
+
+def test_overwrite_without_existing_batch_imports_normally(tmp_path):
+    path = write_csv(
+        tmp_path,
+        "container_no,sale_date,grade,quantity,unit_price,amount\n"
+        "C008,2026-08-08,A,3,2,6\n",
+    )
+    db = SessionLocal()
+
+    result = import_file(db, path, overwrite=True)
+
+    assert result.status == "success"
+    assert result.obsolete_storage_path is None
+    assert db.query(ImportBatch).filter_by(merchant_no="单624").count() == 1
+    db.close()
+
+
+def test_data_issue_rows_keep_severity_field_and_raw_value(tmp_path):
+    path = write_csv(
+        tmp_path,
+        "container_no,sale_date,grade,quantity,unit_price,amount\n"
+        "C009,2026-08-09,X6,1,2,2\n"
+        "C009,2026-08-09,A,,2,2\n"
+        "C009,2026-08-09,A,1,2,3\n",
+    )
+    db = SessionLocal()
+
+    result = import_file(db, path)
+
+    issues = db.query(DataIssue).order_by(DataIssue.row_number).all()
+    assert [issue.row_number for issue in issues] == [2, 3, 4]
+    assert [issue.issue_type for issue in issues] == [
+        "unknown_grade",
+        "missing_field",
+        "amount_mismatch",
+    ]
+    assert [issue.severity for issue in issues] == ["error", "error", "warning"]
+    assert issues[0].field_name == "grade"
+    assert issues[0].raw_value == "X6"
+    assert issues[1].field_name == "quantity"
+    assert issues[2].field_name == "amount"
+    assert issues[2].message == "金额与数量乘以单价不一致"
+
+    batch = db.query(ImportBatch).one()
+    assert result.warning_count == 1
+    assert batch.warning_count == 1
+    assert all(issue.import_batch_id == batch.id for issue in issues)
+    assert all(issue.source_file_id is not None for issue in issues)
+    assert {issue.issue_type for issue in result.issues} == {
+        "unknown_grade",
+        "missing_field",
+        "amount_mismatch",
+    }
+    assert [issue.severity for issue in result.issues].count("warning") == 1
     db.close()

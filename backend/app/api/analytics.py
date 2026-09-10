@@ -1,4 +1,4 @@
-"""等级销售分析 HTTP 接口。"""
+"""按商号的等级销售分析 HTTP 接口。"""
 
 from __future__ import annotations
 
@@ -9,13 +9,11 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_current_user
 from ..db import get_db
-from ..services.analytics_service import (
-    get_container_comparison,
-    get_container_detail,
+from ..services.settlement_analytics_service import (
     get_daily_trend,
     get_overview,
-    get_issue_counts,
-    get_operating_anomalies,
+    get_settlement_comparison,
+    get_settlement_detail,
 )
 
 
@@ -30,14 +28,14 @@ def _filters(
     *,
     start_date: date | None = None,
     end_date: date | None = None,
-    container_id: str | None = None,
+    merchant_no: str | None = None,
 ) -> dict:
     if start_date and end_date and start_date > end_date:
         raise HTTPException(422, "start_date 不能晚于 end_date")
     return {
         "start_date": start_date,
         "end_date": end_date,
-        "container_id": container_id,
+        "merchant_no": merchant_no,
     }
 
 
@@ -51,33 +49,33 @@ def trend(filters: dict = Depends(_filters), db: Session = Depends(get_db)):
     return {"trend": get_daily_trend(db, **filters)}
 
 
-@router.get("/container-comparison")
-def container_comparison(
+@router.get("/settlement-comparison")
+def settlement_comparison(
     filters: dict = Depends(_filters),
-    include_all_containers: bool = False,
+    include_all_settlements: bool = False,
     db: Session = Depends(get_db),
 ):
     return {
-        "containers": get_container_comparison(
-            db, **filters, include_all_containers=include_all_containers
+        "settlements": get_settlement_comparison(
+            db, **filters, include_all_settlements=include_all_settlements
         )
     }
 
 
-@router.get("/containers/{container_id}")
-def container_detail(
-    container_id: str,
+@router.get("/settlements/{merchant_no}")
+def settlement_detail(
+    merchant_no: str,
     filters: dict = Depends(_filters),
     db: Session = Depends(get_db),
 ):
-    detail = get_container_detail(
+    detail = get_settlement_detail(
         db,
-        container_id,
+        merchant_no,
         start_date=filters["start_date"],
         end_date=filters["end_date"],
     )
     if detail is None:
-        raise HTTPException(404, "货柜不存在")
+        raise HTTPException(404, "结算单不存在")
     return detail
 
 

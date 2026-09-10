@@ -1,4 +1,4 @@
-"""一次读取明细并组装总览响应。"""
+"""一次读取明细并组装按商号组织的总览响应。"""
 
 from __future__ import annotations
 
@@ -7,16 +7,18 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from .analytics_service import (
+from .analytics_core import (
     DEFAULT_THRESHOLDS,
     AnomalyThresholds,
-    _container_anomalies,
-    _daily_quantity_anomalies,
-    _grade_metrics,
-    _metrics,
-    _records,
-    get_issue_counts,
+    daily_quantity_anomalies,
+    grade_metrics,
+    group_by_merchant,
+    metrics,
+    records,
+    settlement_anomalies,
+    settlement_map,
 )
+from .issue_service import get_issue_counts
 
 
 def get_overview(
@@ -24,22 +26,49 @@ def get_overview(
     *,
     start_date: date | None = None,
     end_date: date | None = None,
-    container_id: str | None = None,
+    merchant_no: str | None = None,
     thresholds: AnomalyThresholds = DEFAULT_THRESHOLDS,
 ) -> dict:
-    records = _records(db, start_date=start_date, end_date=end_date, container_id=container_id)
-    by_day, by_container = defaultdict(list), defaultdict(list)
-    for record in records:
+    filtered = records(
+        db, start_date=start_date, end_date=end_date, merchant_no=merchant_no
+    )
+    batches = settlement_map(db, filtered)
+    by_day: dict[date, list] = defaultdict(list)
+    for record in filtered:
         by_day[record.sale_date].append(record)
-        by_container[record.container_id].append(record)
-    baseline = records if container_id is None else _records(db, start_date=start_date, end_date=end_date)
+    grouped = group_by_merchant(filtered, batches)
+    if merchant_no is None:
+        baseline, baseline_batches = filtered, batches
+    else:
+        baseline = records(db, start_date=start_date, end_date=end_date)
+        baseline_batches = settlement_map(db, baseline)
     anomalies = []
-    for key, items in by_container.items():
-        anomalies.extend({"container_id": key, **item} for item in _container_anomalies(items, baseline, thresholds))
-    anomalies.extend({"container_id": container_id, **item} for item in _daily_quantity_anomalies(records, thresholds))
+    for key, items in grouped.items():
+        anomalies.extend(
+            {"merchant_no": key, **item}
+            for item in settlement_anomalies(items, baseline, baseline_batches, thresholds)
+        )
+    anomalies.extend(
+        {"merchant_no": merchant_no, **item}
+        for item in daily_quantity_anomalies(filtered, thresholds)
+    )
     return {
-        "total": _metrics(records), "grades": _grade_metrics(records),
-        "trend": [{"sale_date": day.isoformat(), **_metrics(by_day[day])} for day in sorted(by_day)],
-        "containers": [{"container_id": key, "total": _metrics(items), "grades": _grade_metrics(items)} for key, items in sorted(by_container.items())],
-        "issue_counts": get_issue_counts(db), "operating_anomalies": anomalies,
+        "total": metrics(filtered),
+        "grades": grade_metrics(filtered),
+        "trend": [
+            {"sale_date": day.isoformat(), **metrics(by_day[day])}
+            for day in sorted(by_day)
+        ],
+        "settlements": [
+            {
+                "merchant_no": key,
+                "order_no": batches[items[0].import_batch_id].order_no,
+                "container_no": batches[items[0].import_batch_id].container_no,
+                "total": metrics(items),
+                "grades": grade_metrics(items),
+            }
+            for key, items in sorted(grouped.items())
+        ],
+        "issue_counts": get_issue_counts(db),
+        "operating_anomalies": anomalies,
     }

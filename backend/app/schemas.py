@@ -35,13 +35,68 @@ class AuthResponse(BaseModel):
     user: UserRead
 
 
+class SettlementListItem(BaseModel):
+    merchant_no: str
+    order_no: str | None
+    container_no: str | None
+    vehicle_no: str | None
+    sale_date_start: date
+    sale_date_end: date
+    sales_amount: float
+    total_quantity: float
+    average_price: float | None
+    grade_quantities: dict[str, float]
+    record_count: int
+
+
+class SettlementDateRange(BaseModel):
+    start_date: date
+    end_date: date
+    is_default: bool
+
+
+class SettlementListResponse(BaseModel):
+    date_range: SettlementDateRange | None
+    settlements: list[SettlementListItem]
+
+
+class SettlementRecordRead(BaseModel):
+    id: int
+    source_file_id: int | None
+    import_batch_id: int | None
+    sale_date: date
+    grade: str
+    grade_raw: str | None
+    spec_raw: str | None
+    quantity: float | None
+    unit_price: float | None
+    amount: float | None
+    remark: str | None
+
+
+class SettlementRecordsResponse(BaseModel):
+    merchant_no: str
+    order_no: str | None
+    container_no: str | None
+    vehicle_no: str | None
+    records: list[SettlementRecordRead]
+
+
 class ImportBatchCreate(BaseModel):
     file_name: str | None = None
+    merchant_no: str = Field(min_length=1, max_length=128)
+    order_no: str | None = None
+    container_no: str | None = None
+    vehicle_no: str | None = None
 
 
 class ImportBatchRead(ORMModel):
     id: int
     file_name: str | None
+    merchant_no: str
+    order_no: str | None
+    container_no: str | None
+    vehicle_no: str | None
     imported_at: datetime
     status: str
     success_count: int
@@ -66,8 +121,6 @@ class SourceFileRead(ORMModel):
 
 
 class SaleRecordBase(BaseModel):
-    container_id: str = Field(min_length=1, max_length=128)
-    container_name: str | None = None
     sale_date: date
     fruit_type: str = "榴莲"
     grade_raw: str | None = None
@@ -91,9 +144,7 @@ class SaleRecordRead(SaleRecordBase, ORMModel):
     source_file_id: int | None
 
 
-class ContainerSummaryCreate(BaseModel):
-    container_id: str = Field(min_length=1, max_length=128)
-    container_name: str | None = None
+class SettlementSummaryCreate(BaseModel):
     sales_amount: Decimal | None = None
     after_sale_amount: Decimal | None = None
     goods_amount: Decimal | None = None
@@ -104,7 +155,7 @@ class ContainerSummaryCreate(BaseModel):
     remark: str | None = None
 
 
-class ContainerSummaryRead(ContainerSummaryCreate, ORMModel):
+class SettlementSummaryRead(SettlementSummaryCreate, ORMModel):
     id: int
     import_batch_id: int
 
@@ -127,8 +178,6 @@ class DataIssueRead(DataIssueCreate, ORMModel):
 
 
 __all__ = [
-    "ContainerSummaryCreate",
-    "ContainerSummaryRead",
     "DataIssueCreate",
     "DataIssueRead",
     "AuthResponse",
@@ -139,8 +188,15 @@ __all__ = [
     "SaleRecordBase",
     "SaleRecordCreate",
     "SaleRecordRead",
+    "SettlementDateRange",
+    "SettlementListItem",
+    "SettlementListResponse",
+    "SettlementRecordRead",
+    "SettlementRecordsResponse",
     "SourceFileCreate",
     "SourceFileRead",
     "StandardGrade",
+    "SettlementSummaryCreate",
+    "SettlementSummaryRead",
     "UserRead",
 ]

@@ -22,7 +22,12 @@ def test_migrate_database_copies_rows_and_preserves_ids(tmp_path: Path) -> None:
     with source_engine.begin() as connection:
         connection.execute(
             ImportBatch.__table__.insert(),
-            {"id": 7, "file_name": "sample.xlsx", "status": "completed"},
+            {
+                "id": 7,
+                "file_name": "sample.xlsx",
+                "status": "completed",
+                "merchant_no": "单624",
+            },
         )
 
     counts = migrate_database(source_engine, target_engine)
@@ -42,7 +47,11 @@ def test_migrate_database_refuses_non_empty_target(tmp_path: Path) -> None:
     with target_engine.begin() as connection:
         connection.execute(
             ImportBatch.__table__.insert(),
-            {"file_name": "existing.xlsx", "status": "completed"},
+            {
+                "file_name": "existing.xlsx",
+                "status": "completed",
+                "merchant_no": "单999",
+            },
         )
 
     with pytest.raises(RuntimeError, match="目标数据库不是空库"):

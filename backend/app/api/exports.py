@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 from datetime import date, datetime, timezone
 from io import BytesIO, StringIO
+from urllib.parse import quote
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
@@ -13,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_current_user
 from ..db import get_db
-from ..models import SaleRecord, SourceFile
+from ..models import ImportBatch, SaleRecord, SourceFile
 from ..services.analytics_service import get_grade_summary
 
 
@@ -25,24 +26,32 @@ router = APIRouter(
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
+def _attachment(filename: str) -> dict[str, str]:
+    """按 RFC 5987 编码文件名，避免中文商号导致响应头损坏。"""
+
+    return {
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='')}"
+    }
+
+
 @router.get("/overview.csv")
 def export_overview_csv(
     start_date: date | None = None,
     end_date: date | None = None,
-    container_id: str | None = None,
+    merchant_no: str | None = None,
     db: Session = Depends(get_db),
 ):
     summary = get_grade_summary(
         db,
         start_date=start_date,
         end_date=end_date,
-        container_id=container_id,
+        merchant_no=merchant_no,
     )
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(["filter_start_date", start_date.isoformat() if start_date else "all"])
     writer.writerow(["filter_end_date", end_date.isoformat() if end_date else "all"])
-    writer.writerow(["filter_container_id", _spreadsheet_safe(container_id or "all")])
+    writer.writerow(["filter_merchant_no", _spreadsheet_safe(merchant_no or "all")])
     writer.writerow(["generated_at_utc", datetime.now(timezone.utc).isoformat()])
     writer.writerow(["grade_mapping", "BC -> C"])
     writer.writerow(
@@ -55,20 +64,19 @@ def export_overview_csv(
     return StreamingResponse(payload, media_type="text/csv", headers=headers)
 
 
-@router.get("/containers/{container_id}.xlsx")
-def export_container_xlsx(
-    container_id: str,
+@router.get("/settlements/{merchant_no}.xlsx")
+def export_settlement_xlsx(
+    merchant_no: str,
     start_date: date | None = None,
     end_date: date | None = None,
     db: Session = Depends(get_db),
 ):
-    records = _records(db, container_id, start_date, end_date)
+    batch = db.query(ImportBatch).filter_by(merchant_no=merchant_no).first()
+    records = _records(db, merchant_no, start_date, end_date)
     if not records:
-        raise HTTPException(404, "筛选范围内没有该货柜销售数据")
-    payload = _container_workbook(container_id, records, start_date, end_date)
-    headers = {
-        "Content-Disposition": f'attachment; filename="container-{container_id}.xlsx"'
-    }
+        raise HTTPException(404, "筛选范围内没有该结算单销售数据")
+    payload = _settlement_workbook(batch, records, start_date, end_date)
+    headers = _attachment(f"settlement-{merchant_no}.xlsx")
     return StreamingResponse(BytesIO(payload), media_type=XLSX_MEDIA_TYPE, headers=headers)
 
 
@@ -85,8 +93,12 @@ def trace_record_source(record_id: int, db: Session = Depends(get_db)):
     }
 
 
-def _records(db, container_id, start_date, end_date):
-    query = db.query(SaleRecord).filter(SaleRecord.container_id == container_id)
+def _records(db, merchant_no, start_date, end_date):
+    query = (
+        db.query(SaleRecord)
+        .join(ImportBatch, SaleRecord.import_batch_id == ImportBatch.id)
+        .filter(ImportBatch.merchant_no == merchant_no)
+    )
     if start_date:
         query = query.filter(SaleRecord.sale_date >= start_date)
     if end_date:
@@ -94,14 +106,18 @@ def _records(db, container_id, start_date, end_date):
     return query.order_by(SaleRecord.sale_date, SaleRecord.id).all()
 
 
-def _container_workbook(container_id, records, start_date, end_date):
+def _settlement_workbook(batch, records, start_date, end_date):
     detail = pd.DataFrame([_record_dict(record) for record in records])
     detail = detail.map(_spreadsheet_safe)
     summary = _group_metrics(detail, "grade")
     trend = _group_metrics(detail, "sale_date")
+    settlement = batch if batch is not None else None
     metadata = pd.DataFrame(
         [
-            ["货柜号", _spreadsheet_safe(container_id)],
+            ["商号", _spreadsheet_safe(getattr(settlement, "merchant_no", "全部"))],
+            ["单号", _spreadsheet_safe(getattr(settlement, "order_no", None) or "—")],
+            ["柜号", _spreadsheet_safe(getattr(settlement, "container_no", None) or "—")],
+            ["转运车号", _spreadsheet_safe(getattr(settlement, "vehicle_no", None) or "—")],
             ["开始日期", start_date.isoformat() if start_date else "全部"],
             ["结束日期", end_date.isoformat() if end_date else "全部"],
             ["生成时间(UTC)", datetime.now(timezone.utc).isoformat()],
@@ -133,7 +149,6 @@ def _record_dict(record):
         "id": record.id,
         "source_file_id": record.source_file_id,
         "sale_date": record.sale_date.isoformat(),
-        "container_id": record.container_id,
         "grade": record.grade.value,
         "grade_raw": record.grade_raw,
         "spec_raw": record.spec_raw,

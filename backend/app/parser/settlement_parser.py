@@ -13,11 +13,14 @@ import pandas as pd
 
 from ..models import StandardGrade
 from .decimal_values import is_bounded_decimal, parse_bounded_decimal, quantize_decimal
-from .settlement_summary import extract_container_summary
+from .settlement_summary import extract_settlement_summary
 
 
 MONEY_TOLERANCE = Decimal("0.01")
 COLUMN_ALIASES = {
+    "merchant_no": ("merchant_no", "商号", "商号编码"),
+    "order_no": ("order_no", "单号", "客户单号", "结算单号"),
+    "vehicle_no": ("vehicle_no", "转运车号", "转运公司", "车牌号", "车牌"),
     "container_no": ("container_no", "containerid", "container", "货柜号", "柜号", "货柜编号"),
     "sale_date": ("sale_date", "date", "销售日期", "日期", "销售时间"),
     "fruit_name": ("fruit_name", "fruit_type", "fruit", "品种", "水果", "水果名称"),
@@ -33,6 +36,36 @@ COLUMN_ALIASES = {
 }
 
 
+META_FIELD_LABELS = {
+    "merchant_no": "商号",
+    "order_no": "单号",
+    "container_no": "柜号",
+    "vehicle_no": "转运车号",
+}
+
+
+class SettlementParseError(ValueError):
+    """结算单文件级错误，例如缺少商号或同一文件存在多个商号。"""
+
+
+@dataclass(frozen=True)
+class SettlementMeta:
+    """结算单级元数据；商号为业务唯一键，其余字段允许缺失或重复。"""
+
+    merchant_no: str
+    order_no: str | None = None
+    container_no: str | None = None
+    vehicle_no: str | None = None
+
+
+@dataclass
+class ParsedSettlement:
+    meta: SettlementMeta
+    records: list[dict[str, Any]]
+    issues: list[ImportIssue]
+    summary: dict[str, Any] | None = None
+
+
 @dataclass
 class ImportIssue:
     issue_type: str
@@ -44,14 +77,26 @@ class ImportIssue:
 
 
 def read_settlement(file_path: str | Path, source_type: str | None = None):
-    records, issues, _ = read_settlement_with_summary(file_path, source_type)
-    return records, issues
+    parsed = parse_settlement(file_path, source_type)
+    return parsed.records, parsed.issues
 
 
 def read_settlement_with_summary(file_path: str | Path, source_type: str | None = None):
+    parsed = parse_settlement(file_path, source_type)
+    return parsed.records, parsed.issues, parsed.summary
+
+
+def parse_settlement(file_path: str | Path, source_type: str | None = None) -> ParsedSettlement:
+    """解析结算单文件；缺少商号时抛出 :class:`SettlementParseError`。"""
+
     frame = _read_dataframe(Path(file_path), source_type)
     records, issues = _parse_rows(frame)
-    return records, issues, frame.attrs.get("container_summary")
+    return ParsedSettlement(
+        meta=_settlement_meta(frame),
+        records=records,
+        issues=issues,
+        summary=frame.attrs.get("settlement_summary"),
+    )
 
 
 def normalize_grade(raw: str | None) -> StandardGrade | None:
@@ -118,7 +163,10 @@ def _read_dataframe(file_path: Path, source_type: str | None) -> pd.DataFrame:
 def _read_excel_layout(file_path: Path) -> pd.DataFrame:
     raw = pd.read_excel(file_path, header=None, dtype=object, keep_default_na=False)
     header_index = _find_header_row(raw)
-    container_id = _find_metadata_value(raw.iloc[:header_index], "container_no")
+    metadata_region = {
+        field: _find_metadata_value(raw.iloc[:header_index], field)
+        for field in META_FIELD_LABELS
+    }
     headers = [value if _text(value) else f"unused_{index}" for index, value in enumerate(raw.iloc[header_index])]
     frame = raw.iloc[header_index + 1 :].copy()
     frame.columns = headers
@@ -126,11 +174,49 @@ def _read_excel_layout(file_path: Path) -> pd.DataFrame:
     resolved = _resolved_columns(frame.columns)
     if header_index > 0 and "sale_date" in resolved:
         frame[resolved["sale_date"]] = _fill_down(frame[resolved["sale_date"]])
-    if container_id and "container_no" not in resolved:
-        frame["container_no"] = container_id
     frame.attrs["data_start_row"] = header_index + 2
-    frame.attrs["container_summary"] = extract_container_summary(raw, container_id)
+    frame.attrs["metadata_region"] = {
+        field: value for field, value in metadata_region.items() if value
+    }
+    frame.attrs["settlement_summary"] = extract_settlement_summary(raw)
     return frame
+
+
+def _metadata_values(frame: pd.DataFrame, field: str) -> list[str]:
+    """返回数据列中该字段的非空去重值。"""
+
+    column = _resolved_columns(frame.columns).get(field)
+    if column is None:
+        return []
+    values: list[str] = []
+    for value in frame[column]:
+        text = _text(value)
+        if text and text not in values:
+            values.append(text)
+    return values
+
+
+def _settlement_meta(frame: pd.DataFrame) -> SettlementMeta:
+    region = frame.attrs.get("metadata_region", {})
+
+    def resolve(field: str) -> str | None:
+        if value := region.get(field):
+            return value
+        values = _metadata_values(frame, field)
+        label = META_FIELD_LABELS[field]
+        if len(values) > 1:
+            raise SettlementParseError(f"同一文件存在多个{label}: {'、'.join(values)}")
+        return values[0] if values else None
+
+    merchant_no = resolve("merchant_no")
+    if not merchant_no:
+        raise SettlementParseError("缺少商号，无法确定结算单身份")
+    return SettlementMeta(
+        merchant_no=merchant_no,
+        order_no=resolve("order_no"),
+        container_no=resolve("container_no"),
+        vehicle_no=resolve("vehicle_no"),
+    )
 
 
 def _fill_down(values) -> list[Any]:
@@ -196,7 +282,6 @@ def _add_issue(issues, issue_type, message, row_number, field_name=None, raw_val
 
 def _validate_row(row, row_number, issues):
     values = {
-        "container_id": _text(row.get("container_no")),
         "sale_date": _date(row.get("sale_date")),
         "grade_raw": _text(row.get("raw_grade")) or _text(row.get("grade")) or _text(row.get("spec")),
         "quantity": _decimal(row.get("quantity")),
@@ -204,9 +289,8 @@ def _validate_row(row, row_number, issues):
         "amount": _decimal(row.get("amount")),
     }
     values["grade"] = normalize_grade(values["grade_raw"])
-    for field in ("container_id", "sale_date"):
-        if values[field] is None:
-            _add_issue(issues, "missing_field", f"缺少或无法解析字段: {field}", row_number, field)
+    if values["sale_date"] is None:
+        _add_issue(issues, "missing_field", "缺少或无法解析字段: sale_date", row_number, "sale_date")
     for field in ("quantity", "unit_price", "amount"):
         raw_value = row.get(field)
         if _text(raw_value) is not None and values[field] is None:
@@ -261,7 +345,6 @@ def _record(values, row):
     if customer:
         remark = f"客户: {customer}" + (f"；{remark}" if remark else "")
     return {
-        "container_id": values["container_id"],
         "sale_date": values["sale_date"],
         "fruit_type": _text(row.get("fruit_name")) or "榴莲",
         "grade_raw": values["grade_raw"],
@@ -277,7 +360,11 @@ def _record(values, row):
 
 __all__ = [
     "ImportIssue",
+    "ParsedSettlement",
+    "SettlementMeta",
+    "SettlementParseError",
     "normalize_grade",
+    "parse_settlement",
     "read_settlement",
     "read_settlement_with_summary",
 ]

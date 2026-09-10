@@ -1,4 +1,4 @@
-"""从 Excel 结算区提取货柜级金额摘要。"""
+"""从 Excel 结算区提取结算单级金额摘要。"""
 
 from __future__ import annotations
 
@@ -18,14 +18,10 @@ SUMMARY_FIELDS = {
 }
 
 
-def extract_container_summary(
-    frame: pd.DataFrame, container_id: str | None
-) -> dict[str, Any] | None:
-    """返回可直接传给 ``ContainerSummary`` 的字段字典。"""
+def extract_settlement_summary(frame: pd.DataFrame) -> dict[str, Any] | None:
+    """返回可直接传给 ``SettlementSummary`` 的金额字段字典。"""
 
-    if not container_id:
-        return None
-    summary: dict[str, Any] = {"container_id": container_id}
+    summary: dict[str, Any] = {}
     fee_details: list[str] = []
     in_fee_section = False
     for _, row in frame.iterrows():
@@ -37,7 +33,7 @@ def extract_container_summary(
             summary[field_name] = amount
     if fee_details:
         summary["fee_detail"] = "；".join(fee_details)
-    return summary if len(summary) > 1 else None
+    return summary or None
 
 
 def _collect_fee_detail(
@@ -92,4 +88,4 @@ def _text(value: Any) -> str | None:
     return text or None
 
 
-__all__ = ["extract_container_summary"]
+__all__ = ["extract_settlement_summary"]

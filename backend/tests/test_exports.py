@@ -28,7 +28,13 @@ def authenticated_business_api():
 
 def seed_sale():
     db = SessionLocal()
-    batch = ImportBatch(file_name="sample.csv", status="success")
+    batch = ImportBatch(
+        file_name="sample.csv",
+        status="success",
+        merchant_no="单624",
+        order_no="宝贝01",
+        container_no="MWCU1823691",
+    )
     source = SourceFile(
         file_name="sample.csv",
         file_hash="export-test-hash",
@@ -41,7 +47,6 @@ def seed_sale():
         SaleRecord(
             import_batch_id=batch.id,
             source_file_id=source.id,
-            container_id="C1",
             sale_date=date(2026, 1, 2),
             grade=StandardGrade.C,
             grade_raw="BC6",
@@ -69,11 +74,11 @@ def test_overview_csv_contains_metrics_scope_and_mapping():
     assert "BC" in text and "C" in text
 
 
-def test_container_xlsx_and_source_trace_are_available():
+def test_settlement_xlsx_and_source_trace_are_available():
     seed_sale()
     client = TestClient(app)
 
-    export = client.get("/api/exports/containers/C1.xlsx")
+    export = client.get("/api/exports/settlements/单624.xlsx")
     trace = client.get("/api/exports/records/1/source")
 
     assert export.status_code == 200
@@ -96,9 +101,9 @@ def test_exports_escape_spreadsheet_formula_prefixes():
     client = TestClient(app)
 
     csv_response = client.get(
-        "/api/exports/overview.csv", params={"container_id": "=1+1"}
+        "/api/exports/overview.csv", params={"merchant_no": "=1+1"}
     )
-    xlsx_response = client.get("/api/exports/containers/C1.xlsx")
+    xlsx_response = client.get("/api/exports/settlements/单624.xlsx")
 
     assert "'=1+1" in csv_response.content.decode("utf-8-sig")
     workbook = openpyxl.load_workbook(BytesIO(xlsx_response.content), data_only=False)

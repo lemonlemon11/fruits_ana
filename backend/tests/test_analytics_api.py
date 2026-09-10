@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -9,10 +9,10 @@ from app.api.analytics import router
 from app.auth import require_current_user
 from app.db import Base, SessionLocal, engine
 from app.models import (
-    ContainerSummary,
     DataIssue,
     ImportBatch,
     SaleRecord,
+    SettlementSummary,
     StandardGrade,
 )
 
@@ -32,11 +32,23 @@ def client():
     return TestClient(app)
 
 
-def add_sale(db, container_id, sale_date, grade, quantity, unit_price):
+def settlement_for(db, merchant_no):
+    """按商号取结算单，缺失时补建，保证明细都有结算单归属。"""
+
+    batch = db.query(ImportBatch).filter_by(merchant_no=merchant_no).first()
+    if batch is None:
+        batch = ImportBatch(file_name=f"{merchant_no}.xlsx", merchant_no=merchant_no)
+        db.add(batch)
+        db.flush()
+    return batch
+
+
+def add_sale(db, merchant_no, sale_date, grade, quantity, unit_price):
+    batch = settlement_for(db, merchant_no)
     quantity = Decimal(str(quantity))
     unit_price = Decimal(str(unit_price))
     sale = SaleRecord(
-        container_id=container_id,
+        import_batch_id=batch.id,
         sale_date=sale_date,
         grade=grade,
         grade_raw=grade.value,
@@ -48,25 +60,16 @@ def add_sale(db, container_id, sale_date, grade, quantity, unit_price):
     return sale
 
 
-def add_settled_sale(
-    db,
-    *,
-    container_id,
-    sale_date,
-    imported_at,
-    payable_amount,
-):
-    batch = ImportBatch(file_name=f"{container_id}-{sale_date}.xlsx")
-    batch.imported_at = imported_at
-    db.add(batch)
-    db.flush()
-    sale = add_sale(db, container_id, sale_date, StandardGrade.A, 1, 10)
-    sale.import_batch_id = batch.id
-    db.add(ContainerSummary(
-        import_batch_id=batch.id,
-        container_id=container_id,
-        payable_amount=Decimal(str(payable_amount)),
-    ))
+def add_settled_sale(db, *, merchant_no, sale_date, payable_amount):
+    batch = settlement_for(db, merchant_no)
+    sale = add_sale(db, merchant_no, sale_date, StandardGrade.A, 1, 10)
+    db.add(
+        SettlementSummary(
+            import_batch_id=batch.id,
+            payable_amount=Decimal(str(payable_amount)),
+        )
+    )
+    return sale
 
 
 def test_empty_overview_has_stable_shape(client):
@@ -81,13 +84,14 @@ def test_empty_overview_has_stable_shape(client):
     }
     assert [item["grade"] for item in body["grades"]] == ["A", "B", "C"]
     assert body["trend"] == []
+    assert body["settlements"] == []
     assert body["issue_counts"]["total"] == 0
 
 
 def test_standard_filters_apply_to_overview_numerator_and_denominator(client):
     with SessionLocal() as db:
-        add_sale(db, "C1", date(2026, 1, 1), StandardGrade.A, 2, 10)
-        add_sale(db, "C2", date(2026, 1, 2), StandardGrade.B, 8, 5)
+        add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M2", date(2026, 1, 2), StandardGrade.B, 8, 5)
         db.commit()
 
     response = client.get(
@@ -95,7 +99,7 @@ def test_standard_filters_apply_to_overview_numerator_and_denominator(client):
         params={
             "start_date": "2026-01-02",
             "end_date": "2026-01-02",
-            "container_id": "C2",
+            "merchant_no": "M2",
         },
     )
     body = response.json()
@@ -105,29 +109,30 @@ def test_standard_filters_apply_to_overview_numerator_and_denominator(client):
     assert body["grades"][0]["sales_quantity"] == 0.0
 
 
-def test_trend_comparison_and_container_detail_routes(client):
+def test_trend_comparison_and_settlement_detail_routes(client):
     with SessionLocal() as db:
-        first = add_sale(db, "C1", date(2026, 1, 1), StandardGrade.A, 2, 10)
-        add_sale(db, "C1", date(2026, 1, 2), StandardGrade.C, 1, 20)
-        add_sale(db, "C2", date(2026, 1, 1), StandardGrade.B, 4, 5)
+        first = add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M1", date(2026, 1, 2), StandardGrade.C, 1, 20)
+        add_sale(db, "M2", date(2026, 1, 1), StandardGrade.B, 4, 5)
         db.commit()
         first_id = first.id
+        batch_id = first.import_batch_id
 
-    trend = client.get("/api/analytics/trend", params={"container_id": "C1"})
+    trend = client.get("/api/analytics/trend", params={"merchant_no": "M1"})
     comparison = client.get(
-        "/api/analytics/container-comparison", params={"container_id": "C1"}
+        "/api/analytics/settlement-comparison", params={"merchant_no": "M1"}
     )
-    detail = client.get("/api/analytics/containers/C1")
+    detail = client.get("/api/analytics/settlements/M1")
 
     assert trend.status_code == comparison.status_code == detail.status_code == 200
     assert [item["sale_date"] for item in trend.json()["trend"]] == [
         "2026-01-01",
         "2026-01-02",
     ]
-    assert [item["container_id"] for item in comparison.json()["containers"]] == [
-        "C1"
+    assert [item["merchant_no"] for item in comparison.json()["settlements"]] == [
+        "M1"
     ]
-    assert detail.json()["container_id"] == "C1"
+    assert detail.json()["merchant_no"] == "M1"
     assert detail.json()["grades"][0]["sales_quantity"] == 2.0
     assert detail.json()["settlement"] == {
         "after_sales_amount": None,
@@ -138,7 +143,7 @@ def test_trend_comparison_and_container_detail_routes(client):
     assert detail.json()["records"][0] == {
         "id": first_id,
         "source_file_id": None,
-        "import_batch_id": None,
+        "import_batch_id": batch_id,
         "sale_date": "2026-01-01",
         "grade": "A",
         "grade_raw": "A",
@@ -146,54 +151,47 @@ def test_trend_comparison_and_container_detail_routes(client):
         "quantity": 2.0,
         "unit_price": 10.0,
         "amount": 20.0,
+        "remark": None,
     }
 
 
-def test_settlement_uses_filtered_batches_and_latest_import_time(client):
-    utc = timezone.utc
+def test_settlement_detail_reads_its_batch_summary(client):
     with SessionLocal() as db:
         add_settled_sale(
-            db,
-            container_id="C1",
-            sale_date=date(2026, 1, 1),
-            imported_at=datetime(2026, 1, 2, tzinfo=utc),
-            payable_amount=100,
+            db, merchant_no="M1", sale_date=date(2026, 1, 1), payable_amount=100
         )
         add_settled_sale(
-            db,
-            container_id="C1",
-            sale_date=date(2026, 2, 1),
-            imported_at=datetime(2026, 2, 2, tzinfo=utc),
-            payable_amount=200,
-        )
-        add_settled_sale(
-            db,
-            container_id="C2",
-            sale_date=date(2026, 2, 1),
-            imported_at=datetime(2026, 2, 2, tzinfo=utc),
-            payable_amount=220,
-        )
-        add_settled_sale(
-            db,
-            container_id="C2",
-            sale_date=date(2026, 1, 1),
-            imported_at=datetime(2026, 1, 2, tzinfo=utc),
-            payable_amount=110,
+            db, merchant_no="M2", sale_date=date(2026, 2, 1), payable_amount=220
         )
         db.commit()
 
-    historical = client.get(
-        "/api/analytics/containers/C1",
-        params={"start_date": "2026-01-01", "end_date": "2026-01-01"},
+    first = client.get("/api/analytics/settlements/M1")
+    second = client.get("/api/analytics/settlements/M2")
+
+    assert first.json()["settlement"]["payable_amount"] == 100.0
+    assert second.json()["settlement"]["payable_amount"] == 220.0
+
+
+def test_settlement_detail_sales_period_follows_date_filter(client):
+    with SessionLocal() as db:
+        add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M1", date(2026, 2, 5), StandardGrade.A, 3, 10)
+        db.commit()
+
+    response = client.get(
+        "/api/analytics/settlements/M1",
+        params={"start_date": "2026-01-01", "end_date": "2026-01-31"},
     )
-    latest = client.get("/api/analytics/containers/C2")
 
-    assert historical.json()["settlement"]["payable_amount"] == 100.0
-    assert latest.json()["settlement"]["payable_amount"] == 220.0
+    assert response.json()["sales_period"] == {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-01",
+    }
+    assert response.json()["total"]["sales_quantity"] == 2.0
 
 
-def test_unknown_container_returns_404(client):
-    response = client.get("/api/analytics/containers/missing")
+def test_unknown_settlement_returns_404(client):
+    response = client.get("/api/analytics/settlements/missing")
 
     assert response.status_code == 404
 
@@ -209,10 +207,8 @@ def test_invalid_date_range_returns_422(client):
 
 def test_issue_count_is_read_from_data_issue(client):
     with SessionLocal() as db:
-        batch = ImportBatch(file_name="sample.csv")
-        db.add(batch)
-        db.flush()
-        sale = add_sale(db, "C1", date(2026, 1, 1), StandardGrade.A, 1, 10)
+        batch = settlement_for(db, "M1")
+        sale = add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 1, 10)
         db.flush()
         db.add_all(
             [

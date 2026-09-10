@@ -18,6 +18,7 @@ from starlette.concurrency import run_in_threadpool
 from ..auth import require_current_user
 from ..db import BACKEND_DIR, SessionLocal, get_db
 from ..models import DataIssue, ImportBatch, SourceFile
+from ..parser.settlement_parser import SettlementParseError
 from ..services.import_service import import_file
 
 
@@ -37,9 +38,10 @@ class UploadProblem(ValueError):
 
 @router.post("")
 async def upload_imports(
+    overwrite: bool = False,
     files: list[UploadFile] = File(...),
 ):
-    results = [await _process_upload(upload) for upload in files]
+    results = [await _process_upload(upload, overwrite) for upload in files]
     return {"imports": results}
 
 
@@ -108,7 +110,7 @@ async def _store_upload(upload: UploadFile) -> tuple[Path, bool]:
         raise
 
 
-async def _process_upload(upload: UploadFile) -> dict:
+async def _process_upload(upload: UploadFile, overwrite: bool = False) -> dict:
     filename = upload.filename or "upload.csv"
     try:
         path, created = await _store_upload(upload)
@@ -116,23 +118,30 @@ async def _process_upload(upload: UploadFile) -> dict:
         return _failed_result(filename, str(exc))
     try:
         result = await run_in_threadpool(
-            _import_stored_file, path, filename, path.suffix
+            _import_stored_file, path, filename, path.suffix, overwrite
         )
+    except SettlementParseError as exc:
+        await _cleanup_new_upload(path, created)
+        return _failed_result(filename, str(exc))
     except (BadZipFile, OSError, UnicodeError, ValueError):
         await _cleanup_new_upload(path, created)
         return _failed_result(filename, "无法解析文件")
     except Exception:
         await _cleanup_new_upload(path, created)
         return _failed_result(filename, "导入文件失败")
-    if result.status == "duplicate":
+    if result.status == "conflict":
         await _cleanup_new_upload(path, created)
+    if result.obsolete_storage_path:
+        await run_in_threadpool(_cleanup_obsolete_upload, Path(result.obsolete_storage_path))
     return result.to_dict()
 
 
-def _import_stored_file(path: Path, filename: str, source_type: str):
+def _import_stored_file(
+    path: Path, filename: str, source_type: str, overwrite: bool = False
+):
     db = SessionLocal()
     try:
-        return import_file(db, path, filename, source_type)
+        return import_file(db, path, filename, source_type, overwrite=overwrite)
     finally:
         db.close()
 
@@ -140,6 +149,13 @@ def _import_stored_file(path: Path, filename: str, source_type: str):
 async def _cleanup_new_upload(path: Path, created: bool) -> None:
     if created and await run_in_threadpool(_is_unreferenced_upload, path):
         await run_in_threadpool(path.unlink, missing_ok=True)
+
+
+def _cleanup_obsolete_upload(path: Path) -> None:
+    """删除被覆盖结算单的旧文件；仍被其他批次引用时保留。"""
+
+    if _is_unreferenced_upload(path):
+        path.unlink(missing_ok=True)
 
 
 def _is_unreferenced_upload(path: Path) -> bool:
@@ -156,6 +172,12 @@ def _failed_result(filename: str, error: str) -> dict:
         "file_name": filename,
         "batch_id": None,
         "source_file_id": None,
+        "merchant_no": None,
+        "order_no": None,
+        "container_no": None,
+        "vehicle_no": None,
+        "existing_batch_id": None,
+        "error_summary": error,
         "success_count": 0,
         "warning_count": 0,
         "failure_count": 1,
@@ -187,6 +209,10 @@ def _batch_dict(batch):
     fields = (
         "id",
         "file_name",
+        "merchant_no",
+        "order_no",
+        "container_no",
+        "vehicle_no",
         "imported_at",
         "status",
         "success_count",

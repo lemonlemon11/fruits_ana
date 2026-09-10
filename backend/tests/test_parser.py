@@ -1,11 +1,17 @@
 from decimal import Decimal
 
+import openpyxl
 import pandas as pd
 import pytest
 
 from app.models import StandardGrade
-from app.parser.settlement_parser import normalize_grade, read_settlement
-from app.parser.settlement_summary import extract_container_summary
+from app.parser.settlement_parser import (
+    SettlementParseError,
+    normalize_grade,
+    parse_settlement,
+    read_settlement,
+)
+from app.parser.settlement_summary import extract_settlement_summary
 
 
 def test_grade_normalization_includes_bc_in_c():
@@ -39,8 +45,8 @@ def test_invalid_decimal_is_reported_as_row_issue(tmp_path, field, raw_value):
     values[field] = raw_value
     path = tmp_path / "invalid-decimal.csv"
     path.write_text(
-        "container_no,sale_date,grade,quantity,unit_price,amount\n"
-        f"C1,2026-01-01,A,{values['quantity']},{values['unit_price']},{values['amount']}\n",
+        "商号,sale_date,grade,quantity,unit_price,amount\n"
+        f"单624,2026-01-01,A,{values['quantity']},{values['unit_price']},{values['amount']}\n",
         encoding="utf-8",
     )
 
@@ -56,8 +62,8 @@ def test_invalid_decimal_is_reported_as_row_issue(tmp_path, field, raw_value):
 def test_derived_amount_outside_numeric_range_is_rejected(tmp_path):
     path = tmp_path / "derived-overflow.csv"
     path.write_text(
-        "container_no,sale_date,grade,quantity,unit_price,amount\n"
-        "C1,2026-01-01,A,99999999999999,99999999999999,\n",
+        "商号,sale_date,grade,quantity,unit_price,amount\n"
+        "单624,2026-01-01,A,99999999999999,99999999999999,\n",
         encoding="utf-8",
     )
 
@@ -71,15 +77,15 @@ def test_derived_amount_outside_numeric_range_is_rejected(tmp_path):
 def test_summary_ignores_invalid_decimal_values(raw_value):
     frame = pd.DataFrame([["销售金额", raw_value]])
 
-    assert extract_container_summary(frame, "C1") is None
+    assert extract_settlement_summary(frame) is None
 
 
 def test_invalid_row_isolated_and_amount_mismatch_warned(tmp_path):
     path = tmp_path / "settlement.xlsx"
     pd.DataFrame(
         [
-            {"柜号": "C1", "日期": "2026-01-01", "等级": "A6", "数量": 2, "单价": 5, "金额": 11},
-            {"柜号": "C1", "日期": None, "等级": "BC6", "数量": 1, "单价": 4, "金额": 4},
+            {"商号": "单624", "日期": "2026-01-01", "等级": "A6", "数量": 2, "单价": 5, "金额": 11},
+            {"商号": "单624", "日期": None, "等级": "BC6", "数量": 1, "单价": 4, "金额": 4},
         ]
     ).to_excel(path, index=False)
 
@@ -100,7 +106,7 @@ def test_realistic_settlement_layout_reads_metadata_and_fills_date(tmp_path):
         [None, None],
         [None, None],
         [None, None],
-        [None, None],
+        [None, "商号：", "单624"],
         [None, "柜号：", "MWCU0000001"],
         [None, None],
         [None, None],
@@ -113,15 +119,14 @@ def test_realistic_settlement_layout_reads_metadata_and_fills_date(tmp_path):
     ]
     pd.DataFrame(rows).to_excel(path, index=False, header=False)
 
-    records, issues = read_settlement(path)
+    parsed = parse_settlement(path)
 
-    assert not issues
-    assert [record["container_id"] for record in records] == [
-        "MWCU0000001",
-        "MWCU0000001",
-    ]
-    assert records[1]["sale_date"] == records[0]["sale_date"]
-    assert [record["grade"] for record in records] == [
+    assert not parsed.issues
+    assert parsed.meta.merchant_no == "单624"
+    assert parsed.meta.container_no == "MWCU0000001"
+    assert "container_id" not in parsed.records[0]
+    assert parsed.records[1]["sale_date"] == parsed.records[0]["sale_date"]
+    assert [record["grade"] for record in parsed.records] == [
         StandardGrade.A,
         StandardGrade.C,
     ]
@@ -130,6 +135,7 @@ def test_realistic_settlement_layout_reads_metadata_and_fills_date(tmp_path):
 def test_realistic_layout_reports_physical_excel_row_number(tmp_path):
     path = tmp_path / "realistic-warning.xlsx"
     rows = [[None] * 6 for _ in range(9)]
+    rows[4][1:3] = ["商号：", "单624"]
     rows[5][1:3] = ["柜号：", "MWCU0000002"]
     rows.extend(
         [
@@ -145,3 +151,84 @@ def test_realistic_layout_reports_physical_excel_row_number(tmp_path):
     assert len(issues) == 1
     assert issues[0].issue_type == "amount_mismatch"
     assert issues[0].row_number == 11
+
+
+def write_settlement_xlsx(path, *, merchant_no="单624", container_no="MWCU1823691",
+                          order_no="宝贝01", vehicle_no="桂AAB087"):
+    """按真实结算单版式写出 B5/B6/B7/B8 元数据与一行销售数据。"""
+
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet["B2"] = "结 算 单"
+    if merchant_no is not None:
+        sheet["B5"], sheet["C5"] = "商号：", merchant_no
+    if container_no is not None:
+        sheet["B6"], sheet["C6"] = "柜号：", container_no
+    if order_no is not None:
+        sheet["B7"], sheet["C7"] = "单号：", order_no
+    if vehicle_no is not None:
+        sheet["B8"], sheet["C8"] = "转运公司：", vehicle_no
+    sheet["B10"], sheet["C10"], sheet["D10"], sheet["E10"], sheet["F10"] = (
+        "销售日期", "品种(规格)", "数量", "单价", "金额",
+    )
+    sheet["B11"], sheet["C11"], sheet["D11"], sheet["E11"], sheet["F11"] = (
+        "2026-08-27", "B6", 3, 450, 1350,
+    )
+    workbook.save(path)
+    return path
+
+
+def test_parse_settlement_reads_metadata(tmp_path):
+    parsed = parse_settlement(write_settlement_xlsx(tmp_path / "one.xlsx"))
+
+    assert parsed.meta.merchant_no == "单624"
+    assert parsed.meta.order_no == "宝贝01"
+    assert parsed.meta.container_no == "MWCU1823691"
+    assert parsed.meta.vehicle_no == "桂AAB087"
+    assert len(parsed.records) == 1
+    assert parsed.records[0]["amount"] == Decimal("1350.0000")
+
+
+def test_parse_settlement_allows_missing_container(tmp_path):
+    parsed = parse_settlement(
+        write_settlement_xlsx(tmp_path / "no-container.xlsx", container_no=None)
+    )
+
+    assert parsed.meta.container_no is None
+    assert len(parsed.records) == 1
+
+
+def test_parse_settlement_requires_merchant_no(tmp_path):
+    path = write_settlement_xlsx(tmp_path / "no-merchant.xlsx", merchant_no=None)
+
+    with pytest.raises(SettlementParseError, match="缺少商号"):
+        parse_settlement(path)
+
+
+def test_parse_settlement_reads_csv_merchant_column(tmp_path):
+    path = tmp_path / "sales.csv"
+    path.write_text(
+        "商号,单号,柜号,转运公司,销售日期,品种(规格),数量,单价,金额\n"
+        "单624,宝贝01,MWCU1823691,桂AAB087,2026-08-27,B6,3,450,1350\n",
+        encoding="utf-8-sig",
+    )
+
+    parsed = parse_settlement(path)
+
+    assert parsed.meta.merchant_no == "单624"
+    assert parsed.meta.order_no == "宝贝01"
+    assert parsed.meta.container_no == "MWCU1823691"
+    assert parsed.meta.vehicle_no == "桂AAB087"
+
+
+def test_parse_settlement_rejects_multiple_merchant_numbers(tmp_path):
+    path = tmp_path / "multi-merchant.csv"
+    path.write_text(
+        "商号,销售日期,等级,数量,单价,金额\n"
+        "单624,2026-08-01,A,1,2,2\n"
+        "单637,2026-08-02,A,1,2,2\n",
+        encoding="utf-8-sig",
+    )
+
+    with pytest.raises(SettlementParseError, match="多个商号"):
+        parse_settlement(path)

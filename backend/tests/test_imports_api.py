@@ -37,8 +37,8 @@ def authenticated_business_api():
 
 def test_upload_lists_batch_and_downloads_issues_csv():
     payload = (
-        "柜号,日期,等级,数量,单价,金额\n"
-        "C1,2026-01-01,A6,2,5,11\n"
+        "商号,柜号,日期,等级,数量,单价,金额\n"
+        "单C1,C1,2026-01-01,A6,2,5,11\n"
     ).encode("utf-8-sig")
     client = TestClient(app)
 
@@ -59,10 +59,10 @@ def test_upload_lists_batch_and_downloads_issues_csv():
     assert "amount_mismatch" in csv_response.content.decode("utf-8-sig")
 
 
-def test_duplicate_upload_is_idempotent_and_missing_batch_is_404():
+def test_same_merchant_upload_conflicts_and_missing_batch_is_404():
     payload = (
-        "柜号,日期,等级,数量,单价,金额\n"
-        "C2,2026-01-02,BC6,2,5,10\n"
+        "商号,柜号,日期,等级,数量,单价,金额\n"
+        "单C2,C2,2026-01-02,BC6,2,5,10\n"
     ).encode("utf-8-sig")
     client = TestClient(app)
 
@@ -74,8 +74,9 @@ def test_duplicate_upload_is_idempotent_and_missing_batch_is_404():
     ).json()["imports"][0]
 
     assert first["status"] == "success"
-    assert second["status"] == "duplicate"
+    assert second["status"] == "conflict"
     assert second["batch_id"] == first["batch_id"]
+    assert second["merchant_no"] == "单C2"
     assert len(client.get("/api/imports").json()["imports"]) == 1
     assert client.get("/api/imports/999/issues").status_code == 404
     stored_files = list(imports_api.UPLOAD_DIR.iterdir())
@@ -105,8 +106,8 @@ def test_upload_rejects_unreadable_or_unsupported_excel(filename, payload):
 
 def test_multi_file_upload_keeps_success_when_another_file_fails():
     valid = (
-        "柜号,日期,等级,数量,单价,金额\n"
-        "C3,2026-01-03,A6,2,5,10\n"
+        "商号,柜号,日期,等级,数量,单价,金额\n"
+        "单C3,C3,2026-01-03,A6,2,5,10\n"
     ).encode("utf-8-sig")
     client = TestClient(app, raise_server_exceptions=False)
 
@@ -129,8 +130,8 @@ def test_multi_file_upload_keeps_success_when_another_file_fails():
 
 def test_cleanup_does_not_remove_storage_referenced_by_a_batch():
     payload = (
-        "柜号,日期,等级,数量,单价,金额\n"
-        "C5,2026-01-05,A6,2,5,10\n"
+        "商号,柜号,日期,等级,数量,单价,金额\n"
+        "单C5,C5,2026-01-05,A6,2,5,10\n"
     ).encode("utf-8-sig")
     response = TestClient(app).post(
         "/api/imports", files=[("files", ("same.csv", payload, "text/csv"))]
@@ -195,8 +196,8 @@ def test_import_work_is_offloaded_from_async_endpoint(monkeypatch):
 
     monkeypatch.setattr(imports_api, "run_in_threadpool", tracking_run_in_threadpool)
     payload = (
-        "柜号,日期,等级,数量,单价,金额\n"
-        "C4,2026-01-04,A6,2,5,10\n"
+        "商号,柜号,日期,等级,数量,单价,金额\n"
+        "单C4,C4,2026-01-04,A6,2,5,10\n"
     ).encode("utf-8-sig")
 
     response = TestClient(app).post(
@@ -209,7 +210,12 @@ def test_import_work_is_offloaded_from_async_endpoint(monkeypatch):
 
 def test_issues_csv_prefixes_formula_like_cells():
     db = SessionLocal()
-    batch = ImportBatch(file_name="unsafe.csv", status="partial", failure_count=6)
+    batch = ImportBatch(
+        file_name="unsafe.csv",
+        status="partial",
+        failure_count=6,
+        merchant_no="单UNSAFE",
+    )
     db.add(batch)
     db.flush()
     raw_values = ["=cmd", "+cmd", "-cmd", "@cmd", "\tcmd", "\rcmd"]
