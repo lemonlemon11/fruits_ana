@@ -7,6 +7,9 @@ import type {
   IssueCounts,
   OperatingAnomaly,
   OverviewData,
+  PriceSpread,
+  SeriesAggregate,
+  SeriesComparisonData,
   SettlementComparisonItem,
   SettlementDetail,
   SettlementListData,
@@ -19,6 +22,13 @@ import type {
 type JsonRecord = Record<string, unknown>
 
 const GRADES: Grade[] = ['A', 'B', 'C']
+
+/** 与后端 `series_name` 保持一致：识别不出系列时使用该名称。 */
+export const UNKNOWN_SERIES = '未识别系列'
+
+function emptyGradeRecord<T>(value: T): Record<Grade, T> {
+  return { A: value, B: value, C: value }
+}
 
 export function gradeLabel(grade: Grade): string {
   return grade === 'C' ? 'C果（含BC）' : `${grade}果`
@@ -215,6 +225,7 @@ function normalizeSettlementListItem(row: JsonRecord): SettlementListItem {
   return {
     merchantNo: stringOr(pick(row, 'merchant_no', 'merchantNo'), '未编号'),
     orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
+    series: stringOr(pick(row, 'series'), UNKNOWN_SERIES),
     containerNo: stringOr(pick(row, 'container_no', 'containerNo'), ''),
     vehicleNo: stringOr(pick(row, 'vehicle_no', 'vehicleNo'), ''),
     saleDateStart: stringOr(pick(row, 'sale_date_start', 'saleDateStart'), ''),
@@ -260,6 +271,73 @@ export function normalizeImportIssues(payload: unknown): ImportIssue[] {
 export function unwrap(value: unknown): JsonRecord {
   const record = asRecord(value)
   return asRecord(record.data ?? record.result ?? record)
+}
+
+export function normalizeSeriesComparison(payload: unknown): SeriesComparisonData {
+  const body = unwrap(payload)
+  return {
+    settlements: asArray(body.settlements).map((row) => ({
+      ...normalizeSeriesAggregate(row),
+      merchantNo: stringOr(pick(row, 'merchant_no', 'merchantNo'), '未编号'),
+      orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
+      series: stringOr(pick(row, 'series'), UNKNOWN_SERIES),
+      containerNo: stringOr(pick(row, 'container_no', 'containerNo'), ''),
+      vehicleNo: stringOr(pick(row, 'vehicle_no', 'vehicleNo'), ''),
+      startDate: stringOr(pick(row, 'start_date', 'startDate'), ''),
+      endDate: stringOr(pick(row, 'end_date', 'endDate'), ''),
+    })),
+    series: asArray(body.series).map((row) => ({
+      ...normalizeSeriesAggregate(row),
+      name: stringOr(pick(row, 'name', 'series'), UNKNOWN_SERIES),
+      merchantNos: stringArray(pick(row, 'merchant_nos', 'merchantNos')),
+      settlementCount: numberOr(pick(row, 'settlement_count', 'settlementCount'), 0),
+    })),
+    total: normalizeSeriesAggregate(asRecord(body.total)),
+  }
+}
+
+function normalizeSeriesAggregate(row: JsonRecord): SeriesAggregate {
+  const overview = normalizeOverview(row)
+  return {
+    total: overview.total,
+    grades: overview.grades,
+    gradeAmountShares: normalizeGradeAmountShares(
+      pick(row, 'grade_amount_shares', 'gradeAmountShares'),
+    ),
+    spread: normalizeSpread(pick(row, 'spread')),
+  }
+}
+
+function normalizeGradeAmountShares(value: unknown): Record<Grade, number | null> {
+  const record = asRecord(value)
+  return {
+    A: nullableNumber(pick(record, 'A', 'a')),
+    B: nullableNumber(pick(record, 'B', 'b')),
+    C: nullableNumber(pick(record, 'C', 'c')),
+  }
+}
+
+function normalizeSpread(value: unknown): PriceSpread {
+  const record = asRecord(value)
+  const prices = asRecord(pick(record, 'grade_prices', 'gradePrices'))
+  return {
+    aMinusB: nullableNumber(pick(record, 'a_minus_b', 'aMinusB')),
+    bMinusC: nullableNumber(pick(record, 'b_minus_c', 'bMinusC')),
+    bDiscountVsA: nullableNumber(pick(record, 'b_discount_vs_a', 'bDiscountVsA')),
+    gradePrices: {
+      ...emptyGradeRecord<number | null>(null),
+      ...normalizeGradePrices(prices),
+    },
+  }
+}
+
+function normalizeGradePrices(prices: JsonRecord): Partial<Record<Grade, number | null>> {
+  const result: Partial<Record<Grade, number | null>> = {}
+  GRADES.forEach((grade) => {
+    const value = pick(prices, grade, grade.toLowerCase())
+    if (value !== undefined) result[grade] = nullableNumber(value)
+  })
+  return result
 }
 
 export function asArray(value: unknown): JsonRecord[] {
@@ -311,6 +389,12 @@ function nullableNumber(value: unknown): number | null {
 
 function stringOr(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim() ? value : fallback
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map((item) => String(item ?? '').trim()).filter(Boolean)
+    : []
 }
 
 function idOrEmpty(value: unknown): number | string {

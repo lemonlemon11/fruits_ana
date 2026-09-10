@@ -1,0 +1,91 @@
+<script setup lang="ts">
+import { gradeLabel } from '../api/client'
+import type { Grade, SeriesAggregate, SeriesComparisonItem } from '../api/types'
+import { formatCurrency, formatDate, formatNumber, formatPercent, formatPrice } from '../utils/format'
+import { gradeOf, gradeRow, shortLabel } from '../utils/seriesComparison'
+
+const props = defineProps<{
+  items: SeriesComparisonItem[]
+  total: SeriesAggregate
+  loading?: boolean
+}>()
+
+const gradeOrder: Grade[] = ['A', 'B', 'C']
+const quantity = (item: SeriesComparisonItem, grade: Grade) => gradeOf(item, grade).salesQuantity
+const quantityShare = (item: SeriesComparisonItem, grade: Grade) => gradeOf(item, grade).quantityShare
+const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
+</script>
+
+<template>
+  <section class="dashboard-section" aria-labelledby="series-overview-title">
+    <header class="section-heading">
+      <div>
+        <h2 id="series-overview-title">所选结算单总览</h2>
+        <p class="section-note">按首个销售日期排列，末行为合计</p>
+      </div>
+    </header>
+
+    <div v-if="loading" class="table-skeleton skeleton-block">正在加载总览</div>
+    <div v-else-if="!items.length" class="empty-state compact">
+      <strong>没有可展示的结算单</strong>
+      <span>请调整日期范围或勾选结算单。</span>
+    </div>
+    <div v-else class="table-wrap">
+      <table>
+        <caption class="sr-only">所选结算单的 A、B、C 件数、金额与占比</caption>
+        <thead>
+          <tr>
+            <th scope="col">单号</th>
+            <th scope="col">系列</th>
+            <th scope="col">首销日期</th>
+            <th v-for="grade in gradeOrder" :key="grade" scope="col">{{ gradeLabel(grade) }}件数</th>
+            <th scope="col">总件数</th>
+            <th scope="col">总金额</th>
+            <th scope="col">平均每件售价</th>
+            <th v-for="grade in gradeOrder" :key="`share-${grade}`" scope="col">{{ gradeLabel(grade) }}占比</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in items" :key="item.merchantNo">
+            <th scope="row">
+              <strong>{{ shortLabel(item) }}</strong>
+              <small>{{ item.merchantNo }}</small>
+            </th>
+            <td>{{ item.series }}</td>
+            <td>{{ formatDate(item.startDate) }}</td>
+            <td v-for="grade in gradeOrder" :key="grade">{{ formatNumber(quantity(item, grade)) }}</td>
+            <td>{{ formatNumber(item.total.salesQuantity) }}</td>
+            <td>{{ formatCurrency(item.total.salesAmount) }}</td>
+            <td>{{ formatPrice(item.total.weightedAvgPrice) }}</td>
+            <td v-for="grade in gradeOrder" :key="`share-${grade}`">{{ formatPercent(quantityShare(item, grade)) }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row">合计</th>
+            <td colspan="2">{{ items.length }} 张结算单</td>
+            <td v-for="grade in gradeOrder" :key="grade">{{ formatNumber(totalGrade(grade).salesQuantity) }}</td>
+            <td>{{ formatNumber(props.total.total.salesQuantity) }}</td>
+            <td>{{ formatCurrency(props.total.total.salesAmount) }}</td>
+            <td>{{ formatPrice(props.total.total.weightedAvgPrice) }}</td>
+            <td v-for="grade in gradeOrder" :key="`total-share-${grade}`">
+              {{ formatPercent(totalGrade(grade).quantityShare) }}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.table-skeleton { min-height: 140px; }
+table { width: 100%; min-width: 900px; border-collapse: collapse; }
+th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-size: .82rem; }
+thead th { color: var(--muted); font-weight: 500; }
+tbody th, tfoot th { text-align: left; }
+tbody th strong { display: block; font-size: .88rem; }
+tbody th small { color: var(--muted); font-size: .7rem; }
+tfoot td, tfoot th { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 700; }
+tbody tr:hover { background: var(--surface-soft); }
+</style>

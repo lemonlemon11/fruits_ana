@@ -12,8 +12,8 @@ const source = files.map((file) => fs.readFileSync(file, 'utf8')).join('\n')
 
 test('菜单使用确认后的中文入口', () => {
   const shell = fs.readFileSync(path.join(root, 'AppShell.vue'), 'utf8')
-  for (const label of ['销售总览', '数据明细', '结算单对比', '结算单详情', '数据导入']) assert.match(shell, new RegExp(label))
-  for (const icon of ['ChartColumn', 'Table2', 'GitCompareArrows', 'PackageSearch', 'Upload']) assert.match(shell, new RegExp(icon))
+  for (const label of ['销售总览', '数据明细', '结算单对比', '结算单详情', '系列对比', '数据导入']) assert.match(shell, new RegExp(label))
+  for (const icon of ['ChartColumn', 'Table2', 'GitCompareArrows', 'PackageSearch', 'Boxes', 'Upload']) assert.match(shell, new RegExp(icon))
   assert.doesNotMatch(shell, /经营总览|单柜详情|导入数据|货柜对比|货柜详情/)
 })
 
@@ -104,7 +104,7 @@ test('登录和注册页面使用用户名，不要求邮箱', () => {
 })
 
 test('五个页面都提供清晰的两步查看说明', () => {
-  for (const view of ['OverviewView.vue', 'SettlementComparisonView.vue', 'SettlementView.vue', 'SettlementListView.vue', 'ImportView.vue']) {
+  for (const view of ['OverviewView.vue', 'SettlementComparisonView.vue', 'SettlementView.vue', 'SettlementListView.vue', 'SeriesComparisonView.vue', 'ImportView.vue']) {
     const content = fs.readFileSync(path.join(root, 'views', view), 'utf8')
     assert.match(content, /class="how-to"/)
     assert.match(content, /怎么查看/)

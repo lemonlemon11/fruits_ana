@@ -8,6 +8,7 @@ import {
   normalizeSettlementDetail,
   normalizeSettlementList,
   normalizeSettlementRecordsData,
+  normalizeSeriesComparison,
   normalizeTrend,
   unwrap,
 } from './normalize.ts'
@@ -23,6 +24,7 @@ import type {
   SettlementDetail,
   SettlementListData,
   SettlementRecordsData,
+  SeriesComparisonData,
   TrendPoint,
 } from './types.ts'
 
@@ -88,6 +90,19 @@ export async function getSettlements(filters: AnalyticsFilters = {}): Promise<Se
 export async function getSettlementRecords(merchantNo: string): Promise<SettlementRecordsData> {
   const path = `${API_ROOT}/settlements/${encodeURIComponent(merchantNo)}/records`
   return normalizeSettlementRecordsData(await request(path))
+}
+
+export async function getSeriesComparison(
+  merchantNos: string[],
+  filters: AnalyticsFilters = {},
+): Promise<SeriesComparisonData> {
+  const params = new URLSearchParams()
+  merchantNos.forEach((value) => params.append('merchant_no', value))
+  if (filters.startDate) params.set('start_date', filters.startDate)
+  if (filters.endDate) params.set('end_date', filters.endDate)
+  const query = params.toString()
+  const path = `${API_ROOT}/analytics/series-comparison${query ? `?${query}` : ''}`
+  return normalizeSeriesComparison(await request(path))
 }
 
 export async function getImports(): Promise<ImportBatch[]> {

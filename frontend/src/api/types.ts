@@ -102,6 +102,7 @@ export interface SettlementDetail extends OverviewData {
 export interface SettlementListItem {
   merchantNo: string
   orderNo: string
+  series: string
   containerNo: string
   vehicleNo: string
   saleDateStart: string
@@ -130,6 +131,42 @@ export interface SettlementRecordsData {
   containerNo: string
   vehicleNo: string
   records: SettlementRecord[]
+}
+
+export interface PriceSpread {
+  aMinusB: number | null
+  bMinusC: number | null
+  bDiscountVsA: number | null
+  gradePrices: Record<Grade, number | null>
+}
+
+export interface SeriesAggregate {
+  total: MetricTotal
+  grades: GradeMetric[]
+  gradeAmountShares: Record<Grade, number | null>
+  spread: PriceSpread
+}
+
+export interface SeriesComparisonItem extends SeriesAggregate {
+  merchantNo: string
+  orderNo: string
+  series: string
+  containerNo: string
+  vehicleNo: string
+  startDate: string
+  endDate: string
+}
+
+export interface SeriesComparisonGroup extends SeriesAggregate {
+  name: string
+  merchantNos: string[]
+  settlementCount: number
+}
+
+export interface SeriesComparisonData {
+  settlements: SeriesComparisonItem[]
+  series: SeriesComparisonGroup[]
+  total: SeriesAggregate
 }
 
 export interface ImportBatch {

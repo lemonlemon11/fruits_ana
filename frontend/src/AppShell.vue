@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChartColumn, GitCompareArrows, LogOut, Menu, PackageSearch, Table2, Upload, X } from '@lucide/vue'
+import { Boxes, ChartColumn, GitCompareArrows, LogOut, Menu, PackageSearch, Table2, Upload, X } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
@@ -15,6 +15,7 @@ const navItems = [
   { path: '/settlements', label: '数据明细', icon: Table2 },
   { path: '/settlement-comparison', label: '结算单对比', icon: GitCompareArrows },
   { path: '/settlement-detail', label: '结算单详情', icon: PackageSearch },
+  { path: '/series-comparison', label: '系列对比', icon: Boxes },
   { path: '/imports', label: '数据导入', icon: Upload },
 ]
 const authPage = computed(() => Boolean(route.meta.guestOnly || route.meta.publicPreview))

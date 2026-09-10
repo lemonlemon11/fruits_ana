@@ -8,6 +8,7 @@ import LoginView from './views/LoginView.vue'
 import OverviewView from './views/OverviewView.vue'
 import PublicPreviewView from './views/PublicPreviewView.vue'
 import RegisterView from './views/RegisterView.vue'
+import SeriesComparisonView from './views/SeriesComparisonView.vue'
 import SettlementComparisonView from './views/SettlementComparisonView.vue'
 import SettlementListView from './views/SettlementListView.vue'
 import SettlementView from './views/SettlementView.vue'
@@ -23,6 +24,7 @@ const router = createRouter({
     { path: '/settlements', component: SettlementListView, meta: { requiresAuth: true } },
     { path: '/settlement-comparison', component: SettlementComparisonView, meta: { requiresAuth: true } },
     { path: '/settlement-detail', component: SettlementView, meta: { requiresAuth: true } },
+    { path: '/series-comparison', component: SeriesComparisonView, meta: { requiresAuth: true } },
     { path: '/container-comparison', redirect: '/settlement-comparison' },
     { path: '/containers', redirect: '/settlement-detail' },
     { path: '/imports', component: ImportView, meta: { requiresAuth: true } },

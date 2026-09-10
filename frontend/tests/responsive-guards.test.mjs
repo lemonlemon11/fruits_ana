@@ -10,6 +10,7 @@ const views = [
   'SettlementListView.vue',
   'SettlementComparisonView.vue',
   'SettlementView.vue',
+  'SeriesComparisonView.vue',
   'ImportView.vue',
 ]
 
