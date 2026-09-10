@@ -12,7 +12,7 @@ let requestVersion = 0
 
 async function refresh() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
-    error.value = '开始日期不能晚于结束日期'
+    error.value = '到达日期起不能晚于到达日期止'
     return
   }
   const version = ++requestVersion
@@ -34,15 +34,15 @@ onMounted(refresh)
 <template>
   <div class="page-stack comparison-page">
     <header class="page-header comparison-page-header">
-      <div><h1>结算单对比</h1><p>按日期查看各结算单（按商号归集）的销量、销售额和平均售价。</p></div>
+      <div><h1>结算单对比</h1><p>按到达日期查看各结算单（按商号归集）的销量、销售额和平均售价。</p></div>
     </header>
     <section class="how-to" aria-label="查看方法">
       <strong>怎么查看</strong>
-      <span>第一步：选择日期。第二步：点击“查看结果”。在结果上方可以更换排序方式。</span>
+      <span>第一步：选择到达日期。第二步：点击“查看结果”。在结果上方可以更换排序方式。</span>
     </section>
     <form class="filter-bar comparison-filter" @submit.prevent="refresh">
-      <label>开始日期<input v-model="filters.startDate" type="date"></label>
-      <label>结束日期<input v-model="filters.endDate" type="date"></label>
+      <label>到达日期起<input v-model="filters.startDate" type="date"></label>
+      <label>到达日期止<input v-model="filters.endDate" type="date"></label>
       <button class="primary-button" type="submit" :disabled="loading">{{ loading ? '正在查询' : '查看结果' }}</button>
     </form>
     <div v-if="error" class="error-banner" role="alert"><span><strong>结算单数据没有加载成功</strong>请检查网络后重新查询。{{ error }}</span><button type="button" @click="refresh">重新查询</button></div>

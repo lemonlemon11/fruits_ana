@@ -35,7 +35,7 @@ function gradeShare(item: SettlementComparisonItem, grade: 'A' | 'B' | 'C') {
     <div v-if="loading" class="comparison-skeleton skeleton-block">正在加载结算单数据</div>
     <div v-else-if="!items.length" class="empty-state">
       <strong>当前没有结算单数据</strong>
-      <span>请先导入销售数据，或调整查询日期。</span>
+      <span>请先导入销售数据，或调整到达日期范围。</span>
     </div>
     <div v-else class="simple-container-list">
       <article

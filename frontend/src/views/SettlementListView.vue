@@ -19,7 +19,7 @@ const rangeHint = computed(() => {
   if (!dateRange.value) return '暂无销售数据'
   const { startDate, endDate, isDefault } = dateRange.value
   return isDefault
-    ? `默认展示最新销售日期往前一个月：${startDate} 至 ${endDate}`
+    ? `默认展示最新到达日期往前一个月：${startDate} 至 ${endDate}`
     : `当前查询范围：${startDate} 至 ${endDate}`
 })
 
@@ -50,7 +50,7 @@ async function loadOptions() {
 
 async function refresh() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
-    error.value = '开始日期不能晚于结束日期'
+    error.value = '到达日期起不能晚于到达日期止'
     return
   }
   const version = ++requestVersion
@@ -85,18 +85,18 @@ onMounted(() => {
 
     <section class="how-to" aria-label="查看方法">
       <strong>怎么查看</strong>
-      <span>第一步：按单号选择结算单和日期。第二步：点击“查看结果”，再点右侧“查看明细”核对每一条销售记录。</span>
+      <span>第一步：按商号选择结算单和到达日期。第二步：点击“查看结果”，再点右侧“查看明细”核对每一条销售记录。</span>
     </section>
 
     <form class="filter-bar settlement-list-filter" @submit.prevent="refresh">
-      <label>单号
+      <label>商号
         <select v-model="filters.merchantNo">
           <option value="">全部结算单</option>
           <option v-for="item in options" :key="item.merchantNo" :value="item.merchantNo">{{ settlementOptionLabel(item) }}</option>
         </select>
       </label>
-      <label>开始日期<input v-model="filters.startDate" type="date"></label>
-      <label>结束日期<input v-model="filters.endDate" type="date"></label>
+      <label>到达日期起<input v-model="filters.startDate" type="date"></label>
+      <label>到达日期止<input v-model="filters.endDate" type="date"></label>
       <button class="primary-button" type="submit" :disabled="loading">{{ loading ? '正在查询' : '查看结果' }}</button>
     </form>
 
@@ -115,13 +115,13 @@ onMounted(() => {
       <div v-if="loading" class="skeleton-block">正在加载数据明细</div>
       <div v-else-if="!settlements.length" class="empty-state compact">
         <strong>当前范围没有结算单</strong>
-        <span>请调整查询日期，或从左侧菜单进入“数据导入”补充结算单。</span>
+        <span>请调整到达日期范围，或从左侧菜单进入“数据导入”补充结算单。</span>
       </div>
       <div v-else class="table-wrap settlement-table">
         <table>
           <thead>
             <tr>
-              <th>商号</th><th>单号</th><th>柜号</th><th>销售日期</th><th>销售额</th>
+              <th>商号</th><th>单号</th><th>柜号</th><th>到达日期</th><th>销售额</th>
               <th>A件数</th><th>B件数</th><th>C件数</th><th>平均售价</th><th>操作</th>
             </tr>
           </thead>

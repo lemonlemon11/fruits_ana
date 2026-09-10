@@ -51,11 +51,12 @@ test('结算单详情使用同期其他结算单作为价格基线并保留链�
   assert.doesNotMatch(detailView, /getOverview/)
 })
 
-test('下拉框改用单号展示、商号取值', () => {
+test('筛选字段用商号取值、按「商号（单号）」展示', () => {
   for (const view of ['OverviewView.vue', 'SettlementView.vue', 'SettlementListView.vue']) {
     const content = fs.readFileSync(path.join(root, 'views', view), 'utf8')
-    assert.match(content, /<label>单号/)
+    assert.match(content, /<label>商号/)
     assert.match(content, /settlementOptionLabel/)
+    assert.doesNotMatch(content, /<label>单号/)
     assert.doesNotMatch(content, /<label>货柜/)
   }
 })

@@ -26,7 +26,7 @@ let requestVersion = 0
 
 async function refresh() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
-    error.value = '开始日期不能晚于结束日期'
+    error.value = '到达日期起不能晚于到达日期止'
     return
   }
   const version = ++requestVersion
@@ -62,13 +62,13 @@ onMounted(refresh)
 
     <section class="how-to" aria-label="查看方法">
       <strong>怎么查看</strong>
-      <span>第一步：选择日期和单号。第二步：点击“查看结果”。不选择日期就是查看全部数据。</span>
+      <span>第一步：选择到达日期和商号。第二步：点击“查看结果”。不选择到达日期就是查看全部数据。</span>
     </section>
 
     <form class="filter-bar" @submit.prevent="refresh">
-      <label>开始日期<input v-model="filters.startDate" type="date"></label>
-      <label>结束日期<input v-model="filters.endDate" type="date"></label>
-      <label>单号
+      <label>到达日期起<input v-model="filters.startDate" type="date"></label>
+      <label>到达日期止<input v-model="filters.endDate" type="date"></label>
+      <label>商号
         <select v-model="filters.merchantNo">
           <option value="">全部结算单</option>
           <option v-for="item in settlements" :key="item.merchantNo" :value="item.merchantNo">{{ settlementOptionLabel(item) }}</option>

@@ -79,7 +79,7 @@ async function loadComparison() {
 
 async function loadOptions() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
-    error.value = '开始日期不能晚于结束日期'
+    error.value = '到达日期起不能晚于到达日期止'
     return
   }
   loadingOptions.value = true
@@ -129,12 +129,12 @@ onMounted(loadOptions)
 
     <section class="how-to" aria-label="查看方法">
       <strong>怎么查看</strong>
-      <span>第一步：选择日期范围并点击“查看结算单”。第二步：勾选两个及以上结算单，下方立即出现对比结果。</span>
+      <span>第一步：选择到达日期范围并点击“查看结算单”。第二步：勾选两个及以上结算单，下方立即出现对比结果。</span>
     </section>
 
     <form class="filter-bar comparison-filter" @submit.prevent="loadOptions">
-      <label>开始日期<input v-model="filters.startDate" type="date"></label>
-      <label>结束日期<input v-model="filters.endDate" type="date"></label>
+      <label>到达日期起<input v-model="filters.startDate" type="date"></label>
+      <label>到达日期止<input v-model="filters.endDate" type="date"></label>
       <button class="primary-button" type="submit" :disabled="loadingOptions">
         {{ loadingOptions ? '正在查询' : '查看结算单' }}
       </button>
@@ -156,7 +156,7 @@ onMounted(loadOptions)
       <div v-if="loadingOptions" class="picker-skeleton skeleton-block">正在加载结算单</div>
       <div v-else-if="!options.length" class="empty-state compact">
         <strong>当前范围内没有结算单</strong>
-        <span>请调整日期范围，或先导入结算单。</span>
+        <span>请调整到达日期范围，或先导入结算单。</span>
       </div>
       <div v-else class="series-picker">
         <article v-for="group in seriesGroups" :key="group.series" class="series-group">

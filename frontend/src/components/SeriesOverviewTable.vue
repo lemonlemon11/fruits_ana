@@ -21,14 +21,14 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
     <header class="section-heading">
       <div>
         <h2 id="series-overview-title">所选结算单总览</h2>
-        <p class="section-note">按首个销售日期排列，末行为合计</p>
+        <p class="section-note">按到达日期排列，末行为合计</p>
       </div>
     </header>
 
     <div v-if="loading" class="table-skeleton skeleton-block">正在加载总览</div>
     <div v-else-if="!items.length" class="empty-state compact">
       <strong>没有可展示的结算单</strong>
-      <span>请调整日期范围或勾选结算单。</span>
+      <span>请调整到达日期范围或勾选结算单。</span>
     </div>
     <div v-else class="table-wrap">
       <table>
@@ -37,7 +37,7 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
           <tr>
             <th scope="col">单号</th>
             <th scope="col">系列</th>
-            <th scope="col">首销日期</th>
+            <th scope="col">到达日期</th>
             <th v-for="grade in gradeOrder" :key="grade" scope="col">{{ gradeLabel(grade) }}件数</th>
             <th scope="col">总件数</th>
             <th scope="col">总金额</th>

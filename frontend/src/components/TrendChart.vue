@@ -64,7 +64,7 @@ function priceTickLabel(ratio: number): string {
     <div v-if="loading" class="trend-skeleton skeleton-block" aria-live="polite">正在加载趋势数据</div>
     <div v-else-if="!points.length" class="empty-state">
       <strong>当前范围没有趋势数据</strong>
-      <span>调整日期或单号筛选后重试。</span>
+      <span>调整到达日期或单号筛选后重试。</span>
     </div>
     <template v-else>
       <div class="trend-chart-shell">
@@ -135,7 +135,7 @@ function priceTickLabel(ratio: number): string {
         <summary>查看趋势数据表</summary>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>日期</th><th>销量</th><th>销售额</th><th>平均每件售价</th></tr></thead>
+            <thead><tr><th>到达日期</th><th>销量</th><th>销售额</th><th>平均每件售价</th></tr></thead>
             <tbody>
               <tr v-for="point in points" :key="point.date">
                 <td>{{ point.date }}</td><td>{{ formatNumber(point.salesQuantity) }}</td>

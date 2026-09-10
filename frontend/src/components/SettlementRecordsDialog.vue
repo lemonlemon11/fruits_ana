@@ -50,7 +50,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
       <div v-else class="table-wrap records-table">
         <table>
           <thead>
-            <tr><th>销售日期</th><th>等级</th><th>规格</th><th>数量</th><th>单价</th><th>金额</th></tr>
+            <tr><th>到达日期</th><th>等级</th><th>规格</th><th>数量</th><th>单价</th><th>金额</th></tr>
           </thead>
           <tbody>
             <tr v-for="record in records" :key="record.id">

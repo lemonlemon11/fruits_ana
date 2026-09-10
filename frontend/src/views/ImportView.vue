@@ -143,7 +143,7 @@ function formatFileSize(bytes: number): string {
 
 function fieldLabel(fieldName: string): string {
   const labels: Record<string, string> = {
-    amount: '金额', quantity: '数量', unit_price: '单价', sale_date: '销售日期',
+    amount: '金额', quantity: '数量', unit_price: '单价', sale_date: '到达日期',
     grade: '等级', merchant_no: '商号', order_no: '单号', container_no: '柜号', vehicle_no: '转运车号',
   }
   return labels[fieldName.toLowerCase()] ?? (fieldName || '—')
