@@ -1,17 +1,16 @@
 # HANDOFF
 
-Last updated：2026-09-10 16:34 (CST)
+Last updated：2026-09-10 18:02 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## Current Goal
 
-界面日期口径统一：把所有面向用户的日期叫法（销售日期 / 首销日期 / 日期 / 销售周期 /
-开始日期 / 结束日期）统一改为「到达日期」，筛选控件为「到达日期起 / 到达日期止」，
-并记录为 ADR-010。代码与自动化验证已完成并提交，**等待浏览器端手工验收**。
+完成 P0 收尾：① 拆分并提交当前在途改动；② 全站字号与商号下拉的浏览器端回归；
+③ 全系统业务逻辑与交互走查。当前先完成 ①，随后推进 ②③。
 
 ## Current Status
 
-状态：IMPLEMENTATION COMPLETE / COMMITTED / 待浏览器验收
+状态：P0-4 已完成 / COMMITTED；P0-1、P0-2、P0-3 进行中
 
 当前进度：
 1. 上一批「商号维度重构」已由本会话复核并拆分为 7 个提交（`0160fdf`..`2160b38`），工作区已收口。
@@ -26,7 +25,10 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 7. 界面日期口径统一为「到达日期」（ADR-010）：涉及结算单列表 / 结算单详情 / 数据明细 /
    趋势表 / 系列总览 / 结算单对比 / 系列对比 / 数据导入共 10 个前端文件，
    含表头、筛选控件、分区说明与空状态文案；数据库字段与接口参数保持不变。
-8. 本批提交已入库，工作区干净；等待浏览器端手工验收。
+8. 本批在途改动已按主题拆分为 7 个代码 / 测试提交（`48b4ed5`..`a1e8bfd`），
+   覆盖果农版导航、移动端底部导航、全站字号、商号筛选跟随、下拉自动刷新、
+   单日趋势参考线、柱状图高度修复与回归测试。
+9. 已验证当前批次：前端 62 项测试通过、`typecheck` 通过、`vite build` 成功；后端 pytest 通过。
 
 ## Completed
 
@@ -55,22 +57,37 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## In Progress
 
-1. 「销售总览」商号筛选修复（未提交，2026-09-10）：
-   - `结算单销售情况` 之前固定用 `include_all_settlements=true` 的结果渲染列表，
-     选择商号后仍展示全部结算单；现已拆分为「下拉候选 = 全部结算单」+「展示列表 = 所选商号」。
-   - 单日商号的趋势图只剩一个 3px 圆点，看起来像「没生效」；现改为商号标题 +
-     加粗数据点 + 当天水平参考线 + 单日提示文案。
-   - 改动文件：`frontend/src/views/OverviewView.vue`、`frontend/src/components/TrendChart.vue`、
-     `frontend/src/utils/settlementComparison.ts`、`frontend/tests/overview-merchant-filter.test.ts`。
-2. 「系列对比」AI 分析结论（已实现并提交，等待浏览器验收）：
-   - 新增 `POST /api/analytics/series-comparison/analysis`（`backend/app/services/ai_analysis_service.py`、
-     `backend/app/ai_settings.py`、`ai_analysis` 缓存表）与前端 `SeriesAiAnalysis.vue` 卡片。
-   - 模型配置读仓库根 `.env`（`FRUIT_ANALYSIS_AI_*`），关闭「思考」后 2~3 秒返回，结果按条件缓存。
-   - 口径见 ADR-011；设计稿 `docs/superpowers/plans/2026-09-10-series-ai-analysis.md`。
+1. P0-1 全系统业务逻辑与交互检查（进行中）：
+   - 逐条复核结算单 / 商号 / 单号、到达日期、A/B/C 等级口径、导入覆盖、筛选联动、
+     AI 分析结论等主流程；覆盖桌面端与移动端，发现问题先记录再修复。
+2. P0-2 全站字号统一（1rem = 17px，正文不小于 14px）的浏览器端回归（进行中）：
+   - 覆盖销售总览 / 数据明细 / 结算单对比 / 结算单详情 / 数据导入 / 系列对比 / 登录 / 注册，
+     确认桌面端 + 移动端无文字截断、无横向溢出、无固定高度容器被文字撑破。
+3. P0-3 商号下拉「默认选中 + 切换立即刷新」的浏览器端手工验收（代码、自动化与提交已完成）：
+   - 总览页 / 数据明细 / 结算单详情三处下拉切换即刷新；到达日期输入仍不自动查询，
+     点「查看结果」才刷新；结算单详情默认选中第一张。
 
-「系列对比」与「到达日期」文案统一均已完成开发与自动化验证，等待浏览器端手工验收（见 `docs/TODO.md`）。
+「系列对比」与「到达日期」文案统一均已完成开发与自动化验证；「系列对比」页及 AI 分析结论
+仍等待真实浏览器验收（见 `docs/TODO.md`）。
 
 ## Incidents（已解决）
+
+### 「A/B/C 平均每件售价对比」柱状图不显示（2026-09-10）
+
+- 现象：系列对比页该图只剩等级标题、金额文字和单据名，柱子看不见（疑似没渲染）。
+- 排查：接口侧正常——直接调用 `get_series_comparison` 拿到真实数据，
+  `spread.grade_prices` 有 A/B/C 三个均价，前端 `gradePrice()` 取值不为空。
+  用 Playwright 打开真实页面（拦截接口注入同一份真实数据）后实测：
+  12 根 `.price-bar` 的 inline 高度分别是 `88.83% / 98.08% / 100% …`，
+  但 `getBoundingClientRect().height` 全是 **2px**（即 `min-height: 2px` 兜底值）。
+- 根因：`.price-bars` 用 `align-items: flex-end`，`.price-bar-item` 高度收缩到内容高度（43px），
+  其网格 `1fr` 行高度不确定，柱子上的百分比高度按 CSS 规则退化成 `auto`，于是塌成 2px。
+- 处理：`.price-bars` 改为 `align-items: stretch`（`min-height: 132px` 保留），
+  让 `.price-bar-item` 拿到确定高度，百分比柱高才能生效。
+- 验证：同一脚本复测，桌面与 390px 移动端柱高均为 52~91px，最大值对应最高价、组内比例正确；
+  新增回归用例 `frontend/tests/comparison-chart.test.ts`「价格柱状图的柱高容器必须拉伸」。
+- 经验：本项目图表是手写 CSS/SVG，**百分比高度必须落在有确定高度的父容器上**；
+  新增/改动柱状图后先在浏览器量一次 `getBoundingClientRect().height`，别只看代码。
 
 ### 「开始导入」把点击事件当成覆盖参数，同商号重复导入被静默覆盖（2026-09-10）
 
@@ -264,7 +281,8 @@ npm --prefix frontend run typecheck
 - 前端 `vite build`：成功（1919 modules）
 - 后端 `pytest`：通过，退出码 0（本次未改后端，用于确认工作区未被破坏）
 - Playwright + Chromium 真实浏览器（真实 MySQL 数据）：选择商号后
-  `结算单销售情况` 收敛为该商号 1 行、趋势图标题带商号、单日商号显示参考线；未选择时为全部结算单
+  `结算单销售情况` 收敛为该商号 1 行、趋势图标题带商号、单日商号显示参考线；未选择时为全部结算单。
+  商号下拉切换后无需点击按钮即刷新（按钮仍保留），仅改到达日期时列表不变、点击「查看结果」后才刷新
 
 已通过：
 
@@ -299,6 +317,13 @@ Branch：`dev`
 Latest commits：
 
 ```text
+a1e8bfd test(frontend): 更新界面与筛选交互守卫
+4dbe9b8 style(frontend): 全站字号统一并修正表格文字对齐
+c773dd8 fix(frontend): 修复系列对比均价柱状图高度塌缩
+fe586aa fix(frontend): 单日趋势图增加参考线与提示
+d2d8a3e fix(frontend): 商号下拉默认选中并切换立即刷新
+9f7bb11 fix(frontend): 总览页结算单销售情况跟随商号筛选
+48b4ed5 feat(frontend): 果农版主导航收敛并增加移动端底部导航
 3e50d9f fix(frontend): 下拉框改为商号在前展示避免误选
 58d164b docs: 记录系列对比口径与实现范围
 7703981 feat(frontend): 增加系列对比页面与图表
@@ -312,5 +337,6 @@ aaea0f8 feat(auth): 认证页接入本地榴莲主图
 0160fdf refactor(backend): 以商号替换柜号作为结算单唯一键
 ```
 
-Uncommitted changes：无；`.superpowers/`、`.superpowersigeria/`、`attachments/`
-已加入 `.gitignore`，不会被提交。
+Uncommitted changes：仅剩 `docs/HANDOFF.md`、`docs/TODO.md` 与新增
+`docs/superpowers/specs/2026-09-10-farmer-simplification-design.md`，将随本次文档收口提交。
+`.superpowers/`、`.superpowersigeria/`、`attachments/` 已加入 `.gitignore`，不会被提交。
