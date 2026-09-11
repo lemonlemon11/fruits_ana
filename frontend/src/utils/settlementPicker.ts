@@ -66,3 +66,27 @@ export function isWholeSeriesSelected(draft: string[], seriesMerchantNos: string
     seriesMerchantNos.every((merchantNo) => draft.includes(merchantNo))
   )
 }
+
+/** 按到达日期从近到远排列，同一天的按商号排，保证顺序稳定。 */
+export function sortByRecentArrival(items: SettlementListItem[]): SettlementListItem[] {
+  return [...items].sort((left, right) => {
+    const byDate = (right.saleDateStart ?? '').localeCompare(left.saleDateStart ?? '')
+    if (byDate !== 0) return byDate
+    return left.merchantNo.localeCompare(right.merchantNo, 'zh-Hans-CN')
+  })
+}
+
+/** 把地址栏里的 `selected` 参数解析成商号列表，顺便去掉空值与重复项。 */
+export function parseSelectedParam(value: unknown, max = Number.MAX_SAFE_INTEGER): string[] {
+  const raw = typeof value === 'string' ? value : Array.isArray(value) ? value.join(',') : ''
+  const parsed = raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return [...new Set(parsed)].slice(0, max)
+}
+
+/** 把已选商号写成地址栏参数；没有选择时返回空串，调用方据此删除该参数。 */
+export function serializeSelectedParam(selected: string[]): string {
+  return selected.map((item) => item.trim()).filter(Boolean).join(',')
+}

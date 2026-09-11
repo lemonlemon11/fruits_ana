@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { getSeriesComparison, getSettlements } from '../api/client'
 import type {
@@ -18,14 +19,23 @@ import GradeDetailAiAnalysis from '../components/GradeDetailAiAnalysis.vue'
 import SettlementPicker from '../components/SettlementPicker.vue'
 import { friendlyErrorMessage } from '../utils/seriesAnalysis'
 import { MAX_SERIES_COMPARISON } from '../utils/seriesComparison'
+import {
+  parseSelectedParam,
+  serializeSelectedParam,
+} from '../utils/settlementPicker'
 
 const DEFAULT_SELECTION = 3
 
+const route = useRoute()
+const router = useRouter()
 const filters = reactive({ startDate: '', endDate: '' })
 // 视图切换：按系列看对比，或按等级号别看价格阶梯（ADR-013）。
 const view = ref<'series' | 'grade'>('series')
 const options = ref<SettlementListItem[]>([])
-const selected = ref<string[]>([])
+// 地址栏带 selected 时按分享链接还原，方便把同一组对比直接发给别人。
+const selected = ref<string[]>(
+  parseSelectedParam(route.query.selected, MAX_SERIES_COMPARISON),
+)
 const result = ref<SeriesComparisonData>(emptyComparison())
 const loadingOptions = ref(true)
 const loadingComparison = ref(false)
@@ -102,6 +112,7 @@ async function loadOptions() {
     selected.value = kept.length
       ? kept
       : options.value.slice(0, DEFAULT_SELECTION).map((item) => item.merchantNo)
+    syncSelectedQuery()
     await loadComparison()
   } catch (caught) {
     error.value = friendlyErrorMessage(
@@ -116,7 +127,19 @@ async function loadOptions() {
 /** 选择面板点「确定」才走到这里，一次刷新即可，不会每勾一下请求一次。 */
 function applySelection(merchantNos: string[]) {
   selected.value = merchantNos
+  syncSelectedQuery()
   void loadComparison()
+}
+
+/** 把已选写回地址栏；没选任何结算单时删掉该参数，保持地址干净。 */
+function syncSelectedQuery() {
+  const next = serializeSelectedParam(selected.value)
+  const current = typeof route.query.selected === 'string' ? route.query.selected : ''
+  if (next === current) return
+  const query = { ...route.query }
+  if (next) query.selected = next
+  else delete query.selected
+  void router.replace({ query })
 }
 
 onMounted(loadOptions)

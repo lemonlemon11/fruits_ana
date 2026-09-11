@@ -9,6 +9,7 @@ import {
   addWholeSeries,
   filterSettlementOptions,
   isWholeSeriesSelected,
+  sortByRecentArrival,
   toggleDraftSelection,
 } from '../utils/settlementPicker'
 
@@ -31,10 +32,19 @@ const keyword = ref('')
 const limitHit = ref(false)
 const collapsed = ref<string[]>([])
 const searchInput = ref<HTMLInputElement | null>(null)
+const panelRef = ref<HTMLElement | null>(null)
+// 排列方式：按系列分组（默认）或按到达日期从近到远铺开。
+const sortMode = ref<'series' | 'recent'>('series')
 
 const maxSelect = computed(() => props.max ?? MAX_SERIES_COMPARISON)
 const filtered = computed(() => filterSettlementOptions(props.options, keyword.value))
-const groups = computed(() => groupBySeries(filtered.value))
+const groups = computed(() => {
+  if (sortMode.value === 'recent') {
+    const items = sortByRecentArrival(filtered.value)
+    return items.length ? [{ series: '最近到达', items, canSelectAll: false }] : []
+  }
+  return groupBySeries(filtered.value).map((group) => ({ ...group, canSelectAll: true }))
+})
 const selectedItems = computed(() =>
   props.selected
     .map((merchantNo) => props.options.find((item) => item.merchantNo === merchantNo))
@@ -107,7 +117,35 @@ function removeSelected(merchantNo: string) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') closePicker()
+  if (event.key === 'Escape') {
+    closePicker()
+    return
+  }
+  if (event.key !== 'Tab' || !open.value) return
+  const focusable = focusableElements()
+  if (!focusable.length) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  const active = document.activeElement as HTMLElement | null
+  const inside = active ? panelRef.value?.contains(active) : false
+  if (event.shiftKey && (!inside || active === first)) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && (!inside || active === last)) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+/** 抽屉内可聚焦的控件，用于把 Tab 键锁在面板里。 */
+function focusableElements(): HTMLElement[] {
+  const panel = panelRef.value
+  if (!panel) return []
+  return Array.from(
+    panel.querySelectorAll<HTMLElement>(
+      'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((element) => !element.hasAttribute('disabled') && element.offsetParent !== null)
 }
 
 watch(open, (value) => {
@@ -157,6 +195,7 @@ onBeforeUnmount(() => {
     <Teleport to="body">
       <div v-if="open" class="picker-overlay" @click.self="closePicker">
         <section
+          ref="panelRef"
           class="picker-panel"
           role="dialog"
           aria-modal="true"
@@ -188,6 +227,22 @@ onBeforeUnmount(() => {
             <span v-if="limitHit" class="picker-limit">已选满 {{ maxSelect }} 张，先取消一张再选</span>
             <span v-else-if="keyword.trim()" class="section-note">找到 {{ filtered.length }} 张</span>
             <span v-else class="section-note">共 {{ options.length }} 张</span>
+            <span class="picker-sort" role="group" aria-label="排列方式">
+              <button
+                type="button"
+                :aria-pressed="sortMode === 'series'"
+                @click="sortMode = 'series'"
+              >
+                按系列
+              </button>
+              <button
+                type="button"
+                :aria-pressed="sortMode === 'recent'"
+                @click="sortMode = 'recent'"
+              >
+                最近到达
+              </button>
+            </span>
           </div>
 
           <div class="picker-body">
@@ -200,6 +255,7 @@ onBeforeUnmount(() => {
               <article v-for="group in groups" :key="group.series" class="picker-group">
                 <header class="picker-group-head">
                   <button
+                    v-if="group.canSelectAll"
                     type="button"
                     class="picker-group-toggle"
                     :aria-expanded="isGroupOpen(group.series)"
@@ -211,7 +267,16 @@ onBeforeUnmount(() => {
                       {{ isGroupOpen(group.series) ? '收起' : '展开' }}
                     </span>
                   </button>
-                  <button type="button" class="text-button" @click="toggleSeries(group.items)">
+                  <span v-else class="picker-group-plain">
+                    <strong>{{ group.series }}</strong>
+                    <span>{{ group.items.length }} 张</span>
+                  </span>
+                  <button
+                    v-if="group.canSelectAll"
+                    type="button"
+                    class="text-button"
+                    @click="toggleSeries(group.items)"
+                  >
                     {{
                       isWholeSeriesSelected(draft, groupMerchantNos(group.items))
                         ? '取消本系列'
@@ -312,6 +377,16 @@ onBeforeUnmount(() => {
   padding: 0 18px 10px; border-bottom: 1px solid var(--line);
 }
 .picker-limit { color: var(--warning); font-size: .9rem; font-weight: 700; }
+.picker-sort {
+  display: inline-flex; margin-left: auto;
+  border: 1px solid var(--line-strong); border-radius: 999px; overflow: hidden;
+}
+.picker-sort button {
+  min-height: 44px; padding: 0 14px;
+  border: 0; background: var(--surface); color: var(--muted);
+  font-size: .9rem; cursor: pointer;
+}
+.picker-sort button[aria-pressed='true'] { background: var(--primary); color: white; font-weight: 700; }
 .picker-body { min-height: 0; overflow-y: auto; padding: 12px 18px; }
 .picker-skeleton { min-height: 120px; }
 .picker-groups { display: grid; gap: 10px; }
@@ -326,6 +401,8 @@ onBeforeUnmount(() => {
   border: 0; background: transparent; color: var(--ink); font-size: 1rem; cursor: pointer;
 }
 .picker-group-toggle span { color: var(--muted); font-size: .85rem; }
+.picker-group-plain { display: inline-flex; align-items: baseline; gap: 8px; min-height: 44px; padding: 0 8px; }
+.picker-group-plain span { color: var(--muted); font-size: .85rem; }
 .picker-caret { font-weight: 700; color: var(--primary-dark) !important; }
 /* 结算单多选：窄屏一行一个，宽屏自动并排，选中态用主色描边 + 浅底 + 勾选框。 */
 .series-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; padding: 0 10px 10px; }

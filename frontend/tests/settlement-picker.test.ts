@@ -6,6 +6,9 @@ import {
   addWholeSeries,
   filterSettlementOptions,
   isWholeSeriesSelected,
+  parseSelectedParam,
+  serializeSelectedParam,
+  sortByRecentArrival,
   toggleDraftSelection,
 } from '../src/utils/settlementPicker.ts'
 
@@ -76,4 +79,35 @@ test('isWholeSeriesSelected 只在整组都选中时返回 true', () => {
   assert.equal(isWholeSeriesSelected(['626', '单637'], ['626', '单637']), true)
   assert.equal(isWholeSeriesSelected(['626'], ['626', '单637']), false)
   assert.equal(isWholeSeriesSelected([], []), false)
+})
+
+test('sortByRecentArrival 按到达日期从近到远，同日期按商号', () => {
+  const items = [
+    settlement({ merchantNo: 'A', saleDateStart: '2026-08-01' }),
+    settlement({ merchantNo: 'C', saleDateStart: '2026-09-09' }),
+    settlement({ merchantNo: 'B', saleDateStart: '2026-09-09' }),
+    settlement({ merchantNo: 'D', saleDateStart: '' }),
+  ]
+
+  assert.deepEqual(
+    sortByRecentArrival(items).map((item) => item.merchantNo),
+    ['B', 'C', 'A', 'D'],
+  )
+  // 不改动入参数组
+  assert.equal(items[0].merchantNo, 'A')
+})
+
+test('parseSelectedParam 去掉空值、重复项并按上限截断', () => {
+  assert.deepEqual(parseSelectedParam('640, 单637 ,640'), ['640', '单637'])
+  assert.deepEqual(parseSelectedParam(['626', '640']), ['626', '640'])
+  assert.deepEqual(parseSelectedParam('640,单637,626', 2), ['640', '单637'])
+  assert.deepEqual(parseSelectedParam(undefined), [])
+  assert.deepEqual(parseSelectedParam(' , '), [])
+})
+
+test('serializeSelectedParam 与 parseSelectedParam 互为逆运算', () => {
+  const value = ['640', '单637', '626']
+  assert.equal(serializeSelectedParam(value), '640,单637,626')
+  assert.deepEqual(parseSelectedParam(serializeSelectedParam(value)), value)
+  assert.equal(serializeSelectedParam([]), '')
 })

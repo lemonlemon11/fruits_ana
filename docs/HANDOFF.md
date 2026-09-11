@@ -102,8 +102,12 @@ P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏
   `docs/superpowers/plans/2026-09-11-settlement-picker.md`。
 - 新增 `utils/settlementPicker.ts`、`components/SettlementPicker.vue`；
   `SeriesComparisonView.vue` 移除平铺列表与逐次请求逻辑。
+- 补齐三项：Tab 焦点锁在抽屉内；抽屉内可切换「按系列 / 最近到达」排列；
+  已选写入地址栏 `?selected=`，分享链接可还原、清空即删除。
 - 验证：前端 80 项通过、typecheck 通过、build 成功；53001 dev-preview 实测
   桌面 1440px 与移动 390px 的搜索、取消、确定、系列折叠与全选，均无控制台报错与横向溢出。
+- 预览工具已入库：`frontend/dev-preview/` 的预览代码进入 Git，
+  含真实数据的 `fixture.json`、`grade-detail-data.js`、`review-data.ts` 已加入 `.gitignore`。
 
 口径已定（ADR-013 修订）：方案 A（区间原样成桶）、品质后缀只做标记、不新增一级菜单、
 果类可插拔、AI 小结一起做。
