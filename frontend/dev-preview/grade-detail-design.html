@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>等级细分 · 设计方案（视觉伴侣 53001）</title>
+    <link rel="stylesheet" href="./grade-detail-design.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <header class="topbar">
+      <div class="wrap topbar-inner">
+        <div class="brand">
+          <svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 21c4.2 0 7-3.4 7-8 0-3.2-2.2-6-5.4-6-1 0-1.7.3-2.3.8V6.5c1-.8 2.4-1.3 3.6-1.3V3.4c-1.7 0-3.3.6-4.5 1.7V3.6h-1.6v3.3C5.5 7.5 4 9.7 4 12.6 4 17.4 7.1 21 12 21Z" />
+          </svg>
+          <span class="brand-text">
+            <strong>等级细分</strong>
+            <span>设计方案 v1 · 待评审</span>
+          </span>
+        </div>
+        <p class="env">视觉伴侣 <code>127.0.0.1:53001</code></p>
+      </div>
+    </header>
+
+    <main id="main" class="wrap">
+      <section class="hero">
+        <p class="eyebrow">用真实数据出的设计稿</p>
+        <h1>A 果里，A6 比 A5 每件贵 20 元</h1>
+        <p class="hero-sub">
+          线上 4 张结算单里有 <strong>35 种等级写法</strong>，现在全部被压成 A/B/C 三档。
+          把「号别」拆出来看，才知道哪一档真正值钱、哪一档在拖后腿。
+        </p>
+        <dl class="stats" id="stats"></dl>
+      </section>
+
+      <section class="card" aria-labelledby="ladder-title">
+        <div class="card-head">
+          <div>
+            <h2 id="ladder-title">号别价格阶梯</h2>
+            <p class="card-note">均价 = 金额 ÷ 件数；颜色对应 A / B / C 三档。</p>
+          </div>
+          <div class="tabs" role="tablist" aria-label="分桶口径切换" id="tabs"></div>
+        </div>
+        <p class="scheme-note" id="scheme-note" role="status"></p>
+        <div class="chart" id="chart"></div>
+
+        <details class="table-details">
+          <summary>查看数据表（完整数字）</summary>
+          <div class="table-scroll">
+            <table id="detail-table">
+              <caption class="sr-only">各细分等级的件数、金额与均价</caption>
+              <thead>
+                <tr>
+                  <th scope="col">细分等级</th>
+                  <th scope="col" class="num">件数</th>
+                  <th scope="col" class="num">金额（元）</th>
+                  <th scope="col" class="num">均价（元/件）</th>
+                  <th scope="col" class="num">占总量</th>
+                </tr>
+              </thead>
+              <tbody id="detail-body"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
+      <section class="card" aria-labelledby="quality-title">
+        <div class="card-head">
+          <div>
+            <h2 id="quality-title">品质标记</h2>
+            <p class="card-note">等级原文里还带着熟、裂、黄皮，这是影响售价的第二层信息。</p>
+          </div>
+        </div>
+        <ul class="quality-list" id="quality"></ul>
+      </section>
+
+      <section class="card" aria-labelledby="todo-title">
+        <div class="card-head">
+          <div>
+            <h2 id="todo-title">落地方式（待你确认）</h2>
+            <p class="card-note">口径已定（方案 A）。剩下这三个问题决定它长在哪里、怎么扩展。</p>
+          </div>
+        </div>
+        <ul class="decision-list">
+          <li><strong>入口：不新增一级菜单。</strong>
+            果农版一级导航已收敛为 3 个（卖得怎么样 / 每一单 / 数据导入），
+            建议做进「系列对比」页里的视图切换（按系列 ↔ 按等级号别），筛选条件完全复用。</li>
+          <li><strong>果类：现在只有榴莲，先不做果类分组。</strong>
+            线上 86 行明细的果类字段全部是「榴莲」，按果类分组只会得到一行。
+            但建议按「果类 + 大等级 + 号别」组织数据，第二种水果进来时自动分组建桶。</li>
+          <li><strong>AI：建议引入，但只做小结。</strong>
+            细分后有 16 行数字，果农更看不懂，AI 正好补这一层。
+            复用现有缓存与提示词版本机制，新增「号别小结」，按需生成，并强制标注样本量。</li>
+        </ul>
+      </section>
+
+      <section class="card" aria-labelledby="open-title">
+        <div class="card-head">
+          <div>
+            <h2 id="open-title">仍需你拍板</h2>
+            <p class="card-note">定了口径，后端解析与这张页面就能一次做对。</p>
+          </div>
+        </div>
+        <ol class="decision-list">
+          <li><strong>品质后缀单独统计吗？</strong>建议先只做标记与筛选，不参与分桶，避免口径过细。</li>
+          <li><strong>无法识别的写法怎么办？</strong>建议归入「其他」并在数据质量里计数，不静默丢弃。</li>
+          <li><strong>未来还会有别的水果吗？</strong>如果只有榴莲，细分规则可以写死；
+              如果会有多种，号别解析要按果类可插拔。</li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="wrap footer">
+      本页为设计稿，未接入后端；数据取自线上 4 张结算单的真实明细，只读导出。
+      口径遵循 ADR-002（BC 归入 C）与 ADR-013（细分是叠加维度，不改 A/B/C 主口径）。
+    </footer>
+
+    <script src="./grade-detail-data.js"></script>
+    <script src="./grade-detail-design.js"></script>
+  </body>
+</html>

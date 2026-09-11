@@ -14,3 +14,7 @@ frontend/dist/
 .superpowers/
 .superpowersigeria/
 attachments/
+# 视觉伴侣本地数据：含真实结算单 / 真实结论，禁止入库（预览代码可以提交）
+frontend/dev-preview/fixture.json
+frontend/dev-preview/grade-detail-data.js
+frontend/dev-preview/review-data.ts

@@ -1,0 +1,29 @@
+/* 视觉伴侣呈现页的排版外壳，只服务 dev-preview，不参与线上构建。 */
+.showcase { display: grid; gap: 18px; padding: 24px 0 60px; }
+.showcase-head h1 { margin: 0 0 6px; font-size: 1.6rem; }
+.showcase-head p { margin: 0; color: var(--muted); }
+.showcase-card,
+.showcase-section {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.showcase-section { display: grid; gap: 14px; }
+.showcase-section h2,
+.showcase-card h2 { margin: 0; font-size: 1.1rem; }
+.showcase-list { display: grid; gap: 10px; margin: 12px 0 0; padding: 0; list-style: none; }
+.showcase-list li { display: grid; gap: 2px; }
+.showcase-list strong { color: var(--primary-dark); }
+.showcase-list span { color: var(--muted); }
+.showcase-note { margin: 0; color: var(--muted); line-height: 1.7; }
+.showcase-note strong { color: var(--warning); }
+.showcase-links { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.showcase-links a {
+  display: grid; gap: 4px; padding: 14px 16px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink); text-decoration: none;
+}
+.showcase-links a:hover { border-color: var(--primary); background: var(--surface-soft); }
+.showcase-links a strong { color: var(--primary-dark); }
+.showcase-links a span { color: var(--muted); font-size: .9rem; }
