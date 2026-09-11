@@ -445,7 +445,7 @@ npm --prefix frontend run typecheck
 
 ## Test Status
 
-当前测试：PASS（2026-09-11 16:20 实测，含单号与商号命名适配）
+当前测试：PASS（2026-09-11 16:20 实测：后端 234 项、前端 110 项，含单号与商号命名适配）
 
 ### 单号命名适配（2026-09-11）
 
@@ -468,9 +468,17 @@ npm --prefix frontend run typecheck
 - **未验证**：导入新文件时的真实入库回填（已由 `test_import_service` 单测覆盖，
   未用真实文件走 HTTP 上传）
 
+### 测试环境注意（2026-09-11 踩坑）
+
+`backend/tests/conftest.py` 把测试库固定为 `backend/.pytest-tmp/fruit-analysis-test.sqlite3`，
+**所有会话共用同一个文件**。若两个 Codex 会话同时跑 pytest，会出现
+`no such table` / `table user already exists` / `disk I/O error` 等互相踩踏的假失败
+（同一份代码时跑通时跑挂）。经验：跑后端测试前先确认没有其它会话在跑 pytest；
+若看到上述报错且单独跑某个文件能过，优先怀疑并发而不是代码。
+
 ### 商号规范化（2026-09-11，ADR-016）
 
-- 后端 `pytest`：**233 项通过**，退出码 0（新增 `test_merchant_no_naming.py` 6 项、
+- 后端 `pytest`：**234 项通过**，退出码 0（新增 `test_merchant_no_naming.py` 6 项、
   `test_merchant_no_migration.py` 4 项；`test_order_no_migration` 在脚本重构为
   `column_backfill` 后仍通过）
 - 前端 `npm test`：**110 项通过**，退出码 0（新增 `merchant-no-normalized.test.ts` 6 项）；
