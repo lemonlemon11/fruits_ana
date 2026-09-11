@@ -40,20 +40,20 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
             </thead>
             <tbody>
               <tr v-for="item in items" :key="item.merchantNo">
-                <th scope="row">{{ shortLabel(item) }}</th>
-                <td>{{ formatNumber(gradeOf(item, grade)?.salesQuantity ?? 0) }}</td>
-                <td>{{ formatCurrency(gradeOf(item, grade)?.salesAmount ?? 0) }}</td>
-                <td>{{ formatPrice(gradeOf(item, grade)?.weightedAvgPrice ?? null) }}</td>
-                <td>{{ percent(item.gradeAmountShares[grade]) }}</td>
+                <th scope="row" data-label="单号">{{ shortLabel(item) }}</th>
+                <td data-label="件数">{{ formatNumber(gradeOf(item, grade)?.salesQuantity ?? 0) }}</td>
+                <td data-label="金额">{{ formatCurrency(gradeOf(item, grade)?.salesAmount ?? 0) }}</td>
+                <td data-label="平均每件售价">{{ formatPrice(gradeOf(item, grade)?.weightedAvgPrice ?? null) }}</td>
+                <td data-label="金额占比">{{ percent(item.gradeAmountShares[grade]) }}</td>
               </tr>
             </tbody>
             <tfoot>
               <tr>
-                <th scope="row">合计</th>
-                <td>{{ formatNumber(totalGrade(grade).salesQuantity) }}</td>
-                <td>{{ formatCurrency(totalGrade(grade).salesAmount) }}</td>
-                <td>{{ formatPrice(totalGrade(grade).weightedAvgPrice) }}</td>
-                <td>{{ percent(total.gradeAmountShares[grade]) }}</td>
+                <th scope="row" data-label="单号">合计</th>
+                <td data-label="件数">{{ formatNumber(totalGrade(grade).salesQuantity) }}</td>
+                <td data-label="金额">{{ formatCurrency(totalGrade(grade).salesAmount) }}</td>
+                <td data-label="平均每件售价">{{ formatPrice(totalGrade(grade).weightedAvgPrice) }}</td>
+                <td data-label="金额占比">{{ percent(total.gradeAmountShares[grade]) }}</td>
               </tr>
             </tfoot>
           </table>
@@ -69,8 +69,8 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
         <p class="section-note">按平均每件售价计算，缺等级的结算单显示暂无数据</p>
       </div>
     </header>
-    <div class="table-wrap">
-      <table>
+    <div class="table-wrap spread-table-wrap">
+      <table class="spread-table">
         <caption class="sr-only">各结算单的 A、B、C 平均每件售价与价差</caption>
         <thead>
           <tr>
@@ -83,20 +83,20 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.merchantNo">
-            <th scope="row">{{ shortLabel(item) }}</th>
-            <td v-for="grade in gradeOrder" :key="grade">{{ formatPrice(item.spread.gradePrices[grade]) }}</td>
-            <td>{{ formatPrice(item.spread.aMinusB) }}</td>
-            <td>{{ formatPrice(item.spread.bMinusC) }}</td>
-            <td>{{ percent(item.spread.bDiscountVsA) }}</td>
+            <th scope="row" data-label="单号">{{ shortLabel(item) }}</th>
+            <td v-for="grade in gradeOrder" :key="grade" :data-label="`${grade}均价`">{{ formatPrice(item.spread.gradePrices[grade]) }}</td>
+            <td data-label="A-B价差">{{ formatPrice(item.spread.aMinusB) }}</td>
+            <td data-label="B-C价差">{{ formatPrice(item.spread.bMinusC) }}</td>
+            <td data-label="B比A折价">{{ percent(item.spread.bDiscountVsA) }}</td>
           </tr>
         </tbody>
         <tfoot>
           <tr>
-            <th scope="row">合计</th>
-            <td v-for="grade in gradeOrder" :key="grade">{{ formatPrice(total.spread.gradePrices[grade]) }}</td>
-            <td>{{ formatPrice(total.spread.aMinusB) }}</td>
-            <td>{{ formatPrice(total.spread.bMinusC) }}</td>
-            <td>{{ percent(total.spread.bDiscountVsA) }}</td>
+            <th scope="row" data-label="单号">合计</th>
+            <td v-for="grade in gradeOrder" :key="grade" :data-label="`${grade}均价`">{{ formatPrice(total.spread.gradePrices[grade]) }}</td>
+            <td data-label="A-B价差">{{ formatPrice(total.spread.aMinusB) }}</td>
+            <td data-label="B-C价差">{{ formatPrice(total.spread.bMinusC) }}</td>
+            <td data-label="B比A折价">{{ percent(total.spread.bDiscountVsA) }}</td>
           </tr>
         </tfoot>
       </table>
@@ -120,5 +120,65 @@ tfoot td, tfoot th { border-top: 2px solid var(--line); border-bottom: 0; font-w
 
 @media (max-width: 560px) {
   .grade-tables { grid-template-columns: minmax(0, 1fr); }
+  .grade-table-card .table-wrap,
+  .spread-table-wrap { overflow: visible; }
+
+  .grade-table-card table,
+  .spread-table { min-width: 0; width: 100%; display: block; }
+
+  .grade-table-card thead,
+  .spread-table thead { display: none; }
+
+  .grade-table-card tbody,
+  .grade-table-card tfoot,
+  .spread-table tbody,
+  .spread-table tfoot { display: block; }
+
+  .grade-table-card tr,
+  .spread-table tr {
+    display: grid;
+    gap: .35rem;
+    padding: .53rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .grade-table-card tbody tr:last-child,
+  .grade-table-card tfoot tr:last-child,
+  .spread-table tbody tr:last-child,
+  .spread-table tfoot tr:last-child { border-bottom: 0; }
+
+  .grade-table-card th,
+  .grade-table-card td,
+  .spread-table th,
+  .spread-table td {
+    display: flex;
+    width: 100%;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .59rem;
+    padding: .12rem 0;
+    border: 0;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .grade-table-card th::before,
+  .grade-table-card td::before,
+  .spread-table th::before,
+  .spread-table td::before {
+    flex: 0 0 auto;
+    color: var(--muted);
+    content: attr(data-label);
+    font-weight: 500;
+    text-align: left;
+  }
+
+  .grade-table-card tfoot th,
+  .grade-table-card tfoot td,
+  .spread-table tfoot th,
+  .spread-table tfoot td {
+    background: var(--surface-soft);
+    font-weight: 700;
+  }
 }
 </style>
