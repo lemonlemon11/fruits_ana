@@ -15,15 +15,16 @@ Browser (Vue 3 SPA, Vite dev server :53000)
 FastAPI (:8000)  backend/app/main.py
         ├── api/auth.py      注册 / 登录 / 会话
         ├── api/imports.py   上传、批次列表、问题明细
-        ├── api/analytics.py 总览 / 趋势 / 结算单对比 / 结算单详情 / 系列对比
+        ├── api/analytics.py 总览 / 趋势 / 结算单对比 / 结算单详情 / 系列对比 / 等级细分小结
         ├── api/settlements.py 数据明细列表 / 单张结算单全部明细
         └── api/exports.py   总览 CSV、结算单 xlsx、原始文件下载
         ▼
 services/  analytics_core / settlement_analytics_service / series_analytics_service
+           grade_detail_service / grade_detail_analysis_service / ai_analysis_service
            overview_service / settlement_detail_service / settlement_list_service
            import_service / issue_service
         ▼
-parser/    settlement_parser / settlement_summary / decimal_values
+parser/    settlement_parser / settlement_summary / decimal_values / grade_detail
         ▼
 SQLAlchemy 2.0 (models.py) → MySQL
 
@@ -73,6 +74,24 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 职责：「数据明细」页列表与单张结算单全部明细。
 - 默认范围：最新销售日期往前一个自然月；可用 `start_date` / `end_date` / `merchant_no` 覆盖。
 
+### Grade Detail（`backend/app/parser/grade_detail.py`、`services/grade_detail_service.py`）
+
+- 职责：把 `sale_record.grade_raw` 解析成「大等级 + 号别」的细分标签，用于等级阶梯分析。
+- 口径（ADR-013，方案 A）：单号各自成桶（`A5`、`A6`）；区间**原样成桶**（`B6/7`、`BC5/7/8`）；
+  品质后缀（熟 / 裂 / 黄皮）**只做标记**，不参与分桶；`BC` 仍归入 `C`。
+- 可插拔：解析规则按果类注册（`register_fruit_grade_parser`），未识别的写法归入「其他」并计数，
+  不静默丢弃；聚合键为「果类 + 标签」，出现第二种水果时自动分组。
+- 挂载点：`GET /api/analytics/series-comparison` 响应追加 `grade_details` 字段
+  （`buckets` / `unrecognized` / `total`），不改动已有字段。
+
+### Grade Detail AI（`services/grade_detail_analysis_service.py`）
+
+- 职责：按勾选的结算单生成「号别小结」，复用 `ai_analysis_service` 的缓存与调用机制（ADR-011）。
+- 路由：`POST /api/analytics/grade-detail/analysis`，请求体与系列对比一致
+  （`merchant_no[]` / `start_date` / `end_date` / `refresh`）。
+- 缓存键包含 `feature='grade-detail'` 与口径版本 `v1-schemeA`，口径变化后旧结论自动失效。
+- 数据包必须带样本量；样本结算单少于 5 张时，提示词禁止输出趋势类结论。
+
 ### Export（`backend/app/api/exports.py`）
 
 - 职责：总览 CSV 导出、结算单 xlsx 导出、单条记录关联的原始文件下载。
@@ -81,7 +100,10 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 - 视图：`OverviewView`（总览看板）、`SettlementListView`（数据明细）、
   `SettlementComparisonView`（结算单对比）、`SettlementView`（结算单诊断）、`ImportView`（导入）、
-  `SeriesComparisonView`（系列对比）、`LoginView` / `RegisterView` / `PublicPreviewView`。
+  `SeriesComparisonView`（系列对比，内含「按系列 / 按等级号别」两个视图）、
+  `LoginView` / `RegisterView` / `PublicPreviewView`。
+- 等级细分组件：`SeriesGradeDetail.vue`（号别阶梯与数据表）、`GradeDetailAiAnalysis.vue`（号别小结）。
+  AI 结论的渲染与状态机抽到通用组件 `AiAnalysisCard.vue`，两个页面的封装只负责接口与小标题。
 - 下拉框：展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
 - 图表为手写 SVG 组件，不引入图表库。
 - API 契约集中在 `api/types.ts` + `api/normalize.ts` + `api/client.ts`，后端字段变更必须同步这三处。

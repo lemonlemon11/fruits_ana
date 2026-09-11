@@ -1,6 +1,6 @@
 # HANDOFF
 
-Last updated：2026-09-10 18:02 (CST)
+Last updated：2026-09-11 11:55 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## Current Goal
@@ -59,10 +59,46 @@ P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏
 
 ## In Progress
 
-无；P0 已收口。下一阶段按 `docs/TODO.md` 的 P1 继续。
+等级细分已开发完成（2026-09-11），**待真实浏览器端到端验收**；下一阶段按 `docs/TODO.md` 的 P1 继续
+（候选：元/KG 口径、单位经营结果与费用结构）。
+
+本轮交付（2026-09-11，代码已完成、自动化验证通过、**已提交到 `dev`**）：
+
+1. 后端新增 `parser/grade_detail.py`（号别解析，口径方案 A，按果类可插拔）、
+   `services/grade_detail_service.py`（号别聚合）、
+   `services/grade_detail_analysis_service.py`（号别 AI 小结）。
+2. `GET /api/analytics/series-comparison` 响应**追加** `grade_details` 字段（不改已有字段）。
+   新增 `POST /api/analytics/grade-detail/analysis`。
+3. `ai_analysis_service` 抽出可复用的 `read_cache` / `write_cache`，`build_cache_key` 支持
+   按 feature 传入提示词版本；AI 结论渲染抽到通用组件 `AiAnalysisCard.vue`。
+4. 前端「系列对比」页新增「按系列 / 按等级号别」视图切换，新增
+   `SeriesGradeDetail.vue`、`GradeDetailAiAnalysis.vue`；`types.ts` / `normalize.ts` / `client.ts` 已同步。
+5. 验证：后端 **208 项** pytest 通过；前端 **73 项**通过、typecheck 通过、vite build 成功；
+   用 dev-preview 在 53001 实测桌面 1440px 与移动 390px：16 个号别桶、0 未识别、无横向溢出、无控制台报错。
+
+提交记录（`dev`，尚未 push）：
+
+- `37373cd feat(backend): 增加等级细分解析聚合与号别小结`
+- `b920a1c feat(frontend): 系列对比增加按等级号别视图`
+- `d1005f1 feat(frontend): 提升系列对比图表与表格可读性`
+
+代码审查修正（2026-09-11）：`grade_detail_metrics` 改为每条记录只解析一次
+（原实现在聚合循环里二次解析）；`AiAnalysisCard` 标题 id 改用 `useId()`，
+避免同页两张卡片出现重复 DOM id。
+
+口径已定（ADR-013 修订）：方案 A（区间原样成桶）、品质后缀只做标记、不新增一级菜单、
+果类可插拔、AI 小结一起做。
 
 「系列对比」与「到达日期」文案统一均已完成开发与自动化验证；「系列对比」页及 AI 分析结论
 仍等待真实浏览器验收（见 `docs/TODO.md`）。
+
+新增（2026-09-11，只读分析，无代码改动）：完成全系统走查（前端体验 / 后端数据链路 /
+线上库只读盘点），产出优化方案、数据挖掘地图与评审会议方案，见
+`docs/superpowers/plans/2026-09-11-system-review-and-meeting.md`。
+已确认（2026-09-11）：① 清关费以清关单为准，没有即为没有，单 640 应付 384,740 元为真实值
+（ADR-012）；② 下一阶段主线为「等级细分」（ADR-013），实施计划见
+`docs/superpowers/plans/2026-09-11-grade-detail-analysis.md`。
+仍待确认：细分号别区间（如 `B6/7`）的归属规则、商号是否规范化并回填存量。
 
 ## Incidents（已解决）
 
@@ -157,6 +193,28 @@ P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏
 - 当前判断：这是 ADR-009 的既定取舍，不阻塞分析，但系列名可能不等于业务预期品牌。
 - 下一步：若业务需要固定品牌名与别名，再考虑新增品牌字典（见 `docs/TODO.md`）。
 
+### Issue 4 — 改完后端必须重启服务，否则页面拿到旧数据（高频坑，已确认两次）
+
+- 现象：前端已是新代码，但接口少了新字段（例如「按等级号别」页数据为空、
+  或「数据加载失败 / not found」）。
+- 根因：`start.sh` 起的 uvicorn **没有 `--reload`**，进程只在启动时加载一次代码；
+  磁盘改了、服务没重启，接口就仍是旧行为。前端 vite 有 HMR，所以问题只出在后端。
+- 排查顺序（30 秒内可确认）：
+  1. `ps -eo pid,lstart,args | grep uvicorn` 看进程启动时间是否早于最近的代码改动；
+  2. `curl -s http://127.0.0.1:8000/openapi.json` 看新路由是否存在；
+  3. 两者任一不符 → 直接重启服务。
+- 处理：
+
+  ```bash
+  systemctl restart fruits-ana.service
+  ```
+
+  该 unit 是 transient systemd unit，**同时托管 8000 后端与 53000 前端**；重启后浏览器需刷新。
+- 注意：机器上还有其它项目（如 `stock-analyzer`）的 uvicorn 进程，**不要按进程名批量 kill**，
+  只重启本项目这个 unit。
+- 可选改进（未做，需确认）：给开发环境的 uvicorn 加 `--reload`，改完自动生效；
+  代价是 `start.sh` 属根级启动配置，改动需评审。
+
 ### 已修复（留档）
 
 - **死代码 `frontend/src/components/ComparisonPanel.vue` 已删除**（无任何源码引用，
@@ -172,7 +230,9 @@ P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏
 ## Important Context
 
 - 项目状态以文件 + Git 为准，不要依赖任何单次对话上下文。
-- 当前分支 `dev`；上一批提交到 `2a71d04`，本批（商号维度）改动**尚未提交**。
+- 当前分支 `dev`，领先 `origin/dev` 若干提交（含本批等级细分），**尚未 push**。
+- `frontend/dev-preview/` **未加入 `.gitignore`**，其中 `fixture.json` 含真实结算单数据，
+  提交时必须用显式路径、禁止 `git add -A`；是否纳入忽略清单待确认。
 - 结算单身份口径：`import_batch.merchant_no`（商号）为唯一业务键；`order_no`（单号）用于界面展示，
   下拉框「以商号取值、按『商号（单号）』展示、字段名写作『商号』」是产品确认过的约定，
   不要改回柜号维度，也不要把展示顺序改回「单号（商号）」。
@@ -253,6 +313,13 @@ docs/TODO.md
 npm --prefix frontend run dev -- --host 0.0.0.0 --port 53000 --strictPort
 ```
 
+服务由 transient systemd unit 托管时（当前线上开发环境即如此），**后端改完必须重启**：
+
+```bash
+systemctl restart fruits-ana.service   # 同时重启 8000 后端与 53000 前端
+systemctl is-active fruits-ana.service # 确认 active
+```
+
 测试 / 构建 / 交接采集：
 
 ```bash
@@ -265,7 +332,23 @@ npm --prefix frontend run typecheck
 
 ## Test Status
 
-当前测试：PASS（2026-09-10 16:16 实测，对应「到达日期」文案统一后的工作区）
+当前测试：PASS（2026-09-11 11:50 实测，含等级细分）
+
+### 等级细分（2026-09-11）
+
+- 后端 `pytest`：**208 项通过**，退出码 0（原 78 项 + 新增 130 项：
+  `test_grade_detail` 55、`test_grade_detail_service` 6、`test_grade_detail_analysis` 7，
+  以及 `test_series_analytics` 新增 1 项）
+- 前端 `npm --prefix frontend run test`：**73 项通过**，退出码 0（新增 `grade-detail.test.ts` 6 项）
+- 前端 `typecheck`：通过；`vite build`：成功（1926 modules，215.93 kB）
+- 真实 MySQL 数据核对：4 张结算单 → 16 个号别桶、0 条未识别，件数合计 3,821 与总量一致
+- Playwright + Chromium（dev-preview，53001）：桌面 1440px 与移动 390px 均无横向溢出、
+  无控制台报错；切换「按等级号别」后 16 个号别行、3 个分组、16 行数据表，标题为
+  「按等级号别看价格」+「号别小结」
+- HTTP 链路验证（覆盖鉴权，打真实 MySQL）：`GET /api/analytics/series-comparison` 返回 200，
+  含 `grade_details`（16 桶）
+- **未验证**：真实浏览器登录后的端到端流程（含真实大模型调用）；`POST /api/analytics/grade-detail/analysis`
+  仅由单元测试覆盖，未真实调用大模型（避免产生费用）
 
 ### 追加验证（2026-09-10 16:30，商号筛选修复）
 
