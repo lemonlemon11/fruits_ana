@@ -10,6 +10,7 @@ import PackageSearch from '@lucide/vue/dist/esm/icons/package-search.mjs'
 import PanelLeftClose from '@lucide/vue/dist/esm/icons/panel-left-close.mjs'
 import PanelLeftOpen from '@lucide/vue/dist/esm/icons/panel-left-open.mjs'
 import Table2 from '@lucide/vue/dist/esm/icons/table-2.mjs'
+import Type from '@lucide/vue/dist/esm/icons/type.mjs'
 import Upload from '@lucide/vue/dist/esm/icons/upload.mjs'
 import X from '@lucide/vue/dist/esm/icons/x.mjs'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -19,10 +20,15 @@ import { logout as logoutRequest } from './api/client'
 import { currentUser, setCurrentUser } from './auth'
 import BrandMark from './components/BrandMark.vue'
 import {
+  FONT_SIZE_OPTIONS,
+  FONT_SIZE_STORAGE_KEY,
   HEADER_CLOCK_REFRESH_MS,
   SIDEBAR_STORAGE_KEY,
+  fontScaleFor,
   formatHeaderClock,
+  restoreFontSize,
   restoreSidebarCollapsed,
+  type FontSizePreference,
 } from './utils/shellHeader'
 import {
   TABS_STORAGE_KEY,
@@ -40,6 +46,18 @@ const signingOut = ref(false)
 const sidebarCollapsed = ref(readStoredSidebarState())
 const clockNow = ref(new Date())
 const showBackToTop = ref(false)
+const fontSize = ref(readStoredFontSize())
+const fontSizePanelOpen = ref(false)
+const fontSizePanel = ref<HTMLElement | null>(null)
+const fontSizeOption = computed(
+  () => FONT_SIZE_OPTIONS.find((option) => option.value === fontSize.value) ?? FONT_SIZE_OPTIONS[0],
+)
+const fontSizeIndex = computed<number>({
+  get: () => Math.max(0, FONT_SIZE_OPTIONS.findIndex((option) => option.value === fontSize.value)),
+  set: (value) => {
+    fontSize.value = FONT_SIZE_OPTIONS[Math.max(0, Math.min(FONT_SIZE_OPTIONS.length - 1, value))].value
+  },
+})
 const route = useRoute()
 const router = useRouter()
 // 面向果农的主导航只保留三个大入口，其余功能收进「更多」，避免同名页面点错。
@@ -70,6 +88,7 @@ let clockTimer: number | undefined
 
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown)
+  document.addEventListener('pointerdown', handleGlobalPointerDown)
   clockTimer = window.setInterval(() => {
     clockNow.value = new Date()
   }, HEADER_CLOCK_REFRESH_MS)
@@ -79,6 +98,7 @@ watch(
   () => route.fullPath,
   () => {
     mobileNavOpen.value = false
+    fontSizePanelOpen.value = false
     if (authPage.value) return
     openedTabs.value = openTab(openedTabs.value, activeTabPath.value, route.fullPath)
   },
@@ -86,6 +106,14 @@ watch(
 )
 watch(openedTabs, persistTabs, { deep: true })
 watch(activeTabPath, () => void scrollActiveTabIntoView())
+watch(
+  fontSize,
+  (value) => {
+    applyFontScale(value)
+    persistFontSize(value)
+  },
+  { immediate: true },
+)
 
 function navItemFor(path: string) {
   return navItems.find((item) => path.startsWith(item.path)) ?? navItems[0]
@@ -133,6 +161,26 @@ function readStoredSidebarState(): boolean {
   }
 }
 
+function readStoredFontSize(): FontSizePreference {
+  try {
+    return restoreFontSize(window.localStorage.getItem(FONT_SIZE_STORAGE_KEY))
+  } catch {
+    return 'small'
+  }
+}
+
+function applyFontScale(value: FontSizePreference) {
+  document.documentElement.style.setProperty('--font-scale', String(fontScaleFor(value)))
+}
+
+function persistFontSize(value: FontSizePreference) {
+  try {
+    window.localStorage.setItem(FONT_SIZE_STORAGE_KEY, value)
+  } catch {
+    // 隐私模式或存储不可用时仍保留本次页面内的字号设置。
+  }
+}
+
 function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value
   try {
@@ -142,8 +190,19 @@ function toggleSidebar() {
   }
 }
 
+function toggleFontSizePanel() {
+  fontSizePanelOpen.value = !fontSizePanelOpen.value
+}
+
+function handleGlobalPointerDown(event: PointerEvent) {
+  if (!fontSizePanelOpen.value || !fontSizePanel.value) return
+  if (!fontSizePanel.value.contains(event.target as Node)) fontSizePanelOpen.value = false
+}
+
 function handleGlobalKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') mobileNavOpen.value = false
+  if (event.key !== 'Escape') return
+  mobileNavOpen.value = false
+  fontSizePanelOpen.value = false
 }
 
 function activateTab(tab: ShellTab) {
@@ -180,6 +239,7 @@ async function signOut() {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
+  document.removeEventListener('pointerdown', handleGlobalPointerDown)
   window.removeEventListener('scroll', handleScroll)
   if (clockTimer !== undefined) window.clearInterval(clockTimer)
 })
@@ -230,6 +290,34 @@ function scrollToTop() {
           <span class="clock-date">{{ headerClock.date }}</span>
           <strong>{{ headerClock.time }}</strong>
         </time>
+        <div ref="fontSizePanel" class="app-header-font-size">
+          <button
+            type="button"
+            class="font-size-trigger"
+            :class="{ 'is-active': fontSizePanelOpen }"
+            :aria-expanded="fontSizePanelOpen"
+            aria-controls="font-size-popover"
+            :aria-label="`页面字号：${fontSizeOption.label}`"
+            @click="toggleFontSizePanel"
+          >
+            <Type :size="17" aria-hidden="true" />
+            <span class="font-size-trigger-label">字号</span>
+          </button>
+          <div v-if="fontSizePanelOpen" id="font-size-popover" class="font-size-popover">
+            <span class="font-size-current" aria-live="polite">当前字号：{{ fontSizeOption.label }}</span>
+            <input
+              id="font-size-slider"
+              v-model="fontSizeIndex"
+              type="range"
+              min="0"
+              max="3"
+              step="1"
+              :aria-label="`调整页面字号，当前为${fontSizeOption.label}`"
+              :aria-valuetext="fontSizeOption.label"
+            />
+            <span class="font-size-options" aria-hidden="true">小 · 标准 · 大 · 特大</span>
+          </div>
+        </div>
         <div class="app-header-account">
           <span class="account-avatar" aria-hidden="true">{{ userInitial }}</span>
           <span class="account-name">{{ currentUser?.displayName }}</span>

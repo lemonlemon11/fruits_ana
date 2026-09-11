@@ -5,7 +5,8 @@
 :root {
   font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
   /* 面向果农的可读性基线：1rem = 17px，全站文字不小于 14px。 */
-  font-size: 17px;
+  --font-scale: 1;
+  font-size: calc(17px * var(--font-scale));
   color: #1f2923;
   background: #f5f7f5;
   font-synthesis: none;
@@ -32,7 +33,7 @@
 /* 桌面/笔记本随视口平滑缩放：宽屏保持 17px，窄笔记本降到约 14.5px；移动端不参与。 */
 @media (min-width: 821px) {
   :root {
-    font-size: clamp(15px, 0.25rem + 0.85vw, 17px);
+    font-size: calc(clamp(15px, 0.25rem + 0.85vw, 17px) * var(--font-scale));
   }
 }
 

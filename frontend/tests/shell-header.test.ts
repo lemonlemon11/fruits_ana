@@ -6,19 +6,24 @@ import { fileURLToPath } from 'node:url'
 
 type ShellHeaderModule = {
   SIDEBAR_STORAGE_KEY: string
+  FONT_SIZE_STORAGE_KEY: string
   restoreSidebarCollapsed: (value: string | null) => boolean
+  restoreFontSize: (value: string | null) => FontSizePreference
+  fontScaleFor: (value: FontSizePreference) => number
   formatHeaderClock: (value: Date) => {
     date: string
     time: string
     datetime: string
   }
 }
+type FontSizePreference = 'small' | 'standard' | 'large' | 'xlarge'
 
 const shellHeader = await import('../src/utils/shellHeader.ts')
   .catch(() => null) as ShellHeaderModule | null
 const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src')
 const shell = fs.readFileSync(path.join(src, 'AppShell.vue'), 'utf8')
 const styles = fs.readFileSync(path.join(src, 'styles-shell.css'), 'utf8')
+const globalStyles = fs.readFileSync(path.join(src, 'styles.css'), 'utf8')
 
 test('侧栏收起状态只接受明确的 true 并使用稳定存储键', () => {
   assert.ok(shellHeader)
@@ -27,6 +32,20 @@ test('侧栏收起状态只接受明确的 true 并使用稳定存储键', () =>
   assert.equal(shellHeader.restoreSidebarCollapsed('false'), false)
   assert.equal(shellHeader.restoreSidebarCollapsed('broken'), false)
   assert.equal(shellHeader.restoreSidebarCollapsed(null), false)
+})
+
+test('字号偏好使用稳定存储键并只接受已知档位', () => {
+  assert.ok(shellHeader)
+  assert.equal(shellHeader.FONT_SIZE_STORAGE_KEY, 'fruits-ana:font-size')
+  assert.equal(shellHeader.restoreFontSize('small'), 'small')
+  assert.equal(shellHeader.restoreFontSize('standard'), 'standard')
+  assert.equal(shellHeader.restoreFontSize('xlarge'), 'xlarge')
+  assert.equal(shellHeader.restoreFontSize('broken'), 'small')
+  assert.equal(shellHeader.restoreFontSize(null), 'small')
+  assert.equal(shellHeader.fontScaleFor('small'), 0.9)
+  assert.equal(shellHeader.fontScaleFor('standard'), 1)
+  assert.equal(shellHeader.fontScaleFor('large'), 1.125)
+  assert.equal(shellHeader.fontScaleFor('xlarge'), 1.25)
 })
 
 test('顶部时间格式包含本地日期、星期和时分秒', () => {
@@ -45,6 +64,25 @@ test('header 品牌图标返回销售总览并提供可访问的侧栏按钮和�
   assert.match(shell, /aria-controls="primary-nav"/)
   assert.match(shell, /<time\s+class="app-header-clock"/)
   assert.match(shell, /:datetime="headerClock\.datetime"/)
+})
+
+test('header 提供字号选择并让全局根字号按偏好缩放', () => {
+  assert.match(shell, /class="app-header-font-size"/)
+  assert.match(shell, /class="font-size-trigger"/)
+  assert.match(shell, /aria-controls="font-size-popover"/)
+  assert.match(shell, /:aria-expanded="fontSizePanelOpen"/)
+  assert.match(shell, /@click="toggleFontSizePanel"/)
+  assert.match(shell, /id="font-size-popover"/)
+  assert.match(shell, /v-if="fontSizePanelOpen"/)
+  assert.match(shell, /id="font-size-slider"/)
+  assert.match(shell, /type="range"/)
+  assert.match(shell, /v-model="fontSizeIndex"/)
+  assert.match(shell, /:aria-valuetext="fontSizeOption\.label"/)
+  assert.match(shell, /FONT_SIZE_OPTIONS/)
+  assert.match(shell, /当前字号：\{\{ fontSizeOption\.label \}\}/)
+  assert.match(globalStyles, /--font-scale:\s*1/)
+  assert.match(globalStyles, /calc\(17px \* var\(--font-scale\)\)/)
+  assert.match(globalStyles, /calc\(clamp\(15px, 0\.25rem \+ 0\.85vw, 17px\) \* var\(--font-scale\)\)/)
 })
 
 test('桌面收起为自适应图标栏且移动端不显示收起按钮', () => {
