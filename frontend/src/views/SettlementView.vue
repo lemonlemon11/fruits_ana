@@ -5,6 +5,7 @@ import { getSettlementComparison, getSettlementDetail, getTrend, gradeLabel, rec
 import GradeSummary from '../components/GradeSummary.vue'
 import TrendChart from '../components/TrendChart.vue'
 import { buildOtherSettlementGradeBaseline, settlementOptionLabel } from '../utils/settlementComparison'
+import { displayMerchantNo } from '../utils/merchantNo'
 import { formatAnomalyValue, formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
 
 const route = useRoute()
@@ -16,6 +17,12 @@ const filters = reactive({
 const activeMerchantNo = ref('')
 const options = ref<SettlementComparisonItem[]>([]); const detail = ref<SettlementDetail | null>(null); const trend = ref<TrendPoint[]>([]); const loading = ref(true); const error = ref(''); let requestVersion = 0
 const selectedOption = computed(() => options.value.find((item) => item.merchantNo === activeMerchantNo.value))
+/** 商号文案统一用适配后写法；选项未加载时回退原始商号。 */
+const activeMerchantLabel = computed(() =>
+  selectedOption.value
+    ? displayMerchantNo(selectedOption.value)
+    : displayMerchantNo({ merchantNo: activeMerchantNo.value }),
+)
 const baseline = computed(() => buildOtherSettlementGradeBaseline(options.value, activeMerchantNo.value))
 const periodLabel = computed(() => detail.value?.startDate && detail.value?.endDate ? `${detail.value.startDate} 至 ${detail.value.endDate}` : '当前筛选范围暂无到达日期')
 const baselineRows = computed(() => detail.value?.grades.map((grade) => {
@@ -87,7 +94,7 @@ onMounted(refresh)
     <div v-if="error" class="error-banner" role="alert"><span><strong>结算单数据没有加载成功</strong>请检查网络后重新查询。{{ error }}</span><button type="button" @click="refresh">重新查询</button></div>
     <div v-if="!loading && !options.length" class="empty-state prominent"><strong>暂无结算单数据</strong><span>目前没有可查看的结算单。请从左侧菜单进入“数据导入”，先导入结算单。</span></div>
     <template v-else>
-      <section class="settlement-banner"><div class="settlement-identity"><strong>{{ selectedOption ? settlementOptionLabel(selectedOption) : activeMerchantNo }}</strong><small>商号 {{ activeMerchantNo }} · {{ detail?.containerNo ? `柜号 ${detail.containerNo}` : '未登记柜号' }} · 到达日期：{{ periodLabel }}</small></div></section>
+      <section class="settlement-banner"><div class="settlement-identity"><strong>{{ selectedOption ? settlementOptionLabel(selectedOption) : activeMerchantNo }}</strong><small>商号 {{ activeMerchantLabel }} · {{ detail?.containerNo ? `柜号 ${detail.containerNo}` : '未登记柜号' }} · 到达日期：{{ periodLabel }}</small></div></section>
       <section class="kpi-grid" aria-label="销售核心指标"><article v-for="item in salesKpis" :key="item.label" class="kpi-card"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.note }}</small></article></section>
       <section class="panel grade-summary-panel"><GradeSummary :grades="detail?.grades ?? []" :total="detail?.total ?? { salesQuantity: 0, salesAmount: 0, weightedAvgPrice: null }" :loading="loading" :title="`${selectedOption ? settlementOptionLabel(selectedOption) : '当前结算单'} 等级表现`" /></section>
       <section class="analysis-grid"><div class="panel trend-panel"><TrendChart :points="trend" :loading="loading" title="该结算单每日销量和平均每件售价" /></div><div class="panel baseline-panel"><header class="panel-head"><h2>和同期其他结算单平均每件售价对比</h2></header><div v-if="loading" class="skeleton-block">正在计算对比数据</div><div v-else class="baseline-list"><div v-for="row in baselineRows" :key="row.grade" class="baseline-row"><span class="grade-badge" :class="`grade-${row.grade.toLowerCase()}`">{{ row.grade }}</span><div><strong>{{ gradeLabel(row.grade) }}</strong><small>本单 {{ formatPrice(row.weightedAvgPrice) }} · 其他结算单 {{ formatPrice(row.baselinePrice) }}</small></div><span :class="['delta-pill', { negative: row.delta !== null && row.delta < 0 }]">{{ row.delta === null ? '暂无对比' : `${row.delta >= 0 ? '+' : ''}${formatPercent(row.delta)}` }}</span></div></div></div></section>

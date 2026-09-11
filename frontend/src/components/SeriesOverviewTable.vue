@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { gradeLabel } from '../api/client'
 import type { Grade, SeriesAggregate, SeriesComparisonItem } from '../api/types'
+import { useChartTooltip } from '../utils/chartTooltip'
 import { formatCurrency, formatDate, formatNumber, formatPercent, formatPrice } from '../utils/format'
+import { displayOrderNo, rawOrderNo } from '../utils/orderNo'
+import { displayMerchantNo, rawMerchantNo } from '../utils/merchantNo'
 import { gradeOf, gradeRow } from '../utils/seriesComparison'
+import ChartTooltip from './ChartTooltip.vue'
 
 const props = defineProps<{
   items: SeriesComparisonItem[]
@@ -12,7 +16,19 @@ const props = defineProps<{
 
 const gradeOrder: Grade[] = ['A', 'B', 'C']
 const gradeColors: Record<Grade, string> = { A: '#16856b', B: '#bd7414', C: '#b94a3c' }
+const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
 const quantity = (item: SeriesComparisonItem, grade: Grade) => gradeOf(item, grade).salesQuantity
+/** 表格与提示里回溯填写人员原始写法的 tooltip 文案。 */
+function rawTrace(item: SeriesComparisonItem): string {
+  const parts = []
+  if (rawMerchantNo(item) && rawMerchantNo(item) !== displayMerchantNo(item)) {
+    parts.push(`原始商号：${rawMerchantNo(item)}`)
+  }
+  if (rawOrderNo(item) && rawOrderNo(item) !== displayOrderNo(item)) {
+    parts.push(`原始单号：${rawOrderNo(item)}`)
+  }
+  return parts.join(' / ')
+}
 const quantityShare = (item: SeriesComparisonItem, grade: Grade) => gradeOf(item, grade).quantityShare
 const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
 
@@ -20,6 +36,18 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
 function shareWidth(value: number | null): string {
   if (value === null || value <= 0) return '0%'
   return `${Math.max(Math.min(value, 1) * 100, 2)}%`
+}
+
+function showShareTooltip(event: MouseEvent, item: SeriesComparisonItem, grade: Grade) {
+  const orderNo = displayOrderNo(item)
+  showTooltip(event, {
+    title: `${displayMerchantNo(item)}${orderNo ? ` · ${orderNo}` : ''}`,
+    rows: [
+      { label: `${gradeLabel(grade)}占比`, value: formatPercent(quantityShare(item, grade)), color: gradeColors[grade] },
+      { label: `${gradeLabel(grade)}件数`, value: `${formatNumber(quantity(item, grade))} 件` },
+    ],
+    note: '占比 = 该等级件数 ÷ 该结算单总件数',
+  })
 }
 </script>
 
@@ -54,9 +82,9 @@ function shareWidth(value: number | null): string {
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.merchantNo">
-            <th scope="row">
-              <strong>{{ item.merchantNo }}</strong>
-              <small>{{ item.orderNo || '—' }}</small>
+            <th scope="row" :title="rawTrace(item)">
+              <strong>{{ displayMerchantNo(item) }}</strong>
+              <small>{{ displayOrderNo(item) || '—' }}</small>
             </th>
             <td>{{ item.series }}</td>
             <td>{{ formatDate(item.startDate) }}</td>
@@ -65,7 +93,12 @@ function shareWidth(value: number | null): string {
             <td>{{ formatCurrency(item.total.salesAmount) }}</td>
             <td>{{ formatPrice(item.total.weightedAvgPrice) }}</td>
             <td v-for="grade in gradeOrder" :key="`share-${grade}`">
-              <span class="share-cell">
+              <span
+                class="share-cell"
+                @mouseenter="showShareTooltip($event, item, grade)"
+                @mousemove="moveTooltip"
+                @mouseleave="hideTooltip"
+              >
                 <span class="share-track" aria-hidden="true">
                   <i
                     :style="{ width: shareWidth(quantityShare(item, grade)), backgroundColor: gradeColors[grade] }"
@@ -91,6 +124,7 @@ function shareWidth(value: number | null): string {
         </tfoot>
       </table>
     </div>
+    <ChartTooltip :tooltip="tooltip" />
   </section>
 </template>
 

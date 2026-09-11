@@ -1,4 +1,5 @@
 import type { Grade, GradeMetric, SeriesComparisonItem } from '../api/types'
+import { displayOrderNo } from './orderNo.ts'
 import { UNKNOWN_SERIES } from '../api/normalize.ts'
 
 /** 一次最多勾选的结算单数量，保证图表可读；后端不做数量限制。 */
@@ -70,7 +71,11 @@ export function gradeOf(item: SeriesComparisonItem, grade: Grade): GradeMetric {
   return gradeRow(item.grades, grade)
 }
 
-/** 结算单在图表中的短标签：优先单号，其次商号。 */
-export function shortLabel(item: { orderNo?: string; merchantNo?: string }): string {
-  return item.orderNo?.trim() || item.merchantNo?.trim() || '未知结算单'
+/** 结算单在图表中的短标签：优先适配后单号，其次商号。 */
+export function shortLabel(item: {
+  orderNo?: string
+  orderNoNormalized?: string
+  merchantNo?: string
+}): string {
+  return displayOrderNo(item) || item.merchantNo?.trim() || '未知结算单'
 }

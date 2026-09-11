@@ -15,7 +15,7 @@ export function filterSettlementOptions(
   const needle = keyword.trim().toLowerCase()
   if (!needle) return items
   return items.filter((item) =>
-    [item.merchantNo, item.orderNo, item.series, item.containerNo]
+    [item.merchantNo, item.orderNoNormalized, item.orderNo, item.series, item.containerNo]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(needle)),
   )

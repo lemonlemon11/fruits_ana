@@ -44,6 +44,7 @@ export interface OperatingAnomaly {
   type: string
   reason: string
   merchantNo: string
+  merchantNoNormalized?: string
   metric: number | null
   baseline: number | null
 }
@@ -57,7 +58,9 @@ export interface OverviewData {
 
 export interface SettlementComparisonItem extends MetricTotal {
   merchantNo: string
+  merchantNoNormalized: string
   orderNo: string
+  orderNoNormalized: string
   containerNo: string
   vehicleNo: string
   grades: GradeMetric[]
@@ -90,7 +93,9 @@ export interface SettlementRecord {
 
 export interface SettlementDetail extends OverviewData {
   merchantNo: string
+  merchantNoNormalized: string
   orderNo: string
+  orderNoNormalized: string
   containerNo: string
   vehicleNo: string
   startDate: string
@@ -101,7 +106,9 @@ export interface SettlementDetail extends OverviewData {
 
 export interface SettlementListItem {
   merchantNo: string
+  merchantNoNormalized: string
   orderNo: string
+  orderNoNormalized: string
   series: string
   containerNo: string
   vehicleNo: string
@@ -127,7 +134,9 @@ export interface SettlementListData {
 
 export interface SettlementRecordsData {
   merchantNo: string
+  merchantNoNormalized: string
   orderNo: string
+  orderNoNormalized: string
   containerNo: string
   vehicleNo: string
   records: SettlementRecord[]
@@ -149,7 +158,9 @@ export interface SeriesAggregate {
 
 export interface SeriesComparisonItem extends SeriesAggregate {
   merchantNo: string
+  merchantNoNormalized: string
   orderNo: string
+  orderNoNormalized: string
   series: string
   containerNo: string
   vehicleNo: string
@@ -204,6 +215,10 @@ export interface SeriesAnalysisResult {
 export interface ImportBatch {
   id: number | string
   fileName: string
+  merchantNo: string
+  merchantNoNormalized: string
+  orderNo: string
+  orderNoNormalized: string
   importedAt: string
   status: string
   successCount: number

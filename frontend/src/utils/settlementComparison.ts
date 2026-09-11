@@ -1,4 +1,6 @@
 import type { Grade, GradeMetric, SettlementComparisonItem } from '../api/types'
+import { displayOrderNo } from './orderNo.ts'
+import { displayMerchantNo } from './merchantNo.ts'
 
 export const MAX_COMPARISON_SETTLEMENTS = 3
 export const MIN_COMPARISON_SETTLEMENTS = 2
@@ -6,10 +8,12 @@ export const MIN_COMPARISON_SETTLEMENTS = 2
 /** 下拉框以商号作为唯一取值，并按「商号（单号）」展示，避免重复柜号或重复单号造成误选。 */
 export function settlementOptionLabel(item: {
   merchantNo?: string | null
+  merchantNoNormalized?: string | null
   orderNo?: string | null
+  orderNoNormalized?: string | null
 }): string {
-  const orderNo = item.orderNo?.trim()
-  const merchantNo = item.merchantNo?.trim()
+  const orderNo = displayOrderNo(item)
+  const merchantNo = displayMerchantNo(item)
   if (merchantNo && orderNo) return `商号 ${merchantNo}（${orderNo}）`
   if (merchantNo) return `商号 ${merchantNo}`
   return orderNo || '未知结算单'

@@ -136,6 +136,24 @@ function severityLabel(severity: string): string {
 
 function severityTone(severity: string): string { return severity.toLowerCase() === 'error' ? 'issue-error' : 'issue-warning' }
 
+/** 批次标题统一用适配后单号；没有单号（导入失败）时回退原始文件名。 */
+function batchTitle(batch: ImportBatch): string {
+  return batch.orderNoNormalized || batch.orderNo || batch.fileName
+}
+
+/** 副标题给出适配后商号与原始文件名，便于追溯填写人员上传的文件。 */
+function batchSubtitle(batch: ImportBatch): string {
+  const merchant = batch.merchantNoNormalized || batch.merchantNo
+  const meta = [
+    merchant ? `商号 ${merchant}` : '',
+    formatDateTime(batch.importedAt),
+    `第 ${batch.id} 批`,
+  ].filter(Boolean)
+  return batch.fileName && batch.fileName !== batchTitle(batch)
+    ? [batch.fileName, ...meta].join(' · ')
+    : meta.join(' · ')
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)}兆字节`
   return `${(bytes / 1024).toFixed(0)}千字节`
@@ -227,7 +245,7 @@ onBeforeUnmount(() => {
       <div v-else-if="!batches.length" class="empty-state prominent"><strong>还没有导入记录</strong><span>完成首次文件导入后，批次与质量统计会显示在这里。</span></div>
       <div v-else class="batch-list">
         <article v-for="batch in batches" :key="batch.id" class="batch-row">
-          <div class="batch-file"><strong>{{ batch.fileName }}</strong><small>{{ formatDateTime(batch.importedAt) }} · 第 {{ batch.id }} 批</small></div>
+          <div class="batch-file"><strong>{{ batchTitle(batch) }}</strong><small>{{ batchSubtitle(batch) }}</small></div>
           <span class="status-badge" :class="statusTone(batch.status)">{{ statusLabel(batch.status) }}</span>
           <dl class="batch-counts"><div><dt>成功</dt><dd>{{ batch.successCount }}</dd></div><div><dt>警告</dt><dd class="count-warning">{{ batch.warningCount }}</dd></div><div><dt>失败</dt><dd class="count-error">{{ batch.failureCount }}</dd></div></dl>
           <p v-if="batch.errorSummary" class="batch-error">{{ batch.errorSummary }}</p>

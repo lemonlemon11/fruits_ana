@@ -3,13 +3,25 @@ import { computed } from 'vue'
 
 import { gradeLabel } from '../api/client'
 import type { Grade, SeriesComparisonItem } from '../api/types'
+import { useChartTooltip } from '../utils/chartTooltip'
 import { formatNumber, formatPrice } from '../utils/format'
 import { gradePrice } from '../utils/seriesComparison'
+import { displayOrderNo, rawOrderNo } from '../utils/orderNo'
+import { displayMerchantNo, rawMerchantNo } from '../utils/merchantNo'
+import ChartLegend from './ChartLegend.vue'
+import ChartTooltip from './ChartTooltip.vue'
 
 const props = defineProps<{ items: SeriesComparisonItem[]; loading?: boolean }>()
 
 const gradeOrder: Grade[] = ['A', 'B', 'C']
 const gradeColors: Record<Grade, string> = { A: '#16856b', B: '#bd7414', C: '#b94a3c' }
+
+const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
+const legendItems = gradeOrder.map((grade) => ({
+  label: gradeLabel(grade),
+  color: gradeColors[grade],
+  variant: 'block' as const,
+}))
 
 const maxPrice = computed(() =>
   Math.max(
@@ -41,8 +53,10 @@ function niceStep(raw: number): number {
 
 const groups = computed(() =>
   props.items.map((item) => ({
-    merchantNo: item.merchantNo,
-    orderNo: item.orderNo,
+    merchantNo: displayMerchantNo(item),
+    rawMerchantNo: rawMerchantNo(item),
+    orderNo: displayOrderNo(item),
+    rawOrderNo: rawOrderNo(item),
     bars: gradeOrder.map((grade) => ({
       grade,
       color: gradeColors[grade],
@@ -72,8 +86,30 @@ function barLabel(value: number | null): string {
   return value === null ? '—' : formatNumber(Math.round(value))
 }
 
+/** 柱状图下方标签的 tooltip：回溯填写人员的原始商号 / 单号写法。 */
+function rawClusterTrace(group: { merchantNo: string; rawMerchantNo: string; orderNo: string; rawOrderNo: string }): string {
+  const parts = []
+  if (group.rawMerchantNo && group.rawMerchantNo !== group.merchantNo) {
+    parts.push(`原始商号：${group.rawMerchantNo}`)
+  }
+  if (group.rawOrderNo && group.rawOrderNo !== group.orderNo) {
+    parts.push(`原始单号：${group.rawOrderNo}`)
+  }
+  return parts.join(' / ')
+}
+
 function isBest(grade: Grade, value: number | null): boolean {
   return value !== null && value > 0 && value === bestPrices.value[grade]
+}
+
+function showBarTooltip(event: MouseEvent, group: { merchantNo: string; orderNo: string }, bar: { grade: Grade; value: number | null; color: string }) {
+  showTooltip(event, {
+    title: `${group.merchantNo}${group.orderNo ? ` · ${group.orderNo}` : ''}`,
+    rows: [
+      { label: gradeLabel(bar.grade), value: `${formatPrice(bar.value)}/件`, color: bar.color },
+    ],
+    note: isBest(bar.grade, bar.value) ? `该等级所选结算单中的最高价` : undefined,
+  })
 }
 </script>
 
@@ -84,11 +120,7 @@ function isBest(grade: Grade, value: number | null): boolean {
         <h2 id="series-price-title">A/B/C 平均每件售价对比</h2>
         <p class="section-note">每张结算单一组，柱内从左到右为 A、B、C，同一颜色的柱子可跨结算单比较；单位：元/件，深色数字为该等级最高价</p>
       </div>
-      <ul class="price-legend">
-        <li v-for="grade in gradeOrder" :key="grade">
-          <i :style="{ backgroundColor: gradeColors[grade] }" aria-hidden="true" />{{ gradeLabel(grade) }}
-        </li>
-      </ul>
+      <ChartLegend :items="legendItems" />
     </header>
 
     <div v-if="loading" class="chart-skeleton skeleton-block">正在加载价格对比</div>
@@ -115,7 +147,9 @@ function isBest(grade: Grade, value: number | null): boolean {
                   :key="bar.grade"
                   class="price-bar-item"
                   :class="{ 'is-best': isBest(bar.grade, bar.value) }"
-                  :title="`商号 ${group.merchantNo} · ${gradeLabel(bar.grade)} 平均每件售价 ${formatPrice(bar.value)}`"
+                  @mouseenter="showBarTooltip($event, group, bar)"
+                  @mousemove="moveTooltip"
+                  @mouseleave="hideTooltip"
                 >
                   <span class="price-bar-value" :style="{ bottom: position(bar.value) }">
                     {{ barLabel(bar.value) }}
@@ -126,7 +160,10 @@ function isBest(grade: Grade, value: number | null): boolean {
                   />
                 </div>
               </div>
-              <span class="price-cluster-label">
+              <span
+                class="price-cluster-label"
+                :title="rawClusterTrace(group)"
+              >
                 <strong>{{ group.merchantNo }}</strong>
                 <small>{{ group.orderNo || '—' }}</small>
               </span>
@@ -135,13 +172,11 @@ function isBest(grade: Grade, value: number | null): boolean {
         </div>
       </div>
     </div>
+    <ChartTooltip :tooltip="tooltip" />
   </section>
 </template>
 
 <style scoped>
-.price-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: .9rem; }
-.price-legend li { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
-.price-legend i { width: 10px; height: 10px; border-radius: 2px; }
 .price-figure { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); column-gap: 10px; }
 /* 左侧刻度与柱区同为 200px，刻度用百分比定位后能和网格线一一对齐。 */
 .price-axis { position: relative; height: 200px; }

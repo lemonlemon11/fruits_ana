@@ -129,7 +129,9 @@ export function normalizeSettlementComparison(payload: unknown): SettlementCompa
     return {
       ...overview.total,
       merchantNo,
+      merchantNoNormalized: stringOr(pick(row, 'merchant_no_normalized', 'merchantNoNormalized'), ''),
       orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
+      orderNoNormalized: stringOr(pick(row, 'order_no_normalized', 'orderNoNormalized'), ''),
       containerNo: stringOr(pick(row, 'container_no', 'containerNo'), ''),
       vehicleNo: stringOr(pick(row, 'vehicle_no', 'vehicleNo'), ''),
       grades: overview.grades,
@@ -165,7 +167,9 @@ export function normalizeSettlementDetail(payload: unknown, merchantNo: string):
   return {
     ...overview,
     merchantNo: stringOr(pick(body, 'merchant_no', 'merchantNo'), merchantNo),
+    merchantNoNormalized: stringOr(pick(body, 'merchant_no_normalized', 'merchantNoNormalized'), ''),
     orderNo: stringOr(pick(body, 'order_no', 'orderNo'), ''),
+    orderNoNormalized: stringOr(pick(body, 'order_no_normalized', 'orderNoNormalized'), ''),
     containerNo: stringOr(pick(body, 'container_no', 'containerNo'), ''),
     vehicleNo: stringOr(pick(body, 'vehicle_no', 'vehicleNo'), ''),
     startDate: stringOr(pick(period, 'start_date', 'startDate'), ''),
@@ -216,7 +220,9 @@ export function normalizeSettlementRecordsData(payload: unknown): SettlementReco
   const body = unwrap(payload)
   return {
     merchantNo: stringOr(pick(body, 'merchant_no', 'merchantNo'), ''),
+    merchantNoNormalized: stringOr(pick(body, 'merchant_no_normalized', 'merchantNoNormalized'), ''),
     orderNo: stringOr(pick(body, 'order_no', 'orderNo'), ''),
+    orderNoNormalized: stringOr(pick(body, 'order_no_normalized', 'orderNoNormalized'), ''),
     containerNo: stringOr(pick(body, 'container_no', 'containerNo'), ''),
     vehicleNo: stringOr(pick(body, 'vehicle_no', 'vehicleNo'), ''),
     records: normalizeSettlementRecords(body.records ?? body.sale_records),
@@ -227,7 +233,9 @@ function normalizeSettlementListItem(row: JsonRecord): SettlementListItem {
   const quantities = asRecord(row.grade_quantities ?? row.gradeQuantities)
   return {
     merchantNo: stringOr(pick(row, 'merchant_no', 'merchantNo'), '未编号'),
+    merchantNoNormalized: stringOr(pick(row, 'merchant_no_normalized', 'merchantNoNormalized'), ''),
     orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
+    orderNoNormalized: stringOr(pick(row, 'order_no_normalized', 'orderNoNormalized'), ''),
     series: stringOr(pick(row, 'series'), UNKNOWN_SERIES),
     containerNo: stringOr(pick(row, 'container_no', 'containerNo'), ''),
     vehicleNo: stringOr(pick(row, 'vehicle_no', 'vehicleNo'), ''),
@@ -249,6 +257,10 @@ export function normalizeImportBatch(row: JsonRecord): ImportBatch {
   return {
     id: idOrEmpty(pick(row, 'id', 'batch_id', 'batchId')),
     fileName: stringOr(pick(row, 'file_name', 'fileName', 'filename'), '未命名文件'),
+    merchantNo: stringOr(pick(row, 'merchant_no', 'merchantNo'), ''),
+    merchantNoNormalized: stringOr(pick(row, 'merchant_no_normalized', 'merchantNoNormalized'), ''),
+    orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
+    orderNoNormalized: stringOr(pick(row, 'order_no_normalized', 'orderNoNormalized'), ''),
     importedAt: stringOr(pick(row, 'imported_at', 'importedAt', 'created_at'), ''),
     status: stringOr(row.status, 'unknown'),
     successCount: numberOr(pick(row, 'success_count', 'successCount'), 0),
@@ -282,7 +294,9 @@ export function normalizeSeriesComparison(payload: unknown): SeriesComparisonDat
     settlements: asArray(body.settlements).map((row) => ({
       ...normalizeSeriesAggregate(row),
       merchantNo: stringOr(pick(row, 'merchant_no', 'merchantNo'), '未编号'),
+      merchantNoNormalized: stringOr(pick(row, 'merchant_no_normalized', 'merchantNoNormalized'), ''),
       orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
+      orderNoNormalized: stringOr(pick(row, 'order_no_normalized', 'orderNoNormalized'), ''),
       series: stringOr(pick(row, 'series'), UNKNOWN_SERIES),
       containerNo: stringOr(pick(row, 'container_no', 'containerNo'), ''),
       vehicleNo: stringOr(pick(row, 'vehicle_no', 'vehicleNo'), ''),
@@ -401,6 +415,7 @@ function normalizeAnomaly(row: JsonRecord): OperatingAnomaly {
     type: stringOr(pick(row, 'type', 'issue_type', 'issueType'), 'operating_anomaly'),
     reason: stringOr(row.reason ?? row.message, '发现经营指标异常'),
     merchantNo: stringOr(pick(row, 'merchant_no', 'merchantNo'), ''),
+    merchantNoNormalized: stringOr(pick(row, 'merchant_no_normalized', 'merchantNoNormalized'), ''),
     metric: nullableNumber(row.metric),
     baseline: nullableNumber(row.baseline),
   }

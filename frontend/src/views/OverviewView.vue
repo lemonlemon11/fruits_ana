@@ -14,6 +14,7 @@ import GradeSummary from '../components/GradeSummary.vue'
 import SettlementComparison from '../components/SettlementComparison.vue'
 import TrendChart from '../components/TrendChart.vue'
 import { formatAnomalyValue } from '../utils/format'
+import { displayMerchantNo } from '../utils/merchantNo'
 import { filterSettlementsByMerchant, settlementOptionLabel } from '../utils/settlementComparison'
 
 const filters = reactive({ startDate: '', endDate: '', merchantNo: '' })
@@ -125,7 +126,7 @@ onMounted(refresh)
           </li>
           <li v-for="(item, index) in overview?.operatingAnomalies" :key="`${item.merchantNo}-${index}`" class="alert-item danger">
             <span class="alert-code">经营</span>
-            <div><strong>{{ item.merchantNo || '结算单' }} · {{ item.reason }}</strong>
+            <div><strong>{{ displayMerchantNo(item) || '结算单' }} · {{ item.reason }}</strong>
               <p>当前 {{ formatAnomalyValue(item.type, item.metric) }}，同期基线 {{ formatAnomalyValue(item.type, item.baseline) }}</p>
             </div>
           </li>

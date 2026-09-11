@@ -5,6 +5,7 @@ import { getSettlements, type SettlementListItem } from '../api/client'
 import SettlementRecordsDialog from '../components/SettlementRecordsDialog.vue'
 import { formatCurrency, formatNumber, formatPrice } from '../utils/format'
 import { settlementOptionLabel } from '../utils/settlementComparison'
+import { displayMerchantNo, rawMerchantNo } from '../utils/merchantNo'
 
 const filters = reactive({ startDate: '', endDate: '', merchantNo: '' })
 const settlements = ref<SettlementListItem[]>([])
@@ -127,8 +128,12 @@ onMounted(() => {
           </thead>
           <tbody>
             <tr v-for="item in settlements" :key="item.merchantNo">
-              <td>{{ item.merchantNo }}</td>
-              <td>{{ item.orderNo || '—' }}</td>
+              <td :title="rawMerchantNo(item) && rawMerchantNo(item) !== displayMerchantNo(item) ? `原始商号：${rawMerchantNo(item)}` : ''">
+                {{ displayMerchantNo(item) }}
+              </td>
+              <td :title="item.orderNo && item.orderNo !== item.orderNoNormalized ? `原始单号：${item.orderNo}` : ''">
+                {{ item.orderNoNormalized || item.orderNo || '—' }}
+              </td>
               <td>{{ item.containerNo || '—' }}</td>
               <td>{{ salesPeriod(item) }}</td>
               <td>{{ formatCurrency(item.salesAmount) }}</td>
