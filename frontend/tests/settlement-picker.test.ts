@@ -1,0 +1,79 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
+import type { SettlementListItem } from '../src/api/types.ts'
+import {
+  addWholeSeries,
+  filterSettlementOptions,
+  isWholeSeriesSelected,
+  toggleDraftSelection,
+} from '../src/utils/settlementPicker.ts'
+
+function settlement(overrides: Partial<SettlementListItem>): SettlementListItem {
+  return {
+    merchantNo: '626',
+    orderNo: '宝贝L004',
+    series: '宝贝',
+    containerNo: 'TCLU1234567',
+    vehicleNo: '',
+    saleDateStart: '2026-08-01',
+    saleDateEnd: '2026-08-10',
+    salesAmount: 1000,
+    totalQuantity: 10,
+    averagePrice: 100,
+    gradeQuantities: { A: 1, B: 1, C: 1 },
+    recordCount: 3,
+    ...overrides,
+  }
+}
+
+const OPTIONS = [
+  settlement({ merchantNo: '626', orderNo: '宝贝L004' }),
+  settlement({ merchantNo: '单637', orderNo: '宝贝01' }),
+  settlement({ merchantNo: '888', orderNo: '金果A2', series: '金果', containerNo: 'OOLU7654321' }),
+]
+
+test('filterSettlementOptions 按商号、单号、系列与柜号搜索', () => {
+  assert.equal(filterSettlementOptions(OPTIONS, '').length, 3)
+  assert.deepEqual(
+    filterSettlementOptions(OPTIONS, '637').map((item) => item.merchantNo),
+    ['单637'],
+  )
+  assert.deepEqual(
+    filterSettlementOptions(OPTIONS, '金果').map((item) => item.merchantNo),
+    ['888'],
+  )
+  assert.deepEqual(
+    filterSettlementOptions(OPTIONS, 'oolu').map((item) => item.merchantNo),
+    ['888'],
+  )
+  assert.equal(filterSettlementOptions(OPTIONS, '不存在').length, 0)
+})
+
+test('toggleDraftSelection 支持勾选、取消与上限保护', () => {
+  const first = toggleDraftSelection([], '626', 2)
+  assert.deepEqual(first, { next: ['626'], limited: false })
+
+  const second = toggleDraftSelection(first.next, '单637', 2)
+  assert.deepEqual(second, { next: ['626', '单637'], limited: false })
+
+  const blocked = toggleDraftSelection(second.next, '888', 2)
+  assert.deepEqual(blocked, { next: ['626', '单637'], limited: true })
+
+  const removed = toggleDraftSelection(second.next, '626', 2)
+  assert.deepEqual(removed, { next: ['单637'], limited: false })
+})
+
+test('addWholeSeries 追加去重并按上限截断', () => {
+  const result = addWholeSeries(['888'], ['626', '单637', '888'], 2)
+  assert.deepEqual(result, { next: ['888', '626'], limited: true })
+
+  const all = addWholeSeries([], ['626', '单637'], 6)
+  assert.deepEqual(all, { next: ['626', '单637'], limited: false })
+})
+
+test('isWholeSeriesSelected 只在整组都选中时返回 true', () => {
+  assert.equal(isWholeSeriesSelected(['626', '单637'], ['626', '单637']), true)
+  assert.equal(isWholeSeriesSelected(['626'], ['626', '单637']), false)
+  assert.equal(isWholeSeriesSelected([], []), false)
+})
