@@ -1,12 +1,13 @@
 # HANDOFF
 
-Last updated：2026-09-11 11:55 (CST)
+Last updated：2026-09-11 16:20 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## Current Goal
 
-P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏览器回归；
-③ 全系统业务逻辑与交互走查。当前待提交本轮 P0 修复与文档收口。
+单号与商号命名适配（ADR-015 / ADR-016）均已交付：**原始写法 + 适配后写法双写落库，
+页面统一展示适配后写法，原始写法保留可追溯**；线上 MySQL 迁移已执行、真实浏览器验收通过，
+代码与文档已提交到 `dev`（尚未 push）。工作区剩余的未提交改动属并发会话的品牌化与预览页改造，见 In Progress。
 
 ## Current Status
 
@@ -31,9 +32,20 @@ P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏
 9. 已验证当前批次：前端 62 项测试通过、`typecheck` 通过、`vite build` 成功；后端 pytest 通过。
 10. P0-1 走查完成，发现并修复三处：移动端系列对比页横向溢出、`.xls` 文档与实现不一致、
     ADR-010 接口参数名与实现不一致；P0-2 / P0-3 浏览器验收已通过。
+11. **单号命名适配（15:20–15:55）**：新增 `services/order_no_naming.py`（统一命名纯函数）、
+    `import_batch.order_no_normalized` 列与幂等迁移脚本；导入、查询、导出、AI 数据包与
+    11 处前端展示位全部改为「适配后单号优先、原始单号可追溯」，见 ADR-015。
+12. **商号规范化（16:00–16:20）**：新增 `services/merchant_no_naming.py` 与
+    `import_batch.merchant_no_normalized` 列（迁移改用通用工具 `scripts/column_backfill.py`）；
+    接口、导出、AI 数据包（`PROMPT_VERSION` `v3 → v4`）与前端展示统一用适配后商号，
+    **唯一键 / 接口参数 / 下拉取值 / `?selected=` 仍是原始 `merchant_no`**，见 ADR-016。
+    线上迁移已执行（4 行：`单637→637`、`单624→624`、`626`/`640` 不变），浏览器验收通过。
 
 ## Completed
 
+- [x] `4823631 feat(backend): 单号商号双写并增加回填迁移`（含 10 项双写用例）
+- [x] `294cf2f feat(frontend): 统一图表图例与悬浮提示`
+- [x] `03dbb6d feat(frontend): 页面统一展示适配后单号与商号`
 - [x] `57468ee feat(backend): 增加按系列组织的结算单对比分析`（13 项用例）
 - [x] `7703981 feat(frontend): 增加系列对比页面与图表`（8 项用例）
 - [x] `58d164b docs: 记录系列对比口径与实现范围`（ADR-009 + 设计稿修订段落）
@@ -58,6 +70,71 @@ P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏
 - [x] `2a71d04 feat(ui): 默认入口改为登录页`（`/` → `/login`，`/preview` 仍可直达）
 
 ## In Progress
+
+工作台外壳改版（2026-09-11，**已提交 `668f572`**）：
+
+- `frontend/src/AppShell.vue`：新增顶部 header（左侧品牌与当前页面、右侧当前用户名与「退出登录」），
+  侧栏底部账号区上移、侧栏品牌区移除；新增页签栏，首页 `/overview` 固定不可关闭，
+  其余可单个关闭或「关闭其他」，关闭当前页签激活右侧邻居（无右侧退回左侧），
+  页签超出可视宽度时自动滚动到当前页签；移动端合并为单条 header，≤430px 只留品牌图标。
+- 新增 `frontend/src/utils/shellTabs.ts`（`openTab` / `closeTab` / `closeOtherTabs` /
+  `nextActivePath` / `restoreTabs`）与 7 项用例 `frontend/tests/shell-tabs.test.ts`；
+  页签存 `sessionStorage`（键 `fruits-ana:open-tabs`），登录页不记录页签，退出登录后清空。
+- `styles-shell.css` 改为「header + body（侧栏 / 工作区）」两段式栅格；
+  `styles-responsive.css` 同步把 `.app-shell` 的列定义改到 `.app-body`（否则 ≤1100px 列会错位）。
+- 验证：前端 104 项 + `typecheck` + `vite build` 通过，后端 233 项通过；
+  53002 实例 + Chromium 实测（临时账号，已清理）：初始 1 个页签、点导航新增页签、重复进入不新增、
+  关闭当前页签跳右侧邻居、首页无关闭按钮、「关闭其他」生效、刷新后页签保留、
+  移动端 360 / 390px 无横向溢出且 header 稳定 60px。
+
+单号命名适配（2026-09-11，代码 + 迁移 + 浏览器验收完成，**已提交 `4823631` / `03dbb6d`**，ADR-015）：
+
+- 统一规则集中在 `backend/app/services/order_no_naming.py`：NFKC 归一 → 取开头连续中文为系列 →
+  去分隔符 / 字母大写 → 序号数字左补零 3 位 → `系列-序号`
+  （`宝贝003 → 宝贝-003`、`宝贝01 → 宝贝-001`、`宝贝L004 → 宝贝-L004`）；识别不出中文系列时原样返回。
+- 落库双写：`import_batch.order_no`（原始）与 `import_batch.order_no_normalized`（适配后）；
+  迁移脚本 `backend/scripts/add_order_no_normalized.py`（幂等 / 默认演练 / `--force` 重算 / 自动 SQL 快照）。
+- 接口：`/api/imports`、`/api/settlements`、`/api/settlements/{merchant_no}/records`、
+  `/api/analytics/{overview,settlements/{merchant_no},settlement-comparison,series-comparison}`
+  均追加 `order_no_normalized`；导出 xlsx 元数据为「单号（适配后） + 原始单号」，
+  导出文件名带适配后单号；AI 系列数据包 `PROMPT_VERSION` `v2 → v3`。
+- 前端：新增 `utils/orderNo.ts`（`displayOrderNo` / `rawOrderNo`），11 处展示位统一走适配后单号，
+  原始单号放 tooltip 或副标题；导入记录以适配后单号为标题、原始文件名作副标题。
+- 验证：后端 223 项通过；前端 97 项 + `typecheck` + `build` 通过；线上迁移已 `--apply`
+  （4 行回填为 `宝贝-001/002/003/L004`）；临时 8010 + 53011 实例 + Chromium 实测
+  数据明细 / 导入记录 / 系列对比总览显示适配后单号且无控制台报错（临时账号已清理）。
+- 注意：改完后端必须重启 `./start.sh`，否则 8000 端口仍是旧代码（见 Known Issues 4）。
+
+商号规范化（2026-09-11，代码 + 迁移 + 浏览器验收完成，**已提交 `4823631` / `03dbb6d`**，ADR-016）：
+
+- 统一规则集中在 `backend/app/services/merchant_no_naming.py`：NFKC 归一 → 去掉所有空白 →
+  去掉开头「单」前缀（可重复）→ 字母大写（`单637 → 637`、`单624 → 624`、`626` / `640` 不变）；
+  去掉「单」后为空时原样返回。
+- 落库双写：`import_batch.merchant_no`（原始）与 `import_batch.merchant_no_normalized`（适配后）；
+  迁移脚本 `backend/scripts/add_merchant_no_normalized.py`，复用新增的通用工具
+  `backend/scripts/column_backfill.py`（幂等 / 默认演练 / `--force` 重算 / 自动 SQL 快照）。
+- **`merchant_no` 仍是业务唯一键、接口参数、前端下拉取值与地址栏 `?selected=` 的值**，
+  只有展示走 `merchant_no_normalized`；「最高价商号 / 最低价商号」等文案改用适配后商号。
+- 接口 `order_no_normalized` 旁追加 `merchant_no_normalized`；导出 xlsx 元数据为
+  「商号（适配后） + 原始商号」、文件名 `settlement-{适配商号}-{适配单号}.xlsx`；
+  AI 系列数据包 `PROMPT_VERSION` `v3 → v4`，旧缓存自动失效。
+- 前端：新增 `utils/merchantNo.ts`（`displayMerchantNo` / `rawMerchantNo`）；数据明细、
+  导入记录副标题、总览经营异常、结算单详情、系列对比总览与均价图统一展示适配后商号，
+  原始商号放 tooltip；下拉标签为「商号 624（宝贝-001）」。
+- 验证：后端 233 项通过（含 `test_merchant_no_naming.py` 6 项、`test_merchant_no_migration.py` 4 项）；
+  前端 110 项 + `typecheck` + `build` 通过；线上迁移已 `--apply`
+  （4 行：`单637→637`、`单624→624`、`626`/`640` 不变，快照
+  `backend/data/snapshot-merchant-no-20260911-075941.sql`）；重启 8000 + 53000 后 Chromium 实测
+  数据明细显示 `637/624/626/640`（`单637`/`单624` 落在 title）、筛选下拉与选择器标签为
+  「商号 624（宝贝-001）」、导入记录副标题含「商号 XXX」，无控制台报错，临时账号已清理。
+
+图表图例与悬浮提示已统一（2026-09-11，自动化 + 真实浏览器验证通过，**已提交 `294cf2f`**）：
+涉及 `TrendChart`、`GradePieChart`、`GradeSummary`、`SeriesGradePriceChart`、`SeriesGradeShareChart`、
+`SeriesGradeDetail`、`SeriesOverviewTable` 与公开预览页 `/preview`（折线图 + 环形图）。
+新增共享组件 `ChartLegend.vue` / `ChartTooltip.vue` 与 `utils/chartTooltip.ts`；
+公开预览页的环形图由硬编码 `conic-gradient` 改为按数据绘制的 SVG；
+原生 `<title>` 提示全部由统一的跟随式提示替代。验证：前端 90 项测试、`typecheck`、`vite build` 通过，
+Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/chart-tooltip.test.ts`）。
 
 等级细分已开发完成（2026-09-11），**待真实浏览器端到端验收**；下一阶段按 `docs/TODO.md` 的 P1 继续
 （候选：元/KG 口径、单位经营结果与费用结构）。
@@ -121,7 +198,7 @@ P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏
 已确认（2026-09-11）：① 清关费以清关单为准，没有即为没有，单 640 应付 384,740 元为真实值
 （ADR-012）；② 下一阶段主线为「等级细分」（ADR-013），实施计划见
 `docs/superpowers/plans/2026-09-11-grade-detail-analysis.md`。
-仍待确认：细分号别区间（如 `B6/7`）的归属规则、商号是否规范化并回填存量。
+仍待确认：细分号别区间（如 `B6/7`）的归属规则。（商号规范化已于 2026-09-11 交付，见 ADR-016。）
 
 ## Incidents（已解决）
 
@@ -187,13 +264,14 @@ P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏
 
 1. 只读复述当前状态并与用户确认，再决定做哪一项。
 2. 候选任务（优先级从高到低）：
-   a. 浏览器端验收：先确认后端已加载最新代码（`/api/analytics/series-comparison` 不再返回 404，
-      运行中的旧进程需重启服务）；再逐页确认日期文案已统一为「到达日期」，并验收「系列对比」页
-      （勾选同系列与跨系列业务单、四张表与两张图正确、移动端不溢出）。
-   b. 系列对比的后续能力：到港日期字段与一次库迁移、元/KG 口径、AI 分析结论、Excel 导出、系列别名字典。
+   a. 与并发会话确认品牌化改动的处理（`AGENTS.md` / `backend/app/main.py` / `backend/app/__init__.py` /
+      `frontend/index.html` / `AuthPortal.vue` / `RegisterView.vue` / `styles-auth.css` /
+      `dev-preview/**` / `public/**` / `BrandMark.vue` / `PublicPreviewView.vue`）：
+      这些**不属于命名适配**，不要混进命名相关提交，先确认归属再提交。
+   b. 系列对比后续能力：到港日期字段与一次库迁移、元/KG 口径、Excel 导出、系列别名字典。
    c. 真实业绩数据到位后的整体回归验收（目前线上只有 4 张示例结算单）。
    d. 根目录 `.env` 中未使用的 `FRUIT_ANALYSIS_AI_*` 配置确认去留（见 Known Issues 1）。
-3. 每次改动后运行基线验证，再按功能提交。
+3. 改完后端记得重启 `./start.sh`（Known Issues 4）；每次改动后运行基线验证，再按功能提交。
 
 ## Known Issues
 
@@ -292,6 +370,11 @@ P0 已完成：① 在途改动拆分提交；② 全站字号与商号下拉浏
 - 等级映射（`BC → C`）、指标口径（金额 ÷ 数量、按销售日期筛选）：变更必须先新增 ADR。
 - 现有 API 路径与响应字段：变更需同步前端 `api/types.ts` + `normalize.ts`。
 - 结算单身份：商号唯一键与「商号（单号）展示 / 商号取值」的下拉框约定，变更需先新增 ADR。
+- 单号双写口径（ADR-015）：`order_no` 是原始写法、`order_no_normalized` 是适配后写法，
+  页面 / 导出 / AI 一律展示适配后写法；不得改写 `order_no`，也不得直接渲染 `order_no`。
+- 商号双写口径（ADR-016）：`merchant_no` 是原始写法且**仍是唯一键 / 接口参数 / 下拉取值 /
+  `?selected=` 的值**；`merchant_no_normalized` 只用于展示（页面 / 导出 / AI），
+  不得把取值或查询键改成适配后商号，也不得直接渲染 `merchant_no`。
 - 未经确认不要改动数据库 schema、依赖与根配置。
 
 原因：这些是共享契约或不可重建的历史资产，任一模型擅自修改都会破坏其他模型的工作基础。
@@ -313,6 +396,13 @@ frontend/src/api/types.ts                # API 契约
 frontend/src/views/ImportView.vue        # 导入页（本轮修复点）
 frontend/src/views/PublicPreviewView.vue # 免登录演示页（/preview）
 backend/app/services/series_analytics_service.py  # 系列识别、A/B/C 指标、价差与系列汇总
+backend/app/services/order_no_naming.py           # 单号统一命名（系列识别 + 适配后单号，ADR-015）
+backend/app/services/merchant_no_naming.py        # 商号统一命名（去「单」前缀，ADR-016）
+backend/scripts/column_backfill.py                # 通用「加列 + 回填」迁移工具（幂等 / 演练 / --force）
+backend/scripts/add_order_no_normalized.py        # 适配后单号加列与回填（基于 column_backfill）
+backend/scripts/add_merchant_no_normalized.py     # 适配后商号加列与回填（基于 column_backfill）
+frontend/src/utils/orderNo.ts                     # displayOrderNo / rawOrderNo 展示口径
+frontend/src/utils/merchantNo.ts                  # displayMerchantNo / rawMerchantNo 展示口径
 frontend/src/views/SeriesComparisonView.vue       # 系列对比页
 frontend/src/components/SeriesGradePriceChart.vue # A/B/C 均价对比图
 frontend/src/components/SeriesGradeShareChart.vue # 等级件数占比图
@@ -355,7 +445,46 @@ npm --prefix frontend run typecheck
 
 ## Test Status
 
-当前测试：PASS（2026-09-11 11:50 实测，含等级细分）
+当前测试：PASS（2026-09-11 16:20 实测，含单号与商号命名适配）
+
+### 单号命名适配（2026-09-11）
+
+- 后端 `pytest`：**223 项通过**，退出码 0（新增 `test_order_no_naming.py` 6 项、
+  `test_order_no_migration.py` 4 项、`test_import_service` 1 项，并同步 `test_settlements_api` 断言）
+- 前端 `npm test`：**97 项通过**，退出码 0（新增 `order-no-normalized.test.ts` 7 项）
+- 前端 `npm run typecheck`：通过（退出码 0）；`npm run build`：成功
+- 线上 MySQL 迁移：`scripts.add_order_no_normalized --apply` 已执行，快照
+  `backend/data/snapshot-order-no-20260911-070729.sql`；4 行回填完成、无未回填行
+- 服务层核对（真实 MySQL）：`list_settlements` / `series-comparison` / `settlement_detail` /
+  `overview` / `settlement-comparison` 均返回 `order_no_normalized`，系列分组不变
+- HTTP 链路（临时 8010 实例 + 真实 MySQL + 临时账号）：`/api/settlements`、`/api/imports`、
+  `/api/analytics/series-comparison` 返回 200 且含适配后单号；临时账号已清理
+- Chromium（临时 53011 前端 + 8010 后端）：数据明细列显示 `宝贝-L004/-003/-002/-001`
+  且 title 保留「原始单号」；导入记录标题为适配后单号、副标题保留原始文件名；无控制台报错
+- 重启后正式实例验收（2026-09-11 15:45 `./start.sh` 重启，8000 + 53000 均加载新代码）：
+  `GET /api/settlements`、`GET /api/imports` 均返回 `order_no_normalized`；
+  Chromium 实测数据明细列为 `宝贝-L004/-003/-002/-001`（title 为「原始单号：…」）、
+  导入记录标题为适配后单号；无控制台报错；临时验收账号已清理
+- **未验证**：导入新文件时的真实入库回填（已由 `test_import_service` 单测覆盖，
+  未用真实文件走 HTTP 上传）
+
+### 商号规范化（2026-09-11，ADR-016）
+
+- 后端 `pytest`：**233 项通过**，退出码 0（新增 `test_merchant_no_naming.py` 6 项、
+  `test_merchant_no_migration.py` 4 项；`test_order_no_migration` 在脚本重构为
+  `column_backfill` 后仍通过）
+- 前端 `npm test`：**110 项通过**，退出码 0（新增 `merchant-no-normalized.test.ts` 6 项）；
+  `npm run typecheck` 通过（退出码 0）；`npm run build` 成功（vite 6.4.3，1942 modules）
+- 线上 MySQL 迁移：`scripts.add_merchant_no_normalized` 先演练后 `--apply`，
+  快照 `backend/data/snapshot-merchant-no-20260911-075941.sql`；
+  真实 MySQL 查询核对 4 行：`(单637→637)`、`(单624→624)`、`626→626`、`640→640`，
+  `merchant_no` 与 `merchant_no_normalized` 两列都在且有值
+- 服务重启：`./start.sh` 重启 8000 + 53000（16:00 启动，setsid 脱离会话保持常驻）
+- HTTP 链路（真实 MySQL + 临时账号 `tmp_check_merchant`，已清理）：`GET /api/settlements`
+  返回 `merchant_no`/`merchant_no_normalized`（`单637`↔`637`）、`GET /api/imports` 同字段齐全
+- Chromium（53000 正式实例）：数据明细商号列显示 `640 / 637 / 626 / 624`，
+  `单637` / `单624` 落在 title「原始商号：…」；筛选下拉与选择器标签为
+  「商号 640（宝贝-L004）」等；导入记录标题为适配后单号、副标题含「商号 637」；无控制台报错
 
 ### 等级细分（2026-09-11）
 
@@ -417,6 +546,10 @@ Branch：`dev`
 Latest commits：
 
 ```text
+4823631 feat(backend): 单号商号双写并增加回填迁移
+294cf2f feat(frontend): 统一图表图例与悬浮提示
+03dbb6d feat(frontend): 页面统一展示适配后单号与商号
+668f572 feat(frontend): 外壳增加顶部 header 与页签栏
 bbbce09 docs: 修正导入文件类型与日期接口参数口径
 09dfb4b fix(frontend): 修复系列对比移动端横向溢出
 168f126 docs: 记录果农版简化设计并更新交接与待办
@@ -440,5 +573,12 @@ aaea0f8 feat(auth): 认证页接入本地榴莲主图
 0160fdf refactor(backend): 以商号替换柜号作为结算单唯一键
 ```
 
-Uncommitted changes：无；`.superpowers/`、`.superpowersigeria/`、`attachments/`
-已加入 `.gitignore`，不会被提交。
+Uncommitted changes（2026-09-11 16:20 实测，均为本地未提交，**属并发会话的品牌化改动，不是命名适配**）：
+
+- `AGENTS.md`、`backend/app/main.py`、`backend/app/__init__.py`、`frontend/index.html`
+  （项目名改为「SLD-水果市场销售分析」）；`frontend/src/components/AuthPortal.vue`、
+  `frontend/src/views/RegisterView.vue`、`frontend/src/styles-auth.css`（认证页视觉）；
+  `frontend/src/views/PublicPreviewView.vue`（预览页品牌 + 本轮已提交的口径在其工作区副本里仍在）；
+  `frontend/dev-preview/**`、`frontend/public/**`、`frontend/src/components/BrandMark.vue`（新品牌资产）。
+- 本轮的命名适配代码与文档已全部提交（见 Latest commits，文档随本提交一起落库）。
+- `.superpowers/`、`.superpowersigeria/`、`attachments/`、`backend/data/` 已被 `.gitignore` 忽略，不会提交。

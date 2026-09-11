@@ -1,7 +1,7 @@
 # Architecture
 
 > 维护约定：系统结构、模块职责、数据流发生变化时必须更新本文件。
-> 最后更新：2026-09-10
+> 最后更新：2026-09-11
 
 ## System Overview
 
@@ -47,6 +47,13 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 身份：以商号（`import_batch.merchant_no`）作为结算单唯一业务键；柜号可为空且可重复。
 - 覆盖：同一商号再次上传返回 `conflict`，确认后以 `?overwrite=true` 在同一事务内替换旧结算单。
 - 等级映射：`A/A6 → A`、`B/B6 → B`、`C/C6/BC/BC6 → C`。
+- 单号双写（ADR-015）：原始单号写入 `import_batch.order_no`，
+  同时按 `services/order_no_naming.py` 的规则写入适配后的 `order_no_normalized`
+  （`宝贝003 → 宝贝-003`）；页面只展示适配后单号，原始写法保留可追溯。
+- 商号双写（ADR-016）：原始商号写入 `import_batch.merchant_no`，
+  同时按 `services/merchant_no_naming.py` 的规则写入适配后的 `merchant_no_normalized`
+  （`单637 → 637`、`单624 → 624`）；**`merchant_no` 仍是唯一业务键与接口参数**，
+  仅页面 / 导出 / AI 数据包展示适配后商号，原始写法保留可追溯。
 - 缺失字段或未知等级的行不写入销售事实，其余有效行继续导入，并生成 `data_issue` 明细。
 - 原始文件保存在 `backend/data/uploads/`（不入库、不提交 Git）。
 
@@ -63,7 +70,8 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 职责：「系列对比」页的数据来源：按勾选的结算单（可跨系列）核算 A/B/C 独立指标、价差与系列汇总。
 - 路由：`GET /api/analytics/series-comparison`，参数为可重复的 `merchant_no`，外加
   `start_date` / `end_date`；不传 `merchant_no` 时返回日期范围内全部结算单。
-- 系列识别：取结算单单号（`order_no`，如 `宝贝01`）开头连续的中文前缀作为系列名；
+- 系列识别：取结算单单号（优先适配后的 `order_no_normalized`，回落 `order_no`，
+  如 `宝贝-001` / `宝贝01`）开头连续的中文前缀作为系列名；
   识别不出时归入「未识别系列」，不影响其余结算单参与对比。见 ADR-009。
 - 返回结构：`settlements`（逐结算单）、`series`（逐系列汇总）、`total`（全部所选合计），
   三者使用同一套口径：`total` / `grades` / `grade_amount_shares` / `spread`。
@@ -105,10 +113,25 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 等级细分组件：`SeriesGradeDetail.vue`（号别阶梯与数据表）、`GradeDetailAiAnalysis.vue`（号别小结）。
   AI 结论的渲染与状态机抽到通用组件 `AiAnalysisCard.vue`，两个页面的封装只负责接口与小标题。
 - 下拉框：展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
+- 单号展示口径（ADR-015）：统一用适配后单号 `orderNoNormalized`，
+  经 `utils/orderNo.ts` 的 `displayOrderNo` 取值（缺失时回退原始 `orderNo`）；
+  原始单号用 `rawOrderNo` 放在 tooltip / 副标题里，新增展示位不得直接渲染 `orderNo`。
+- 商号展示口径（ADR-016）：统一用适配后商号 `merchantNoNormalized`，
+  经 `utils/merchantNo.ts` 的 `displayMerchantNo` 取值（缺失时回退原始 `merchantNo`）；
+  原始商号用 `rawMerchantNo` 放在 tooltip 里，新增展示位不得直接渲染 `merchantNo`；
+  注意下拉取值、接口参数与 `?selected=` 仍必须用原始 `merchantNo`。
 - 图表为手写 SVG 组件，不引入图表库。
+- 图表图例与悬浮提示统一复用 `components/ChartLegend.vue` + `components/ChartTooltip.vue`
+  与 `utils/chartTooltip.ts`：图例负责色标 / 形状说明，提示用 Teleport 跟随鼠标并做视口避让，
+  由 `frontend/tests/chart-tooltip.test.ts` 保证每个图表都接入，新增图表必须一并接入。
 - API 契约集中在 `api/types.ts` + `api/normalize.ts` + `api/client.ts`，后端字段变更必须同步这三处。
 - 路由守卫在 `main.ts`：`requiresAuth` 保护业务页，`guestOnly` 让已登录用户跳过登录/注册页；
   `/` 重定向到 `/login`（已登录时经 `guestOnly` 再跳 `/overview`），`/preview` 保留为公开演示页但不再作为默认入口。
+- 工作台外壳 `AppShell.vue`：顶部 header（左侧品牌与当前页面、右侧当前用户名与退出登录）、
+  左侧导航与页签栏三部分；页签记录本次会话打开过的页面，首页 `/overview` 固定不可关闭，
+  其余可单个关闭或「关闭其他」，关闭当前页签时优先激活右侧邻居；页签状态存 `sessionStorage`
+  （键 `fruits-ana:open-tabs`），纯逻辑在 `utils/shellTabs.ts`（`frontend/tests/shell-tabs.test.ts`）。
+  移动端（≤820px）隐藏左侧导航，改用顶部 header + 底部大按钮导航，页签栏保持可见并可横向滚动。
 
 ## Data Flow
 
@@ -150,7 +173,7 @@ OverviewView / SettlementView / SettlementComparisonView / SettlementListView
 | --- | --- |
 | `user` | 登录账号（用户名唯一，Argon2 哈希） |
 | `user_session` | 服务端会话（token 哈希 + 过期时间） |
-| `import_batch` | 一张结算单：商号（唯一）、单号、柜号、转运车号与导入计数 |
+| `import_batch` | 一张结算单：商号（唯一）、原始单号 + 适配后单号、柜号、转运车号与导入计数 |
 | `source_file` | 原始文件引用 + 内容哈希 |
 | `sale_record` | 销售事实行（含等级、数量、单价、金额） |
 | `settlement_summary` | 按结算单（`import_batch_id` 唯一）的汇总结算数据 |
@@ -163,6 +186,11 @@ OverviewView / SettlementView / SettlementComparisonView / SettlementListView
   `/api/analytics/settlements*` 取代，前端旧路由 `/containers`、`/container-comparison` 保留重定向。
 - 必须保持：`BC` 归入 `C` 的等级口径；报表展示仍为「C 果（含 BC）」。
 - 必须保持：日期筛选按销售日期计算，不按导入时间。
+- 必须保持：单号双写口径（`order_no` 原始 + `order_no_normalized` 适配后，ADR-015），
+  页面统一展示适配后单号；迁移脚本 `backend/scripts/add_order_no_normalized.py` 幂等可重跑。
+- 必须保持：商号双写口径（`merchant_no` 原始 + `merchant_no_normalized` 适配后，ADR-016），
+  页面统一展示适配后商号，但唯一键 / 接口参数 / 下拉取值 / `?selected=` 仍用原始 `merchant_no`；
+  迁移脚本 `backend/scripts/add_merchant_no_normalized.py`（基于 `column_backfill.py`）幂等可重跑。
 - 必须保持：MySQL schema 变更需提供可重复执行的迁移脚本（参考 `backend/scripts/`）。
 - 不得提交：`backend/data/`、`.env`、`backend/.env`、真实结算单与业务附件。
 - 暂不引入：状态管理库、UI 组件库、图表库、容器化与 CI（如引入需先记录 ADR）。
