@@ -26,8 +26,9 @@ from .series_analytics_service import get_series_comparison
 
 FEATURE = "grade-detail"
 # 口径版本：v3 = 方案 A 分桶（单号各自成桶、区间原样成桶、品质后缀只做标记，见 ADR-013），
-# 并加入大等级汇总、跨结算单 / 跨号别 / 品质标记的对比数据。
-PROMPT_VERSION = "v3-schemeA"
+# 并加入大等级汇总、跨结算单 / 跨号别 / 品质标记的对比数据；
+# v3-schemeA-2 = 单号序号不再保留字母标记（`宝贝L004` → `宝贝-004`），旧缓存失效。
+PROMPT_VERSION = "v3-schemeA-2"
 
 SYSTEM_PROMPT = """你是水果销售数据分析助手，服务对象是果农和档口老板，他们不看复杂报表。
 只依据用户给出的数字写结论，不许编造，不许自己另算，不许把数字改成别的数值。

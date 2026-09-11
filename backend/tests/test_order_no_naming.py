@@ -23,12 +23,18 @@ def test_normalize_pads_serial_to_three_digits():
     assert normalize_order_no("香香2") == "香香-002"
 
 
-def test_normalize_keeps_letter_prefix_and_separators_removed():
-    assert normalize_order_no("宝贝L004") == "宝贝-L004"
-    assert normalize_order_no("宝贝L4") == "宝贝-L004"
+def test_normalize_drops_letter_mark_and_separators():
+    assert normalize_order_no("宝贝L004") == "宝贝-004"
+    assert normalize_order_no("宝贝L4") == "宝贝-004"
+    assert normalize_order_no("宝贝a2") == "宝贝-002"
+    assert normalize_order_no("宝贝004") == "宝贝-004"
     assert normalize_order_no("宝贝-01") == "宝贝-001"
     assert normalize_order_no("宝贝 01") == "宝贝-001"
     assert normalize_order_no("宝贝_01 ") == "宝贝-001"
+
+
+def test_normalize_keeps_letter_only_suffix_when_there_is_no_number():
+    assert normalize_order_no("宝贝A") == "宝贝-A"
 
 
 def test_normalize_handles_full_width_and_empty_values():

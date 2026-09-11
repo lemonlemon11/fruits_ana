@@ -25,9 +25,11 @@ from .series_analytics_service import get_series_comparison
 
 FEATURE = "series-comparison"
 # 提示词版本参与缓存键：改动提示词后自动生成新结论，不会读到旧口径。
+# v5：单号序号不再保留字母标记（`宝贝L004` → `宝贝-004`），数据包里的单号随之变化，
+# 旧结论可能仍在正文里写 `宝贝-L004`，因此提升版本让缓存失效。
 # v4：数据包改用适配后单号 / 适配后商号，并补充「原始单号」「原始商号」
 # （ADR-015 / ADR-016），旧缓存自动失效。
-PROMPT_VERSION = "v4"
+PROMPT_VERSION = "v5"
 # 低于该样本量时禁止下趋势/规律结论，只描述这批货本身。
 MIN_TREND_SAMPLES = 5
 # 部分模型会先消耗「思考」token，输出上限需要留足余量，避免正文被截断。

@@ -91,7 +91,7 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 - 统一规则集中在 `backend/app/services/order_no_naming.py`：NFKC 归一 → 取开头连续中文为系列 →
   去分隔符 / 字母大写 → 序号数字左补零 3 位 → `系列-序号`
-  （`宝贝003 → 宝贝-003`、`宝贝01 → 宝贝-001`、`宝贝L004 → 宝贝-L004`）；识别不出中文系列时原样返回。
+  （`宝贝003 → 宝贝-003`、`宝贝01 → 宝贝-001`、`宝贝L004 → 宝贝-004`）；识别不出中文系列时原样返回。
 - 落库双写：`import_batch.order_no`（原始）与 `import_batch.order_no_normalized`（适配后）；
   迁移脚本 `backend/scripts/add_order_no_normalized.py`（幂等 / 默认演练 / `--force` 重算 / 自动 SQL 快照）。
 - 接口：`/api/imports`、`/api/settlements`、`/api/settlements/{merchant_no}/records`、

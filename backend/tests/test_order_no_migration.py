@@ -72,7 +72,7 @@ def test_migration_adds_column_and_backfills_normalized_order_no(old_database):
         ("宝贝01", "宝贝-001"),
         ("宝贝02", "宝贝-002"),
         ("宝贝003", "宝贝-003"),
-        ("宝贝L004", "宝贝-L004"),
+        ("宝贝L004", "宝贝-004"),
     ]
 
 

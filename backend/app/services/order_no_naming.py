@@ -10,7 +10,8 @@
 1. 全角字符按 NFKC 归一化为半角，去掉首尾空白；
 2. 单号开头连续的中文作为系列名（与 ADR-009 的系列识别一致）；
 3. 系列名之后的部分去掉空格与 ``-`` / ``_`` / ``·`` 等分隔符，字母统一大写；
-4. 序号为「字母 + 数字」时，数字左补零到 3 位（``L4`` → ``L004``）；
+4. 序号里的字母标记不参与命名（填写人员会写成 ``宝贝L4``，``L`` 不是编号的一部分），
+   去掉后数字左补零到 3 位（``L4`` → ``004``）；
 5. 输出 ``系列-序号``（``宝贝003`` → ``宝贝-003``）。
 
 识别不出中文系列（例如只有 ``626``）时不做改写，原样返回，避免把未知写法改坏。
@@ -81,8 +82,8 @@ def _format_suffix(value: str) -> str | None:
     matched = _SUFFIX.match(cleaned)
     if matched is None:
         return cleaned
-    prefix, digits = matched.groups()
-    return f"{prefix}{digits.zfill(SERIAL_WIDTH)}"
+    # 只保留数字：`宝贝L004` 与 `宝贝004` 是同一张单的两种写法，字母标记不进编号。
+    return matched.group(2).zfill(SERIAL_WIDTH)
 
 
 __all__ = [
