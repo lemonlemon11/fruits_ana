@@ -66,13 +66,14 @@ def build_cache_key(
     start_date: date | None,
     end_date: date | None,
     feature: str = FEATURE,
+    prompt_version: str = PROMPT_VERSION,
 ) -> str:
     """按功能、勾选结算单与日期范围生成缓存键。"""
 
     raw = json.dumps(
         {
             "feature": feature,
-            "prompt_version": PROMPT_VERSION,
+            "prompt_version": prompt_version,
             "merchant_nos": sorted(value.strip() for value in merchant_nos),
             "start_date": start_date.isoformat() if start_date else None,
             "end_date": end_date.isoformat() if end_date else None,
@@ -245,11 +246,11 @@ def call_chat_completion(
     return content.strip()[:MAX_CONTENT_LENGTH]
 
 
-def _read_cache(db: Session, cache_key: str) -> AiAnalysis | None:
+def read_cache(db: Session, cache_key: str) -> AiAnalysis | None:
     return db.query(AiAnalysis).filter(AiAnalysis.cache_key == cache_key).one_or_none()
 
 
-def _write_cache(
+def write_cache(
     db: Session,
     *,
     cache_key: str,
@@ -259,7 +260,7 @@ def _write_cache(
 ) -> AiAnalysis:
     """写入或覆盖缓存；并发写入冲突时回退为更新已有记录。"""
 
-    row = _read_cache(db, cache_key)
+    row = read_cache(db, cache_key)
     if row is not None:
         row.content = content
         row.model = model
@@ -273,7 +274,7 @@ def _write_cache(
         db.commit()
     except IntegrityError:
         db.rollback()
-        row = _read_cache(db, cache_key)
+        row = read_cache(db, cache_key)
         if row is None:
             raise
         row.content = content
@@ -305,7 +306,7 @@ def analyze_series_comparison(
         merchant_nos=merchant_nos, start_date=start_date, end_date=end_date
     )
     if not refresh:
-        cached = _read_cache(db, cache_key)
+        cached = read_cache(db, cache_key)
         if cached is not None:
             return {
                 "content": cached.content,
@@ -321,7 +322,7 @@ def analyze_series_comparison(
         comparison, start_date=start_date, end_date=end_date
     )
     content = call_chat_completion(resolved, build_messages(payload))
-    row = _write_cache(
+    row = write_cache(
         db, cache_key=cache_key, content=content, model=resolved.model
     )
     return {
@@ -343,4 +344,6 @@ __all__ = [
     "build_cache_key",
     "build_messages",
     "call_chat_completion",
+    "read_cache",
+    "write_cache",
 ]

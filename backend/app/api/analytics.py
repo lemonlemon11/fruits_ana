@@ -15,6 +15,7 @@ from ..services.ai_analysis_service import (
     AiNotConfigured,
     analyze_series_comparison,
 )
+from ..services.grade_detail_analysis_service import analyze_grade_detail
 from ..services.settlement_analytics_service import (
     get_daily_trend,
     get_overview,
@@ -49,6 +50,25 @@ def _filters(
         "end_date": end_date,
         "merchant_no": merchant_no,
     }
+
+
+def _analysis_scope(payload: SeriesAnalysisRequest) -> list[str]:
+    """校验并归一化 AI 分析的结算单范围；两个分析接口共用同一套规则。"""
+
+    merchant_nos = list(
+        dict.fromkeys(
+            value.strip() for value in payload.merchant_no if value and value.strip()
+        )
+    )
+    if len(merchant_nos) < MIN_ANALYSIS_SETTLEMENTS:
+        raise HTTPException(422, "请至少选择两个结算单再生成分析")
+    if len(merchant_nos) > MAX_ANALYSIS_SETTLEMENTS:
+        raise HTTPException(
+            422, f"一次最多分析 {MAX_ANALYSIS_SETTLEMENTS} 张结算单"
+        )
+    if payload.start_date and payload.end_date and payload.start_date > payload.end_date:
+        raise HTTPException(422, "start_date 不能晚于 end_date")
+    return merchant_nos
 
 
 @router.get("/overview")
@@ -116,21 +136,28 @@ def series_comparison_analysis(
 ):
     """按勾选的结算单生成 AI 分析结论；相同条件会直接返回缓存。"""
 
-    merchant_nos = list(
-        dict.fromkeys(
-            value.strip() for value in payload.merchant_no if value and value.strip()
-        )
-    )
-    if len(merchant_nos) < MIN_ANALYSIS_SETTLEMENTS:
-        raise HTTPException(422, "请至少选择两个结算单再生成分析")
-    if len(merchant_nos) > MAX_ANALYSIS_SETTLEMENTS:
-        raise HTTPException(
-            422, f"一次最多分析 {MAX_ANALYSIS_SETTLEMENTS} 张结算单"
-        )
-    if payload.start_date and payload.end_date and payload.start_date > payload.end_date:
-        raise HTTPException(422, "start_date 不能晚于 end_date")
+    merchant_nos = _analysis_scope(payload)
     try:
         return analyze_series_comparison(
+            db,
+            merchant_nos=merchant_nos,
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            refresh=payload.refresh,
+        )
+    except AiNotConfigured as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except AiCallFailed as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+
+@router.post("/grade-detail/analysis", response_model=SeriesAnalysisResponse)
+def grade_detail_analysis(payload: SeriesAnalysisRequest, db: Session = Depends(get_db)):
+    """按勾选的结算单生成等级细分（号别）AI 小结；相同条件直接返回缓存。"""
+
+    merchant_nos = _analysis_scope(payload)
+    try:
+        return analyze_grade_detail(
             db,
             merchant_nos=merchant_nos,
             start_date=payload.start_date,

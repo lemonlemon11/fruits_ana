@@ -26,6 +26,7 @@ from .analytics_core import (
     settlement_map,
     share,
 )
+from .grade_detail_service import grade_detail_metrics
 
 
 UNKNOWN_SERIES = "未识别系列"
@@ -174,6 +175,7 @@ def get_series_comparison(
         "settlements": _sorted_settlement_rows(grouped, batches),
         "series": _series_rows(grouped, batches),
         "total": aggregate(filtered),
+        "grade_details": grade_detail_metrics(filtered),
     }
 
 

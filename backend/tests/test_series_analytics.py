@@ -203,3 +203,18 @@ def test_invalid_date_range_returns_422(client):
     )
 
     assert response.status_code == 422
+
+
+def test_series_comparison_includes_grade_details(client) -> None:
+    """系列对比响应要带上细分等级阶梯（ADR-013，方案 A）。"""
+
+    with SessionLocal() as db:
+        seed_batches(db)
+
+    response = client.get("/api/analytics/series-comparison")
+
+    assert response.status_code == 200
+    details = response.json()["grade_details"]
+    labels = {row["label"] for row in details["buckets"]}
+    assert labels == {"A", "B", "C"}
+    assert details["unrecognized"]["record_count"] == 0
