@@ -1,10 +1,21 @@
 <script setup lang="ts">
-import { Boxes, ChartColumn, GitCompareArrows, LogOut, Menu, PackageSearch, Table2, Upload } from '@lucide/vue'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { Boxes, ChartColumn, GitCompareArrows, LogOut, Menu, PackageSearch, Table2, Upload, X } from '@lucide/vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
 import { logout as logoutRequest } from './api/client'
 import { currentUser, setCurrentUser } from './auth'
+import BrandMark from './components/BrandMark.vue'
+import {
+  TABS_STORAGE_KEY,
+  closeOtherTabs,
+  closeTab,
+  isClosableTab,
+  nextActivePath,
+  openTab,
+  restoreTabs,
+  type ShellTab,
+} from './utils/shellTabs'
 
 const mobileNavOpen = ref(false)
 const signingOut = ref(false)
@@ -24,17 +35,88 @@ const moreNavItems = [
 const navItems = [...primaryNavItems, ...moreNavItems]
 const moreNavActive = computed(() => moreNavItems.some((item) => route.path.startsWith(item.path)))
 const authPage = computed(() => Boolean(route.meta.guestOnly || route.meta.publicPreview))
-const currentNav = computed(() => navItems.find((item) => route.path.startsWith(item.path)) ?? navItems[0])
+const currentNav = computed(() => navItemFor(route.path))
+const activeTabPath = computed(() => currentNav.value.path)
+// 页签栏记录本次会话打开过的页面，刷新后仍在（首页固定不可关闭）。
+const openedTabs = ref<ShellTab[]>(readStoredTabs())
+const openedTabItems = computed(() =>
+  openedTabs.value.map((tab) => ({ tab, item: navItemFor(tab.path) })),
+)
+const userInitial = computed(() => currentUser.value?.displayName?.slice(0, 1) ?? '')
+const tabsStrip = ref<HTMLElement | null>(null)
 
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown)
 })
-watch(() => route.path, () => {
-  mobileNavOpen.value = false
-})
+watch(
+  () => route.fullPath,
+  () => {
+    mobileNavOpen.value = false
+    if (authPage.value) return
+    openedTabs.value = openTab(openedTabs.value, activeTabPath.value, route.fullPath)
+  },
+  { immediate: true },
+)
+watch(openedTabs, persistTabs, { deep: true })
+watch(activeTabPath, () => void scrollActiveTabIntoView())
+
+function navItemFor(path: string) {
+  return navItems.find((item) => path.startsWith(item.path)) ?? navItems[0]
+}
+
+/** 页签过多时把当前页签滚进可视区，避免激活项藏在横向滚动条外。 */
+async function scrollActiveTabIntoView() {
+  await nextTick()
+  const strip = tabsStrip.value
+  const active = strip?.querySelector<HTMLElement>('.app-tab.is-active')
+  if (!strip || !active) return
+  const stripRect = strip.getBoundingClientRect()
+  const activeRect = active.getBoundingClientRect()
+  if (activeRect.left < stripRect.left) strip.scrollLeft -= stripRect.left - activeRect.left
+  else if (activeRect.right > stripRect.right) strip.scrollLeft += activeRect.right - stripRect.right
+}
+
+function isKnownPath(path: string): boolean {
+  return navItems.some((item) => item.path === path)
+}
+
+function readStoredTabs(): ShellTab[] {
+  try {
+    const raw = window.sessionStorage.getItem(TABS_STORAGE_KEY)
+    return restoreTabs(raw ? JSON.parse(raw) : null, isKnownPath)
+  } catch {
+    // 存储被禁用或内容损坏时退回只有首页的默认状态。
+    return restoreTabs(null, isKnownPath)
+  }
+}
+
+function persistTabs() {
+  try {
+    window.sessionStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(openedTabs.value))
+  } catch {
+    // 隐私模式写入失败不影响页面使用。
+  }
+}
 
 function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') mobileNavOpen.value = false
+}
+
+function activateTab(tab: ShellTab) {
+  mobileNavOpen.value = false
+  if (route.fullPath !== tab.fullPath) void router.push(tab.fullPath)
+}
+
+function handleCloseTab(path: string) {
+  if (!isClosableTab(path)) return
+  const index = openedTabs.value.findIndex((tab) => tab.path === path)
+  if (index < 0) return
+  openedTabs.value = closeTab(openedTabs.value, path)
+  if (activeTabPath.value === path) void router.push(nextActivePath(openedTabs.value, index))
+}
+
+function handleCloseOthers() {
+  openedTabs.value = closeOtherTabs(openedTabs.value, activeTabPath.value)
 }
 
 async function signOut() {
@@ -47,6 +129,7 @@ async function signOut() {
   } finally {
     setCurrentUser(null)
     signingOut.value = false
+    openedTabs.value = restoreTabs(null, isKnownPath)
     await router.replace('/login')
   }
 }
@@ -59,71 +142,92 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
   <template v-else>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <div class="app-shell">
-      <aside class="app-sidebar" aria-label="主要导航">
-        <div class="brand-block">
-          <span class="brand-mark" aria-hidden="true">果</span>
-          <div class="brand-copy">
-            <strong>果级经营台</strong>
-            <small>水果销售分析</small>
+      <header class="app-header">
+        <div class="app-header-brand">
+          <BrandMark :size="34" />
+          <div class="app-header-copy">
+            <strong>SLD-水果市场销售分析</strong>
+            <span>{{ currentNav.label }}</span>
           </div>
         </div>
-        <nav id="primary-nav" aria-label="主要导航">
-          <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
-            <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
-            <span>{{ item.label }}</span>
-          </RouterLink>
-          <p class="nav-group-label">更多功能</p>
-          <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :title="item.label" class="nav-secondary" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
-            <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
-            <span>{{ item.label }}</span>
-          </RouterLink>
-        </nav>
-        <div class="sidebar-bottom">
-          <div class="account-summary"><strong>{{ currentUser?.displayName }}</strong><span>已登录</span></div>
+        <div class="app-header-account">
+          <span class="account-avatar" aria-hidden="true">{{ userInitial }}</span>
+          <span class="account-name">{{ currentUser?.displayName }}</span>
           <button class="sign-out-button" type="button" :disabled="signingOut" @click="signOut">
             <LogOut :size="18" aria-hidden="true" />
             <span>{{ signingOut ? '正在退出' : '退出登录' }}</span>
           </button>
-          <p class="sidebar-foot"><strong>等级说明</strong><span>C果包含原始BC等级</span></p>
         </div>
-      </aside>
-      <div class="app-workspace">
-        <header class="mobile-brand" aria-label="移动端应用工具栏">
-          <div class="mobile-brand-copy">
-            <span class="brand-mark" aria-hidden="true">果</span>
-            <div>
-              <strong>果级经营台</strong>
-              <span>{{ currentNav.label }}</span>
+      </header>
+      <div class="app-body">
+        <aside class="app-sidebar" aria-label="主要导航">
+          <nav id="primary-nav" aria-label="主要导航">
+            <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+              <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
+              <span>{{ item.label }}</span>
+            </RouterLink>
+            <p class="nav-group-label">更多功能</p>
+            <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :title="item.label" class="nav-secondary" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+              <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
+              <span>{{ item.label }}</span>
+            </RouterLink>
+          </nav>
+          <p class="sidebar-foot"><strong>等级说明</strong><span>C果包含原始BC等级</span></p>
+        </aside>
+        <div class="app-workspace">
+          <nav class="app-tabs" aria-label="已打开的页面">
+            <div ref="tabsStrip" class="app-tabs-scroll" role="tablist">
+              <span v-for="entry in openedTabItems" :key="entry.tab.path" class="app-tab" :class="{ 'is-active': entry.tab.path === activeTabPath }">
+                <button
+                  type="button"
+                  role="tab"
+                  class="app-tab-open"
+                  :aria-selected="entry.tab.path === activeTabPath"
+                  @click="activateTab(entry.tab)"
+                >
+                  <component :is="entry.item.icon" :size="16" aria-hidden="true" />
+                  <span>{{ entry.item.label }}</span>
+                </button>
+                <button
+                  v-if="isClosableTab(entry.tab.path)"
+                  type="button"
+                  class="app-tab-close"
+                  :aria-label="`关闭 ${entry.item.label}`"
+                  @click="handleCloseTab(entry.tab.path)"
+                >
+                  <X :size="15" aria-hidden="true" />
+                </button>
+              </span>
             </div>
-          </div>
-        </header>
-        <nav v-if="mobileNavOpen" id="mobile-nav" class="mobile-nav-panel" aria-label="移动端主要导航">
-          <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
-            <component :is="item.icon" class="nav-icon" :size="20" aria-hidden="true" />
-            <span>{{ item.label }}</span>
-          </RouterLink>
-          <div class="mobile-nav-account"><span>{{ currentUser?.displayName }}</span><button type="button" :disabled="signingOut" @click="signOut"><LogOut :size="18" aria-hidden="true" />退出登录</button></div>
-        </nav>
-        <main id="main-content" tabindex="-1">
-          <RouterView />
-        </main>
-        <nav class="mobile-tabbar" aria-label="主要导航（移动端）">
-          <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
-            <component :is="item.icon" :size="28" :stroke-width="2" aria-hidden="true" />
-            <span>{{ item.label }}</span>
-          </RouterLink>
-          <button
-            class="mobile-tabbar-more"
-            type="button"
-            aria-controls="mobile-nav"
-            :aria-expanded="mobileNavOpen"
-            :class="{ 'is-active': moreNavActive }"
-            @click="mobileNavOpen = !mobileNavOpen"
-          >
-            <Menu :size="28" aria-hidden="true" />
-            <span>更多</span>
-          </button>
-        </nav>
+            <button v-if="openedTabs.length > 1" type="button" class="app-tabs-action" @click="handleCloseOthers">关闭其他</button>
+          </nav>
+          <nav v-if="mobileNavOpen" id="mobile-nav" class="mobile-nav-panel" aria-label="更多功能">
+            <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+              <component :is="item.icon" class="nav-icon" :size="20" aria-hidden="true" />
+              <span>{{ item.label }}</span>
+            </RouterLink>
+          </nav>
+          <main id="main-content" tabindex="-1">
+            <RouterView />
+          </main>
+          <nav class="mobile-tabbar" aria-label="主要导航（移动端）">
+            <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+              <component :is="item.icon" :size="28" :stroke-width="2" aria-hidden="true" />
+              <span>{{ item.label }}</span>
+            </RouterLink>
+            <button
+              class="mobile-tabbar-more"
+              type="button"
+              aria-controls="mobile-nav"
+              :aria-expanded="mobileNavOpen"
+              :class="{ 'is-active': moreNavActive }"
+              @click="mobileNavOpen = !mobileNavOpen"
+            >
+              <Menu :size="28" aria-hidden="true" />
+              <span>更多</span>
+            </button>
+          </nav>
+        </div>
       </div>
     </div>
   </template>
