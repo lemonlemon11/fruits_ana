@@ -295,9 +295,11 @@ onBeforeUnmount(() => {
   .picker-panel { animation: none; }
 }
 .picker-head {
-  display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px;
+  display: flex; flex-wrap: nowrap; align-items: flex-start; justify-content: space-between; gap: 10px;
   padding: 16px 18px 10px;
 }
+.picker-head > div { flex: 1 1 auto; min-width: 0; }
+.picker-head > button { flex: 0 0 auto; }
 .picker-head h2 { margin: 0 0 4px; font-size: 1.05rem; }
 .picker-search { display: block; padding: 0 18px 10px; }
 .picker-search input {
