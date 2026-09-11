@@ -3,11 +3,11 @@
 系列取自结算单单号（``order_no``，例如 ``宝贝01``）的中文前缀；识别不出时归入
 「未识别系列」，不影响其余结算单参与对比。对比主体仍是结算单（商号唯一）。
 所有金额与均价口径与全站一致：均价 = 销售金额 ÷ 件数。
+系列识别与单号统一命名规则见 ``services/order_no_naming.py``（ADR-015）。
 """
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date
@@ -27,20 +27,11 @@ from .analytics_core import (
     share,
 )
 from .grade_detail_service import grade_detail_metrics
+from .order_no_naming import UNKNOWN_SERIES, order_no_display, series_name
+from .merchant_no_naming import merchant_no_display
 
 
-UNKNOWN_SERIES = "未识别系列"
 GRADE_VALUES = tuple(grade.value for grade in GRADES)
-_SERIES_PREFIX = re.compile(r"^[\u4e00-\u9fff]+")
-
-
-def series_name(order_no: str | None) -> str:
-    """从单号提取系列名，模板为「中文系列名 + 字母或数字后缀」。"""
-
-    if not order_no:
-        return UNKNOWN_SERIES
-    matched = _SERIES_PREFIX.match(order_no.strip())
-    return matched.group(0) if matched else UNKNOWN_SERIES
 
 
 def grade_amount_shares(records: list[SaleRecord]) -> dict[str, float | None]:
@@ -107,10 +98,15 @@ def aggregate(records: list[SaleRecord]) -> dict:
 
 def _settlement_row(batch: ImportBatch, records: list[SaleRecord]) -> dict:
     dates = [record.sale_date for record in records]
+    order_no_normalized = order_no_display(batch.order_no, batch.order_no_normalized)
     return {
         "merchant_no": batch.merchant_no,
+        "merchant_no_normalized": merchant_no_display(
+            batch.merchant_no, batch.merchant_no_normalized
+        ),
         "order_no": batch.order_no,
-        "series": series_name(batch.order_no),
+        "order_no_normalized": order_no_normalized,
+        "series": series_name(order_no_normalized or batch.order_no),
         "container_no": batch.container_no,
         "vehicle_no": batch.vehicle_no,
         "start_date": min(dates).isoformat(),
@@ -127,7 +123,13 @@ def _sorted_settlement_rows(
         for items in grouped.values()
         if items and items[0].import_batch_id in batches
     ]
-    rows.sort(key=lambda row: (row["start_date"], row["order_no"] or "", row["merchant_no"]))
+    rows.sort(
+        key=lambda row: (
+            row["start_date"],
+            row["order_no_normalized"] or row["order_no"] or "",
+            row["merchant_no"],
+        )
+    )
     return rows
 
 
@@ -140,7 +142,9 @@ def _series_rows(
         if not items or items[0].import_batch_id not in batches:
             continue
         batch = batches[items[0].import_batch_id]
-        name = series_name(batch.order_no)
+        name = series_name(
+            order_no_display(batch.order_no, batch.order_no_normalized) or batch.order_no
+        )
         records_by_series[name].extend(items)
         members[name].append(merchant_no)
     return [

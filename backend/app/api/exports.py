@@ -16,6 +16,8 @@ from ..auth import require_current_user
 from ..db import get_db
 from ..models import ImportBatch, SaleRecord, SourceFile
 from ..services.analytics_service import get_grade_summary
+from ..services.order_no_naming import order_no_display
+from ..services.merchant_no_naming import merchant_no_display
 
 
 router = APIRouter(
@@ -76,7 +78,16 @@ def export_settlement_xlsx(
     if not records:
         raise HTTPException(404, "筛选范围内没有该结算单销售数据")
     payload = _settlement_workbook(batch, records, start_date, end_date)
-    headers = _attachment(f"settlement-{merchant_no}.xlsx")
+    display = order_no_display(
+        getattr(batch, "order_no", None),
+        getattr(batch, "order_no_normalized", None),
+    )
+    merchant = merchant_no_display(
+        getattr(batch, "merchant_no", None) or merchant_no,
+        getattr(batch, "merchant_no_normalized", None),
+    )
+    parts = "-".join(part for part in (merchant, display) if part)
+    headers = _attachment(f"settlement-{parts or merchant_no}.xlsx")
     return StreamingResponse(BytesIO(payload), media_type=XLSX_MEDIA_TYPE, headers=headers)
 
 
@@ -114,8 +125,34 @@ def _settlement_workbook(batch, records, start_date, end_date):
     settlement = batch if batch is not None else None
     metadata = pd.DataFrame(
         [
-            ["商号", _spreadsheet_safe(getattr(settlement, "merchant_no", "全部"))],
-            ["单号", _spreadsheet_safe(getattr(settlement, "order_no", None) or "—")],
+            [
+                "商号（适配后）",
+                _spreadsheet_safe(
+                    merchant_no_display(
+                        getattr(settlement, "merchant_no", None),
+                        getattr(settlement, "merchant_no_normalized", None),
+                    )
+                    or "全部"
+                ),
+            ],
+            [
+                "原始商号",
+                _spreadsheet_safe(getattr(settlement, "merchant_no", None) or "—"),
+            ],
+            [
+                "单号（适配后）",
+                _spreadsheet_safe(
+                    order_no_display(
+                        getattr(settlement, "order_no", None),
+                        getattr(settlement, "order_no_normalized", None),
+                    )
+                    or "—"
+                ),
+            ],
+            [
+                "原始单号",
+                _spreadsheet_safe(getattr(settlement, "order_no", None) or "—"),
+            ],
             ["柜号", _spreadsheet_safe(getattr(settlement, "container_no", None) or "—")],
             ["转运车号", _spreadsheet_safe(getattr(settlement, "vehicle_no", None) or "—")],
             ["开始日期", start_date.isoformat() if start_date else "全部"],

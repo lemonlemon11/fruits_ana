@@ -13,6 +13,8 @@ from ..models import ImportBatch
 from ..schemas import SettlementListResponse, SettlementRecordsResponse
 from ..services.settlement_detail_service import get_settlement_records
 from ..services.settlement_list_service import list_settlements
+from ..services.order_no_naming import order_no_display
+from ..services.merchant_no_naming import merchant_no_display
 
 
 router = APIRouter(
@@ -43,7 +45,13 @@ def settlement_records(merchant_no: str, db: Session = Depends(get_db)):
         raise HTTPException(404, "结算单不存在")
     return {
         "merchant_no": batch.merchant_no,
+        "merchant_no_normalized": merchant_no_display(
+            batch.merchant_no, batch.merchant_no_normalized
+        ),
         "order_no": batch.order_no,
+        "order_no_normalized": order_no_display(
+            batch.order_no, batch.order_no_normalized
+        ),
         "container_no": batch.container_no,
         "vehicle_no": batch.vehicle_no,
         "records": get_settlement_records(db, batch.id),

@@ -25,7 +25,9 @@ from .series_analytics_service import get_series_comparison
 
 FEATURE = "series-comparison"
 # 提示词版本参与缓存键：改动提示词后自动生成新结论，不会读到旧口径。
-PROMPT_VERSION = "v2"
+# v4：数据包改用适配后单号 / 适配后商号，并补充「原始单号」「原始商号」
+# （ADR-015 / ADR-016），旧缓存自动失效。
+PROMPT_VERSION = "v4"
 # 低于该样本量时禁止下趋势/规律结论，只描述这批货本身。
 MIN_TREND_SAMPLES = 5
 # 部分模型会先消耗「思考」token，输出上限需要留足余量，避免正文被截断。
@@ -141,7 +143,8 @@ def _settlement_price_ranking(comparison: dict) -> list[dict]:
             continue
         rows.append(
             {
-                "商号": row.get("merchant_no"),
+                "商号": row.get("merchant_no_normalized") or row.get("merchant_no"),
+                "原始商号": row.get("merchant_no"),
                 "系列": row.get("series"),
                 "件数": (row.get("total") or {}).get("sales_quantity"),
                 "平均每件售价": price,
@@ -229,8 +232,10 @@ def build_analysis_payload(
         "结算单": [
             {
                 "系列": row.get("series"),
-                "单号": row.get("order_no"),
-                "商号": row.get("merchant_no"),
+                "单号": row.get("order_no_normalized") or row.get("order_no"),
+                "原始单号": row.get("order_no"),
+                "商号": row.get("merchant_no_normalized") or row.get("merchant_no"),
+                "原始商号": row.get("merchant_no"),
                 "到达日期": f"{row.get('start_date')} 至 {row.get('end_date')}",
                 **_aggregate_payload(row),
             }

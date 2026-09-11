@@ -124,7 +124,9 @@ def test_settlement_item_exposes_sales_metrics(client):
 
     assert row == {
         "merchant_no": "640",
+        "merchant_no_normalized": "640",
         "order_no": "宝贝L004",
+        "order_no_normalized": "宝贝-L004",
         "series": "宝贝",
         "container_no": "CBHU2970762",
         "vehicle_no": "桂ABF330",
@@ -178,7 +180,9 @@ def test_settlement_records_endpoint(client):
     body = client.get("/api/settlements/640/records").json()
 
     assert body["merchant_no"] == "640"
+    assert body["merchant_no_normalized"] == "640"
     assert body["order_no"] == "宝贝L004"
+    assert body["order_no_normalized"] == "宝贝-L004"
     assert [record["grade"] for record in body["records"]] == ["A", "B"]
     assert body["records"][0]["amount"] == 120.0
     assert client.get("/api/settlements/未知/records").status_code == 404

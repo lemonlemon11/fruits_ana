@@ -28,6 +28,8 @@ from ..parser.settlement_parser import (
     SettlementParseError,
     parse_settlement,
 )
+from .order_no_naming import normalize_order_no
+from .merchant_no_naming import normalize_merchant_no
 
 
 HASH_CHUNK_SIZE = 1024 * 1024
@@ -41,7 +43,9 @@ class ImportResult:
     batch_id: int | None = None
     source_file_id: int | None = None
     merchant_no: str | None = None
+    merchant_no_normalized: str | None = None
     order_no: str | None = None
+    order_no_normalized: str | None = None
     container_no: str | None = None
     vehicle_no: str | None = None
     file_name: str | None = None
@@ -63,7 +67,9 @@ class ImportResult:
             "batch_id": self.batch_id,
             "source_file_id": self.source_file_id,
             "merchant_no": self.merchant_no,
+            "merchant_no_normalized": self.merchant_no_normalized,
             "order_no": self.order_no,
+            "order_no_normalized": self.order_no_normalized,
             "container_no": self.container_no,
             "vehicle_no": self.vehicle_no,
             "file_name": self.file_name,
@@ -98,7 +104,9 @@ def _batch_result(db: Session, batch: ImportBatch, status: str, filename: str) -
         batch_id=batch.id,
         existing_batch_id=batch.id,
         merchant_no=batch.merchant_no,
+        merchant_no_normalized=batch.merchant_no_normalized,
         order_no=batch.order_no,
+        order_no_normalized=batch.order_no_normalized,
         container_no=batch.container_no,
         vehicle_no=batch.vehicle_no,
         file_name=filename,
@@ -201,7 +209,9 @@ def import_file(
         file_name=filename,
         status="pending",
         merchant_no=meta.merchant_no,
+        merchant_no_normalized=normalize_merchant_no(meta.merchant_no),
         order_no=meta.order_no,
+        order_no_normalized=normalize_order_no(meta.order_no),
         container_no=meta.container_no,
         vehicle_no=meta.vehicle_no,
     )
@@ -230,7 +240,9 @@ def import_file(
         batch_id=batch.id,
         source_file_id=source.id,
         merchant_no=batch.merchant_no,
+        merchant_no_normalized=batch.merchant_no_normalized,
         order_no=batch.order_no,
+        order_no_normalized=batch.order_no_normalized,
         container_no=batch.container_no,
         vehicle_no=batch.vehicle_no,
         file_name=filename,

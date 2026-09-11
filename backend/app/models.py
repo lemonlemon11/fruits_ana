@@ -99,7 +99,11 @@ class ImportBatch(Base):
     file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # 商号是我司商业合同唯一单据号；单号/柜号/转运车号允许重复或缺失。
     merchant_no: Mapped[str] = mapped_column(String(128), nullable=False)
+    # 适配后的商号：页面统一展示用；merchant_no 仍是业务唯一键与接口参数（ADR-016）。
+    merchant_no_normalized: Mapped[str | None] = mapped_column(String(128), nullable=True)
     order_no: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # 适配后的单号：页面统一展示用；order_no 始终保留填写人员的原始写法（ADR-015）。
+    order_no_normalized: Mapped[str | None] = mapped_column(String(128), nullable=True)
     container_no: Mapped[str | None] = mapped_column(String(128), nullable=True)
     vehicle_no: Mapped[str | None] = mapped_column(String(128), nullable=True)
     imported_at: Mapped[datetime] = mapped_column(

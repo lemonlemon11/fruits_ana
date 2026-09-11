@@ -37,7 +37,9 @@ class AuthResponse(BaseModel):
 
 class SettlementListItem(BaseModel):
     merchant_no: str
+    merchant_no_normalized: str | None = None
     order_no: str | None
+    order_no_normalized: str | None = None
     series: str
     container_no: str | None
     vehicle_no: str | None
@@ -77,7 +79,9 @@ class SettlementRecordRead(BaseModel):
 
 class SettlementRecordsResponse(BaseModel):
     merchant_no: str
+    merchant_no_normalized: str | None = None
     order_no: str | None
+    order_no_normalized: str | None = None
     container_no: str | None
     vehicle_no: str | None
     records: list[SettlementRecordRead]
@@ -95,7 +99,9 @@ class ImportBatchRead(ORMModel):
     id: int
     file_name: str | None
     merchant_no: str
+    merchant_no_normalized: str | None = None
     order_no: str | None
+    order_no_normalized: str | None = None
     container_no: str | None
     vehicle_no: str | None
     imported_at: datetime

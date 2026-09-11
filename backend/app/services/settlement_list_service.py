@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from ..models import ImportBatch, SaleRecord
 from .analytics_core import GRADES, rounded
+from .merchant_no_naming import merchant_no_display
+from .order_no_naming import order_no_display
 from .series_analytics_service import series_name
 
 
@@ -93,8 +95,16 @@ def list_settlements(
         items.append(
             {
                 "merchant_no": batch.merchant_no,
+                "merchant_no_normalized": merchant_no_display(
+                    batch.merchant_no, batch.merchant_no_normalized
+                ),
                 "order_no": batch.order_no,
-                "series": series_name(batch.order_no),
+                "order_no_normalized": order_no_display(
+                    batch.order_no, batch.order_no_normalized
+                ),
+                "series": series_name(
+                    batch.order_no_normalized or batch.order_no
+                ),
                 "container_no": batch.container_no,
                 "vehicle_no": batch.vehicle_no,
                 "sale_date_start": min(dates),

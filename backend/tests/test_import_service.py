@@ -76,6 +76,32 @@ def test_csv_success_imports_normalized_sales(tmp_path):
     db.close()
 
 
+def test_import_keeps_raw_order_no_and_stores_normalized_order_no(tmp_path):
+    path = tmp_path / "sales.csv"
+    path.write_text(
+        "商号,单号,货柜号,销售日期,等级,数量,单价,金额\n"
+        "单624,宝贝 01,C001,2026-08-01,A,1,2,2\n",
+        encoding="utf-8-sig",
+    )
+    db = SessionLocal()
+
+    result = import_file(db, path)
+
+    assert result.status == "success"
+    assert result.order_no == "宝贝 01"
+    assert result.order_no_normalized == "宝贝-001"
+    assert result.merchant_no == "单624"
+    assert result.merchant_no_normalized == "624"
+    assert result.to_dict()["order_no_normalized"] == "宝贝-001"
+    assert result.to_dict()["merchant_no_normalized"] == "624"
+    batch = db.query(ImportBatch).one()
+    assert batch.merchant_no == "单624"
+    assert batch.merchant_no_normalized == "624"
+    assert batch.order_no == "宝贝 01"
+    assert batch.order_no_normalized == "宝贝-001"
+    db.close()
+
+
 def test_bc_grade_maps_to_c_and_preserves_raw_value(tmp_path):
     path = write_csv(
         tmp_path,

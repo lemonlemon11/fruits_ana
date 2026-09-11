@@ -24,6 +24,8 @@ from .analytics_core import (
     settlement_map,
     share,
 )
+from .order_no_naming import order_no_display
+from .merchant_no_naming import merchant_no_display
 
 
 def _records(db: Session, **filters) -> list[SaleRecord]:
@@ -104,7 +106,13 @@ def get_settlement_comparison(
         items.append(
             {
                 "merchant_no": merchant,
+                "merchant_no_normalized": merchant_no_display(
+                    batch.merchant_no, batch.merchant_no_normalized
+                ),
                 "order_no": batch.order_no,
+                "order_no_normalized": order_no_display(
+                    batch.order_no, batch.order_no_normalized
+                ),
                 "container_no": batch.container_no,
                 "vehicle_no": batch.vehicle_no,
                 "start_date": min(dates).isoformat(),
@@ -146,7 +154,13 @@ def get_settlement_detail(
 
     return {
         "merchant_no": batch.merchant_no,
+        "merchant_no_normalized": merchant_no_display(
+            batch.merchant_no, batch.merchant_no_normalized
+        ),
         "order_no": batch.order_no,
+        "order_no_normalized": order_no_display(
+            batch.order_no, batch.order_no_normalized
+        ),
         "container_no": batch.container_no,
         "vehicle_no": batch.vehicle_no,
         "total": metrics(current),
@@ -194,9 +208,21 @@ def get_operating_anomalies(
         for anomaly in settlement_anomalies(
             grouped[merchant], baseline, baseline_batches, thresholds
         ):
-            anomalies.append({"merchant_no": merchant, **anomaly})
+            anomalies.append(
+                {
+                    "merchant_no": merchant,
+                    "merchant_no_normalized": merchant_no_display(merchant),
+                    **anomaly,
+                }
+            )
     for anomaly in daily_quantity_anomalies(scoped, thresholds):
-        anomalies.append({"merchant_no": merchant_no, **anomaly})
+        anomalies.append(
+            {
+                "merchant_no": merchant_no,
+                "merchant_no_normalized": merchant_no_display(merchant_no),
+                **anomaly,
+            }
+        )
     return anomalies
 
 

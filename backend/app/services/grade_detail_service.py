@@ -20,6 +20,7 @@ from ..parser.grade_detail import (
     parse_grade_detail,
 )
 from .analytics_core import metrics, rounded, share
+from .merchant_no_naming import merchant_no_display
 
 _MARK_ORDER = {mark: index for index, mark in enumerate(QUALITY_MARKS)}
 # 对比类结论最多各带 8 条，避免数据包过长推高 token 成本。
@@ -130,7 +131,10 @@ def _settlement_price_gaps(
         for record, _detail in entries:
             batch = batches.get(record.import_batch_id)
             if batch is not None:
-                by_settlement[batch.merchant_no].append(record)
+                by_settlement[
+                    merchant_no_display(batch.merchant_no, batch.merchant_no_normalized)
+                    or batch.merchant_no
+                ].append(record)
         priced = []
         for merchant_no, items in by_settlement.items():
             current = metrics(items)

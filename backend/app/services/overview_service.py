@@ -19,6 +19,8 @@ from .analytics_core import (
     settlement_map,
 )
 from .issue_service import get_issue_counts
+from .merchant_no_naming import merchant_no_display
+from .order_no_naming import order_no_display
 
 
 def get_overview(
@@ -45,11 +47,15 @@ def get_overview(
     anomalies = []
     for key, items in grouped.items():
         anomalies.extend(
-            {"merchant_no": key, **item}
+            {"merchant_no": key, "merchant_no_normalized": merchant_no_display(key), **item}
             for item in settlement_anomalies(items, baseline, baseline_batches, thresholds)
         )
     anomalies.extend(
-        {"merchant_no": merchant_no, **item}
+        {
+            "merchant_no": merchant_no,
+            "merchant_no_normalized": merchant_no_display(merchant_no),
+            **item,
+        }
         for item in daily_quantity_anomalies(filtered, thresholds)
     )
     return {
@@ -62,7 +68,15 @@ def get_overview(
         "settlements": [
             {
                 "merchant_no": key,
+                "merchant_no_normalized": merchant_no_display(
+                    batches[items[0].import_batch_id].merchant_no,
+                    batches[items[0].import_batch_id].merchant_no_normalized,
+                ),
                 "order_no": batches[items[0].import_batch_id].order_no,
+                "order_no_normalized": order_no_display(
+                    batches[items[0].import_batch_id].order_no,
+                    batches[items[0].import_batch_id].order_no_normalized,
+                ),
                 "container_no": batches[items[0].import_batch_id].container_no,
                 "total": metrics(items),
                 "grades": grade_metrics(items),
