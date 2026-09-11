@@ -51,3 +51,10 @@ test('系列对比的等级表在移动端不固定 400px 列宽', () => {
 
   assert.match(mobile, /grid-template-columns:\s*minmax\(0,\s*1fr\)/)
 })
+
+test('系列对比的等级表让长表头折行，避免 5 列被卡片裁掉最后一列', () => {
+  const source = fs.readFileSync(path.join(src, 'components', 'SeriesGradeTables.vue'), 'utf8')
+
+  assert.match(source, /thead th:nth-child\(4\) \{[^}]*white-space:\s*normal/)
+  assert.match(source, /th, td \{[^}]*padding:\s*7px 6px/)
+})

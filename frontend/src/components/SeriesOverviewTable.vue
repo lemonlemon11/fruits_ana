@@ -2,7 +2,7 @@
 import { gradeLabel } from '../api/client'
 import type { Grade, SeriesAggregate, SeriesComparisonItem } from '../api/types'
 import { formatCurrency, formatDate, formatNumber, formatPercent, formatPrice } from '../utils/format'
-import { gradeOf, gradeRow, shortLabel } from '../utils/seriesComparison'
+import { gradeOf, gradeRow } from '../utils/seriesComparison'
 
 const props = defineProps<{
   items: SeriesComparisonItem[]
@@ -11,9 +11,16 @@ const props = defineProps<{
 }>()
 
 const gradeOrder: Grade[] = ['A', 'B', 'C']
+const gradeColors: Record<Grade, string> = { A: '#16856b', B: '#bd7414', C: '#b94a3c' }
 const quantity = (item: SeriesComparisonItem, grade: Grade) => gradeOf(item, grade).salesQuantity
 const quantityShare = (item: SeriesComparisonItem, grade: Grade) => gradeOf(item, grade).quantityShare
 const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
+
+/** 占比条宽度：占比本身就是 0~1，直接当百分比用，零值留 2% 让空数据也能看见位置。 */
+function shareWidth(value: number | null): string {
+  if (value === null || value <= 0) return '0%'
+  return `${Math.max(Math.min(value, 1) * 100, 2)}%`
+}
 </script>
 
 <template>
@@ -32,10 +39,10 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
     </div>
     <div v-else class="table-wrap">
       <table>
-        <caption class="sr-only">所选结算单的 A、B、C 件数、金额与占比</caption>
+        <caption class="sr-only">所选结算单（按商号识别）的 A、B、C 件数、金额与占比</caption>
         <thead>
           <tr>
-            <th scope="col">单号</th>
+            <th scope="col">商号</th>
             <th scope="col">系列</th>
             <th scope="col">到达日期</th>
             <th v-for="grade in gradeOrder" :key="grade" scope="col">{{ gradeLabel(grade) }}件数</th>
@@ -48,8 +55,8 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
         <tbody>
           <tr v-for="item in items" :key="item.merchantNo">
             <th scope="row">
-              <strong>{{ shortLabel(item) }}</strong>
-              <small>{{ item.merchantNo }}</small>
+              <strong>{{ item.merchantNo }}</strong>
+              <small>{{ item.orderNo || '—' }}</small>
             </th>
             <td>{{ item.series }}</td>
             <td>{{ formatDate(item.startDate) }}</td>
@@ -57,7 +64,16 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
             <td>{{ formatNumber(item.total.salesQuantity) }}</td>
             <td>{{ formatCurrency(item.total.salesAmount) }}</td>
             <td>{{ formatPrice(item.total.weightedAvgPrice) }}</td>
-            <td v-for="grade in gradeOrder" :key="`share-${grade}`">{{ formatPercent(quantityShare(item, grade)) }}</td>
+            <td v-for="grade in gradeOrder" :key="`share-${grade}`">
+              <span class="share-cell">
+                <span class="share-track" aria-hidden="true">
+                  <i
+                    :style="{ width: shareWidth(quantityShare(item, grade)), backgroundColor: gradeColors[grade] }"
+                  />
+                </span>
+                <span>{{ formatPercent(quantityShare(item, grade)) }}</span>
+              </span>
+            </td>
           </tr>
         </tbody>
         <tfoot>
@@ -90,4 +106,11 @@ tbody th strong { display: block; font-size: .88rem; }
 tbody th small { color: var(--muted); font-size: .85rem; }
 tfoot td, tfoot th { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 700; }
 tbody tr:hover { background: var(--surface-soft); }
+/* 13 列在宽屏上容易散成一片数字，用竖线把「身份 / 件数 / 金额 / 占比」分成四组。 */
+thead th:nth-child(4), thead th:nth-child(8), thead th:nth-child(10),
+tbody td:nth-child(4), tbody td:nth-child(8), tbody td:nth-child(10) { border-left: 1px solid var(--line); }
+/* 占比列：数字前面补一条占比条，把空出来的横向空间用起来。 */
+.share-cell { display: inline-flex; align-items: center; gap: 8px; }
+.share-track { width: 72px; height: 6px; flex: 0 0 auto; border-radius: 999px; background: var(--surface-soft); overflow: hidden; }
+.share-track i { display: block; height: 100%; border-radius: 999px; }
 </style>

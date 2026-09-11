@@ -23,3 +23,22 @@ test('价格柱状图的柱高容器必须拉伸，否则百分比高度会塌�
   assert.match(barTrack, /min-height:\s*\d+px/)
   assert.doesNotMatch(barTrack, /align-items:\s*flex-end/)
 })
+
+test('价格柱状图的柱区与左侧刻度等高，柱顶才对得上刻度线', () => {
+  const chart = fs.readFileSync(path.join(src, 'components', 'SeriesGradePriceChart.vue'), 'utf8')
+  const bars = chart.match(/\.price-bars \{[^}]*\}/)?.[0] ?? ''
+  const axis = chart.match(/\.price-axis \{[^}]*\}/)?.[0] ?? ''
+  const gridLines = chart.match(/\.price-grid-lines \{[^}]*\}/)?.[0] ?? ''
+  const heightOf = (rule: string) => rule.match(/height:\s*(\d+)px/)?.[1]
+
+  assert.ok(heightOf(bars), '柱区必须有确定高度，否则柱高百分比无处计算')
+  assert.equal(heightOf(axis), heightOf(bars))
+  assert.equal(heightOf(gridLines), heightOf(bars))
+})
+
+test('所选结算单总览以商号作为首列', () => {
+  const table = fs.readFileSync(path.join(src, 'components', 'SeriesOverviewTable.vue'), 'utf8')
+
+  assert.match(table, /<th scope="col">商号<\/th>/)
+  assert.doesNotMatch(table, /<th scope="col">单号<\/th>/)
+})

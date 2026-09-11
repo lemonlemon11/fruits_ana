@@ -110,7 +110,10 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
 .grade-table-card { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .grade-table-card h3 { margin: 0 0 8px; font-size: .92rem; }
 table { width: 100%; min-width: 320px; border-collapse: collapse; }
-th, td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-size: .85rem; }
+th, td { padding: 7px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-size: .85rem; }
+/* 5 列在 3 张并排的卡片里放不下时，「平均每件售价」允许折行，
+   其余表头保持单行，否则会出现「金额占 / 比」这种断行。详见 compare 测试。 */
+thead th:nth-child(4) { white-space: normal; text-wrap: balance; }
 thead th { color: var(--muted); font-weight: 500; }
 tbody th, tfoot th { text-align: left; }
 tfoot td, tfoot th { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 700; }
