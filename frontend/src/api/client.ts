@@ -123,6 +123,22 @@ export async function generateSeriesAnalysis(
   return normalizeSeriesAnalysis(await request(path, jsonRequest(body)))
 }
 
+/** 按勾选的结算单生成「等级细分」AI 小结；相同条件会直接返回后端缓存。 */
+export async function generateGradeDetailAnalysis(
+  merchantNos: string[],
+  filters: AnalyticsFilters = {},
+  options: { refresh?: boolean } = {},
+): Promise<SeriesAnalysisResult> {
+  const body = {
+    merchant_no: merchantNos,
+    start_date: filters.startDate || null,
+    end_date: filters.endDate || null,
+    refresh: options.refresh === true,
+  }
+  const path = `${API_ROOT}/analytics/grade-detail/analysis`
+  return normalizeSeriesAnalysis(await request(path, jsonRequest(body)))
+}
+
 export async function getImports(): Promise<ImportBatch[]> {
   const body = unwrap(await request(`${API_ROOT}/imports`))
   return asArray(Array.isArray(body) ? body : body.imports ?? body.items).map(normalizeImportBatch)

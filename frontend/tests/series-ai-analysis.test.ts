@@ -66,10 +66,14 @@ test('friendlyErrorMessage 把英文报错换成中文提示', () => {
 })
 
 test('AI 分析卡片使用果农能看懂的文案', () => {
-  const component = fs.readFileSync(path.join(src, 'components', 'SeriesAiAnalysis.vue'), 'utf8')
-  assert.match(component, /AI 分析结论/)
-  assert.match(component, /生成分析/)
-  assert.match(component, /正在生成/)
-  assert.match(component, /只作参考/)
-  assert.doesNotMatch(component, /加权均价|贡献度|环比|同比/)
+  // 通用卡片负责交互文案，各页面封装负责标题与说明。
+  const card = fs.readFileSync(path.join(src, 'components', 'AiAnalysisCard.vue'), 'utf8')
+  assert.match(card, /生成分析/)
+  assert.match(card, /正在生成/)
+  assert.doesNotMatch(card, /加权均价|贡献度|环比|同比/)
+
+  const series = fs.readFileSync(path.join(src, 'components', 'SeriesAiAnalysis.vue'), 'utf8')
+  assert.match(series, /AI 分析结论/)
+  assert.match(series, /只作参考/)
+  assert.doesNotMatch(series, /加权均价|贡献度|环比|同比/)
 })

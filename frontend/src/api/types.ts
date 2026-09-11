@@ -167,6 +167,31 @@ export interface SeriesComparisonData {
   settlements: SeriesComparisonItem[]
   series: SeriesComparisonGroup[]
   total: SeriesAggregate
+  gradeDetails: GradeDetailData
+}
+
+/** 细分等级（号别）阶梯的一行；区间如 `B6/7` 原样保留（ADR-013 方案 A）。 */
+export interface GradeDetailBucket {
+  label: string
+  grade: Grade
+  fruitType: string
+  salesQuantity: number
+  salesAmount: number
+  weightedAvgPrice: number | null
+  quantityShare: number | null
+  amountShare: number | null
+  recordCount: number
+  qualityMarks: string[]
+}
+
+export interface GradeDetailData {
+  buckets: GradeDetailBucket[]
+  unrecognized: {
+    label: string
+    recordCount: number
+    salesQuantity: number
+  }
+  total: MetricTotal
 }
 
 export interface SeriesAnalysisResult {

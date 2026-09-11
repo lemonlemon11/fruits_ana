@@ -99,6 +99,17 @@ test('导入结果明确区分失败、重复和成功', () => {
   assert.doesNotMatch(importView, /解析结果已进入质量检查/)
 })
 
+test('结算单多选使用自绘勾选框与自适应卡片，避免整行拉出一条空白', () => {
+  const view = fs.readFileSync(path.join(root, 'views', 'SeriesComparisonView.vue'), 'utf8')
+  const checkbox = view.match(/\.series-option input\[type='checkbox'\] \{[^}]*\}/)?.[0] ?? ''
+  const options = view.match(/\.series-options \{[^}]*\}/)?.[0] ?? ''
+
+  assert.match(checkbox, /appearance:\s*none/)
+  assert.match(view, /:checked \{[\s\S]{0,240}data:image\/svg\+xml/)
+  assert.match(options, /repeat\(auto-fill,\s*minmax\(\d+px,\s*1fr\)\)/)
+  assert.match(view, /:class="\{ selected: selected\.includes\(item\.merchantNo\) \}"/)
+})
+
 test('数据导入支持多文件拖入，并保留文件选择与清空入口', () => {
   const importView = fs.readFileSync(path.join(root, 'views', 'ImportView.vue'), 'utf8')
   assert.match(importView, /@drop\.prevent\.stop="onDrop"/)

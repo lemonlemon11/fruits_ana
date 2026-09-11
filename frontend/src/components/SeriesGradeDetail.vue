@@ -1,0 +1,165 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+
+import { gradeLabel } from '../api/client'
+import type { Grade, GradeDetailBucket, GradeDetailData } from '../api/types'
+import { formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
+
+const props = defineProps<{
+  details: GradeDetailData
+  loading?: boolean
+}>()
+
+const GRADE_ORDER: Grade[] = ['A', 'B', 'C']
+
+interface GradeGroup {
+  grade: Grade
+  items: GradeDetailBucket[]
+  quantity: number
+  amount: number
+  avgPrice: number | null
+}
+
+const groups = computed<GradeGroup[]>(() =>
+  GRADE_ORDER.map((grade) => {
+    const items = props.details.buckets.filter((row) => row.grade === grade)
+    const quantity = items.reduce((total, row) => total + row.salesQuantity, 0)
+    const amount = items.reduce((total, row) => total + row.salesAmount, 0)
+    return { grade, items, quantity, amount, avgPrice: quantity ? amount / quantity : null }
+  }).filter((group) => group.items.length > 0),
+)
+
+const maxPrice = computed(() =>
+  Math.max(1, ...props.details.buckets.map((row) => row.weightedAvgPrice ?? 0)),
+)
+
+const barWidth = (row: GradeDetailBucket) =>
+  `${Math.max(2, ((row.weightedAvgPrice ?? 0) / maxPrice.value) * 100).toFixed(1)}%`
+
+const hasUnrecognized = computed(() => props.details.unrecognized.recordCount > 0)
+</script>
+
+<template>
+  <section class="dashboard-section" aria-labelledby="grade-detail-title">
+    <header class="section-heading">
+      <div>
+        <h2 id="grade-detail-title">按等级号别看价格</h2>
+        <p class="section-note">
+          把 A/B/C 再拆成号别。带斜杠的（如 B6/7）是一段区间，原样保留，不拆分。
+        </p>
+      </div>
+    </header>
+
+    <div v-if="loading" class="skeleton-block grade-detail-skeleton" aria-live="polite">
+      正在加载等级阶梯
+    </div>
+
+    <div v-else-if="!details.buckets.length" class="empty-state compact">
+      <strong>暂时没有可细分的等级</strong>
+      <span>勾选结算单后，这里会按号别列出件数、金额与平均每件售价。</span>
+    </div>
+
+    <template v-else>
+      <div class="grade-ladder">
+        <article
+          v-for="group in groups"
+          :key="group.grade"
+          class="ladder-group"
+          :class="`ladder-${group.grade.toLowerCase()}`"
+        >
+          <p class="ladder-head">
+            <span class="ladder-dot" aria-hidden="true"></span>
+            <strong>{{ gradeLabel(group.grade) }}</strong>
+            <span class="ladder-sum">
+              {{ formatNumber(group.quantity) }} 件 · {{ formatCurrency(group.amount) }} ·
+              均价 {{ formatPrice(group.avgPrice) }}
+            </span>
+          </p>
+          <div
+            v-for="row in group.items"
+            :key="row.label"
+            class="ladder-row"
+          >
+            <span class="ladder-label">{{ row.label }}</span>
+            <div class="ladder-track">
+              <div
+                class="ladder-bar"
+                :style="{ width: barWidth(row) }"
+                role="img"
+                :aria-label="`${row.label} 平均每件售价 ${formatPrice(row.weightedAvgPrice)}`"
+              ></div>
+            </div>
+            <span class="ladder-price">{{ formatPrice(row.weightedAvgPrice) }}</span>
+            <span class="ladder-qty">
+              {{ formatNumber(row.salesQuantity) }} 件
+              <span v-if="row.qualityMarks.length" class="ladder-marks">
+                {{ row.qualityMarks.join('、') }}
+              </span>
+            </span>
+          </div>
+        </article>
+      </div>
+
+      <p v-if="hasUnrecognized" class="grade-detail-warning">
+        有 {{ formatNumber(details.unrecognized.recordCount) }} 行等级写法无法识别，
+        已单独归入「{{ details.unrecognized.label }}」，未计入上面的阶梯。
+      </p>
+
+      <details class="table-details">
+        <summary>查看数据表</summary>
+        <div class="table-wrap">
+          <table>
+            <caption class="sr-only">各细分等级的件数、金额、平均每件售价与占比</caption>
+            <thead>
+              <tr>
+                <th scope="col">等级</th>
+                <th scope="col">件数</th>
+                <th scope="col">金额</th>
+                <th scope="col">平均每件售价</th>
+                <th scope="col">件数占比</th>
+                <th scope="col">金额占比</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in details.buckets" :key="row.label">
+                <th scope="row">{{ row.label }}</th>
+                <td>{{ formatNumber(row.salesQuantity) }}</td>
+                <td>{{ formatCurrency(row.salesAmount) }}</td>
+                <td>{{ formatPrice(row.weightedAvgPrice) }}</td>
+                <td>{{ formatPercent(row.quantityShare) }}</td>
+                <td>{{ formatPercent(row.amountShare) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </template>
+  </section>
+</template>
+
+<style scoped>
+.grade-detail-skeleton { min-height: 160px; }
+.grade-ladder { display: grid; gap: 14px; }
+.ladder-group { min-width: 0; display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.ladder-group + .ladder-group { margin-top: 0; }
+.ladder-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 0 0 4px; }
+.ladder-sum { color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.ladder-dot { width: 10px; height: 10px; border-radius: 50%; }
+.ladder-a .ladder-dot, .ladder-a .ladder-bar { background: var(--grade-a); }
+.ladder-b .ladder-dot, .ladder-b .ladder-bar { background: var(--grade-b); }
+.ladder-c .ladder-dot, .ladder-c .ladder-bar { background: var(--grade-c); }
+.ladder-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) 108px 168px; align-items: center; gap: 10px; }
+.ladder-label { font-size: .9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ladder-track { height: 20px; border-radius: 3px; background: var(--surface-soft); overflow: hidden; }
+.ladder-bar { height: 100%; border-radius: 3px 0 0 3px; }
+.ladder-price { text-align: right; white-space: nowrap; font-size: .9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ladder-qty { text-align: right; white-space: nowrap; color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.ladder-marks { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: .78rem; white-space: nowrap; }
+.grade-detail-warning { margin: 0; padding: 10px 12px; border-left: 4px solid var(--warning); background: #fff7df; font-size: .9rem; }
+.table-details summary { display: flex; align-items: center; min-height: 44px; color: var(--primary-dark); font-weight: 700; cursor: pointer; }
+
+@media (max-width: 720px) {
+  .ladder-row { grid-template-columns: 62px minmax(0, 1fr) 96px; }
+  .ladder-qty { grid-column: 2 / -1; text-align: right; margin-top: -4px; }
+}
+</style>

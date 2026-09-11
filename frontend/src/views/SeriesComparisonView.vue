@@ -2,12 +2,19 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import { getSeriesComparison, getSettlements } from '../api/client'
-import type { SeriesAggregate, SeriesComparisonData, SettlementListItem } from '../api/types'
+import type {
+  GradeDetailData,
+  SeriesAggregate,
+  SeriesComparisonData,
+  SettlementListItem,
+} from '../api/types'
 import SeriesGradePriceChart from '../components/SeriesGradePriceChart.vue'
 import SeriesGradeShareChart from '../components/SeriesGradeShareChart.vue'
 import SeriesGradeTables from '../components/SeriesGradeTables.vue'
 import SeriesOverviewTable from '../components/SeriesOverviewTable.vue'
 import SeriesAiAnalysis from '../components/SeriesAiAnalysis.vue'
+import SeriesGradeDetail from '../components/SeriesGradeDetail.vue'
+import GradeDetailAiAnalysis from '../components/GradeDetailAiAnalysis.vue'
 import { formatNumber, formatPrice } from '../utils/format'
 import { settlementOptionLabel } from '../utils/settlementComparison'
 import { friendlyErrorMessage } from '../utils/seriesAnalysis'
@@ -22,6 +29,8 @@ import {
 const DEFAULT_SELECTION = 3
 
 const filters = reactive({ startDate: '', endDate: '' })
+// 视图切换：按系列看对比，或按等级号别看价格阶梯（ADR-013）。
+const view = ref<'series' | 'grade'>('series')
 const options = ref<SettlementListItem[]>([])
 const selected = ref<string[]>([])
 const result = ref<SeriesComparisonData>(emptyComparison())
@@ -36,7 +45,15 @@ const selectedCount = computed(() => selected.value.length)
 const canCompare = computed(() => selectedCount.value >= 2)
 
 function emptyComparison(): SeriesComparisonData {
-  return { settlements: [], series: [], total: emptyAggregate() }
+  return { settlements: [], series: [], total: emptyAggregate(), gradeDetails: emptyGradeDetails() }
+}
+
+function emptyGradeDetails(): GradeDetailData {
+  return {
+    buckets: [],
+    unrecognized: { label: '其他', recordCount: 0, salesQuantity: 0 },
+    total: { salesQuantity: 0, salesAmount: 0, weightedAvgPrice: null },
+  }
 }
 
 function emptyAggregate(): SeriesAggregate {
@@ -176,37 +193,90 @@ onMounted(loadOptions)
               <button type="button" class="text-button" @click="clearSeries(group.series)">取消本系列</button>
             </span>
           </header>
-          <label v-for="item in group.items" :key="item.merchantNo" class="series-option">
-            <input
-              type="checkbox"
-              :value="item.merchantNo"
-              :checked="selected.includes(item.merchantNo)"
-              @change="toggle(item.merchantNo)"
+          <div class="series-options">
+            <label
+              v-for="item in group.items"
+              :key="item.merchantNo"
+              class="series-option"
+              :class="{ selected: selected.includes(item.merchantNo) }"
             >
-            <span class="series-option-name">{{ settlementOptionLabel(item) }}</span>
-            <span class="series-option-metric">{{ formatNumber(item.totalQuantity) }} 件</span>
-            <span class="series-option-metric">{{ formatPrice(item.averagePrice) }}</span>
-          </label>
+              <input
+                type="checkbox"
+                :value="item.merchantNo"
+                :checked="selected.includes(item.merchantNo)"
+                @change="toggle(item.merchantNo)"
+              >
+              <span class="series-option-name">{{ settlementOptionLabel(item) }}</span>
+              <span class="series-option-metrics">
+                <span>{{ formatNumber(item.totalQuantity) }} 件</span>
+                <span>{{ formatPrice(item.averagePrice) }}</span>
+              </span>
+            </label>
+          </div>
         </article>
       </div>
       <p v-if="notice" class="section-note" aria-live="polite">{{ notice }}</p>
     </section>
 
     <SeriesOverviewTable :items="result.settlements" :total="result.total" :loading="loadingComparison" />
-    <SeriesGradeTables v-if="result.settlements.length" :items="result.settlements" :total="result.total" />
-    <SeriesGradePriceChart :items="result.settlements" :loading="loadingComparison" />
-    <SeriesGradeShareChart :items="result.settlements" :loading="loadingComparison" />
-    <SeriesAiAnalysis
-      :merchant-nos="selected"
-      :start-date="filters.startDate"
-      :end-date="filters.endDate"
-      :disabled="loadingComparison"
-    />
+
+    <div class="series-view-tabs" role="tablist" aria-label="对比视图切换">
+      <button
+        type="button"
+        role="tab"
+        class="view-tab"
+        :aria-selected="view === 'series'"
+        aria-controls="series-view-panel"
+        @click="view = 'series'"
+      >
+        按系列
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="view-tab"
+        :aria-selected="view === 'grade'"
+        aria-controls="grade-view-panel"
+        @click="view = 'grade'"
+      >
+        按等级号别
+      </button>
+    </div>
+
+    <div v-show="view === 'series'" id="series-view-panel" role="tabpanel" class="series-view-panel">
+      <SeriesGradeTables v-if="result.settlements.length" :items="result.settlements" :total="result.total" />
+      <SeriesGradePriceChart :items="result.settlements" :loading="loadingComparison" />
+      <SeriesGradeShareChart :items="result.settlements" :loading="loadingComparison" />
+      <SeriesAiAnalysis
+        :merchant-nos="selected"
+        :start-date="filters.startDate"
+        :end-date="filters.endDate"
+        :disabled="loadingComparison"
+      />
+    </div>
+
+    <div v-show="view === 'grade'" id="grade-view-panel" role="tabpanel" class="series-view-panel">
+      <SeriesGradeDetail :details="result.gradeDetails" :loading="loadingComparison" />
+      <GradeDetailAiAnalysis
+        :merchant-nos="selected"
+        :start-date="filters.startDate"
+        :end-date="filters.endDate"
+        :disabled="loadingComparison"
+      />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .series-page { gap: 18px; }
+.series-view-panel { display: grid; gap: 18px; }
+.series-view-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.view-tab {
+  min-height: 48px; padding: 0 18px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink); font-size: 1rem; font-weight: 700;
+}
+.view-tab[aria-selected='true'] { border-color: var(--primary-dark); background: var(--primary); color: white; }
 .comparison-filter { grid-template-columns: repeat(2, minmax(180px, 1fr)) auto; }
 .picker-skeleton { min-height: 120px; }
 .series-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
@@ -215,13 +285,33 @@ onMounted(loadOptions)
 .series-group-head strong { font-size: .95rem; }
 .series-group-head span { color: var(--muted); font-size: .85rem; }
 .series-group-actions { margin-left: auto; display: flex; gap: 10px; }
-.series-option { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: .85rem; }
-.series-option-name { overflow-wrap: anywhere; }
-.series-option-metric { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* 结算单多选：窄屏一行一个，宽屏自动并排，选中态用主色描边 + 浅底 + 勾选框，避免整行拉出一条空白。 */
+.series-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.series-option {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 2px 10px;
+  min-height: 58px; padding: 9px 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface); cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.series-option:hover { border-color: var(--line-strong); background: var(--surface-soft); }
+.series-option.selected { border-color: var(--primary); background: color-mix(in srgb, var(--primary-soft) 55%, white); }
+.series-option input[type='checkbox'] {
+  grid-row: 1 / span 2; width: 22px; height: 22px; margin: 0;
+  border: 2px solid var(--line-strong); border-radius: 5px; background: var(--surface);
+  appearance: none; cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.series-option input[type='checkbox']:checked {
+  border-color: var(--primary); background: var(--primary) center / 15px no-repeat;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
+.series-option-name { overflow-wrap: anywhere; font-size: .95rem; }
+.series-option.selected .series-option-name { font-weight: 700; }
+.series-option-metrics { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: .9rem; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 720px) {
   .comparison-filter { grid-template-columns: 1fr; }
-  .series-option { grid-template-columns: auto minmax(0, 1fr); }
-  .series-option-metric { grid-column: 2; }
+  .series-options { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

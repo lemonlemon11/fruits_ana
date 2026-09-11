@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { generateSeriesAnalysis } from '../api/client'
-import { ANALYSIS_HEADINGS } from '../utils/seriesAnalysis'
+import { generateGradeDetailAnalysis } from '../api/client'
+import { GRADE_DETAIL_HEADINGS } from '../utils/seriesAnalysis'
 import AiAnalysisCard from './AiAnalysisCard.vue'
 
-/** 「系列对比」的 AI 分析结论；渲染与状态机在 AiAnalysisCard。 */
+/** 「等级细分」的 AI 小结；提示词与系列对比不同，必须标注样本量。 */
 const props = defineProps<{
   merchantNos: string[]
   startDate?: string
@@ -20,7 +20,7 @@ const resetKey = computed(() =>
 const canGenerate = computed(() => props.merchantNos.length >= 2 && !props.disabled)
 
 const run = (refresh: boolean) =>
-  generateSeriesAnalysis(
+  generateGradeDetailAnalysis(
     props.merchantNos,
     { startDate: props.startDate, endDate: props.endDate },
     { refresh },
@@ -29,11 +29,12 @@ const run = (refresh: boolean) =>
 
 <template>
   <AiAnalysisCard
-    title="AI 分析结论"
-    note="把上面的数字写成大白话，只作参考，请以表格数字为准"
-    :headings="ANALYSIS_HEADINGS"
+    title="号别小结"
+    note="按等级号别写成的白话结论；样本不足时只看这批货，只作参考"
+    :headings="GRADE_DETAIL_HEADINGS"
     :reset-key="resetKey"
     :can-generate="canGenerate"
     :run="run"
+    generate-text="生成号别小结"
   />
 </template>

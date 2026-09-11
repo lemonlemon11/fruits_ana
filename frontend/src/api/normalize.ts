@@ -1,10 +1,12 @@
 import type {
   AnalyticsFilters,
   Grade,
+  GradeDetailData,
   GradeMetric,
   ImportBatch,
   ImportIssue,
   IssueCounts,
+  MetricTotal,
   OperatingAnomaly,
   OverviewData,
   PriceSpread,
@@ -294,6 +296,45 @@ export function normalizeSeriesComparison(payload: unknown): SeriesComparisonDat
       settlementCount: numberOr(pick(row, 'settlement_count', 'settlementCount'), 0),
     })),
     total: normalizeSeriesAggregate(asRecord(body.total)),
+    gradeDetails: normalizeGradeDetails(pick(body, 'grade_details', 'gradeDetails')),
+  }
+}
+
+/** 细分等级阶梯；后端未返回该字段时给出安全的空结构，页面按空态处理。 */
+export function normalizeGradeDetails(value: unknown): GradeDetailData {
+  const body = asRecord(value)
+  const unrecognized = asRecord(pick(body, 'unrecognized'))
+  return {
+    buckets: asArray(body.buckets).map((row) => ({
+      label: stringOr(pick(row, 'label'), '其他'),
+      grade: normalizeGrade(pick(row, 'grade')) ?? 'C',
+      fruitType: stringOr(pick(row, 'fruit_type', 'fruitType'), '榴莲'),
+      salesQuantity: numberOr(pick(row, 'sales_quantity', 'salesQuantity'), 0),
+      salesAmount: numberOr(pick(row, 'sales_amount', 'salesAmount'), 0),
+      weightedAvgPrice: nullableNumber(pick(row, 'weighted_avg_price', 'weightedAvgPrice')),
+      quantityShare: nullableNumber(pick(row, 'quantity_share', 'quantityShare')),
+      amountShare: nullableNumber(pick(row, 'amount_share', 'amountShare')),
+      recordCount: numberOr(pick(row, 'record_count', 'recordCount'), 0),
+      qualityMarks: stringArray(pick(row, 'quality_marks', 'qualityMarks')),
+    })),
+    unrecognized: {
+      label: stringOr(pick(unrecognized, 'label'), '其他'),
+      recordCount: numberOr(pick(unrecognized, 'record_count', 'recordCount'), 0),
+      salesQuantity: numberOr(pick(unrecognized, 'sales_quantity', 'salesQuantity'), 0),
+    },
+    total: normalizeMetricTotal(pick(body, 'total')),
+  }
+}
+
+function normalizeMetricTotal(value: unknown): MetricTotal {
+  const record = asRecord(value)
+  const salesQuantity = numberOr(pick(record, 'sales_quantity', 'salesQuantity'), 0)
+  const salesAmount = numberOr(pick(record, 'sales_amount', 'salesAmount'), 0)
+  return {
+    salesQuantity,
+    salesAmount,
+    weightedAvgPrice: nullableNumber(pick(record, 'weighted_avg_price', 'weightedAvgPrice'))
+      ?? (salesQuantity ? salesAmount / salesQuantity : null),
   }
 }
 
