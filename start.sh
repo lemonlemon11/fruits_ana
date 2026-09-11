@@ -8,6 +8,7 @@ BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_HOST="${FRONTEND_HOST:-0.0.0.0}"
 FRONTEND_PORT="${FRONTEND_PORT:-53000}"
+FRONTEND_MODE="${FRONTEND_MODE:-nginx}"
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
   echo "错误：未找到虚拟环境，请先运行 python3 -m venv .venv。" >&2
@@ -34,11 +35,26 @@ echo "后端：http://$BACKEND_HOST:$BACKEND_PORT"
   --port "$BACKEND_PORT" &
 BACKEND_PID=$!
 
-echo "前端：http://127.0.0.1:$FRONTEND_PORT"
-npm --prefix "$PROJECT_DIR/frontend" run dev -- \
-  --host "$FRONTEND_HOST" \
-  --port "$FRONTEND_PORT" \
-  --strictPort &
-FRONTEND_PID=$!
+echo "前端：http://127.0.0.1:$FRONTEND_PORT（$FRONTEND_MODE）"
+if [[ "$FRONTEND_MODE" == "nginx" ]]; then
+  npm --prefix "$PROJECT_DIR/frontend" run build
+  echo "前端已构建，由 Nginx 监听 http://0.0.0.0:$FRONTEND_PORT 提供静态文件。"
+  wait "$BACKEND_PID"
+elif [[ "$FRONTEND_MODE" == "dev" ]]; then
+  npm --prefix "$PROJECT_DIR/frontend" run dev -- \
+    --host "$FRONTEND_HOST" \
+    --port "$FRONTEND_PORT" \
+    --strictPort &
+  FRONTEND_PID=$!
+else
+  npm --prefix "$PROJECT_DIR/frontend" run build
+  npm --prefix "$PROJECT_DIR/frontend" run preview -- \
+    --host "$FRONTEND_HOST" \
+    --port "$FRONTEND_PORT" \
+    --strictPort &
+  FRONTEND_PID=$!
+fi
 
-wait -n "$BACKEND_PID" "$FRONTEND_PID"
+if [[ -n "${FRONTEND_PID:-}" ]]; then
+  wait -n "$BACKEND_PID" "$FRONTEND_PID"
+fi

@@ -4,7 +4,7 @@
 .portal {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: minmax(0, 1.02fr) minmax(420px, .98fr);
+  grid-template-columns: minmax(0, 1.02fr) minmax(24.7rem, .98fr);
   background: var(--surface);
 }
 
@@ -15,8 +15,8 @@
   display: grid;
   overflow: hidden;
   grid-template-rows: auto 1fr auto;
-  gap: 28px;
-  padding: 44px clamp(34px, 4vw, 64px) 46px;
+  gap: 1.65rem;
+  padding: 2.59rem clamp(2rem, 4vw, 3.76rem) 2.71rem;
   background-color: #0c2417;
   color: #fff;
   isolation: isolate;
@@ -64,33 +64,33 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 13px;
+  gap: .76rem;
 }
 
-.portal-brand-copy { display: grid; gap: 3px; min-width: 0; }
+.portal-brand-copy { display: grid; gap: .18rem; min-width: 0; }
 .portal-brand-copy strong { font-size: 1.06rem; line-height: 1.3; }
 .portal-brand-copy small { color: rgba(255, 255, 255, .62); font-size: .82rem; letter-spacing: 0; }
 
 .portal-hero {
   align-self: center;
-  max-width: 486px;
-  padding-bottom: 6px;
+  max-width: 28.59rem;
+  padding-bottom: .35rem;
 }
 
 .portal-kicker {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  margin: 0 0 16px;
+  gap: .53rem;
+  margin: 0 0 .94rem;
   color: #f3cc7d;
   font-size: .85rem;
   font-weight: 800;
   letter-spacing: 0;
 }
-.portal-kicker::before { width: 24px; height: 1px; background: currentColor; content: ''; }
+.portal-kicker::before { width: 1.41rem; height: 1px; background: currentColor; content: ''; }
 
 .portal-hero h1 {
-  margin: 0 0 18px;
+  margin: 0 0 1.06rem;
   color: #fff;
   font-family: Georgia, "Songti SC", "STSong", serif;
   font-size: 3rem;
@@ -100,7 +100,7 @@
 }
 
 .portal-lede {
-  max-width: 400px;
+  max-width: 23.53rem;
   margin: 0;
   color: rgba(255, 255, 255, .86);
   font-size: .98rem;
@@ -108,9 +108,9 @@
   text-shadow: 0 1px 14px rgba(4, 16, 10, .65);
 }
 
-.portal-features { display: flex; flex-wrap: wrap; gap: 10px 20px; margin: 20px 0 0; padding: 0; list-style: none; }
-.portal-features li { display: inline-flex; align-items: center; gap: 8px; color: rgba(255, 255, 255, .84); font-size: .85rem; }
-.portal-features li::before { width: 6px; height: 6px; border-radius: 50%; background: #efb441; content: ''; }
+.portal-features { display: flex; flex-wrap: wrap; gap: .59rem 1.18rem; margin: 1.18rem 0 0; padding: 0; list-style: none; }
+.portal-features li { display: inline-flex; align-items: center; gap: .47rem; color: rgba(255, 255, 255, .84); font-size: .85rem; }
+.portal-features li::before { width: .35rem; height: .35rem; border-radius: 50%; background: #efb441; content: ''; }
 
 .portal-facts {
   display: grid;
@@ -124,7 +124,7 @@
   background: rgba(255, 255, 255, .14);
   backdrop-filter: blur(2px);
 }
-.portal-facts > div { display: grid; gap: 5px; padding: 12px 14px; background: rgba(9, 30, 19, .42); }
+.portal-facts > div { display: grid; gap: .29rem; padding: .71rem .82rem; background: rgba(9, 30, 19, .42); }
 .portal-facts dt { color: rgba(255, 255, 255, .62); font-size: .78rem; letter-spacing: 0; }
 .portal-facts dd { margin: 0; font-size: .92rem; font-weight: 700; }
 
@@ -134,7 +134,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  padding: 46px clamp(24px, 5vw, 72px);
+  padding: 2.71rem clamp(1.41rem, 5vw, 4.24rem);
   border-left: 1px solid var(--line);
   background: #f2f5f2;
 }
@@ -143,12 +143,12 @@
   position: relative;
   display: grid;
   width: 100%;
-  max-width: 416px;
-  gap: 20px;
+  max-width: 24.47rem;
+  gap: 1.18rem;
 }
 
 .portal-form-card {
-  padding: 28px 26px 30px;
+  padding: 1.65rem 1.53rem 1.76rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -157,33 +157,33 @@
 
 /* 表单 */
 
-.auth-form { display: grid; gap: 18px; }
+.auth-form { display: grid; gap: 1.06rem; }
 .auth-form header h2 { font-size: 1.65rem; }
-.auth-form header p { margin: 8px 0 0; color: var(--muted); font-size: .92rem; line-height: 1.65; }
+.auth-form header p { margin: .47rem 0 0; color: var(--muted); font-size: .92rem; line-height: 1.65; }
 
-.auth-field { display: grid; gap: 8px; }
+.auth-field { display: grid; gap: .47rem; }
 .auth-field > label { color: var(--ink); font-size: .86rem; font-weight: 700; }
 
 .auth-input { position: relative; display: flex; align-items: center; }
 .auth-input input {
   width: 100%;
-  min-height: 50px;
-  padding: 0 14px;
+  min-height: 2.94rem;
+  padding: 0 .82rem;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--ink);
 }
 .auth-input input:hover { border-color: #8d9c92; }
-.auth-input.has-toggle input { padding-right: 48px; }
+.auth-input.has-toggle input { padding-right: 2.82rem; }
 .auth-input input[aria-invalid="true"] { border-color: var(--danger); background: #fdf6f5; }
 
 .password-toggle {
   position: absolute;
-  right: 5px;
+  right: .29rem;
   display: grid;
-  width: 40px;
-  height: 40px;
+  width: 2.35rem;
+  height: 2.35rem;
   place-items: center;
   border: 0;
   border-radius: var(--radius-sm);
@@ -197,25 +197,25 @@
 
 .auth-remember {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 2.59rem;
   width: fit-content;
   max-width: 100%;
   align-items: center;
-  gap: 10px;
+  gap: .59rem;
   color: var(--ink);
   cursor: pointer;
   font-size: .88rem;
   font-weight: 700;
 }
 .auth-remember input {
-  width: 20px;
-  height: 20px;
+  width: 1.18rem;
+  height: 1.18rem;
   margin: 0;
   accent-color: var(--primary);
 }
 
-.auth-form .form-message { grid-column: auto; margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); font-size: .85rem; }
-.auth-submit { width: 100%; min-height: 50px; margin-top: 2px; }
+.auth-form .form-message { grid-column: auto; margin: 0; padding: .59rem .71rem; border-radius: var(--radius-sm); font-size: .85rem; }
+.auth-submit { width: 100%; min-height: 2.94rem; margin-top: .12rem; }
 .auth-switch { margin: 0; color: var(--muted); font-size: .88rem; text-align: center; }
 .auth-switch a { color: var(--primary-dark); font-weight: 700; }
 .auth-note { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.6; text-align: center; }

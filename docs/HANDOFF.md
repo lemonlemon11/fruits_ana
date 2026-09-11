@@ -1,6 +1,6 @@
 # HANDOFF
 
-Last updated：2026-09-11 21:59 (CST)
+Last updated：2026-09-11 22:53 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## Current Goal
@@ -54,6 +54,20 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 14. **交互与移动端优化（21:59 交付，未提交）**：数据导入增加等待遮罩与 `aria-busy`；
     业务页右下角增加一键回顶悬浮按钮，移动端抬到底部导航上方；header 时间改为时分秒，
     刷新频率改为 1 秒；移动端继续强化 header 窄屏布局、底部导航字号与安全区适配。
+15. **无痕首屏资源优化（22:12）**：排查「无痕浏览器打不开/首屏过慢」，根因是
+    `main.ts` 静态加载全部业务路由，且 `@lucide/vue` 整包预构建约 1.24 MB；
+    改为路由懒加载 + 图标深导入后，登录首屏从 75 个请求 / 3.3 MB 降到
+    54 个请求 / 1.28 MB；前端 120 项测试、`typecheck`、`vite build` 均通过。
+16. **桌面端自适应缩放（22:35）**：移除固定 `zoom: .9`，改为 `clamp()` 根字号
+    随视口平滑缩放，并将主要控件/外壳/表单/卡片尺寸改为 `rem`；移动端保持原布局。
+    验证：1366px 笔记本根字号约 15.6px、header 约 58px，1440px 约 16.2px，
+    1280/1024px 仍无横向溢出；前端 120 项测试与 `vite build` 通过。
+17. **生产部署切到 Nginx（22:53）**：将对外入口从 Vite preview 切换为 Nginx
+    静态托管 `frontend/dist`，`/api` 反代到 `127.0.0.1:8000`；`start.sh` 默认
+    `FRONTEND_MODE=nginx`，开发与本地预览分别用 `dev` / `preview`。53000 登录页
+    实测无 `@vite/client`、无 WebSocket，`/api/auth/me` 经 Nginx 返回预期 401，
+    `/assets/` 返回 `public, immutable` 缓存头；后端 236 项、前端 120 项、
+    `typecheck` 与 `build` 均通过。
 
 ## Completed
 
@@ -229,7 +243,17 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 果类可插拔、AI 小结一起做。
 
 「系列对比」与「到达日期」文案统一均已完成开发与自动化验证；「系列对比」页及 AI 分析结论
-仍等待真实浏览器验收（见 `docs/TODO.md`）。
+已于 2026-09-11 完成真实浏览器验收（见 Test Status）。
+
+### 品牌化收口与真实浏览器验收（2026-09-11，未提交）
+
+- 登录/注册 Portal 统一为「SLD-水果市场销售分析」，复用一个 `BrandMark`，favicon 与
+  apple-touch-icon 已本地化；主图替换为国内 CC零素材网可商用榴莲图，
+  来源与许可记录在 `docs/IMAGE_CREDITS.md`。
+- 回归测试新增 `frontend/tests/branding.test.mjs`，覆盖品牌名、本地资产、无外链主图与授权记录。
+- 真实浏览器 E2E（53000 正式前端 / 8000 后端，临时账号已清理）：桌面 1440px 与移动 390px
+  覆盖登录/注册/刷新恢复、总览、数据明细与明细弹窗、结算单对比、结算单详情、系列对比、
+  系列 AI 与号别 AI、临时 CSV 上传命名回填；均无横向溢出，仅登录前恢复会话产生预期 401 控制台记录。
 
 新增（2026-09-11，只读分析，无代码改动）：完成全系统走查（前端体验 / 后端数据链路 /
 线上库只读盘点），产出优化方案、数据挖掘地图与评审会议方案，见
@@ -309,18 +333,18 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
       这些**不属于命名适配**，不要混进命名相关提交，先确认归属再提交。
    b. 系列对比后续能力：到港日期字段与一次库迁移、元/KG 口径、Excel 导出、系列别名字典。
    c. 真实业绩数据到位后的整体回归验收（目前线上只有 4 张示例结算单）。
-   d. 根目录 `.env` 中未使用的 `FRUIT_ANALYSIS_AI_*` 配置确认去留（见 Known Issues 1）。
-   e. 对本轮「认证门户 + 外壳控制」做真实浏览器验收，并确认是否连同既有品牌化改动一起提交。
+   d. 已确认：`FRUIT_ANALYSIS_AI_*` 由 `backend/app/ai_settings.py` 读取，不再视为未使用配置。
+   e. 已完成：品牌化收口、真实浏览器验收与文档同步；剩余事项是确认这些未提交改动如何拆提。
 3. 改完后端记得重启 `./start.sh`（Known Issues 4）；每次改动后运行基线验证，再按功能提交。
 
 ## Known Issues
 
-### Issue 1 — 根目录 `.env` 含未使用的 AI 配置（未处理）
+### Issue 1 — 根目录 `.env` 的 AI 配置已确认由后端读取
 
 - 问题：仓库根 `.env` 存在 `FRUIT_ANALYSIS_AI_BASE_URL` / `FRUIT_ANALYSIS_AI_API_KEY` /
-  `FRUIT_ANALYSIS_AI_MODEL`，但全仓库代码无任何引用。
-- 当前判断：疑似多模型切换工具留下的本地配置，非项目运行时依赖。
-- 下一步：确认是否保留；`.env` 已被 `.gitignore` 忽略，**严禁提交**。
+  `FRUIT_ANALYSIS_AI_MODEL`，此前文档误写为“无任何引用”。
+- 当前判断：`backend/app/ai_settings.py` 会读取这三个配置并注入系列 AI / 号别 AI 调用，
+  属于项目运行时配置；`.env` 已被 `.gitignore` 忽略，**严禁提交**。
 
 ### Issue 2 — 前端缺少统一的测试 / 类型检查入口（已修复 2026-09-10）
 
@@ -372,8 +396,8 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 
 - 项目状态以文件 + Git 为准，不要依赖任何单次对话上下文。
 - 当前分支 `dev`，领先 `origin/dev` 若干提交（含本批等级细分），**尚未 push**。
-- `frontend/dev-preview/` **未加入 `.gitignore`**，其中 `fixture.json` 含真实结算单数据，
-  提交时必须用显式路径、禁止 `git add -A`；是否纳入忽略清单待确认。
+- `frontend/dev-preview/` 预览代码可入库，其中 `fixture.json` / `grade-detail-data.js` /
+  `review-data.ts` 已加入 `.gitignore`；提交时仍建议用显式路径、不要 `git add -A`。
 - 结算单身份口径：`import_batch.merchant_no`（商号）为唯一业务键；`order_no`（单号）用于界面展示，
   下拉框「以商号取值、按『商号（单号）』展示、字段名写作『商号』」是产品确认过的约定，
   不要改回柜号维度，也不要把展示顺序改回「单号（商号）」。
@@ -575,6 +599,21 @@ npm --prefix frontend run typecheck
 - **未验证**：真实浏览器登录后的端到端流程（含真实大模型调用）；`POST /api/analytics/grade-detail/analysis`
   仅由单元测试覆盖，未真实调用大模型（避免产生费用）
 
+### 品牌化收口与系列/号别真实浏览器验收（2026-09-11，未提交）
+
+- 后端 `pytest`：**236 项通过**，退出码 0；存在 2 条 Starlette/anyio 弃用警告，不影响结果。
+- 前端 `npm --prefix frontend run test`：**120 项通过**，退出码 0（新增 `branding.test.mjs` 2 项）。
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0。
+- 前端 `npm --prefix frontend run build`：成功（vite 6.4.3，143 modules）。
+- 真实浏览器 E2E（53000 正式前端 / 8000 后端，临时账号已清理）：
+  - 桌面 1440px / 移动 390px：登录/注册、刷新恢复、总览、数据明细与明细弹窗、
+    结算单对比、结算单详情、系列对比均通过；各页 `body/html` 横向溢出均为 0。
+  - 系列 AI：默认勾选结算单点击「生成分析」，成功返回并渲染结论。
+  - 号别 AI：切换「按等级号别」点击「生成号别小结」，成功返回并渲染结论。
+  - 真实文件上传：临时 CSV 上传后，导入记录标题回填为 `验收-E2E`，副标题包含
+    `商号 E2E<时间戳>`；临时账号、上传批次、销售明细与上传文件均已清理。
+  - 仅有的控制台错误是登录/注册前 `restoreSession()` 对 `/api/auth/me` 的预期 401，不影响页面。
+
 ### 追加验证（2026-09-10 16:30，商号筛选修复）
 
 - 前端 `npm --prefix frontend run test`：58 个用例通过，退出码 0
@@ -609,8 +648,8 @@ npm --prefix frontend run typecheck
 
 尚未测试：
 
-- 「系列对比」页的浏览器端手工与端到端验收（自动化用例已覆盖，但无真实浏览器验收）
-- 真实业务数据（当前线上只有 4 张示例结算单）覆盖不到的字段组合
+- 真实业务数据（当前线上只有 4 张示例结算单）覆盖不到的字段组合；
+  系列对比页与 AI 分析结论的真实浏览器验收已于 2026-09-11 完成。
 
 ## Git State
 
@@ -646,12 +685,12 @@ aaea0f8 feat(auth): 认证页接入本地榴莲主图
 0160fdf refactor(backend): 以商号替换柜号作为结算单唯一键
 ```
 
-Uncommitted changes（2026-09-11 16:20 实测，均为本地未提交，**属并发会话的品牌化改动，不是命名适配**）：
+Uncommitted changes（2026-09-11 22:53 实测，待随本次提交落到 `dev`）：
 
-- `AGENTS.md`、`backend/app/main.py`、`backend/app/__init__.py`、`frontend/index.html`
-  （项目名改为「SLD-水果市场销售分析」）；`frontend/src/components/AuthPortal.vue`、
-  `frontend/src/views/RegisterView.vue`、`frontend/src/styles-auth.css`（认证页视觉）；
-  `frontend/src/views/PublicPreviewView.vue`（预览页品牌 + 本轮已提交的口径在其工作区副本里仍在）；
-  `frontend/dev-preview/**`、`frontend/public/**`、`frontend/src/components/BrandMark.vue`（新品牌资产）。
-- 本轮的命名适配代码与文档已全部提交（见 Latest commits，文档随本提交一起落库）。
-- `.superpowers/`、`.superpowersigeria/`、`attachments/`、`backend/data/` 已被 `.gitignore` 忽略，不会提交。
+- 部署切换：`start.sh`、`frontend/vite.config.ts`、`deploy/fruits_ana.nginx.conf`、
+  `README.md`、`docs/ARCHITECTURE.md`；`start.sh` 默认改为 Nginx 生产模式。
+- 前端展示与测试：四个 `styles-*.css`、`frontend/tests/shell-header.test.ts`、
+  `frontend/tests/farmer-ui-copy.test.mjs`。
+- 文档与规则同步：`AGENTS.md`、`docs/HANDOFF.md`、`docs/TODO.md`。
+- `.superpowers/`、`.superpowersigeria/`、`attachments/`、`backend/data/` 仍被 `.gitignore`
+  忽略，不会提交；未改动 `.env`、`backend/.env`、MySQL 配置。

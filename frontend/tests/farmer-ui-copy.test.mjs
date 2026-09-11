@@ -134,7 +134,7 @@ test('数据导入支持多文件拖入，并保留文件选择与清空入口',
 test('宽屏内容区域使用已确认的紧凑布局', () => {
   const shellStyles = fs.readFileSync(path.join(root, 'styles-shell.css'), 'utf8')
   assert.match(shellStyles, /width:\s*min\(100%,\s*1680px\)/)
-  assert.match(shellStyles, /padding:\s*24px 28px 56px/)
+  assert.match(shellStyles, /padding:\s*1\.41rem 1\.65rem 3\.29rem/)
 })
 
 test('认证页面和业务路由保护已接入', () => {

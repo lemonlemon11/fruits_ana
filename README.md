@@ -27,6 +27,20 @@ Git 忽略，也可以直接通过系统环境变量提供同名配置。若设�
 
 网页地址为 `http://127.0.0.1:53000`。后端健康检查为
 `http://127.0.0.1:8000/health`，接口文档为 `http://127.0.0.1:8000/docs`。
+`start.sh` 默认使用 Nginx 生产模式：先构建前端到 `frontend/dist`，再由 Nginx 监听
+`53000` 提供静态页面，并把 `/api` 反向代理到 `127.0.0.1:8000`。后端只监听本机，
+不对公网暴露。首次部署需先安装 `deploy/fruits_ana.nginx.conf`：
+
+```bash
+mkdir -p /www/server/panel/vhost/nginx
+ln -sf "$PWD/deploy/fruits_ana.nginx.conf" /www/server/panel/vhost/nginx/fruits_ana.conf
+nginx -t
+systemctl reload nginx
+./start.sh
+```
+
+如需前端热更新，使用 `FRONTEND_MODE=dev ./start.sh`；只想本地验证构建产物而不使用
+Nginx，可使用 `FRONTEND_MODE=preview ./start.sh`。
 
 也可以分别启动服务：
 

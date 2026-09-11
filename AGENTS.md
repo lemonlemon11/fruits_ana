@@ -72,17 +72,18 @@ fruits_ana/
 ## 验证命令
 
 ```bash
-# 后端测试（当前 78 项）
+# 后端测试（当前 236 项）
 .venv/bin/python -m pytest backend/tests -q --basetemp=backend/.pytest-tmp
 
-# 前端构建
-npm --prefix frontend run build
+# 前端测试（当前 120 项）
+npm --prefix frontend run test
 
-# 前端测试（当前 26 项，需 Node 22+）
-node --experimental-strip-types --test frontend/tests/*.test.ts frontend/tests/*.test.mjs
+# 前端类型检查与构建
+npm --prefix frontend run typecheck
+npm --prefix frontend run build
 ```
 
-- 前端暂无 `npm test` / `npm run lint` / `npm run typecheck` 脚本，以构建 + node:test 为准。
+- 前端暂无 `npm run lint` 脚本；以 `test` + `typecheck` + `build` 为准。
 - 若某项无法运行，必须在 `docs/HANDOFF.md` 的 Test Status 中注明原因，不得默认「通过」。
 - 未提供验证证据时，不得声称「完成 / 可提交 / 可合并」。
 

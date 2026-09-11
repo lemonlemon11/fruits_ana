@@ -47,8 +47,8 @@ test('header 品牌图标返回销售总览并提供可访问的侧栏按钮和�
   assert.match(shell, /:datetime="headerClock\.datetime"/)
 })
 
-test('桌面收起为 72px 图标栏且移动端不显示收起按钮', () => {
-  assert.match(styles, /@media \(min-width: 821px\)[\s\S]*\.app-shell\.sidebar-collapsed \.app-body\s*\{[^}]*72px/)
+test('桌面收起为自适应图标栏且移动端不显示收起按钮', () => {
+  assert.match(styles, /@media \(min-width: 821px\)[\s\S]*\.app-shell\.sidebar-collapsed \.app-body\s*\{[^}]*4\.24rem/)
   assert.match(styles, /@media \(max-width: 820px\)[\s\S]*\.sidebar-toggle\s*\{\s*display:\s*none/)
 })
 
