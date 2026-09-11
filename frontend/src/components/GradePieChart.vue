@@ -3,7 +3,9 @@ import { computed } from 'vue'
 
 import type { Grade, GradeMetric } from '../api/client'
 import { gradeLabel } from '../api/client'
+import { useChartTooltip } from '../utils/chartTooltip'
 import { formatNumber, formatPercent } from '../utils/format'
+import ChartTooltip from './ChartTooltip.vue'
 
 const props = defineProps<{
   grades: GradeMetric[]
@@ -14,6 +16,7 @@ const gradeOrder: Grade[] = ['A', 'B', 'C']
 const gradeColors: Record<Grade, string> = { A: '#16856b', B: '#bd7414', C: '#b94a3c' }
 const radius = 48
 const circumference = 2 * Math.PI * radius
+const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
 
 const rows = computed(() => gradeOrder.map((grade) => {
   const source = props.grades.find((item) => item.grade === grade)
@@ -40,6 +43,17 @@ function dashOffset(index: number): number {
   const preceding = rows.value.slice(0, index).reduce((total, row) => total + shareValue(row), 0)
   return -preceding * circumference
 }
+
+function showSegmentTooltip(event: MouseEvent, row: (typeof rows.value)[number]) {
+  showTooltip(event, {
+    title: gradeLabel(row.grade),
+    rows: [
+      { label: '销量占比', value: formatPercent(shareValue(row)), color: gradeColors[row.grade] },
+      { label: '销量', value: `${formatNumber(row.quantity)} 件` },
+    ],
+    note: '占比 = 该等级销量 ÷ 总销量',
+  })
+}
 </script>
 
 <template>
@@ -58,9 +72,7 @@ function dashOffset(index: number): number {
     </div>
     <div v-else class="pie-layout">
       <div class="pie-graphic">
-        <svg class="pie-chart" viewBox="0 0 136 136" role="img" aria-label="A、B、C 等级销量占比环形图">
-          <title>等级销量结构</title>
-          <desc>环形面积按 A、B、C 等级销量占比绘制。</desc>
+        <svg class="pie-chart" viewBox="0 0 136 136" role="img" aria-label="A、B、C 等级销量占比环形图，环形面积按各等级销量占比绘制">
           <circle class="pie-track" cx="68" cy="68" :r="radius" />
           <circle
             v-for="(row, index) in rows"
@@ -72,9 +84,10 @@ function dashOffset(index: number): number {
             :stroke="gradeColors[row.grade]"
             :stroke-dasharray="dashArray(shareValue(row))"
             :stroke-dashoffset="dashOffset(index)"
-          >
-            <title>{{ gradeLabel(row.grade) }} {{ formatPercent(shareValue(row)) }} · {{ formatNumber(row.quantity) }}</title>
-          </circle>
+            @mouseenter="showSegmentTooltip($event, row)"
+            @mousemove="moveTooltip"
+            @mouseleave="hideTooltip"
+          />
           <text class="pie-total" x="68" y="64" text-anchor="middle">{{ formatNumber(totalQuantity) }}</text>
           <text class="pie-caption" x="68" y="79" text-anchor="middle">总销量</text>
         </svg>
@@ -88,6 +101,7 @@ function dashOffset(index: number): number {
         </li>
       </ul>
     </div>
+    <ChartTooltip :tooltip="tooltip" />
   </section>
 </template>
 

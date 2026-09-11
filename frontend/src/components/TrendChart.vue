@@ -2,7 +2,10 @@
 import { computed } from 'vue'
 
 import type { TrendPoint } from '../api/client'
+import { useChartTooltip } from '../utils/chartTooltip'
 import { formatCurrency, formatDate, formatNumber, formatPrice } from '../utils/format'
+import ChartLegend from './ChartLegend.vue'
+import ChartTooltip from './ChartTooltip.vue'
 
 const props = defineProps<{
   points: TrendPoint[]
@@ -11,6 +14,12 @@ const props = defineProps<{
 }>()
 
 const chart = { width: 760, height: 258, left: 42, right: 18, top: 20, bottom: 34 }
+const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
+const legendItems = [
+  { label: '每日销量', color: 'var(--primary)', variant: 'line' as const },
+  { label: '平均每件售价', color: 'var(--ink)', variant: 'dashed' as const },
+]
+
 const plotWidth = chart.width - chart.left - chart.right
 const plotHeight = chart.height - chart.top - chart.bottom
 const maxQuantity = computed(() => Math.max(...props.points.map((point) => point.salesQuantity), 1))
@@ -51,16 +60,25 @@ function yTickLabel(ratio: number): string {
 function priceTickLabel(ratio: number): string {
   return formatPrice(maxPrice.value * ratio)
 }
+
+/** 销量点与均价点共用同一份悬浮内容，方便对着同一天两个值一起看。 */
+function showPointTooltip(event: MouseEvent, point: TrendPoint) {
+  showTooltip(event, {
+    title: formatDate(point.date),
+    rows: [
+      { label: '销量', value: `${formatNumber(point.salesQuantity)} 件`, color: 'var(--primary)' },
+      { label: '销售额', value: formatCurrency(point.salesAmount) },
+      { label: '平均每件售价', value: formatPrice(point.weightedAvgPrice), color: 'var(--ink)' },
+    ],
+  })
+}
 </script>
 
 <template>
   <section class="dashboard-section trend-section" aria-labelledby="trend-title">
     <header class="section-heading">
       <h2 id="trend-title">{{ title ?? '每日销量和均价' }}</h2>
-      <div class="chart-legend" aria-label="图例">
-        <span class="legend-item legend-quantity">每日销量</span>
-        <span class="legend-item legend-price">平均每件售价</span>
-      </div>
+      <ChartLegend :items="legendItems" />
     </header>
 
     <div v-if="loading" class="trend-skeleton skeleton-block" aria-live="polite">正在加载趋势数据</div>
@@ -79,8 +97,6 @@ function priceTickLabel(ratio: number): string {
           role="img"
           :aria-label="`${points.length} 天销量与平均每件售价折线图。最高日销量 ${formatNumber(maxQuantity)}`"
         >
-          <title>{{ title ?? '每日量价趋势' }}</title>
-          <desc>实线表示每日销量，虚线表示每日平均每件售价。</desc>
           <g class="chart-grid" aria-hidden="true">
             <line
               v-for="ratio in yTicks"
@@ -124,9 +140,18 @@ function priceTickLabel(ratio: number): string {
               :cy="yPosition(point.salesQuantity, maxQuantity)"
               :r="isSinglePoint ? 5 : 3"
               fill="var(--primary)"
-            >
-              <title>{{ formatDate(point.date) }} · 销量 {{ formatNumber(point.salesQuantity) }}</title>
-            </circle>
+            />
+            <circle
+              v-for="(point, index) in points"
+              :key="`quantity-hit-${point.date}`"
+              class="trend-hit"
+              :cx="xPosition(index)"
+              :cy="yPosition(point.salesQuantity, maxQuantity)"
+              r="11"
+              @mouseenter="showPointTooltip($event, point)"
+              @mousemove="moveTooltip"
+              @mouseleave="hideTooltip"
+            />
           </g>
           <g class="price-dots">
             <circle
@@ -135,9 +160,18 @@ function priceTickLabel(ratio: number): string {
               :cx="xPosition(index)"
               :cy="yPosition(point.weightedAvgPrice ?? 0, maxPrice)"
               :r="isSinglePoint ? 5 : 3"
-            >
-              <title>{{ formatDate(point.date) }} · 平均每件售价 {{ formatPrice(point.weightedAvgPrice) }}</title>
-            </circle>
+            />
+            <circle
+              v-for="(point, index) in points"
+              :key="`price-hit-${point.date}`"
+              class="trend-hit"
+              :cx="xPosition(index)"
+              :cy="yPosition(point.weightedAvgPrice ?? 0, maxPrice)"
+              r="11"
+              @mouseenter="showPointTooltip($event, point)"
+              @mousemove="moveTooltip"
+              @mouseleave="hideTooltip"
+            />
           </g>
           <g class="chart-x-labels" aria-hidden="true">
             <text v-for="item in xLabels" :key="item.point.date" :x="xPosition(item.index)" :y="chart.height - 10" text-anchor="middle">{{ formatDate(item.point.date) }}</text>
@@ -167,16 +201,13 @@ function priceTickLabel(ratio: number): string {
         </div>
       </details>
     </template>
+    <ChartTooltip :tooltip="tooltip" />
   </section>
 </template>
 
 <style scoped>
 .trend-section { min-width: 0; }
-.chart-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px 12px; color: var(--muted); font-size: 1rem; }
-.legend-item { display: inline-flex; align-items: center; white-space: nowrap; }
-.legend-item::before { content: ''; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: currentColor; }
-.legend-a { color: var(--grade-a); }.legend-b { color: var(--grade-b); }.legend-c { color: var(--grade-c); }.legend-price { color: var(--ink); }
-.legend-price::before { border: 1px dashed var(--ink); background: transparent; }
+.trend-hit { fill: transparent; pointer-events: all; }
 .trend-chart-shell { display: grid; grid-template-columns: 44px minmax(0, 1fr) 54px; align-items: stretch; min-height: 260px; margin-top: 5px; }
 .trend-chart { width: 100%; min-width: 0; height: 258px; overflow: visible; }
 .chart-scale { display: flex; flex-direction: column; justify-content: space-between; padding: 17px 0 34px; color: var(--muted); font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .85rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
@@ -197,7 +228,6 @@ function priceTickLabel(ratio: number): string {
 .data-details { margin-top: 13px; }
 
 @media (max-width: 560px) {
-  .chart-legend { justify-content: flex-start; }
   .trend-chart-shell { grid-template-columns: 35px minmax(0, 1fr) 44px; min-height: 220px; }
   .trend-chart { height: 220px; }
   .chart-scale { padding-bottom: 34px; font-size: .85rem; }

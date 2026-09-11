@@ -95,3 +95,37 @@ th:first-child, td:first-child { text-align: left; }
   background: var(--surface-soft);
   font-weight: 700;
 }
+
+/* 手写图表共用的图例与悬浮提示，保证各图表口径与视觉一致。 */
+.chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: .9rem; }
+.chart-legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.chart-legend-mark { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+.chart-legend-mark.is-line { width: 18px; height: 4px; border-radius: 2px; }
+.chart-legend-mark.is-block { width: 12px; height: 10px; border-radius: 2px; }
+.chart-legend-mark.is-dashed { width: 18px; height: 0; border-top: 2px dashed currentColor; border-radius: 0; background: transparent; }
+
+.chart-tooltip {
+  position: fixed;
+  z-index: 40;
+  min-width: 150px;
+  max-width: 260px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: 0 6px 18px rgb(31 41 35 / 18%);
+  color: var(--ink);
+  font-size: .9rem;
+  line-height: 1.5;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 14px));
+}
+.chart-tooltip.is-below { transform: translate(-50%, 14px); }
+.chart-tooltip-title { display: block; margin-bottom: 6px; font-size: .95rem; }
+.chart-tooltip-rows { display: grid; gap: 3px; margin: 0; }
+.chart-tooltip-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.chart-tooltip-row dt { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.chart-tooltip-row dd { margin: 0; font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chart-tooltip-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; }
+.chart-tooltip-note { display: block; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; }

@@ -3,7 +3,10 @@ import { computed } from 'vue'
 
 import { gradeLabel } from '../api/client'
 import type { Grade, GradeDetailBucket, GradeDetailData } from '../api/types'
+import { useChartTooltip } from '../utils/chartTooltip'
 import { formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
+import ChartLegend from './ChartLegend.vue'
+import ChartTooltip from './ChartTooltip.vue'
 
 const props = defineProps<{
   details: GradeDetailData
@@ -37,6 +40,31 @@ const barWidth = (row: GradeDetailBucket) =>
   `${Math.max(2, ((row.weightedAvgPrice ?? 0) / maxPrice.value) * 100).toFixed(1)}%`
 
 const hasUnrecognized = computed(() => props.details.unrecognized.recordCount > 0)
+
+const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
+const gradeColors: Record<Grade, string> = {
+  A: 'var(--grade-a)',
+  B: 'var(--grade-b)',
+  C: 'var(--grade-c)',
+}
+const legendItems = GRADE_ORDER.map((grade) => ({
+  label: gradeLabel(grade),
+  color: gradeColors[grade],
+  variant: 'dot' as const,
+}))
+
+function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
+  showTooltip(event, {
+    title: `${row.label} · ${gradeLabel(row.grade)}`,
+    rows: [
+      { label: '平均每件售价', value: formatPrice(row.weightedAvgPrice), color: gradeColors[row.grade] },
+      { label: '件数', value: `${formatNumber(row.salesQuantity)} 件` },
+      { label: '金额', value: formatCurrency(row.salesAmount) },
+      { label: '件数占比', value: formatPercent(row.quantityShare) },
+    ],
+    note: row.qualityMarks.length ? `品质标记：${row.qualityMarks.join('、')}` : '条形长度按平均每件售价绘制',
+  })
+}
 </script>
 
 <template>
@@ -45,9 +73,10 @@ const hasUnrecognized = computed(() => props.details.unrecognized.recordCount > 
       <div>
         <h2 id="grade-detail-title">按等级号别看价格</h2>
         <p class="section-note">
-          把 A/B/C 再拆成号别。带斜杠的（如 B6/7）是一段区间，原样保留，不拆分。
+          把 A/B/C 再拆成号别。带斜杠的（如 B6/7）是一段区间，原样保留，不拆分；条形长度代表平均每件售价。
         </p>
       </div>
+      <ChartLegend :items="legendItems" />
     </header>
 
     <div v-if="loading" class="skeleton-block grade-detail-skeleton" aria-live="polite">
@@ -79,6 +108,9 @@ const hasUnrecognized = computed(() => props.details.unrecognized.recordCount > 
             v-for="row in group.items"
             :key="row.label"
             class="ladder-row"
+            @mouseenter="showBucketTooltip($event, row)"
+            @mousemove="moveTooltip"
+            @mouseleave="hideTooltip"
           >
             <span class="ladder-label">{{ row.label }}</span>
             <div class="ladder-track">
@@ -134,6 +166,7 @@ const hasUnrecognized = computed(() => props.details.unrecognized.recordCount > 
         </div>
       </details>
     </template>
+    <ChartTooltip :tooltip="tooltip" />
   </section>
 </template>
 

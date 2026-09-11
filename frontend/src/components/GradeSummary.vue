@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { GradeMetric, MetricTotal } from '../api/client'
 import { gradeLabel } from '../api/client'
+import { useChartTooltip } from '../utils/chartTooltip'
 import { formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
+import ChartTooltip from './ChartTooltip.vue'
 
 defineProps<{
   grades: GradeMetric[]
@@ -9,6 +11,27 @@ defineProps<{
   loading?: boolean
   title?: string
 }>()
+
+const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
+
+const gradeColors: Record<string, string> = {
+  A: 'var(--grade-a)',
+  B: 'var(--grade-b)',
+  C: 'var(--grade-c)',
+}
+
+function showShareTooltip(event: MouseEvent, item: GradeMetric) {
+  showTooltip(event, {
+    title: gradeLabel(item.grade),
+    rows: [
+      { label: '销量占比', value: formatPercent(item.quantityShare), color: gradeColors[item.grade] },
+      { label: '销量', value: `${formatNumber(item.salesQuantity)} 件` },
+      { label: '销售额', value: formatCurrency(item.salesAmount) },
+      { label: '平均每件售价', value: formatPrice(item.weightedAvgPrice) },
+    ],
+    note: '占比 = 该等级销量 ÷ 总销量',
+  })
+}
 </script>
 
 <template>
@@ -54,7 +77,14 @@ defineProps<{
               <p>销量占比 {{ formatPercent(item.quantityShare) }}</p>
             </div>
           </header>
-          <div class="share-track" aria-hidden="true">
+          <div
+            class="share-track"
+            role="img"
+            :aria-label="`${gradeLabel(item.grade)} 销量占比 ${formatPercent(item.quantityShare)}`"
+            @mouseenter="showShareTooltip($event, item)"
+            @mousemove="moveTooltip"
+            @mouseleave="hideTooltip"
+          >
             <span :style="{ width: `${Math.max(0, (item.quantityShare ?? 0) * 100)}%` }" />
           </div>
           <dl class="metric-list">
@@ -74,5 +104,12 @@ defineProps<{
         </article>
       </div>
     </template>
+    <ChartTooltip :tooltip="tooltip" />
   </section>
 </template>
+
+<style scoped>
+/* 占比条只有 5px 高，用透明覆盖层把悬浮命中区放大到可点范围。 */
+.grade-card .share-track { position: relative; }
+.grade-card .share-track::after { content: ''; position: absolute; inset: -10px 0; }
+</style>

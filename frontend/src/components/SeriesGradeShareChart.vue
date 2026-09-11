@@ -3,13 +3,23 @@ import { computed } from 'vue'
 
 import { gradeLabel } from '../api/client'
 import type { Grade, SeriesComparisonItem } from '../api/types'
+import { useChartTooltip } from '../utils/chartTooltip'
 import { formatNumber, formatPercent } from '../utils/format'
 import { gradeOf, shortLabel } from '../utils/seriesComparison'
+import ChartLegend from './ChartLegend.vue'
+import ChartTooltip from './ChartTooltip.vue'
 
 const props = defineProps<{ items: SeriesComparisonItem[]; loading?: boolean }>()
 
 const gradeOrder: Grade[] = ['A', 'B', 'C']
 const gradeColors: Record<Grade, string> = { A: '#16856b', B: '#bd7414', C: '#b94a3c' }
+
+const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
+const legendItems = gradeOrder.map((grade) => ({
+  label: gradeLabel(grade),
+  color: gradeColors[grade],
+  variant: 'block' as const,
+}))
 
 const rows = computed(() =>
   props.items.map((item) => {
@@ -32,6 +42,20 @@ const rows = computed(() =>
     }
   }),
 )
+
+type ShareRow = (typeof rows.value)[number]
+type ShareSegment = ShareRow['segments'][number]
+
+function showSegmentTooltip(event: MouseEvent, row: ShareRow, segment: ShareSegment) {
+  showTooltip(event, {
+    title: row.label,
+    rows: [
+      { label: gradeLabel(segment.grade), value: formatPercent(segment.share), color: segment.color },
+      { label: '件数', value: `${formatNumber(segment.quantity)} 件` },
+    ],
+    note: `${row.series} · 占比 = 该等级件数 ÷ 该结算单总件数`,
+  })
+}
 </script>
 
 <template>
@@ -39,8 +63,9 @@ const rows = computed(() =>
     <header class="section-heading">
       <div>
         <h2 id="series-share-title">各结算单等级件数占比</h2>
-        <p class="section-note">条越长代表该等级件数越多</p>
+        <p class="section-note">条越长代表该等级件数越多；每行按 A、B、C 顺序堆叠</p>
       </div>
+      <ChartLegend :items="legendItems" />
     </header>
 
     <div v-if="loading" class="chart-skeleton skeleton-block">正在加载等级占比</div>
@@ -60,7 +85,9 @@ const rows = computed(() =>
             :key="segment.grade"
             class="share-segment"
             :style="{ width: `${segment.share * 100}%`, backgroundColor: segment.color }"
-            :title="`${gradeLabel(segment.grade)} ${formatPercent(segment.share)} · ${formatNumber(segment.quantity)} 件`"
+            @mouseenter="showSegmentTooltip($event, row, segment)"
+            @mousemove="moveTooltip"
+            @mouseleave="hideTooltip"
           />
         </span>
         <span class="share-legend">
@@ -71,6 +98,7 @@ const rows = computed(() =>
         </span>
       </div>
     </div>
+    <ChartTooltip :tooltip="tooltip" />
   </section>
 </template>
 
