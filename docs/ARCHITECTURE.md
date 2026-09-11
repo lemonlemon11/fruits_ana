@@ -36,7 +36,8 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 ### Authentication（`backend/app/auth.py`、`backend/app/api/auth.py`）
 
 - 职责：Argon2 密码哈希、服务端会话、HttpOnly Cookie 认证、依赖注入 `require_user`。
-- 会话 token 以 SHA-256 哈希落库（`user_session.token_hash`），有效期 7 天。
+- 会话 token 以 SHA-256 哈希落库（`user_session.token_hash`）；登录默认有效期 7 天，
+  勾选“30 天内免登录”时延长为 30 天，服务端到期时间与 Cookie `Max-Age` 保持一致。
 - 主要路由：`POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me`、`POST /api/auth/logout`。
 - 前端：`frontend/src/auth.ts`（`.vue` 侧会话状态）、`frontend/src/views/LoginView.vue`、`RegisterView.vue`。
 
@@ -127,11 +128,13 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - API 契约集中在 `api/types.ts` + `api/normalize.ts` + `api/client.ts`，后端字段变更必须同步这三处。
 - 路由守卫在 `main.ts`：`requiresAuth` 保护业务页，`guestOnly` 让已登录用户跳过登录/注册页；
   `/` 重定向到 `/login`（已登录时经 `guestOnly` 再跳 `/overview`），`/preview` 保留为公开演示页但不再作为默认入口。
-- 工作台外壳 `AppShell.vue`：顶部 header（左侧品牌与当前页面、右侧当前用户名与退出登录）、
-  左侧导航与页签栏三部分；页签记录本次会话打开过的页面，首页 `/overview` 固定不可关闭，
+- 工作台外壳 `AppShell.vue`：顶部 header（品牌图标、当前页面、本地时间含秒、当前用户名与退出登录）、
+  左侧导航与页签栏三部分；品牌图标返回 `/overview`，桌面侧栏可收起为 72px 图标栏，状态存
+  `localStorage`（键 `fruits-ana:sidebar-collapsed`）；页签记录本次会话打开过的页面，首页 `/overview` 固定不可关闭，
   其余可单个关闭或「关闭其他」，关闭当前页签时优先激活右侧邻居；页签状态存 `sessionStorage`
   （键 `fruits-ana:open-tabs`），纯逻辑在 `utils/shellTabs.ts`（`frontend/tests/shell-tabs.test.ts`）。
-  移动端（≤820px）隐藏左侧导航，改用顶部 header + 底部大按钮导航，页签栏保持可见并可横向滚动。
+  业务页面滚动后右下角显示「回顶部」悬浮按钮；移动端（≤820px）隐藏左侧导航，改用顶部 header +
+  底部大按钮导航，页签栏保持可见并可横向滚动，回顶按钮自动抬到底部导航上方。
 
 ## Data Flow
 
@@ -139,10 +142,10 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 ```text
 LoginView
-  → POST /api/auth/login {username, password}
+  → POST /api/auth/login {display_name, password, remember_me}
   → auth.py 校验 Argon2 哈希
-  → 创建 user_session（存 token_hash）
-  → Set-Cookie: fruit_session (HttpOnly)
+  → 创建 user_session（存 token_hash；默认 7 天，remember_me=true 时 30 天）
+  → Set-Cookie: fruit_session (HttpOnly，同步会话期限)
   → 前端 currentUser 更新 → 跳转 /overview
 ```
 
@@ -155,6 +158,7 @@ ImportView
   → parser 解析结算单（商号/单号/柜号/转运车号 + 明细）→ SaleRecord / SettlementSummary
   → 校验异常 → DataIssue
   → 返回批次统计；问题明细走 GET /api/imports/{id}/issues[.csv]
+  → 前端上传期间显示等待遮罩、标记 `aria-busy`，防止重复提交
 ```
 
 ### 分析查询

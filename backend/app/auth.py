@@ -17,7 +17,8 @@ from .models import User, UserSession, utc_now
 
 
 SESSION_COOKIE = "fruit_session"
-SESSION_DAYS = 7
+DEFAULT_SESSION_DAYS = 7
+REMEMBERED_SESSION_DAYS = 30
 AUTH_ERROR_DETAIL = "用户名或密码错误"
 LOGIN_REQUIRED_DETAIL = "请先登录"
 PASSWORD_HASHER = PasswordHasher()
@@ -49,7 +50,9 @@ def _hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
 
-def create_session(db: Session, user: User) -> str:
+def create_session(
+    db: Session, user: User, session_days: int = DEFAULT_SESSION_DAYS
+) -> str:
     """创建会话并仅将 opaque token 的 SHA-256 哈希写入数据库。"""
 
     raw_token = secrets.token_urlsafe(32)
@@ -57,7 +60,7 @@ def create_session(db: Session, user: User) -> str:
         UserSession(
             user_id=user.id,
             token_hash=_hash_token(raw_token),
-            expires_at=utc_now() + timedelta(days=SESSION_DAYS),
+            expires_at=utc_now() + timedelta(days=session_days),
         )
     )
     db.flush()
@@ -131,11 +134,13 @@ def cookie_secure() -> bool:
     }
 
 
-def set_session_cookie(response: Response, raw_token: str) -> None:
+def set_session_cookie(
+    response: Response, raw_token: str, session_days: int = DEFAULT_SESSION_DAYS
+) -> None:
     response.set_cookie(
         key=SESSION_COOKIE,
         value=raw_token,
-        max_age=SESSION_DAYS * 86400,
+        max_age=session_days * 86400,
         httponly=True,
         secure=cookie_secure(),
         samesite="lax",

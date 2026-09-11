@@ -18,3 +18,11 @@ test('submit 只把显式 true 当作覆盖请求', () => {
   assert.match(source, /async function submit\(overwrite = false\)/)
   assert.match(source, /const forceOverwrite = overwrite === true/)
 })
+
+test('导入期间显示等待遮罩并标记忙碌状态', () => {
+  assert.match(source, /:aria-busy="uploading"/)
+  assert.match(source, /class="uploading-mask"/)
+  assert.match(source, /class="uploading-spinner"/)
+  assert.match(source, /正在导入，请稍候/)
+  assert.match(source, /请不要关闭页面/)
+})

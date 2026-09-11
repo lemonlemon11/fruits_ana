@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from ..auth import (
     AUTH_ERROR_DETAIL,
+    DEFAULT_SESSION_DAYS,
+    REMEMBERED_SESSION_DAYS,
     SESSION_COOKIE,
     create_session,
     cookie_secure,
@@ -87,9 +89,12 @@ def login(
         raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
     user.last_login_at = utc_now()
-    raw_token = create_session(db, user)
+    session_days = (
+        REMEMBERED_SESSION_DAYS if payload.remember_me else DEFAULT_SESSION_DAYS
+    )
+    raw_token = create_session(db, user, session_days)
     db.commit()
-    set_session_cookie(response, raw_token)
+    set_session_cookie(response, raw_token, session_days)
     return _user_payload(user)
 
 

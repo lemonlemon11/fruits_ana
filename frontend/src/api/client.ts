@@ -57,6 +57,7 @@ export async function login(payload: LoginPayload): Promise<AuthUser> {
   return normalizeAuthUser(await request(`${API_ROOT}/auth/login`, jsonRequest({
     display_name: payload.displayName,
     password: payload.password,
+    remember_me: payload.rememberMe === true,
   })))
 }
 

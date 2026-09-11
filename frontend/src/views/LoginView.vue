@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Eye, EyeOff } from '@lucide/vue'
+import Eye from '@lucide/vue/dist/esm/icons/eye.mjs'
+import EyeOff from '@lucide/vue/dist/esm/icons/eye-off.mjs'
 import { computed, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
@@ -9,7 +10,7 @@ import AuthPortal from '../components/AuthPortal.vue'
 
 const route = useRoute()
 const router = useRouter()
-const form = reactive({ displayName: '', password: '' })
+const form = reactive({ displayName: '', password: '', rememberMe: false })
 const errors = reactive({ displayName: '', password: '' })
 const submitting = ref(false)
 const passwordVisible = ref(false)
@@ -88,6 +89,10 @@ async function submit() {
         </div>
         <small v-if="errors.password" id="login-password-error" class="field-error">{{ errors.password }}</small>
       </div>
+      <label class="auth-remember">
+        <input v-model="form.rememberMe" type="checkbox" :disabled="submitting">
+        <span>30 天内免登录</span>
+      </label>
       <p v-if="error" class="form-message error" role="alert">{{ error }}</p>
       <button class="primary-button auth-submit" type="submit" :disabled="submitting">
         {{ submitting ? '正在登录' : '登录经营台' }}

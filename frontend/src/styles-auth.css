@@ -1,122 +1,164 @@
-/* 登录 / 注册 Portal：左侧品牌视觉，右侧表单。
-   主图为国内来源榴莲实拍，已本地化为 public/auth-portal-durian.jpg。 */
+/* 登录 / 注册 Portal：左侧品牌视觉，右侧表单与能力说明。
+   主图的国内来源与商用许可记录见 docs/IMAGE_CREDITS.md。 */
 
 .portal {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: minmax(0, 1.04fr) minmax(400px, .96fr);
+  grid-template-columns: minmax(0, 1.02fr) minmax(420px, .98fr);
   background: var(--surface);
 }
 
+/* 左侧品牌视觉 */
+
 .portal-visual {
   position: relative;
-  display: flex;
+  display: grid;
   overflow: hidden;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 40px;
-  padding: 44px clamp(34px, 4vw, 64px);
+  grid-template-rows: auto 1fr auto;
+  gap: 28px;
+  padding: 44px clamp(34px, 4vw, 64px) 46px;
   background-color: #0c2417;
-  background-image:
-    radial-gradient(120% 82% at 84% 2%, rgba(240, 179, 59, .26), transparent 58%),
-    linear-gradient(180deg,
-      #0c2417 0%,
-      rgba(12, 36, 23, .96) 32%,
-      rgba(12, 36, 23, .86) 50%,
-      rgba(12, 36, 23, .4) 66%,
-      rgba(9, 27, 18, .52) 84%,
-      rgba(8, 24, 16, .8) 100%),
-    url('/auth-portal-durian.jpg');
-  background-position: center top, center, center bottom;
-  background-repeat: no-repeat;
-  background-size: auto, auto, 100% auto;
   color: #fff;
+  isolation: isolate;
 }
 
+/* 主图独立成层，方案切换时只需覆盖 --portal-hero-image */
+.portal-visual::before {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background-image: var(--portal-hero-image, url('/auth-portal-durian.jpg'));
+  background-position: center 42%;
+  background-repeat: no-repeat;
+  background-size: cover;
+  content: '';
+}
+
+/* 左侧为主文案压暗、底部压暗 + 四周暗角，保证白色文字对比度稳定达标 */
 .portal-visual::after {
   position: absolute;
+  z-index: -1;
   inset: 0;
-  background: radial-gradient(132% 104% at 48% 44%, transparent 58%, rgba(6, 20, 13, .5));
+  background:
+    radial-gradient(96% 62% at 88% 6%, rgba(240, 179, 59, .2), transparent 62%),
+    linear-gradient(100deg,
+      rgba(6, 22, 14, .93) 0%,
+      rgba(6, 22, 14, .78) 36%,
+      rgba(6, 22, 14, .34) 70%,
+      rgba(6, 22, 14, .16) 100%),
+    linear-gradient(180deg,
+      rgba(6, 22, 14, .74) 0%,
+      rgba(6, 22, 14, .3) 34%,
+      rgba(6, 22, 14, .46) 66%,
+      rgba(5, 19, 12, .88) 100%),
+    radial-gradient(128% 96% at 46% 42%, transparent 54%, rgba(4, 16, 10, .5));
   content: '';
   pointer-events: none;
 }
 
 .portal-brand,
 .portal-hero,
-.portal-features { position: relative; z-index: 1; }
+.portal-facts { position: relative; z-index: 1; }
 
 .portal-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.portal-mark {
   display: grid;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, .5);
-  border-radius: 50%;
-  background: #f0b33b;
-  color: #173e28;
-  font-size: 1.05rem;
-  font-weight: 900;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
 }
 
-.portal-brand-copy strong { display: block; font-size: 1.05rem; }
-.portal-brand-copy small { display: block; margin-top: 3px; color: rgba(255, 255, 255, .66); font-size: .85rem; }
+.portal-brand-copy { display: grid; gap: 3px; min-width: 0; }
+.portal-brand-copy strong { font-size: 1.06rem; line-height: 1.3; }
+.portal-brand-copy small { color: rgba(255, 255, 255, .62); font-size: .82rem; letter-spacing: 0; }
 
-.portal-hero { max-width: 470px; }
+.portal-hero {
+  align-self: center;
+  max-width: 486px;
+  padding-bottom: 6px;
+}
+
 .portal-kicker {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  margin: 0 0 14px;
+  margin: 0 0 16px;
   color: #f3cc7d;
   font-size: .85rem;
   font-weight: 800;
-  letter-spacing: .14em;
+  letter-spacing: 0;
 }
-.portal-kicker::before { width: 22px; height: 1px; background: currentColor; content: ''; }
+.portal-kicker::before { width: 24px; height: 1px; background: currentColor; content: ''; }
 
 .portal-hero h1 {
-  margin: 0 0 16px;
+  margin: 0 0 18px;
   color: #fff;
   font-family: Georgia, "Songti SC", "STSong", serif;
-  font-size: clamp(2rem, 3.3vw, 3.05rem);
+  font-size: 3rem;
   font-weight: 600;
   line-height: 1.16;
-  text-shadow: 0 2px 18px rgba(6, 20, 13, .55);
+  text-shadow: 0 2px 20px rgba(4, 16, 10, .6);
 }
 
 .portal-lede {
-  max-width: 380px;
+  max-width: 400px;
   margin: 0;
-  color: rgba(255, 255, 255, .84);
-  font-size: .95rem;
-  line-height: 1.75;
-  text-shadow: 0 1px 12px rgba(6, 20, 13, .6);
+  color: rgba(255, 255, 255, .86);
+  font-size: .98rem;
+  line-height: 1.8;
+  text-shadow: 0 1px 14px rgba(4, 16, 10, .65);
 }
 
-.portal-features { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 0; padding: 0; list-style: none; }
-.portal-features li { display: inline-flex; align-items: center; gap: 8px; color: rgba(255, 255, 255, .8); font-size: .85rem; }
+.portal-features { display: flex; flex-wrap: wrap; gap: 10px 20px; margin: 20px 0 0; padding: 0; list-style: none; }
+.portal-features li { display: inline-flex; align-items: center; gap: 8px; color: rgba(255, 255, 255, .84); font-size: .85rem; }
 .portal-features li::before { width: 6px; height: 6px; border-radius: 50%; background: #efb441; content: ''; }
+
+.portal-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, .14);
+  backdrop-filter: blur(2px);
+}
+.portal-facts > div { display: grid; gap: 5px; padding: 12px 14px; background: rgba(9, 30, 19, .42); }
+.portal-facts dt { color: rgba(255, 255, 255, .62); font-size: .78rem; letter-spacing: 0; }
+.portal-facts dd { margin: 0; font-size: .92rem; font-weight: 700; }
+
+/* 右侧表单区 */
 
 .portal-panel {
   display: grid;
   place-items: center;
-  padding: 48px clamp(24px, 5vw, 72px);
-  background: #fbfcfa;
+  overflow: hidden;
+  padding: 46px clamp(24px, 5vw, 72px);
+  border-left: 1px solid var(--line);
+  background: #f2f5f2;
 }
 
-.portal-form-wrap { width: 100%; max-width: 392px; }
+.portal-panel-inner {
+  position: relative;
+  display: grid;
+  width: 100%;
+  max-width: 416px;
+  gap: 20px;
+}
+
+.portal-form-card {
+  padding: 28px 26px 30px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 24px 48px -34px rgba(17, 51, 34, .5);
+}
 
 /* 表单 */
 
 .auth-form { display: grid; gap: 18px; }
-.auth-form header h2 { font-size: 1.72rem; }
+.auth-form header h2 { font-size: 1.65rem; }
 .auth-form header p { margin: 8px 0 0; color: var(--muted); font-size: .92rem; line-height: 1.65; }
 
 .auth-field { display: grid; gap: 8px; }
@@ -153,28 +195,56 @@
 .auth-field .field-error { color: var(--danger); font-size: .85rem; }
 .auth-field .field-hint { color: var(--muted); font-size: .85rem; }
 
+.auth-remember {
+  display: inline-flex;
+  min-height: 44px;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: .88rem;
+  font-weight: 700;
+}
+.auth-remember input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
 .auth-form .form-message { grid-column: auto; margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); font-size: .85rem; }
 .auth-submit { width: 100%; min-height: 50px; margin-top: 2px; }
 .auth-switch { margin: 0; color: var(--muted); font-size: .88rem; text-align: center; }
 .auth-switch a { color: var(--primary-dark); font-weight: 700; }
 .auth-note { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.6; text-align: center; }
 
-@media (max-width: 900px) {
-  .portal { min-height: 100svh; grid-template-columns: minmax(0, 1fr); }
+/* 平板与手机：视觉区收成顶部横幅 */
+
+@media (max-width: 1000px) {
+  .portal { grid-template-columns: minmax(0, 1fr); }
   .portal-visual {
+    grid-template-rows: auto auto;
     gap: 22px;
-    padding: 24px 22px 28px;
-    background-position: center top, center, center 42%;
-    background-size: auto, auto, cover;
+    padding: 26px 24px 28px;
+    background-position: center, center, center 38%;
   }
-  .portal-hero h1 { margin-bottom: 0; font-size: clamp(1.6rem, 6.4vw, 2.1rem); }
-  .portal-kicker,
-  .portal-lede,
-  .portal-features { display: none; }
-  .portal-panel { padding: 30px 18px 44px; place-items: start center; }
+  .portal-facts { display: none; }
+  .portal-hero { align-self: start; max-width: none; }
+  .portal-hero h1 { margin-bottom: 10px; font-size: 2.15rem; }
+  .portal-lede { max-width: none; font-size: .92rem; line-height: 1.7; }
+  .portal-features { margin-top: 14px; }
+  .portal-panel { padding: 30px 18px 46px; }
+  .portal-panel-inner { max-width: 460px; }
 }
 
-@media (max-width: 420px) {
-  .portal-form-wrap { max-width: none; }
+@media (max-width: 560px) {
+  .portal-visual { padding: 22px 20px 24px; }
+  .portal-kicker { margin-bottom: 12px; font-size: .8rem; }
+  .portal-lede,
+  .portal-features { display: none; }
+  .portal-form-card { padding: 22px 18px 24px; }
+  .portal-hero h1 { font-size: 1.85rem; }
   .auth-form header h2 { font-size: 1.5rem; }
 }

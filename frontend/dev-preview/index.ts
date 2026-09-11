@@ -3,6 +3,7 @@ import '../src/styles-shell.css'
 import './showcase.css'
 
 const PAGES: Array<[string, string, string]> = [
+  ['系统外壳设计（header + 页签）', 'shell-preview.html', '顶部 header 显示用户名与退出登录，页签记录已打开的页面'],
   ['本轮改动呈现（推荐先看）', 'review-2026-09-11.html', 'AI 结论醒目化 + 抽屉式结算单选择器'],
   ['系列对比真实页面', 'grade-preview.html', '真实组件 + 真实结算单数据，含按系列 / 按等级号别两个视图'],
   ['等级细分设计稿', 'grade-detail-design.html', '等级细分（号别）视图的静态设计稿'],

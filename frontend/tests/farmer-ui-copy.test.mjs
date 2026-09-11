@@ -15,8 +15,12 @@ test('菜单使用确认后的中文入口', () => {
   // 面向果农的主导航只保留三个大白话入口，其余收进「更多功能」。
   for (const label of ['卖得怎么样', '每一单', '数据导入']) assert.match(shell, new RegExp(label))
   for (const icon of ['ChartColumn', 'Table2', 'Upload']) assert.match(shell, new RegExp(icon))
-  assert.match(shell, /const primaryNavItems = \[[\s\S]*?\]/)
-  assert.doesNotMatch(shell, /经营总览|单柜详情|导入数据|货柜对比|货柜详情|销售总览|数据明细/)
+  const primaryNav = shell.match(/const primaryNavItems = \[[\s\S]*?\]/)?.[0] ?? ''
+  const moreNav = shell.match(/const moreNavItems = \[[\s\S]*?\]/)?.[0] ?? ''
+  assert.ok(primaryNav)
+  assert.ok(moreNav)
+  const navLabels = `${primaryNav}\n${moreNav}`
+  assert.doesNotMatch(navLabels, /经营总览|单柜详情|导入数据|货柜对比|货柜详情|销售总览|数据明细/)
 })
 
 test('移动端用底部大按钮导航，完整功能收进「更多」', () => {

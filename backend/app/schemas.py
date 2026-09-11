@@ -29,6 +29,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=80)
     password: str = Field(min_length=1, max_length=128)
+    remember_me: bool = False
 
 
 class AuthResponse(BaseModel):

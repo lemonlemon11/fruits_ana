@@ -8,6 +8,7 @@ export interface AuthUser {
 export interface LoginPayload {
   displayName: string
   password: string
+  rememberMe?: boolean
 }
 
 export type RegisterPayload = LoginPayload

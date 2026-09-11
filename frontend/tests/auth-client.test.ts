@@ -5,7 +5,7 @@ import * as api from '../src/api/client.ts'
 
 type AuthApi = {
   getCurrentUser?: () => Promise<{ displayName: string }>
-  login?: (payload: { displayName: string; password: string }) => Promise<{ displayName: string }>
+  login?: (payload: { displayName: string; password: string; rememberMe?: boolean }) => Promise<{ displayName: string }>
 }
 
 test('authentication requests include the session cookie', async (context) => {
@@ -28,7 +28,7 @@ test('authentication requests include the session cookie', async (context) => {
   assert.equal(user.displayName, '果农')
 })
 
-test('login sends the expected JSON payload', async (context) => {
+test('login sends the remember-me choice in the JSON payload', async (context) => {
   const authApi = api as AuthApi
   assert.equal(typeof authApi.login, 'function')
   const originalFetch = globalThis.fetch
@@ -42,9 +42,13 @@ test('login sends the expected JSON payload', async (context) => {
   }
   context.after(() => { globalThis.fetch = originalFetch })
 
-  await authApi.login!({ displayName: '用户', password: 'password123' })
+  await authApi.login!({ displayName: '用户', password: 'password123', rememberMe: true })
 
   assert.equal(requestOptions?.method, 'POST')
   assert.equal(requestOptions?.headers && (requestOptions.headers as Record<string, string>)['Content-Type'], 'application/json')
-  assert.deepEqual(JSON.parse(String(requestOptions?.body)), { display_name: '用户', password: 'password123' })
+  assert.deepEqual(JSON.parse(String(requestOptions?.body)), {
+    display_name: '用户',
+    password: 'password123',
+    remember_me: true,
+  })
 })

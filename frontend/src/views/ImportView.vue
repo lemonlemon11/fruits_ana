@@ -203,7 +203,7 @@ onBeforeUnmount(() => {
       <span>第一步：点击“选择结算单”选好文件，或把多个文件直接拖进下面的方框。第二步：点击“开始导入”，然后查看导入结果。</span>
     </section>
 
-    <section class="upload-workbench upload-workbench--compact" aria-labelledby="upload-title">
+    <section class="upload-workbench upload-workbench--compact" :class="{ 'is-uploading': uploading }" aria-labelledby="upload-title" :aria-busy="uploading">
       <div class="upload-copy"><h2 id="upload-title">选择结算单</h2><p>可以一次选择或拖入多个文件。系统会记录导入结果，方便以后核对。</p></div>
       <div
         class="file-picker-panel"
@@ -229,6 +229,11 @@ onBeforeUnmount(() => {
       <div v-if="conflictFiles.length" class="overwrite-prompt" role="status">
         <span><strong>{{ conflictFiles.length }} 张结算单已存在</strong>继续导入会用新文件覆盖原有明细和结算信息。</span>
         <button class="primary-button" type="button" :disabled="uploading" @click="overwriteConflicts">{{ uploading ? '正在覆盖' : '覆盖并重新导入' }}</button>
+      </div>
+      <div v-if="uploading" class="uploading-mask" role="status" aria-live="polite">
+        <span class="uploading-spinner" aria-hidden="true"></span>
+        <strong>正在导入，请稍候</strong>
+        <small>系统正在解析文件并写入结算单，请不要关闭页面。</small>
       </div>
     </section>
 
@@ -266,6 +271,33 @@ onBeforeUnmount(() => {
 .import-page { gap: 18px; }
 .compact-page-header { padding-bottom: 18px; }
 .upload-workbench--compact { grid-template-columns: minmax(240px, .7fr) minmax(280px, 1.3fr); gap: 18px 24px; padding: 20px; }
+.upload-workbench--compact { position: relative; }
+.uploading-mask {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 9px;
+  padding: 22px;
+  background: rgba(255, 255, 255, .88);
+  backdrop-filter: blur(2px);
+  text-align: center;
+}
+.uploading-mask strong { color: var(--ink); font-size: 1.05rem; }
+.uploading-mask small { color: var(--muted); font-size: .88rem; line-height: 1.5; }
+.uploading-spinner {
+  width: 34px;
+  height: 34px;
+  border: 4px solid var(--primary-soft);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: upload-spin .8s linear infinite;
+}
+@keyframes upload-spin {
+  to { transform: rotate(360deg); }
+}
 .upload-copy p { margin: 8px 0 0; color: var(--muted); font-size: .9rem; line-height: 1.6; }
 .file-picker-panel { display: flex; min-height: 92px; align-items: center; gap: 16px; padding: 16px; border: 1px solid var(--line-strong); background: var(--surface-soft); }
 .file-picker-panel.is-dragging { border-style: dashed; border-color: var(--primary); background: var(--primary-soft); }

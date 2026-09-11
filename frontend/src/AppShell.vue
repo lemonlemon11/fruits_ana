@@ -1,11 +1,29 @@
 <script setup lang="ts">
-import { Boxes, ChartColumn, GitCompareArrows, LogOut, Menu, PackageSearch, Table2, Upload, X } from '@lucide/vue'
+import ArrowUp from '@lucide/vue/dist/esm/icons/arrow-up.mjs'
+import Boxes from '@lucide/vue/dist/esm/icons/boxes.mjs'
+import ChartColumn from '@lucide/vue/dist/esm/icons/chart-column.mjs'
+import Clock3 from '@lucide/vue/dist/esm/icons/clock-3.mjs'
+import GitCompareArrows from '@lucide/vue/dist/esm/icons/git-compare-arrows.mjs'
+import LogOut from '@lucide/vue/dist/esm/icons/log-out.mjs'
+import Menu from '@lucide/vue/dist/esm/icons/menu.mjs'
+import PackageSearch from '@lucide/vue/dist/esm/icons/package-search.mjs'
+import PanelLeftClose from '@lucide/vue/dist/esm/icons/panel-left-close.mjs'
+import PanelLeftOpen from '@lucide/vue/dist/esm/icons/panel-left-open.mjs'
+import Table2 from '@lucide/vue/dist/esm/icons/table-2.mjs'
+import Upload from '@lucide/vue/dist/esm/icons/upload.mjs'
+import X from '@lucide/vue/dist/esm/icons/x.mjs'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
 import { logout as logoutRequest } from './api/client'
 import { currentUser, setCurrentUser } from './auth'
 import BrandMark from './components/BrandMark.vue'
+import {
+  HEADER_CLOCK_REFRESH_MS,
+  SIDEBAR_STORAGE_KEY,
+  formatHeaderClock,
+  restoreSidebarCollapsed,
+} from './utils/shellHeader'
 import {
   TABS_STORAGE_KEY,
   closeOtherTabs,
@@ -19,6 +37,9 @@ import {
 
 const mobileNavOpen = ref(false)
 const signingOut = ref(false)
+const sidebarCollapsed = ref(readStoredSidebarState())
+const clockNow = ref(new Date())
+const showBackToTop = ref(false)
 const route = useRoute()
 const router = useRouter()
 // 面向果农的主导航只保留三个大入口，其余功能收进「更多」，避免同名页面点错。
@@ -43,10 +64,16 @@ const openedTabItems = computed(() =>
   openedTabs.value.map((tab) => ({ tab, item: navItemFor(tab.path) })),
 )
 const userInitial = computed(() => currentUser.value?.displayName?.slice(0, 1) ?? '')
+const headerClock = computed(() => formatHeaderClock(clockNow.value))
 const tabsStrip = ref<HTMLElement | null>(null)
+let clockTimer: number | undefined
 
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown)
+  clockTimer = window.setInterval(() => {
+    clockNow.value = new Date()
+  }, HEADER_CLOCK_REFRESH_MS)
+  window.addEventListener('scroll', handleScroll, { passive: true })
 })
 watch(
   () => route.fullPath,
@@ -98,6 +125,23 @@ function persistTabs() {
   }
 }
 
+function readStoredSidebarState(): boolean {
+  try {
+    return restoreSidebarCollapsed(window.localStorage.getItem(SIDEBAR_STORAGE_KEY))
+  } catch {
+    return false
+  }
+}
+
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  try {
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarCollapsed.value))
+  } catch {
+    // 存储不可用时仍保留当前页面内的收起状态。
+  }
+}
+
 function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') mobileNavOpen.value = false
 }
@@ -134,22 +178,58 @@ async function signOut() {
   }
 }
 
-onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('scroll', handleScroll)
+  if (clockTimer !== undefined) window.clearInterval(clockTimer)
+})
+
+function handleScroll() {
+  showBackToTop.value = window.scrollY > 320
+}
+
+function scrollToTop() {
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' })
+}
 </script>
 
 <template>
   <RouterView v-if="authPage" />
   <template v-else>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
-    <div class="app-shell">
+    <div class="app-shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
       <header class="app-header">
         <div class="app-header-brand">
-          <BrandMark :size="34" />
+          <RouterLink class="app-header-home" to="/overview" title="返回销售总览" aria-label="返回销售总览">
+            <BrandMark :size="34" />
+          </RouterLink>
           <div class="app-header-copy">
             <strong>SLD-水果市场销售分析</strong>
             <span>{{ currentNav.label }}</span>
           </div>
+          <button
+            class="sidebar-toggle"
+            type="button"
+            aria-controls="primary-nav"
+            :aria-expanded="!sidebarCollapsed"
+            :aria-label="sidebarCollapsed ? '展开左侧导航' : '收起左侧导航'"
+            :title="sidebarCollapsed ? '展开左侧导航' : '收起左侧导航'"
+            @click="toggleSidebar"
+          >
+            <PanelLeftOpen v-if="sidebarCollapsed" :size="20" aria-hidden="true" />
+            <PanelLeftClose v-else :size="20" aria-hidden="true" />
+          </button>
         </div>
+        <time
+          class="app-header-clock"
+          :datetime="headerClock.datetime"
+          :title="`当前时间：${headerClock.date} ${headerClock.time}`"
+        >
+          <Clock3 :size="17" aria-hidden="true" />
+          <span class="clock-date">{{ headerClock.date }}</span>
+          <strong>{{ headerClock.time }}</strong>
+        </time>
         <div class="app-header-account">
           <span class="account-avatar" aria-hidden="true">{{ userInitial }}</span>
           <span class="account-name">{{ currentUser?.displayName }}</span>
@@ -162,12 +242,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
       <div class="app-body">
         <aside class="app-sidebar" aria-label="主要导航">
           <nav id="primary-nav" aria-label="主要导航">
-            <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+            <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-label="sidebarCollapsed ? item.label : undefined" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
               <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
               <span>{{ item.label }}</span>
             </RouterLink>
             <p class="nav-group-label">更多功能</p>
-            <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :title="item.label" class="nav-secondary" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+            <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-label="sidebarCollapsed ? item.label : undefined" class="nav-secondary" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
               <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
               <span>{{ item.label }}</span>
             </RouterLink>
@@ -210,6 +290,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
           <main id="main-content" tabindex="-1">
             <RouterView />
           </main>
+          <button
+            v-show="showBackToTop"
+            class="back-to-top"
+            type="button"
+            aria-label="回到页面顶部"
+            @click="scrollToTop"
+          >
+            <ArrowUp :size="22" aria-hidden="true" />
+            <span>回顶部</span>
+          </button>
           <nav class="mobile-tabbar" aria-label="主要导航（移动端）">
             <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
               <component :is="item.icon" :size="28" :stroke-width="2" aria-hidden="true" />

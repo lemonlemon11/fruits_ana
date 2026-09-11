@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from app.db import Base, SessionLocal, engine
 from app.main import app
+from app.models import UserSession
 
 
 @pytest.fixture(autouse=True)
@@ -91,6 +92,28 @@ def test_login_by_display_name_does_not_enumerate_accounts(client):
     assert unknown_name.status_code == 401
     assert wrong_password.json()["detail"] == "用户名或密码错误"
     assert unknown_name.json()["detail"] == wrong_password.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("remember_me", "expected_days"),
+    [(False, 7), (True, 30)],
+)
+def test_login_uses_requested_session_duration(client, remember_me, expected_days):
+    client.post("/api/auth/register", json=_credentials())
+    client.post("/api/auth/logout")
+    payload = _credentials()
+    if remember_me:
+        payload["remember_me"] = True
+
+    response = client.post("/api/auth/login", json=payload)
+
+    assert response.status_code == 200
+    assert f"max-age={expected_days * 86400}" in response.headers["set-cookie"].lower()
+    with SessionLocal() as db:
+        session = db.query(UserSession).one()
+    duration = session.expires_at - session.created_at
+    assert timedelta(days=expected_days) - timedelta(seconds=1) <= duration
+    assert duration <= timedelta(days=expected_days) + timedelta(seconds=1)
 
 
 def test_me_and_logout_follow_session_lifecycle(client):

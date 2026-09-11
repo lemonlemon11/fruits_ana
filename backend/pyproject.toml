@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fruit-analysis-backend"
 version = "0.1.0"
-description = "水果等级销售经营分析平台后端"
+description = "SLD-水果市场销售分析后端"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",

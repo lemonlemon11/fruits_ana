@@ -321,3 +321,24 @@
    3) 导出 xlsx 元数据与文件名使用适配后商号（同时保留原始商号），
    AI 系列数据包 `PROMPT_VERSION` 由 `v3` 提升到 `v4`，旧缓存自动失效；
    4) 新增商号展示位时必须走 `merchant_no_normalized`，不得直接渲染 `merchant_no`。
+
+---
+
+## ADR-017 — 登录会话支持可选 30 天免登录
+
+- Date：2026-09-11
+- Status：Accepted
+- Context：ADR-005 将登录会话固定为 7 天，业务方希望用户可主动选择 30 天内免登录，
+  同时要求该选项默认不勾选。
+- Decision：
+  1) `POST /api/auth/login` 请求新增向后兼容的 `remember_me: bool = false`；
+  2) 未勾选时保持 ADR-005 的 7 天期限，勾选时服务端 `user_session.expires_at` 与
+     HttpOnly Cookie `Max-Age` 同步改为 30 天；
+  3) 注册自动创建的会话继续保持 7 天；前端不保存密码、不在 Web Storage 保存认证 token。
+- Why：1) 延长期限必须同时约束服务端会话与 Cookie，否则两者会提前任一失效；
+  2) 保留 7 天默认值可维持现有接口调用与安全边界；3) HttpOnly Cookie 延续 ADR-005 的
+  XSS 风险控制，不为“记住登录”引入前端 token。
+- Alternatives：所有用户统一改为 30 天（不采用：扩大默认认证窗口）；仅用前端记住用户名
+  （不采用：不等于免登录）；把 token 存入 `localStorage`（不采用：增加 XSS 窃取风险）。
+- Consequences：勾选用户的被盗会话有效窗口最长为 30 天，用户仍可通过退出登录立即撤销当前会话；
+  后续如需“退出所有设备”，应基于现有 `user_session` 表批量撤销，不改变本 ADR。

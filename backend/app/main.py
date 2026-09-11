@@ -21,7 +21,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="水果等级销售经营分析平台",
+    title="SLD-水果市场销售分析",
     version="0.1.0",
     lifespan=lifespan,
 )

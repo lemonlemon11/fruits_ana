@@ -1,6 +1,6 @@
 # HANDOFF
 
-Last updated：2026-09-11 16:20 (CST)
+Last updated：2026-09-11 21:59 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## Current Goal
@@ -8,6 +8,12 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 单号与商号命名适配（ADR-015 / ADR-016）均已交付：**原始写法 + 适配后写法双写落库，
 页面统一展示适配后写法，原始写法保留可追溯**；线上 MySQL 迁移已执行、真实浏览器验收通过，
 代码与文档已提交到 `dev`（尚未 push）。工作区剩余的未提交改动属并发会话的品牌化与预览页改造，见 In Progress。
+
+本轮另完成「认证门户精简 + 可选 30 天免登录 + 工作台外壳控制」：登录/注册能力说明与
+「先看演示效果」入口已移除，`remember_me` 控制 7/30 天会话；header 增加品牌首页链接、
+桌面侧栏收起、本地时间显示，移动端保留底部导航。相关代码与文档尚未提交，见 In Progress。
+
+随后补上导入等待遮罩、右下角一键回顶、header 秒级时间和手机端展示优化，并计划提交到 `dev`。
 
 ## Current Status
 
@@ -40,6 +46,14 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
     接口、导出、AI 数据包（`PROMPT_VERSION` `v3 → v4`）与前端展示统一用适配后商号，
     **唯一键 / 接口参数 / 下拉取值 / `?selected=` 仍是原始 `merchant_no`**，见 ADR-016。
     线上迁移已执行（4 行：`单637→637`、`单624→624`、`626`/`640` 不变），浏览器验收通过。
+13. **认证门户与外壳控制（18:06 交付，未提交）**：登录页删除三组能力说明与演示入口；
+    新增默认不勾选的「30 天内免登录」，不勾选保持 7 天、勾选后 Cookie 与服务端会话均为 30 天；
+    header 品牌图标跳 `/overview`、增加桌面侧栏收起/展开按钮与本地日期/星期/时分，
+    收起为 72px 图标栏并用 `localStorage` 记忆；移动端保留底部导航、只显示时分。
+    已完成真实浏览器验收（桌面 1440px / 移动 390px）。
+14. **交互与移动端优化（21:59 交付，未提交）**：数据导入增加等待遮罩与 `aria-busy`；
+    业务页右下角增加一键回顶悬浮按钮，移动端抬到底部导航上方；header 时间改为时分秒，
+    刷新频率改为 1 秒；移动端继续强化 header 窄屏布局、底部导航字号与安全区适配。
 
 ## Completed
 
@@ -86,6 +100,31 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
   53002 实例 + Chromium 实测（临时账号，已清理）：初始 1 个页签、点导航新增页签、重复进入不新增、
   关闭当前页签跳右侧邻居、首页无关闭按钮、「关闭其他」生效、刷新后页签保留、
   移动端 360 / 390px 无横向溢出且 header 稳定 60px。
+
+认证门户与外壳控制（2026-09-11，代码与自动化验证完成，**未提交**）：
+
+- 后端：`LoginRequest` 增加 `remember_me: bool = False`；`create_session` / `set_session_cookie`
+  接收同一 `session_days`，登录按勾选切 7/30 天，注册保持 7 天；新增默认与记住登录常量。
+- 前端：`LoginPayload` 增加 `rememberMe?: boolean`，`client.ts` 映射为 `remember_me`；
+  登录页新增默认未勾选的原生复选框；`AuthPortal.vue` 删除三组能力说明和「先看演示效果」入口。
+- 外壳：新增 `frontend/src/utils/shellHeader.ts`（`restoreSidebarCollapsed` / `formatHeaderClock`）；
+  `AppShell.vue` 品牌图标用 `RouterLink` 指向 `/overview`，增加桌面侧栏收起按钮和本地时钟，
+  侧栏状态存 `localStorage`；`styles-shell.css` 增加 72px 收起样式与 ≤820px 隐藏收起按钮/日期。
+- 测试：前端新增 `shell-header.test.ts` 4 项，调整 `farmer-ui-copy.test.mjs` 旧入口守卫；
+  前端 `npm test` 通过、`typecheck` 通过、`vite build` 成功；后端 236 项 pytest 通过。
+- 浏览器验收：登录页复选框默认未勾选、旧能力文案与演示入口已移除；登录后品牌图标跳
+  `/overview`、桌面侧栏收起为 72px 且刷新后保持、移动端隐藏侧栏按钮与日期只显示时分，
+  均符合预期（临时账号已清理）。
+
+导入等待与移动端交互优化（2026-09-11，代码与自动化验证完成，**未提交**）：
+
+- `ImportView.vue`：上传期间在导入工作区显示等待遮罩、转圈动画和「正在导入，请稍候」，
+  同时设置 `aria-busy` / `aria-live`，防止重复提交和误操作。
+- `AppShell.vue`：新增右下角「回顶部」悬浮按钮，滚动超过约 320px 后出现；
+  `styles-shell.css` 在移动端把按钮抬高到底部导航上方，并补充 header 安全区与窄屏时间字号。
+- `shellHeader.ts`：header 时间从「时分」升级为「时分秒」，刷新频率从 30 秒改为 1 秒。
+- 测试：`shell-header.test.ts` 更新秒级时间与回顶断言；`import-view-binding.test.mjs`
+  新增导入等待遮罩断言；前端 120 项测试、`typecheck`、`vite build` 均通过。
 
 单号命名适配（2026-09-11，代码 + 迁移 + 浏览器验收完成，**已提交 `4823631` / `03dbb6d`**，ADR-015）：
 
@@ -271,6 +310,7 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
    b. 系列对比后续能力：到港日期字段与一次库迁移、元/KG 口径、Excel 导出、系列别名字典。
    c. 真实业绩数据到位后的整体回归验收（目前线上只有 4 张示例结算单）。
    d. 根目录 `.env` 中未使用的 `FRUIT_ANALYSIS_AI_*` 配置确认去留（见 Known Issues 1）。
+   e. 对本轮「认证门户 + 外壳控制」做真实浏览器验收，并确认是否连同既有品牌化改动一起提交。
 3. 改完后端记得重启 `./start.sh`（Known Issues 4）；每次改动后运行基线验证，再按功能提交。
 
 ## Known Issues
@@ -445,7 +485,32 @@ npm --prefix frontend run typecheck
 
 ## Test Status
 
-当前测试：PASS（2026-09-11 16:20 实测：后端 234 项、前端 110 项，含单号与商号命名适配）
+当前测试：PASS（2026-09-11 21:59 实测：后端 236 项 pytest、前端 120 项测试、
+`typecheck`、`vite build` 全通过；真实浏览器验收通过。）
+
+### 导入等待、回顶与移动端优化（2026-09-11，未提交）
+
+- 前端 `npm --prefix frontend run test`：120 项全部通过，退出码 0
+  （新增/更新 `shell-header.test.ts` 秒级时间与回顶断言、`import-view-binding.test.mjs` 导入遮罩断言）
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0
+- 前端 `npm --prefix frontend run build`：成功（vite 6.4.3，1943 modules）
+- Playwright + Chromium（53000 正式前端 / 8000 后端，临时账号已清理）：
+  header 显示 `HH:mm:ss`；桌面与移动端滚动后出现回顶按钮，点击回到顶部；移动端底部导航可见；
+  拦截导入请求延迟 3 秒后，`上传中遮罩` 可见且包含「正在导入，请稍候」，请求结束后自动隐藏
+
+### 认证门户与外壳控制（2026-09-11，未提交）
+
+- 前端 `npm --prefix frontend run test`：21 个测试文件全部通过，退出码 0
+  （含新增 `shell-header.test.ts` 4 项；`farmer-ui-copy.test.mjs` 的「销售总览」断言已收窄到导航菜单）
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0
+- 前端 `npm --prefix frontend run build`：成功（vite 6.4.3，1943 modules）
+- 后端 `pytest`：236 项全部通过，退出码 0
+- 后端 7/30 天会话：用 SQLite 测试库直接验证 `create_session` + `set_session_cookie`，
+  `remember_me=False` 为 `max-age=604800` / 约 7 天，`remember_me=True` 为
+  `max-age=2592000` / 约 30 天，Cookie 与 `expires_at - created_at` 一致
+- Playwright + Chromium（53000 正式前端 / 8000 后端，临时账号已清理）：
+  登录页无旧能力文案与「先看演示效果」、复选框默认未勾选；登录后品牌图标跳 `/overview`、
+  桌面侧栏收起为 72px 且刷新后保持；移动端 390px 隐藏侧栏按钮与日期、保留底部导航和时分
 
 ### 单号命名适配（2026-09-11）
 

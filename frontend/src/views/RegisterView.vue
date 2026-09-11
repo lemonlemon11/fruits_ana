@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Eye, EyeOff } from '@lucide/vue'
+import Eye from '@lucide/vue/dist/esm/icons/eye.mjs'
+import EyeOff from '@lucide/vue/dist/esm/icons/eye-off.mjs'
 import { computed, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
@@ -52,7 +53,7 @@ async function submit() {
     <form class="auth-form" novalidate @submit.prevent="submit">
       <header>
         <h2>创建账号</h2>
-        <p>填写用户名和密码，即可进入果级经营台。</p>
+        <p>填写用户名和密码，即可进入 SLD-水果市场销售分析。</p>
       </header>
       <div class="auth-field">
         <label for="register-username">用户名</label>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>登录页改版 · 视觉伴侣（53001）</title>
+    <style>
+      /* 只服务本预览页：方案切换与呈现外壳 */
+      .hero-switch { min-height: 100vh; --portal-hero-image: url('/dev-preview/hero-options/option-a.jpg'); }
+      .hero-switch.hero-b { --portal-hero-image: url('/dev-preview/hero-options/option-b.jpg'); }
+      .hero-switch.hero-c { --portal-hero-image: url('/dev-preview/hero-options/option-c.jpg'); }
+      .hero-bar {
+        position: fixed; left: 50%; bottom: 18px; z-index: 20;
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        padding: 9px 12px; transform: translateX(-50%);
+        border: 1px solid var(--line-strong); border-radius: 999px;
+        background: rgba(255, 255, 255, .96); box-shadow: 0 12px 30px -18px rgba(17, 51, 34, .6);
+        font-size: .88rem;
+      }
+      .hero-bar strong { color: var(--muted); font-weight: 700; }
+      .hero-bar button {
+        min-height: 36px; padding: 0 14px; border: 1px solid var(--line-strong);
+        border-radius: 999px; background: #fff; color: var(--ink); font-weight: 700;
+      }
+      .hero-bar button[aria-pressed="true"] { border-color: var(--primary-dark); background: var(--primary); color: #fff; }
+      .hero-note {
+        position: fixed; left: 50%; bottom: 68px; z-index: 20; transform: translateX(-50%);
+        max-width: 92vw; margin: 0; padding: 7px 14px; border-radius: 999px;
+        background: rgba(31, 41, 35, .86); color: #fff; font-size: .82rem; white-space: nowrap;
+      }
+      @media (max-width: 560px) {
+        .hero-bar { right: 12px; left: 12px; justify-content: center; transform: none; }
+        .hero-note { white-space: normal; text-align: center; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="./login-preview.ts"></script>
+  </body>
+</html>

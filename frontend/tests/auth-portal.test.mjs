@@ -45,3 +45,25 @@ test('提交前做字段校验并就近提示', () => {
     assert.match(view, /aria-invalid/)
   }
 })
+
+test('登录页提供默认未勾选的 30 天免登录选项', () => {
+  assert.match(login, /rememberMe:\s*false/)
+  assert.match(login, /type="checkbox"/)
+  assert.match(login, /30 天内免登录/)
+  assert.match(login, /form\.rememberMe/)
+})
+
+test('认证门户不展示能力清单和演示数据入口', () => {
+  for (const copy of [
+    'A/B/C 等级分析',
+    '销量、销售额与加权均价一处看清',
+    '逐单与系列对比',
+    '同一系列或跨系列都能横向比较',
+    '导入即出结果',
+    '上传 xlsx / csv 结算单自动解析',
+    '还没导入自己的数据？',
+    '先看演示效果',
+  ]) {
+    assert.doesNotMatch(portal, new RegExp(copy.replace(/[/?]/g, '\\$&')))
+  }
+})
