@@ -5,7 +5,12 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { normalizeSeriesAnalysis } from '../src/api/normalize.ts'
-import { friendlyErrorMessage, parseAnalysisSections } from '../src/utils/seriesAnalysis.ts'
+import {
+  friendlyErrorMessage,
+  highlightNumbers,
+  isAdviceHeading,
+  parseAnalysisSections,
+} from '../src/utils/seriesAnalysis.ts'
 
 const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src')
 
@@ -63,6 +68,27 @@ test('friendlyErrorMessage 把英文报错换成中文提示', () => {
   assert.equal(friendlyErrorMessage(''), '生成失败，请稍后重试')
   assert.equal(friendlyErrorMessage('Not Found', '对比数据加载失败，请稍后重试'), '对比数据加载失败，请稍后重试')
   assert.equal(friendlyErrorMessage('大模型服务返回错误（429），请稍后重试'), '大模型服务返回错误（429），请稍后重试')
+})
+
+test('highlightNumbers 只高亮指标数字，不动号别里的数字', () => {
+  const segments = highlightNumbers('A6 共 913 件、平均每件 514.52 元（42.7%），B6/7 区间')
+  const strong = segments.filter((segment) => segment.strong).map((segment) => segment.text)
+
+  assert.deepEqual(strong, ['913', '514.52', '42.7%'])
+  const plain = segments.filter((segment) => !segment.strong).map((segment) => segment.text).join('')
+  assert.match(plain, /A6 共 /)
+  assert.match(plain, /B6\/7 区间/)
+})
+
+test('highlightNumbers 遇到没有数字的句子原样返回', () => {
+  assert.deepEqual(highlightNumbers('这批货整体偏甜'), [
+    { text: '这批货整体偏甜', strong: false },
+  ])
+})
+
+test('isAdviceHeading 识别「可以留意的地方」这类建议小节', () => {
+  assert.equal(isAdviceHeading('可以留意的地方'), true)
+  assert.equal(isAdviceHeading('A果'), false)
 })
 
 test('AI 分析卡片使用果农能看懂的文案', () => {

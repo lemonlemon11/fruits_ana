@@ -107,6 +107,9 @@ def test_prompt_forbids_unknown_terms_and_fake_numbers():
     assert "不许编造" in SYSTEM_PROMPT
     for heading in ["整体行情", "A果", "B果", "C果", "可以留意的地方"]:
         assert heading in SYSTEM_PROMPT
+    # 提示词必须要求跨结算单比较并给出可执行建议。
+    assert "对比结论" in SYSTEM_PROMPT
+    assert "不要写「继续关注」这类空话" in SYSTEM_PROMPT
 
 
 def test_build_messages_embeds_payload_without_recomputing():
@@ -155,6 +158,26 @@ def test_payload_keeps_grade_numbers_and_spreads():
     assert grades["A"]["金额占比"] == pytest.approx(0.625)
     assert payload["结算单"][0]["系列"] == "宝贝"
     assert payload["合计"]["价差"]["A比B贵"] == pytest.approx(83.3333)
+
+
+def test_payload_adds_sample_size_and_comparison_insights():
+    """深入分析所需的排名、极值差与等级结构信号由后端算好再交给模型。"""
+
+    with SessionLocal() as db:
+        seed_two_settlements(db)
+        comparison = ai_analysis_service.get_series_comparison(
+            db, merchant_nos=["M1", "M2"]
+        )
+        payload = build_analysis_payload(comparison, start_date=None, end_date=None)
+
+    assert payload["样本量"] == {"结算单数量": 2, "是否够下趋势结论": False}
+    insights = payload["对比结论"]
+    rankings = insights["结算单价差排名"]
+    assert len(rankings) == 2
+    assert rankings[0]["平均每件售价"] >= rankings[1]["平均每件售价"]
+    assert insights["最高比最低每件贵"] is not None
+    signals = {row["等级"]: row for row in insights["等级结构信号"]}
+    assert signals["A"]["金额占比减件数占比"] == pytest.approx(0.625 - 15 / 40)
 
 
 def test_analysis_is_cached_until_refresh(monkeypatch, settings):

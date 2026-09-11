@@ -175,7 +175,7 @@ def get_series_comparison(
         "settlements": _sorted_settlement_rows(grouped, batches),
         "series": _series_rows(grouped, batches),
         "total": aggregate(filtered),
-        "grade_details": grade_detail_metrics(filtered),
+        "grade_details": grade_detail_metrics(filtered, batches),
     }
 
 

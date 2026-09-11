@@ -12,18 +12,22 @@ import urllib.error
 import urllib.request
 from collections.abc import Sequence
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..ai_settings import AiSettings, ai_settings
 from ..models import AiAnalysis, utc_now
+from .analytics_core import rounded
 from .series_analytics_service import get_series_comparison
 
 
 FEATURE = "series-comparison"
 # 提示词版本参与缓存键：改动提示词后自动生成新结论，不会读到旧口径。
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
+# 低于该样本量时禁止下趋势/规律结论，只描述这批货本身。
+MIN_TREND_SAMPLES = 5
 # 部分模型会先消耗「思考」token，输出上限需要留足余量，避免正文被截断。
 REQUEST_TIMEOUT_SECONDS = 180
 MAX_OUTPUT_TOKENS = 4000
@@ -44,6 +48,13 @@ SYSTEM_PROMPT = """你是水果销售数据分析助手，服务对象是果农�
 5. 每条结论后面用括号补上依据的数字，例如（913 件、平均每件 514.52 元）。
 6. 不要输出问候语、结尾套话，也不要解释你是怎么分析的。
 7. 数据里没有的内容不要写，也不要自己补算新的指标。
+8. 要「说透」，不要只复述数字：每条至少给出一个比较或一个原因——谁比谁高/低、
+   差多少、差别可能出在哪里。数据里的「对比结论」已经把差值和排名算好了，直接引用即可。
+9. A果、B果、C果三个小节各写 2 到 3 条：一条说跨结算单谁高谁低、差多少，
+   一条说这个等级的件数占比和金额占比是否匹配（占比差为正说明这个等级在撑金额）。
+10. 「可以留意的地方」必须写 2 到 3 条能直接照做的事，例如下一批怎么分选、
+    哪个号可以试着提价、哪张单值得复盘；每条都要带上数字，不要写「继续关注」这类空话。
+11. 样本结算单少于 5 张时，只能说「这批货」的情况，禁止写「趋势」「规律」「一直」「通常」。
 小标题固定为下面 5 个，顺序不要变：
 整体行情
 A果
@@ -86,17 +97,88 @@ def build_cache_key(
 
 def _grade_rows(aggregate: dict) -> list[dict]:
     amount_shares = aggregate.get("grade_amount_shares") or {}
-    return [
-        {
-            "等级": row["grade"],
-            "件数": row["sales_quantity"],
-            "金额": row["sales_amount"],
-            "平均每件售价": row["weighted_avg_price"],
-            "件数占比": row["quantity_share"],
-            "金额占比": amount_shares.get(row["grade"]),
-        }
-        for row in aggregate.get("grades", [])
-    ]
+    rows = []
+    for row in aggregate.get("grades", []):
+        quantity_share = row["quantity_share"]
+        amount_share = amount_shares.get(row["grade"])
+        rows.append(
+            {
+                "等级": row["grade"],
+                "件数": row["sales_quantity"],
+                "金额": row["sales_amount"],
+                "平均每件售价": row["weighted_avg_price"],
+                "件数占比": quantity_share,
+                "金额占比": amount_share,
+                # 占比差为正说明这个等级卖得比它的数量更值钱（在撑金额）。
+                "金额占比减件数占比": _share_gap(amount_share, quantity_share),
+            }
+        )
+    return rows
+
+
+def _share_gap(amount_share: float | None, quantity_share: float | None) -> float | None:
+    """金额占比与件数占比之差；用 Decimal 相减避免浮点误差写进给大模型的数字里。"""
+
+    if amount_share is None or quantity_share is None:
+        return None
+    return rounded(
+        Decimal(str(amount_share)) - Decimal(str(quantity_share))
+    )
+
+
+def _price_of(row: dict) -> float | None:
+    return (row.get("total") or {}).get("weighted_avg_price")
+
+
+def _settlement_price_ranking(comparison: dict) -> list[dict]:
+    """各结算单按平均每件售价排名，并给出与本次平均的差，方便直接引用。"""
+
+    average = ((comparison.get("total") or {}).get("total") or {}).get("weighted_avg_price")
+    rows = []
+    for row in comparison.get("settlements", []):
+        price = _price_of(row)
+        if price is None:
+            continue
+        rows.append(
+            {
+                "商号": row.get("merchant_no"),
+                "系列": row.get("series"),
+                "件数": (row.get("total") or {}).get("sales_quantity"),
+                "平均每件售价": price,
+                "比本次平均高": (
+                    rounded(Decimal(str(price)) - Decimal(str(average)))
+                    if average is not None
+                    else None
+                ),
+            }
+        )
+    rows.sort(key=lambda item: item["平均每件售价"], reverse=True)
+    return rows
+
+
+def _comparison_insights(comparison: dict) -> dict:
+    """后端先算好的对比结论：排名、极值差、等级结构信号。"""
+
+    aggregate = comparison.get("total") or {}
+    ranking = _settlement_price_ranking(comparison)
+    return {
+        "本次平均每件售价": (aggregate.get("total") or {}).get("weighted_avg_price"),
+        "结算单价差排名": ranking,
+        "最高比最低每件贵": (
+            rounded(Decimal(str(ranking[0]["平均每件售价"])) - Decimal(str(ranking[-1]["平均每件售价"])))
+            if len(ranking) >= 2
+            else None
+        ),
+        "等级结构信号": [
+            {
+                "等级": row["等级"],
+                "件数占比": row["件数占比"],
+                "金额占比": row["金额占比"],
+                "金额占比减件数占比": row["金额占比减件数占比"],
+            }
+            for row in _grade_rows(aggregate)
+        ],
+    }
 
 
 def _spread_row(aggregate: dict) -> dict:
@@ -132,8 +214,13 @@ def build_analysis_payload(
 ) -> dict:
     """把对比结果整理成给大模型看的小数据包，只保留结论需要的数字。"""
 
+    settlements = comparison.get("settlements") or []
     return {
         "口径": "件数单位=件；金额单位=元；平均每件售价=销售金额÷件数（元/件）",
+        "样本量": {
+            "结算单数量": len(settlements),
+            "是否够下趋势结论": len(settlements) >= MIN_TREND_SAMPLES,
+        },
         "到达日期范围": {
             "起": _date_text(start_date),
             "止": _date_text(end_date),
@@ -147,7 +234,7 @@ def build_analysis_payload(
                 "到达日期": f"{row.get('start_date')} 至 {row.get('end_date')}",
                 **_aggregate_payload(row),
             }
-            for row in comparison.get("settlements", [])
+            for row in settlements
         ],
         "系列汇总": [
             {
@@ -157,6 +244,7 @@ def build_analysis_payload(
             }
             for row in comparison.get("series", [])
         ],
+        "对比结论": _comparison_insights(comparison),
     }
 
 
@@ -337,6 +425,7 @@ __all__ = [
     "AiCallFailed",
     "AiNotConfigured",
     "FEATURE",
+    "MIN_TREND_SAMPLES",
     "PROMPT_VERSION",
     "SYSTEM_PROMPT",
     "analyze_series_comparison",

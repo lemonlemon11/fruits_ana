@@ -16,6 +16,7 @@ from ..ai_settings import AiSettings, ai_settings
 from .ai_analysis_service import (
     AiCallFailed,
     AiNotConfigured,
+    MIN_TREND_SAMPLES,
     build_cache_key,
     call_chat_completion,
     read_cache,
@@ -24,10 +25,9 @@ from .ai_analysis_service import (
 from .series_analytics_service import get_series_comparison
 
 FEATURE = "grade-detail"
-# 口径版本：v1 = 方案 A（单号各自成桶、区间原样成桶、品质后缀只做标记，见 ADR-013）。
-PROMPT_VERSION = "v1-schemeA"
-# 低于该样本量时禁止下趋势/规律结论，只描述这批货本身。
-MIN_TREND_SAMPLES = 5
+# 口径版本：v3 = 方案 A 分桶（单号各自成桶、区间原样成桶、品质后缀只做标记，见 ADR-013），
+# 并加入大等级汇总、跨结算单 / 跨号别 / 品质标记的对比数据。
+PROMPT_VERSION = "v3-schemeA"
 
 SYSTEM_PROMPT = """你是水果销售数据分析助手，服务对象是果农和档口老板，他们不看复杂报表。
 只依据用户给出的数字写结论，不许编造，不许自己另算，不许把数字改成别的数值。
@@ -42,7 +42,19 @@ SYSTEM_PROMPT = """你是水果销售数据分析助手，服务对象是果农�
 6. 不要输出问候语、结尾套话，也不要解释你是怎么分析的。
 7. 数据里没有的内容不要写，也不要自己补算新的指标。
 8. 「等级」指的是 A5、A6、B6/7 这类号别；带斜杠的（如 B6/7）是一段区间，原样引用，不要拆开。
-9. 样本结算单少于 5 张时，只能说「这批货」的情况，禁止写「趋势」「规律」「一直」「通常」这类结论。
+9. 要「说透」，不要只复述数字：每条至少给出一个比较或一个原因。数据里已经算好
+   「号别价格排名」「同级号别价差」「同号别跨结算单价差」「品质标记对比」，直接引用差值，
+   不要再自己计算。
+10. 每个小节写 2 到 3 条：
+   「这批货的等级结构」只说 A/B/C 三个大等级各占多少、钱主要来自哪个大等级，
+     直接引用「大等级汇总」，不要把号别的占比相加自己算；
+   「哪个号最值钱」点名最贵的号别，并说出它比同等级最便宜的号贵多少；
+   「哪个号在拖后腿」点名最便宜的号别，并说清是价低、量少，还是两者都有；
+   「可以留意的地方」必须写 2 到 3 条能直接照做的事（下次怎么分选、哪个号可以试着提价、
+   哪个写法要规范），每条都要带上数字，不要写「继续关注」这类空话。
+11. 如果「品质标记对比」里有数据，就明确指出带熟/裂/黄皮的货比不带的贵还是便宜、差多少；
+    这只是解释价格差异，不要说成单独一个等级。
+12. 样本结算单少于 5 张时，只能说「这批货」的情况，禁止写「趋势」「规律」「一直」「通常」这类结论。
 小标题固定为下面 4 个，顺序不要变：
 这批货的等级结构
 哪个号最值钱
@@ -76,6 +88,7 @@ def build_grade_detail_payload(
 ) -> dict:
     """整理成给大模型看的小数据包，并显式带上样本量。"""
 
+    insights = details.get("insights") or {}
     return {
         "口径": (
             "件数单位=件；金额单位=元；平均每件售价=销售金额÷件数（元/件）；"
@@ -90,7 +103,12 @@ def build_grade_detail_payload(
             "止": end_date.isoformat() if end_date else None,
         },
         "合计": details.get("total") or {},
+        "大等级汇总": insights.get("大等级汇总") or [],
         "等级阶梯": _bucket_rows(details),
+        "号别价格排名": insights.get("号别价格排名") or [],
+        "同级号别价差": insights.get("同级号别价差") or [],
+        "同号别跨结算单价差": insights.get("同号别跨结算单价差") or [],
+        "品质标记对比": insights.get("品质标记对比") or [],
         "未识别写法": details.get("unrecognized") or {},
     }
 

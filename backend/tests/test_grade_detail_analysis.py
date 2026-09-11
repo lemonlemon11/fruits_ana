@@ -87,6 +87,39 @@ def test_prompt_uses_own_headings_and_forbids_trend_on_small_samples():
         assert heading in SYSTEM_PROMPT
     assert "趋势" in SYSTEM_PROMPT
     assert MIN_TREND_SAMPLES == 5
+    # 提示词必须要求说透并给可执行建议，而不是复述数字。
+    assert "同级号别价差" in SYSTEM_PROMPT
+    assert "不要写「继续关注」这类空话" in SYSTEM_PROMPT
+
+
+def test_payload_includes_backend_computed_comparisons():
+    """深入分析依赖后端算好的对比，模型只做引用。"""
+
+    with SessionLocal() as db:
+        seed_settlements(db)
+        comparison = grade_detail_analysis_service.get_series_comparison(
+            db, merchant_nos=["单001", "单002"]
+        )
+        payload = build_grade_detail_payload(
+            comparison["grade_details"],
+            settlement_count=len(comparison["settlements"]),
+            start_date=None,
+            end_date=None,
+        )
+
+    assert [row["号别"] for row in payload["号别价格排名"]]
+    for key in ["大等级汇总", "同级号别价差", "同号别跨结算单价差", "品质标记对比"]:
+        assert key in payload
+    # 大等级占比由后端算好，模型不需要自己加号别。
+    rollup = {row["大等级"]: row for row in payload["大等级汇总"]}
+    assert rollup["A"]["件数"] == 20.0
+    assert rollup["A"]["平均每件售价"] == pytest.approx((10 * 100 + 10 * 80) / 20)
+    # A6 在两张结算单都出现，且其中一张带「熟」标记，两个对比都应有数据。
+    cross = next(row for row in payload["同号别跨结算单价差"] if row["号别"] == "A6")
+    assert cross["相差"] == pytest.approx(20.0)
+    marks = next(row for row in payload["品质标记对比"] if row["号别"] == "A6")
+    assert marks["带标记平均每件售价"] == 80.0
+    assert marks["无标记平均每件售价"] == 100.0
 
 
 def test_payload_carries_sample_size_and_keeps_ranges_intact():
