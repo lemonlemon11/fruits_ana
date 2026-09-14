@@ -11,6 +11,9 @@ import Menu from '@lucide/vue/dist/esm/icons/menu.mjs'
 import PackageSearch from '@lucide/vue/dist/esm/icons/package-search.mjs'
 import PanelLeftClose from '@lucide/vue/dist/esm/icons/panel-left-close.mjs'
 import PanelLeftOpen from '@lucide/vue/dist/esm/icons/panel-left-open.mjs'
+import PanelRightClose from '@lucide/vue/dist/esm/icons/panel-right-close.mjs'
+import RefreshCw from '@lucide/vue/dist/esm/icons/refresh-cw.mjs'
+import SquareX from '@lucide/vue/dist/esm/icons/square-x.mjs'
 import Table2 from '@lucide/vue/dist/esm/icons/table-2.mjs'
 import Type from '@lucide/vue/dist/esm/icons/type.mjs'
 import Upload from '@lucide/vue/dist/esm/icons/upload.mjs'
@@ -39,6 +42,7 @@ import {
   type FontSizePreference,
 } from './utils/shellHeader'
 import {
+  HOME_TAB_PATH,
   TABS_STORAGE_KEY,
   closeOtherTabs,
   closeTab,
@@ -98,7 +102,18 @@ const openedTabItems = computed(() =>
 )
 const userInitial = computed(() => currentUser.value?.displayName?.slice(0, 1) ?? '')
 const headerClock = computed(() => formatHeaderClock(clockNow.value))
+const tabContextMenu = ref<{ x: number; y: number; path: string } | null>(null)
+const tabContextMenuRef = ref<HTMLElement | null>(null)
+const tabContextMenuStyle = computed(() => {
+  if (!tabContextMenu.value) return {}
+  const menuWidth = 168
+  const menuHeight = 184
+  const left = Math.min(Math.max(8, tabContextMenu.value.x), window.innerWidth - menuWidth - 12)
+  const top = Math.min(Math.max(8, tabContextMenu.value.y), window.innerHeight - menuHeight - 12)
+  return { left: `${left}px`, top: `${top}px` }
+})
 const tabsStrip = ref<HTMLElement | null>(null)
+const viewKey = ref(0)
 let clockTimer: number | undefined
 let notificationTimer: number | undefined
 let notificationReminderTimer: number | undefined
@@ -121,6 +136,7 @@ watch(
   () => {
     mobileNavOpen.value = false
     fontSizePanelOpen.value = false
+    tabContextMenu.value = null
     if (authPage.value) return
     openedTabs.value = openTab(openedTabs.value, activeTabPath.value, route.fullPath)
   },
@@ -286,6 +302,9 @@ function toggleFontSizePanel() {
 }
 
 function handleGlobalPointerDown(event: PointerEvent) {
+  if (tabContextMenu.value && tabContextMenuRef.value && !tabContextMenuRef.value.contains(event.target as Node)) {
+    tabContextMenu.value = null
+  }
   if (fontSizePanelOpen.value && fontSizePanel.value && !fontSizePanel.value.contains(event.target as Node)) {
     fontSizePanelOpen.value = false
   }
@@ -296,6 +315,7 @@ function handleGlobalPointerDown(event: PointerEvent) {
 
 function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
+  tabContextMenu.value = null
   mobileNavOpen.value = false
   fontSizePanelOpen.value = false
   notificationPanelOpen.value = false
@@ -318,6 +338,42 @@ function handleCloseTab(path: string) {
 
 function handleCloseOthers() {
   openedTabs.value = closeOtherTabs(openedTabs.value, activeTabPath.value)
+}
+
+function openTabContextMenu(event: MouseEvent, path: string) {
+  tabContextMenu.value = { x: event.clientX, y: event.clientY, path }
+}
+
+function closeTabContextMenu() {
+  tabContextMenu.value = null
+}
+
+function refreshTab(path: string) {
+  closeTabContextMenu()
+  if (route.path !== path) {
+    void router.push(path).then(() => {
+      viewKey.value += 1
+    })
+  } else {
+    viewKey.value += 1
+  }
+}
+
+function closeTabFromMenu(path: string) {
+  closeTabContextMenu()
+  handleCloseTab(path)
+}
+
+function closeOtherTabsFromMenu(path: string) {
+  closeTabContextMenu()
+  openedTabs.value = closeOtherTabs(openedTabs.value, path)
+  if (route.path !== path) void router.push(path)
+}
+
+function closeAllTabsFromMenu() {
+  closeTabContextMenu()
+  openedTabs.value = restoreTabs(null, isKnownPath)
+  if (route.path !== HOME_TAB_PATH) void router.push(HOME_TAB_PATH)
 }
 
 async function signOut() {
@@ -518,7 +574,13 @@ function scrollToTop() {
         <div class="app-workspace">
           <nav class="app-tabs" aria-label="已打开的页面">
             <div ref="tabsStrip" class="app-tabs-scroll" role="tablist">
-              <span v-for="entry in openedTabItems" :key="entry.tab.path" class="app-tab" :class="{ 'is-active': entry.tab.path === activeTabPath }">
+              <span
+                v-for="entry in openedTabItems"
+                :key="entry.tab.path"
+                class="app-tab"
+                :class="{ 'is-active': entry.tab.path === activeTabPath }"
+                @contextmenu.prevent="openTabContextMenu($event, entry.tab.path)"
+              >
                 <button
                   type="button"
                   role="tab"
@@ -542,6 +604,37 @@ function scrollToTop() {
             </div>
             <button v-if="openedTabs.length > 1" type="button" class="app-tabs-action" @click="handleCloseOthers">关闭其他</button>
           </nav>
+          <div
+            v-if="tabContextMenu"
+            ref="tabContextMenuRef"
+            class="tab-context-menu"
+            :style="tabContextMenuStyle"
+            role="menu"
+            @pointerdown.stop
+            @contextmenu.prevent
+          >
+            <button type="button" role="menuitem" @click="refreshTab(tabContextMenu.path)">
+              <RefreshCw :size="15" aria-hidden="true" />
+              刷新当前
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              :disabled="tabContextMenu.path === HOME_TAB_PATH"
+              @click="closeTabFromMenu(tabContextMenu.path)"
+            >
+              <X :size="15" aria-hidden="true" />
+              关闭当前
+            </button>
+            <button type="button" role="menuitem" @click="closeOtherTabsFromMenu(tabContextMenu.path)">
+              <PanelRightClose :size="15" aria-hidden="true" />
+              关闭其他
+            </button>
+            <button type="button" role="menuitem" class="danger-text" @click="closeAllTabsFromMenu">
+              <SquareX :size="15" aria-hidden="true" />
+              关闭全部
+            </button>
+          </div>
           <nav v-if="mobileNavOpen" id="mobile-nav" class="mobile-nav-panel" aria-label="更多功能">
             <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
               <component :is="item.icon" class="nav-icon" :size="20" aria-hidden="true" />
@@ -549,7 +642,7 @@ function scrollToTop() {
             </RouterLink>
           </nav>
           <main id="main-content" tabindex="-1">
-            <RouterView />
+            <RouterView :key="viewKey" />
           </main>
           <button
             v-show="showBackToTop"

@@ -491,6 +491,36 @@
 }
 .app-tabs-action:hover { border-color: var(--primary); color: var(--primary-dark); }
 
+.tab-context-menu {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  min-width: 10.5rem;
+  padding: .35rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 14px 34px rgba(31, 41, 35, .22);
+}
+.tab-context-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 2.35rem;
+  align-items: center;
+  gap: .47rem;
+  padding: 0 .59rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink);
+  font-size: .95rem;
+  font-weight: 700;
+  text-align: left;
+}
+.tab-context-menu button:hover:not(:disabled) { background: var(--surface-soft); color: var(--primary-dark); }
+.tab-context-menu button:disabled { cursor: not-allowed; opacity: .45; }
+.tab-context-menu button.danger-text { color: var(--danger); }
+
 .mobile-nav-panel { display: none; }
 
 /* 移动端底部大按钮导航：三个主入口常驻可见，不用先点开菜单。 */
