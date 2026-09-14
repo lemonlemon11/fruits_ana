@@ -1,7 +1,7 @@
 """大模型（AI 分析）配置读取。
 
-配置来源优先级：进程环境变量 → 仓库根 ``.env``。
-根 ``.env`` 已被 Git 忽略，密钥只允许留在这里，禁止写入代码或提交。
+配置来源优先级：进程环境变量 → ``backend/.env``。
+``backend/.env`` 已被 Git 忽略，密钥只允许留在这里，禁止写入代码或提交。
 """
 
 from __future__ import annotations
@@ -13,8 +13,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-load_dotenv(ROOT_DIR / ".env", override=False)
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(BACKEND_DIR / ".env", override=False)
 
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 DEFAULT_MODEL = "deepseek-chat"
@@ -48,4 +48,4 @@ def ai_settings() -> AiSettings | None:
     return AiSettings(api_key=api_key, base_url=base_url, model=model)
 
 
-__all__ = ["AiSettings", "ai_settings", "DEFAULT_BASE_URL", "DEFAULT_MODEL", "ROOT_DIR"]
+__all__ = ["AiSettings", "ai_settings", "DEFAULT_BASE_URL", "DEFAULT_MODEL", "BACKEND_DIR"]

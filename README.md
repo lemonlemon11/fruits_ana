@@ -15,8 +15,8 @@ python3 -m venv .venv
 npm --prefix frontend ci
 ```
 
-复制 `backend/.env.example` 为 `backend/.env`，填写 MySQL 密码。`.env` 已被
-Git 忽略，也可以直接通过系统环境变量提供同名配置。若设置
+复制 `backend/.env.example` 为 `backend/.env`，统一填写 MySQL 与 AI 大模型配置。
+`.env` 已被 Git 忽略，也可以直接通过系统环境变量提供同名配置。若设置
 `FRUIT_ANALYSIS_DATABASE_URL`，它的优先级高于各项 `FRUIT_ANALYSIS_DB_*` 配置。
 
 然后使用脚本同时启动前后端：

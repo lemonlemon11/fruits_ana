@@ -145,7 +145,7 @@ def analyze_grade_detail(
     resolved = settings or ai_settings()
     if resolved is None:
         raise AiNotConfigured(
-            "未配置大模型，请在项目根目录 .env 里填写 FRUIT_ANALYSIS_AI_API_KEY"
+            "未配置大模型，请在 backend/.env 里填写 FRUIT_ANALYSIS_AI_API_KEY"
         )
 
     cache_key = build_cache_key(
