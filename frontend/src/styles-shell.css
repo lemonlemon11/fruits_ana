@@ -352,9 +352,6 @@
 }
 .app-sidebar nav a:hover { border-color: var(--line-strong); background: var(--surface-soft); }
 .app-sidebar nav a.router-link-active { border-color: var(--primary-dark); background: var(--primary); color: white; }
-.nav-group-label { margin: .82rem 0 .12rem; padding-left: .82rem; color: var(--muted); font-size: .9rem; font-weight: 700; }
-.app-sidebar nav a.nav-secondary { min-height: 2.82rem; color: var(--muted); font-size: 1rem; font-weight: 400; }
-.app-sidebar nav a.nav-secondary.router-link-active { border-color: var(--line-strong); background: var(--surface-soft); color: var(--ink); }
 .nav-icon { flex: 0 0 auto; }
 
 .sign-out-button {
@@ -394,7 +391,6 @@
     padding-inline: 0;
   }
   .app-shell.sidebar-collapsed .app-sidebar nav a > span,
-  .app-shell.sidebar-collapsed .nav-group-label,
   .app-shell.sidebar-collapsed .sidebar-foot { display: none; }
 }
 
@@ -406,6 +402,35 @@
   scroll-margin-top: calc(var(--app-header-height) + var(--app-tabs-height));
 }
 .app-workspace > main:focus { outline: none; }
+.app-footer {
+  width: min(100%, 1680px);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .71rem 1.18rem;
+  padding: .82rem 1.65rem 1.18rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: .9rem;
+}
+.app-footer-copy { font-weight: 700; }
+.app-footer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .47rem; }
+.app-footer-actions button {
+  display: inline-flex;
+  min-height: 2.35rem;
+  align-items: center;
+  gap: .41rem;
+  padding: 0 .71rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: .9rem;
+  font-weight: 700;
+}
+.app-footer-actions button:hover { border-color: var(--primary); color: var(--primary-dark); }
 
 /* 一键回顶：桌面靠右下方，移动端抬高到底部导航之上，避免遮挡主操作。 */
 .back-to-top {
@@ -604,6 +629,14 @@
   .mobile-tabbar a.router-link-active,
   .mobile-tabbar button.is-active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-dark); }
   .app-workspace > main { padding-bottom: calc(var(--mobile-tabbar-height) + env(safe-area-inset-bottom)); }
+  .app-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-inline: 14px;
+    padding-bottom: calc(var(--mobile-tabbar-height) + env(safe-area-inset-bottom) + 12px);
+  }
+  .app-footer-actions { width: 100%; }
+  .app-footer-actions button { flex: 1 1 auto; justify-content: center; }
   .back-to-top {
     right: 14px;
     bottom: calc(var(--mobile-tabbar-height) + env(safe-area-inset-bottom) + 12px);

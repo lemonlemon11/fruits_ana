@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import type { TrendPoint } from '../api/client'
 import { useChartTooltip } from '../utils/chartTooltip'
@@ -19,6 +19,8 @@ const legendItems = [
   { label: '每日销量', color: 'var(--primary)', variant: 'line' as const },
   { label: '平均每千克售价', color: 'var(--ink)', variant: 'dashed' as const },
 ]
+const tablePageSize = 8
+const tablePage = ref(1)
 
 const plotWidth = chart.width - chart.left - chart.right
 const plotHeight = chart.height - chart.top - chart.bottom
@@ -26,6 +28,11 @@ const maxQuantity = computed(() => Math.max(...props.points.map((point) => point
 const maxPrice = computed(() => Math.max(...props.points.map((point) => point.weightedAvgPrice ?? 0), 1))
 const isSinglePoint = computed(() => props.points.length === 1)
 const singlePoint = computed(() => props.points[0])
+const totalTablePages = computed(() => Math.max(1, Math.ceil(props.points.length / tablePageSize)))
+const pagedPoints = computed(() => {
+  const start = (tablePage.value - 1) * tablePageSize
+  return props.points.slice(start, start + tablePageSize)
+})
 
 const xStep = computed(() => props.points.length > 1 ? plotWidth / (props.points.length - 1) : plotWidth)
 const yTicks = computed(() => [0, 0.25, 0.5, 0.75, 1])
@@ -61,6 +68,10 @@ function priceTickLabel(ratio: number): string {
   return formatPrice(maxPrice.value * ratio)
 }
 
+function goTablePage(page: number) {
+  tablePage.value = Math.min(Math.max(1, page), totalTablePages.value)
+}
+
 /** 销量点与均价点共用同一份悬浮内容，方便对着同一天两个值一起看。 */
 function showPointTooltip(event: MouseEvent, point: TrendPoint) {
   showTooltip(event, {
@@ -72,6 +83,10 @@ function showPointTooltip(event: MouseEvent, point: TrendPoint) {
     ],
   })
 }
+
+watch(() => props.points.length, () => {
+  tablePage.value = 1
+})
 </script>
 
 <template>
@@ -192,12 +207,17 @@ function showPointTooltip(event: MouseEvent, point: TrendPoint) {
           <table>
             <thead><tr><th>到达日期</th><th>销量</th><th>销售额</th><th>平均每千克售价</th></tr></thead>
             <tbody>
-              <tr v-for="point in points" :key="point.date">
+              <tr v-for="point in pagedPoints" :key="point.date">
                 <td>{{ point.date }}</td><td>{{ formatNumber(point.salesQuantity) }}</td>
                 <td>{{ formatCurrency(point.salesAmount) }}</td><td>{{ formatPrice(point.weightedAvgPrice) }}</td>
               </tr>
             </tbody>
           </table>
+        </div>
+        <div v-if="totalTablePages > 1" class="trend-table-pagination">
+          <span>共 {{ points.length }} 条 · 第 {{ tablePage }} / {{ totalTablePages }} 页</span>
+          <button type="button" :disabled="tablePage <= 1" @click="goTablePage(tablePage - 1)">上一页</button>
+          <button type="button" :disabled="tablePage >= totalTablePages" @click="goTablePage(tablePage + 1)">下一页</button>
         </div>
       </details>
     </template>
@@ -226,6 +246,29 @@ function showPointTooltip(event: MouseEvent, point: TrendPoint) {
 .scale-hint { display: flex; justify-content: space-between; margin: -4px 44px 0; color: var(--muted); font-size: .85rem; }
 .trend-skeleton { min-height: 258px; }
 .data-details { margin-top: 13px; }
+.data-details .table-wrap { overflow: visible; }
+.data-details table { width: 100%; table-layout: fixed; }
+.trend-table-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .59rem;
+  margin-top: .71rem;
+  color: var(--muted);
+  font-size: .9rem;
+}
+.trend-table-pagination button {
+  min-height: 2.35rem;
+  padding: 0 .71rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+}
+.trend-table-pagination button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); }
+.trend-table-pagination button:disabled { cursor: not-allowed; opacity: .45; }
 
 @media (max-width: 560px) {
   .trend-chart-shell { grid-template-columns: 35px minmax(0, 1fr) 44px; min-height: 220px; }

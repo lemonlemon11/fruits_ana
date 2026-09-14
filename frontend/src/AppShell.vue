@@ -2,17 +2,21 @@
 import ArrowUp from '@lucide/vue/dist/esm/icons/arrow-up.mjs'
 import Bell from '@lucide/vue/dist/esm/icons/bell.mjs'
 import BellRing from '@lucide/vue/dist/esm/icons/bell-ring.mjs'
+import BookOpen from '@lucide/vue/dist/esm/icons/book-open.mjs'
 import Boxes from '@lucide/vue/dist/esm/icons/boxes.mjs'
 import ChartColumn from '@lucide/vue/dist/esm/icons/chart-column.mjs'
 import Clock3 from '@lucide/vue/dist/esm/icons/clock-3.mjs'
 import GitCompareArrows from '@lucide/vue/dist/esm/icons/git-compare-arrows.mjs'
+import Headphones from '@lucide/vue/dist/esm/icons/headphones.mjs'
 import LogOut from '@lucide/vue/dist/esm/icons/log-out.mjs'
 import Menu from '@lucide/vue/dist/esm/icons/menu.mjs'
+import MessageCircle from '@lucide/vue/dist/esm/icons/message-circle.mjs'
 import PackageSearch from '@lucide/vue/dist/esm/icons/package-search.mjs'
 import PanelLeftClose from '@lucide/vue/dist/esm/icons/panel-left-close.mjs'
 import PanelLeftOpen from '@lucide/vue/dist/esm/icons/panel-left-open.mjs'
 import PanelRightClose from '@lucide/vue/dist/esm/icons/panel-right-close.mjs'
 import RefreshCw from '@lucide/vue/dist/esm/icons/refresh-cw.mjs'
+import ShieldCheck from '@lucide/vue/dist/esm/icons/shield-check.mjs'
 import SquareX from '@lucide/vue/dist/esm/icons/square-x.mjs'
 import Table2 from '@lucide/vue/dist/esm/icons/table-2.mjs'
 import Type from '@lucide/vue/dist/esm/icons/type.mjs'
@@ -91,6 +95,7 @@ const moreNavItems = [
   { path: '/series-comparison', label: '品牌对比', icon: Boxes },
 ]
 const navItems = [...primaryNavItems, ...moreNavItems]
+const sidebarNavItems = [primaryNavItems[0], primaryNavItems[1], ...moreNavItems, primaryNavItems[2]]
 const moreNavActive = computed(() => moreNavItems.some((item) => route.path.startsWith(item.path)))
 const authPage = computed(() => Boolean(route.meta.guestOnly || route.meta.publicPreview))
 const currentNav = computed(() => navItemFor(route.path))
@@ -559,12 +564,7 @@ function scrollToTop() {
       <div class="app-body">
         <aside class="app-sidebar" aria-label="主要导航">
           <nav id="primary-nav" aria-label="主要导航">
-            <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-label="sidebarCollapsed ? item.label : undefined" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
-              <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
-              <span>{{ item.label }}</span>
-            </RouterLink>
-            <p class="nav-group-label">更多功能</p>
-            <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-label="sidebarCollapsed ? item.label : undefined" class="nav-secondary" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+            <RouterLink v-for="item in sidebarNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-label="sidebarCollapsed ? item.label : undefined" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
               <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
               <span>{{ item.label }}</span>
             </RouterLink>
@@ -635,7 +635,7 @@ function scrollToTop() {
               关闭全部
             </button>
           </div>
-          <nav v-if="mobileNavOpen" id="mobile-nav" class="mobile-nav-panel" aria-label="更多功能">
+          <nav v-if="mobileNavOpen" id="mobile-nav" class="mobile-nav-panel" aria-label="更多页面">
             <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
               <component :is="item.icon" class="nav-icon" :size="20" aria-hidden="true" />
               <span>{{ item.label }}</span>
@@ -644,6 +644,15 @@ function scrollToTop() {
           <main id="main-content" tabindex="-1">
             <RouterView :key="viewKey" />
           </main>
+          <footer class="app-footer">
+            <span class="app-footer-copy">SLD-水果市场销售分析系统©2026</span>
+            <nav class="app-footer-actions" aria-label="系统服务">
+              <button type="button"><BookOpen :size="16" :stroke-width="2" aria-hidden="true" />使用手册</button>
+              <button type="button"><MessageCircle :size="16" :stroke-width="2" aria-hidden="true" />微信公众号</button>
+              <button type="button"><ShieldCheck :size="16" :stroke-width="2" aria-hidden="true" />正版查询</button>
+              <button type="button"><Headphones :size="16" :stroke-width="2" aria-hidden="true" />联系人工客服</button>
+            </nav>
+          </footer>
           <button
             v-show="showBackToTop"
             class="back-to-top"

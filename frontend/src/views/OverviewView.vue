@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 import {
   getOverview,
@@ -26,6 +26,8 @@ const settlementOptions = ref<SettlementComparisonItem[]>([])
 const loading = ref(true)
 const error = ref('')
 const detailOpen = ref(false)
+const alertPage = ref(1)
+const alertPageSize = 5
 let requestVersion = 0
 
 const selectedSettlement = computed(
@@ -37,6 +39,20 @@ const trendTitle = computed(() => (
     ? `每日销量和平均每千克售价 · ${settlementOptionLabel(selectedSettlement.value)}`
     : '每日销量和平均每千克售价'
 ))
+const totalAlertPages = computed(() => Math.max(1, Math.ceil((overview.value?.operatingAnomalies.length ?? 0) / alertPageSize)))
+const pagedAnomalies = computed(() => {
+  const anomalies = overview.value?.operatingAnomalies ?? []
+  const start = (alertPage.value - 1) * alertPageSize
+  return anomalies.slice(start, start + alertPageSize)
+})
+
+function goAlertPage(page: number) {
+  alertPage.value = Math.min(Math.max(1, page), totalAlertPages.value)
+}
+
+watch(() => overview.value?.operatingAnomalies.length, () => {
+  alertPage.value = 1
+})
 
 async function refresh() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
@@ -140,13 +156,18 @@ onMounted(refresh)
               <span class="alert-code">数据</span>
               <div><strong>{{ overview.issueCounts.total }} 条数据质量提示</strong><p>请从左侧菜单进入“数据导入”，查看问题明细并核对结算单。</p></div>
             </li>
-            <li v-for="(item, index) in overview?.operatingAnomalies" :key="`${item.merchantNo}-${index}`" class="alert-item danger">
+            <li v-for="(item, index) in pagedAnomalies" :key="`${item.merchantNo}-${index}`" class="alert-item danger">
               <span class="alert-code">经营</span>
               <div><strong>{{ displayMerchantNo(item) || '结算单' }} · {{ item.reason }}</strong>
                 <p>当前 {{ formatAnomalyValue(item.type, item.metric) }}，同期基线 {{ formatAnomalyValue(item.type, item.baseline) }}</p>
               </div>
             </li>
           </ul>
+          <div v-if="totalAlertPages > 1" class="alert-pagination">
+            <span>共 {{ overview?.operatingAnomalies.length ?? 0 }} 条 · 第 {{ alertPage }} / {{ totalAlertPages }} 页</span>
+            <button type="button" :disabled="alertPage <= 1" @click="goAlertPage(alertPage - 1)">上一页</button>
+            <button type="button" :disabled="alertPage >= totalAlertPages" @click="goAlertPage(alertPage + 1)">下一页</button>
+          </div>
         </section>
       </div>
     </div>
@@ -158,7 +179,7 @@ onMounted(refresh)
 .overview-filter { grid-template-columns: repeat(2, minmax(160px, 1fr)) auto; }
 .overview-trend-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(280px, .75fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -192,6 +213,27 @@ onMounted(refresh)
 }
 
 .alerts-section { padding-bottom: 16px; }
+.alert-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .59rem;
+  margin-top: .71rem;
+  color: var(--muted);
+  font-size: .9rem;
+}
+.alert-pagination button {
+  min-height: 2.35rem;
+  padding: 0 .71rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+}
+.alert-pagination button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); }
+.alert-pagination button:disabled { cursor: not-allowed; opacity: .45; }
 .mobile-detail-toggle { display: none; }
 .overview-detail-sections { display: grid; gap: 18px; }
 
