@@ -17,7 +17,7 @@ const chart = { width: 760, height: 258, left: 42, right: 18, top: 20, bottom: 3
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
 const legendItems = [
   { label: '每日销量', color: 'var(--primary)', variant: 'line' as const },
-  { label: '平均每千克售价', color: 'var(--ink)', variant: 'dashed' as const },
+  { label: '平均每公斤售价', color: 'var(--ink)', variant: 'dashed' as const },
 ]
 const tablePageSize = 8
 const tablePage = ref(1)
@@ -36,13 +36,7 @@ const pagedPoints = computed(() => {
 
 const xStep = computed(() => props.points.length > 1 ? plotWidth / (props.points.length - 1) : plotWidth)
 const yTicks = computed(() => [0, 0.25, 0.5, 0.75, 1])
-const xLabels = computed(() => {
-  if (props.points.length <= 7) return props.points.map((point, index) => ({ point, index }))
-  const step = Math.ceil((props.points.length - 1) / 6)
-  const indexes = new Set<number>([0, props.points.length - 1])
-  for (let index = step; index < props.points.length - 1; index += step) indexes.add(index)
-  return [...indexes].sort((left, right) => left - right).map((index) => ({ point: props.points[index], index }))
-})
+const xLabels = computed(() => props.points.map((point, index) => ({ point, index })))
 
 function xPosition(index: number): number {
   return props.points.length > 1 ? chart.left + index * xStep.value : chart.left + plotWidth / 2
@@ -79,7 +73,7 @@ function showPointTooltip(event: MouseEvent, point: TrendPoint) {
     rows: [
       { label: '销量', value: `${formatNumber(point.salesQuantity)} 件`, color: 'var(--primary)' },
       { label: '销售额', value: formatCurrency(point.salesAmount) },
-      { label: '平均每千克售价', value: formatPrice(point.weightedAvgPrice), color: 'var(--ink)' },
+      { label: '平均每公斤售价', value: formatPrice(point.weightedAvgPrice), color: 'var(--ink)' },
     ],
   })
 }
@@ -92,7 +86,7 @@ watch(() => props.points.length, () => {
 <template>
   <section class="dashboard-section trend-section" aria-labelledby="trend-title">
     <header class="section-heading">
-      <h2 id="trend-title">{{ title ?? '每日销量和平均每千克售价' }}</h2>
+      <h2 id="trend-title">{{ title ?? '每日销量和平均每公斤售价' }}</h2>
       <ChartLegend :items="legendItems" />
     </header>
 
@@ -110,7 +104,7 @@ watch(() => props.points.length, () => {
           class="trend-chart"
           :viewBox="`0 0 ${chart.width} ${chart.height}`"
           role="img"
-          :aria-label="`${points.length} 天销量与平均每千克售价折线图。最高日销量 ${formatNumber(maxQuantity)}`"
+          :aria-label="`${points.length} 天销量与平均每公斤售价折线图。最高日销量 ${formatNumber(maxQuantity)}`"
         >
           <g class="chart-grid" aria-hidden="true">
             <line
@@ -196,7 +190,7 @@ watch(() => props.points.length, () => {
           <span v-for="ratio in [...yTicks].reverse()" :key="`price-${ratio}`">{{ priceTickLabel(ratio) }}</span>
         </div>
       </div>
-      <div class="scale-hint"><span>左轴：每日销量</span><span>右轴：平均每千克售价</span></div>
+      <div class="scale-hint"><span>左轴：每日销量</span><span>右轴：平均每公斤售价</span></div>
       <p v-if="isSinglePoint" class="single-point-hint">
         所选范围内只有 {{ formatDate(singlePoint.date) }} 一天数据，图中以虚线标出当天水平。
       </p>
@@ -205,7 +199,7 @@ watch(() => props.points.length, () => {
         <summary>查看趋势数据表</summary>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>到达日期</th><th>销量</th><th>销售额</th><th>平均每千克售价</th></tr></thead>
+            <thead><tr><th>到达日期</th><th>销量</th><th>销售额</th><th>平均每公斤售价</th></tr></thead>
             <tbody>
               <tr v-for="point in pagedPoints" :key="point.date">
                 <td>{{ point.date }}</td><td>{{ formatNumber(point.salesQuantity) }}</td>

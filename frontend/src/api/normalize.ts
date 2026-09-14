@@ -1,6 +1,5 @@
 import type {
   AnalyticsFilters,
-  Grade,
   GradeDetailData,
   GradeMetric,
   ImportBatch,
@@ -9,7 +8,6 @@ import type {
   MetricTotal,
   OperatingAnomaly,
   OverviewData,
-  PriceSpread,
   SeriesAggregate,
   SeriesAnalysisResult,
   SeriesComparisonData,
@@ -21,21 +19,14 @@ import type {
   SettlementRecordsData,
   TrendPoint,
 } from './types.ts'
+import { emptyGradeRecord, gradeLabel, normalizeGrade, GRADES, type Grade } from '../utils/grades.ts'
+
+export { gradeLabel, normalizeGrade, GRADES }
 
 type JsonRecord = Record<string, unknown>
 
-const GRADES: Grade[] = ['A', 'B', 'C']
-
 /** 与后端 `series_name` 保持一致：识别不出品牌时使用该名称。 */
 export const UNKNOWN_SERIES = '未识别品牌'
-
-function emptyGradeRecord<T>(value: T): Record<Grade, T> {
-  return { A: value, B: value, C: value }
-}
-
-export function gradeLabel(grade: Grade): string {
-  return grade === 'C' ? 'C果（含BC）' : `${grade}果`
-}
 
 export function buildAnalyticsQuery(filters: AnalyticsFilters): string {
   const params = new URLSearchParams()
@@ -49,7 +40,10 @@ export function buildAnalyticsQuery(filters: AnalyticsFilters): string {
 
 export function normalizeGradeMetrics(input: unknown): GradeMetric[] {
   const rows = asArray(input)
-  return GRADES.map((grade) => {
+  const presentGrades = GRADES.filter((grade) =>
+    rows.some((row) => normalizeGrade(row.grade) === grade),
+  )
+  return presentGrades.map((grade) => {
     const matches = rows.filter((row) => normalizeGrade(row.grade) === grade)
     const salesQuantity = sum(matches, 'sales_quantity', 'salesQuantity', 'quantity')
     const salesAmount = sum(matches, 'sales_amount', 'salesAmount', 'amount')
@@ -156,7 +150,10 @@ function normalizeRank(value: unknown): SettlementComparisonItem['rank'] {
 
 function normalizeGradeContribution(value: unknown): SettlementComparisonItem['gradeContribution'] {
   const record = asRecord(value)
-  return { A: nullableNumber(record.A), B: nullableNumber(record.B), C: nullableNumber(record.C) }
+  return GRADES.reduce<Record<Grade, number | null>>(
+    (result, grade) => ({ ...result, [grade]: nullableNumber(pick(record, grade, grade.toLowerCase())) }),
+    emptyGradeRecord(null),
+  )
 }
 
 export function normalizeSettlementDetail(payload: unknown, merchantNo: string): SettlementDetail {
@@ -247,11 +244,10 @@ function normalizeSettlementListItem(row: JsonRecord): SettlementListItem {
     salesAmount: numberOr(pick(row, 'sales_amount', 'salesAmount'), 0),
     totalQuantity: numberOr(pick(row, 'total_quantity', 'totalQuantity'), 0),
     averagePrice: nullableNumber(pick(row, 'average_price', 'averagePrice')),
-    gradeQuantities: {
-      A: numberOr(pick(quantities, 'A', 'a'), 0),
-      B: numberOr(pick(quantities, 'B', 'b'), 0),
-      C: numberOr(pick(quantities, 'C', 'c'), 0),
-    },
+    gradeQuantities: GRADES.reduce<Record<Grade, number>>(
+      (result, grade) => ({ ...result, [grade]: numberOr(pick(quantities, grade, grade.toLowerCase()), 0) }),
+      { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, OTHER: 0 },
+    ),
     recordCount: numberOr(pick(row, 'record_count', 'recordCount'), 0),
   }
 }
@@ -324,7 +320,7 @@ export function normalizeGradeDetails(value: unknown): GradeDetailData {
   return {
     buckets: asArray(body.buckets).map((row) => ({
       label: stringOr(pick(row, 'label'), '其他'),
-      grade: normalizeGrade(pick(row, 'grade')) ?? 'C',
+      grade: normalizeGrade(pick(row, 'grade')) ?? 'OTHER',
       fruitType: stringOr(pick(row, 'fruit_type', 'fruitType'), '榴莲'),
       salesQuantity: numberOr(pick(row, 'sales_quantity', 'salesQuantity'), 0),
       salesAmount: numberOr(pick(row, 'sales_amount', 'salesAmount'), 0),
@@ -373,38 +369,14 @@ function normalizeSeriesAggregate(row: JsonRecord): SeriesAggregate {
     gradeAmountShares: normalizeGradeAmountShares(
       pick(row, 'grade_amount_shares', 'gradeAmountShares'),
     ),
-    spread: normalizeSpread(pick(row, 'spread')),
   }
 }
 
 function normalizeGradeAmountShares(value: unknown): Record<Grade, number | null> {
   const record = asRecord(value)
-  return {
-    A: nullableNumber(pick(record, 'A', 'a')),
-    B: nullableNumber(pick(record, 'B', 'b')),
-    C: nullableNumber(pick(record, 'C', 'c')),
-  }
-}
-
-function normalizeSpread(value: unknown): PriceSpread {
-  const record = asRecord(value)
-  const prices = asRecord(pick(record, 'grade_prices', 'gradePrices'))
-  return {
-    aMinusB: nullableNumber(pick(record, 'a_minus_b', 'aMinusB')),
-    bMinusC: nullableNumber(pick(record, 'b_minus_c', 'bMinusC')),
-    bDiscountVsA: nullableNumber(pick(record, 'b_discount_vs_a', 'bDiscountVsA')),
-    gradePrices: {
-      ...emptyGradeRecord<number | null>(null),
-      ...normalizeGradePrices(prices),
-    },
-  }
-}
-
-function normalizeGradePrices(prices: JsonRecord): Partial<Record<Grade, number | null>> {
-  const result: Partial<Record<Grade, number | null>> = {}
+  const result: Record<Grade, number | null> = emptyGradeRecord(null)
   GRADES.forEach((grade) => {
-    const value = pick(prices, grade, grade.toLowerCase())
-    if (value !== undefined) result[grade] = nullableNumber(value)
+    result[grade] = nullableNumber(pick(record, grade, grade.toLowerCase()))
   })
   return result
 }
@@ -429,14 +401,6 @@ function normalizeIssueCounts(value: unknown): IssueCounts {
   const result: IssueCounts = { total: numberOr(record.total, 0) }
   Object.entries(record).forEach(([key, item]) => { result[key] = numberOr(item, 0) })
   return result
-}
-
-function normalizeGrade(value: unknown): Grade | null {
-  const grade = String(value ?? '').trim().toUpperCase()
-  if (grade.startsWith('A')) return 'A'
-  if (grade.startsWith('B') && !grade.startsWith('BC')) return 'B'
-  if (grade.startsWith('C') || grade.startsWith('BC')) return 'C'
-  return null
 }
 
 function asRecord(value: unknown): JsonRecord {

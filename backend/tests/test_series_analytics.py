@@ -146,18 +146,15 @@ def test_grade_metrics_expose_quantity_and_amount_shares(client):
     assert row["grade_amount_shares"]["B"] == pytest.approx(0.5)
 
 
-def test_price_spread_is_null_when_grade_missing(client):
+def test_comparison_no_longer_exposes_price_spread(client):
     with SessionLocal() as db:
         seed_batches(db)
 
     body = fetch_comparison(client)
     row = row_of(body, "单624")
 
-    assert row["spread"]["grade_prices"]["A"] == pytest.approx(100)
-    assert row["spread"]["a_minus_b"] == pytest.approx(50)
-    assert row["spread"]["b_minus_c"] is None
-    assert row["spread"]["b_discount_vs_a"] == pytest.approx(0.5)
-    assert row_of(body, "626")["spread"]["a_minus_b"] is None
+    assert "spread" not in row
+    assert grade_of(row, "A")["weighted_avg_price"] == pytest.approx(100)
 
 
 def test_total_aggregates_selected_settlements(client):
@@ -169,22 +166,33 @@ def test_total_aggregates_selected_settlements(client):
     assert total["total"]["sales_quantity"] == pytest.approx(60)
     assert total["total"]["sales_amount"] == pytest.approx(4100)
     assert total["total"]["weighted_avg_price"] == pytest.approx(68.3333, abs=1e-4)
-    assert total["spread"]["grade_prices"]["B"] == pytest.approx(53.3333, abs=1e-4)
-    assert total["spread"]["a_minus_b"] == pytest.approx(56.6667, abs=1e-4)
-    assert total["spread"]["b_minus_c"] == pytest.approx(23.3333, abs=1e-4)
-    assert total["spread"]["b_discount_vs_a"] == pytest.approx(0.5152, abs=1e-4)
+    assert "spread" not in total
+    assert grade_of(total, "B")["weighted_avg_price"] == pytest.approx(53.3333, abs=1e-4)
 
 
 def test_selected_merchant_nos_limit_the_scope(client):
     with SessionLocal() as db:
         seed_batches(db)
 
-    body = fetch_comparison(client, merchant_nos=["单624", "单637"])
+    body = fetch_comparison(client, merchant_nos=["单624", "626"])
 
-    assert [row["merchant_no"] for row in body["settlements"]] == ["单624", "单637"]
-    assert body["total"]["total"]["sales_quantity"] == pytest.approx(40)
-    assert body["total"]["total"]["sales_amount"] == pytest.approx(2600)
-    assert [series["name"] for series in body["series"]] == ["宝贝", "香香"]
+    assert [row["merchant_no"] for row in body["settlements"]] == ["单624", "626"]
+    assert body["total"]["total"]["sales_quantity"] == pytest.approx(50)
+    assert body["total"]["total"]["sales_amount"] == pytest.approx(3500)
+    assert [series["name"] for series in body["series"]] == ["宝贝"]
+
+
+def test_series_comparison_rejects_cross_series_selection(client):
+    with SessionLocal() as db:
+        seed_batches(db)
+
+    response = client.get(
+        "/api/analytics/series-comparison",
+        params=[("merchant_no", "单624"), ("merchant_no", "单637")],
+    )
+
+    assert response.status_code == 422
+    assert "同一品牌" in response.json()["detail"]
 
 
 def test_date_range_filters_records(client):

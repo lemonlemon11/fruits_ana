@@ -28,12 +28,6 @@ const payload = {
         { grade: 'C', sales_quantity: 0, sales_amount: 0, weighted_avg_price: null, quantity_share: 0 },
       ],
       grade_amount_shares: { A: 0.5, B: 0.5, C: null },
-      spread: {
-        a_minus_b: 50,
-        b_minus_c: null,
-        b_discount_vs_a: 0.5,
-        grade_prices: { A: 100, B: 50, C: null },
-      },
     },
   ],
   series: [
@@ -43,7 +37,6 @@ const payload = {
     total: { sales_quantity: 30, sales_amount: 2000, weighted_avg_price: 66.6667 },
     grades: [{ grade: 'A', sales_quantity: 10, sales_amount: 1000 }],
     grade_amount_shares: { A: 0.5 },
-    spread: { a_minus_b: 50, b_minus_c: null, b_discount_vs_a: 0.5, grade_prices: { A: 100 } },
   },
 }
 
@@ -55,9 +48,6 @@ test('normalizeSeriesComparison 解析结算单、系列与合计三部分', () 
   assert.equal(data.settlements[0].series, '宝贝')
   assert.equal(data.settlements[0].total.salesAmount, 2000)
   assert.equal(data.settlements[0].gradeAmountShares.B, 0.5)
-  assert.equal(data.settlements[0].spread.aMinusB, 50)
-  assert.equal(data.settlements[0].spread.bMinusC, null)
-  assert.equal(data.settlements[0].spread.gradePrices.C, null)
   assert.equal(data.series[0].name, '宝贝')
   assert.deepEqual(data.series[0].merchantNos, ['单624'])
   assert.equal(data.total.gradeAmountShares.A, 0.5)
@@ -69,7 +59,7 @@ test('normalizeSeriesComparison 缺字段时给出可展示的零值', () => {
   assert.deepEqual(data.settlements, [])
   assert.deepEqual(data.series, [])
   assert.equal(data.total.total.salesQuantity, 0)
-  assert.deepEqual(data.total.spread.gradePrices, { A: null, B: null, C: null })
+  assert.deepEqual(data.total.grades, [])
 })
 
 test('normalizeSettlementList 带出系列字段', () => {

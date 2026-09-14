@@ -53,7 +53,7 @@ export function deselectSeries(selected: string[], seriesMerchantNos: string[]):
 }
 
 export function gradePrice(item: SeriesComparisonItem, grade: Grade): number | null {
-  return item.spread.gradePrices[grade] ?? null
+  return gradeOf(item, grade)?.weightedAvgPrice ?? null
 }
 
 /** 返回等级指标；该等级没有数据时返回零值行，避免表格出现空单元格。 */

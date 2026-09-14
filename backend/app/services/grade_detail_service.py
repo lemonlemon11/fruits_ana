@@ -41,7 +41,7 @@ def _diff(high: float, low: float) -> float:
 
 
 def _price_rankings(buckets: list[dict]) -> list[dict]:
-    """按平均每千克售价从高到低排列号别，并标出哪些是区间写法。"""
+    """按平均每公斤售价从高到低排列号别，并标出哪些是区间写法。"""
 
     rows = [
         {
@@ -49,13 +49,13 @@ def _price_rankings(buckets: list[dict]) -> list[dict]:
             "大等级": row["grade"],
             "是否区间": "/" in row["label"],
             "件数": row["sales_quantity"],
-            "平均每千克售价": row["weighted_avg_price"],
+            "平均每公斤售价": row["weighted_avg_price"],
             "金额占比": row["amount_share"],
         }
         for row in buckets
         if row["weighted_avg_price"] is not None
     ]
-    rows.sort(key=lambda row: row["平均每千克售价"], reverse=True)
+    rows.sort(key=lambda row: row["平均每公斤售价"], reverse=True)
     return rows
 
 
@@ -76,9 +76,9 @@ def _grade_price_gaps(buckets: list[dict]) -> list[dict]:
             {
                 "大等级": grade,
                 "最贵号别": top["label"],
-                "最贵平均每千克售价": top["weighted_avg_price"],
+                "最贵平均每公斤售价": top["weighted_avg_price"],
                 "最便宜号别": bottom["label"],
-                "最便宜平均每千克售价": bottom["weighted_avg_price"],
+                "最便宜平均每公斤售价": bottom["weighted_avg_price"],
                 "相差": _diff(top["weighted_avg_price"], bottom["weighted_avg_price"]),
             }
         )
@@ -107,7 +107,7 @@ def _grade_rollup(
                 "号别数量": len(items),
                 "件数": rounded(quantity),
                 "金额": rounded(amount),
-                "平均每千克售价": rounded(amount / quantity) if quantity else None,
+                "平均每公斤售价": rounded(amount / quantity) if quantity else None,
                 "件数占比": quantity_share,
                 "金额占比": amount_share,
                 "金额占比减件数占比": (
@@ -148,10 +148,10 @@ def _settlement_price_gaps(
             {
                 "号别": key[2],
                 "最高价商号": top[0],
-                "最高平均每千克售价": top[1],
+                "最高平均每公斤售价": top[1],
                 "最高价件数": top[2],
                 "最低价商号": bottom[0],
-                "最低平均每千克售价": bottom[1],
+                "最低平均每公斤售价": bottom[1],
                 "最低价件数": bottom[2],
                 "相差": _diff(top[1], bottom[1]),
             }
@@ -182,9 +182,9 @@ def _quality_mark_gaps(grouped: dict[BucketKey, list[Entry]]) -> list[dict]:
             {
                 "号别": key[2],
                 "带标记件数": marked_metrics["sales_quantity"],
-                "带标记平均每千克售价": marked_price,
+                "带标记平均每公斤售价": marked_price,
                 "无标记件数": plain_metrics["sales_quantity"],
-                "无标记平均每千克售价": plain_price,
+                "无标记平均每公斤售价": plain_price,
                 "相差": _diff(marked_price, plain_price),
             }
         )
@@ -202,8 +202,8 @@ def _insights(
     return {
         "大等级汇总": _grade_rollup(buckets, total_quantity, total_amount),
         "号别价格排名": _price_rankings(buckets),
-        "同级号别价差": _grade_price_gaps(buckets),
-        "同号别跨结算单价差": _settlement_price_gaps(grouped, batches),
+        "同级号别价格差": _grade_price_gaps(buckets),
+        "同号别跨结算单价格差": _settlement_price_gaps(grouped, batches),
         "品质标记对比": _quality_mark_gaps(grouped),
     }
 

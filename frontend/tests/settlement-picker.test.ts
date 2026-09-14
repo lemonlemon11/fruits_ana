@@ -5,7 +5,10 @@ import type { SettlementListItem } from '../src/api/types.ts'
 import {
   addWholeSeries,
   filterSettlementOptions,
+  initialSameSeriesSelection,
   isWholeSeriesSelected,
+  normalizeSameSeriesSelection,
+  paginateSettlementOptions,
   parseSelectedParam,
   serializeSelectedParam,
   sortByRecentArrival,
@@ -110,4 +113,26 @@ test('serializeSelectedParam 与 parseSelectedParam 互为逆运算', () => {
   assert.equal(serializeSelectedParam(value), '640,单637,626')
   assert.deepEqual(parseSelectedParam(serializeSelectedParam(value)), value)
   assert.equal(serializeSelectedParam([]), '')
+})
+
+
+test('paginateSettlementOptions 返回安全页码与当前页数据', () => {
+  const page = paginateSettlementOptions(OPTIONS, 1, 2)
+  assert.equal(page.page, 1)
+  assert.equal(page.pages, 2)
+  assert.equal(page.total, 3)
+  assert.deepEqual(page.items.map((item) => item.merchantNo), ['626', '单637'])
+  assert.equal(paginateSettlementOptions(OPTIONS, 99, 2).page, 2)
+  assert.deepEqual(paginateSettlementOptions(OPTIONS, 99, 2).items.map((item) => item.merchantNo), ['888'])
+})
+
+test('initialSameSeriesSelection 默认选择有至少两张的品牌，且不跨品牌', () => {
+  assert.deepEqual(initialSameSeriesSelection(OPTIONS, 3), ['626', '单637'])
+  assert.deepEqual(initialSameSeriesSelection([OPTIONS[2]], 3), ['888'])
+})
+
+test('normalizeSameSeriesSelection 收敛跨品牌历史选择', () => {
+  assert.deepEqual(normalizeSameSeriesSelection(OPTIONS, ['单637', '888'], 3), ['626', '单637'])
+  assert.deepEqual(normalizeSameSeriesSelection(OPTIONS, ['888'], 3), ['626', '单637'])
+  assert.deepEqual(normalizeSameSeriesSelection(OPTIONS, [], 3), ['626', '单637'])
 })

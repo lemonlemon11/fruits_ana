@@ -88,7 +88,7 @@ def test_prompt_uses_own_headings_and_forbids_trend_on_small_samples():
     assert "趋势" in SYSTEM_PROMPT
     assert MIN_TREND_SAMPLES == 5
     # 提示词必须要求说透并给可执行建议，而不是复述数字。
-    assert "同级号别价差" in SYSTEM_PROMPT
+    assert "同级号别价格差" in SYSTEM_PROMPT
     assert "不要写「继续关注」这类空话" in SYSTEM_PROMPT
 
 
@@ -108,18 +108,18 @@ def test_payload_includes_backend_computed_comparisons():
         )
 
     assert [row["号别"] for row in payload["号别价格排名"]]
-    for key in ["大等级汇总", "同级号别价差", "同号别跨结算单价差", "品质标记对比"]:
+    for key in ["大等级汇总", "同级号别价格差", "同号别跨结算单价格差", "品质标记对比"]:
         assert key in payload
     # 大等级占比由后端算好，模型不需要自己加号别。
     rollup = {row["大等级"]: row for row in payload["大等级汇总"]}
     assert rollup["A"]["件数"] == 20.0
-    assert rollup["A"]["平均每千克售价"] == pytest.approx((10 * 100 + 10 * 80) / 20)
+    assert rollup["A"]["平均每公斤售价"] == pytest.approx((10 * 100 + 10 * 80) / 20)
     # A6 在两张结算单都出现，且其中一张带「熟」标记，两个对比都应有数据。
-    cross = next(row for row in payload["同号别跨结算单价差"] if row["号别"] == "A6")
+    cross = next(row for row in payload["同号别跨结算单价格差"] if row["号别"] == "A6")
     assert cross["相差"] == pytest.approx(20.0)
     marks = next(row for row in payload["品质标记对比"] if row["号别"] == "A6")
-    assert marks["带标记平均每千克售价"] == 80.0
-    assert marks["无标记平均每千克售价"] == 100.0
+    assert marks["带标记平均每公斤售价"] == 80.0
+    assert marks["无标记平均每公斤售价"] == 100.0
 
 
 def test_payload_carries_sample_size_and_keeps_ranges_intact():
@@ -140,7 +140,7 @@ def test_payload_carries_sample_size_and_keeps_ranges_intact():
     assert "B6/7" in labels, "区间必须原样保留，不能拆成 B6 与 B7"
     bucket = next(row for row in payload["等级阶梯"] if row["等级"] == "A6")
     assert bucket["件数"] == 20.0
-    assert bucket["平均每千克售价"] == 90.0
+    assert bucket["平均每公斤售价"] == 90.0
     assert bucket["品质标记"] == ["熟"]
 
 
@@ -210,3 +210,33 @@ def test_api_rejects_too_few_settlements(client):
 
     assert response.status_code == 422
     assert "至少选择两个结算单" in response.json()["detail"]
+
+
+def test_api_rejects_cross_brand_selection(client):
+    with SessionLocal() as db:
+        seed_settlements(db)
+        batch = ImportBatch(
+            file_name="单003.xlsx", merchant_no="单003", order_no="香香01"
+        )
+        db.add(batch)
+        db.flush()
+        db.add(
+            SaleRecord(
+                import_batch_id=batch.id,
+                sale_date=date(2026, 9, 1),
+                grade_raw="B6",
+                grade=StandardGrade.B,
+                quantity=Decimal("10"),
+                unit_price=Decimal("40"),
+                amount=Decimal("400"),
+            )
+        )
+        db.commit()
+
+    response = client.post(
+        "/api/analytics/grade-detail/analysis",
+        json={"merchant_no": ["单001", "单003"]},
+    )
+
+    assert response.status_code == 422
+    assert "同一品牌" in response.json()["detail"]

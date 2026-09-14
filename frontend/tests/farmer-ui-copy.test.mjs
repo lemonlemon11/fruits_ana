@@ -108,16 +108,19 @@ test('导入结果明确区分失败、重复和成功', () => {
 
 test('结算单选择器收进抽屉，靠搜索与品牌折叠定位，不平铺全部结算单', () => {
   const picker = fs.readFileSync(path.join(root, 'components', 'SettlementPicker.vue'), 'utf8')
-  const checkbox = picker.match(/\.series-option input\[type='checkbox'\] \{[^}]*\}/)?.[0] ?? ''
-  const options = picker.match(/\.series-options \{[^}]*\}/)?.[0] ?? ''
+  const pickerCss = fs.readFileSync(path.join(root, 'components', 'SettlementPicker.css'), 'utf8')
+  const checkbox = pickerCss.match(/\.series-option input\[type='checkbox'\] \{[^}]*\}/)?.[0] ?? ''
+  const options = pickerCss.match(/\.series-options \{[^}]*\}/)?.[0] ?? ''
 
   assert.match(checkbox, /appearance:\s*none/)
-  assert.match(picker, /:checked \{[\s\S]{0,240}data:image\/svg\+xml/)
+  assert.match(pickerCss, /:checked \{[\s\S]{0,240}data:image\/svg\+xml/)
   assert.match(options, /repeat\(auto-fill,\s*minmax\(\d+px,\s*1fr\)\)/)
   assert.match(picker, /:class="\{ selected: draft\.includes\(item\.merchantNo\) \}"/)
   // 单量变大后要靠搜索和折叠定位，并且只在点「确定」时刷新一次。
-  assert.match(picker, /placeholder="搜商号、单号或品牌"/)
+  assert.match(picker, /placeholder="搜品牌名"/)
+  assert.match(picker, /placeholder="搜商号、单号或柜号"/)
   assert.match(picker, /filterSettlementOptions/)
+  assert.match(picker, /paginateSettlementOptions/)
   assert.match(picker, /emit\('apply'/)
   const view = fs.readFileSync(path.join(root, 'views', 'SeriesComparisonView.vue'), 'utf8')
   assert.doesNotMatch(view, /class="series-picker"/)

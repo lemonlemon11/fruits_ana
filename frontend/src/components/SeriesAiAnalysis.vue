@@ -11,6 +11,7 @@ const props = defineProps<{
   startDate?: string
   endDate?: string
   disabled?: boolean
+  active?: boolean
 }>()
 
 const resetKey = computed(() =>
@@ -34,6 +35,7 @@ const run = (refresh: boolean) =>
     :headings="ANALYSIS_HEADINGS"
     :reset-key="resetKey"
     :can-generate="canGenerate"
+    :active="active"
     :run="run"
   />
 </template>

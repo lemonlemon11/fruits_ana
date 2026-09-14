@@ -10,13 +10,11 @@ import ChartLegend from '../components/ChartLegend.vue'
 import ChartTooltip from '../components/ChartTooltip.vue'
 import BrandMark from '../components/BrandMark.vue'
 import { useChartTooltip } from '../utils/chartTooltip'
+import { activeGrades, gradeColors, gradeLabels, type Grade } from '../utils/grades'
 
-type Grade = 'A' | 'B' | 'C'
 type GradeRow = { quantity: number; amount: number; price: number }
-type PreviewOrder = { name: string; date: string; totalQuantity: number; totalAmount: number; grades: Record<Grade, GradeRow> }
+type PreviewOrder = { name: string; date: string; totalQuantity: number; totalAmount: number; grades: Partial<Record<Grade, GradeRow>> }
 
-const gradeLabels: Record<Grade, string> = { A: 'A 果（A级）', B: 'B 果（B级）', C: 'C 果（含 BC）' }
-const gradeColors: Record<Grade, string> = { A: '#1f7257', B: '#c18420', C: '#bd6048' }
 const orders: PreviewOrder[] = [
   { name: '宝贝-001', date: '8/27', totalQuantity: 973, totalAmount: 412240, grades: { A: { quantity: 325, amount: 155850, price: 479.54 }, B: { quantity: 524, amount: 217790, price: 415.63 }, C: { quantity: 124, amount: 38600, price: 311.29 } } },
   { name: '宝贝-002', date: '8/27', totalQuantity: 974, totalAmount: 432300, grades: { A: { quantity: 340, amount: 180030, price: 529.50 }, B: { quantity: 386, amount: 164370, price: 425.83 }, C: { quantity: 248, amount: 87900, price: 354.44 } } },
@@ -24,29 +22,32 @@ const orders: PreviewOrder[] = [
 ]
 
 const activeGrade = ref<Grade>('A')
+const gradeOrder = computed(() => activeGrades(orders.flatMap((order) => Object.keys(order.grades).map((grade) => ({ grade })))))
 const totalQuantity = computed(() => orders.reduce((sum, order) => sum + order.totalQuantity, 0))
 const totalAmount = computed(() => orders.reduce((sum, order) => sum + order.totalAmount, 0))
 const totalPrice = computed(() => totalAmount.value / totalQuantity.value)
-const activeRows = computed(() => orders.map((order) => ({ order, row: order.grades[activeGrade.value] })))
-const gradeTotals = computed(() => (['A', 'B', 'C'] as Grade[]).map((grade) => {
-  const quantity = orders.reduce((sum, order) => sum + order.grades[grade].quantity, 0)
-  const amount = orders.reduce((sum, order) => sum + order.grades[grade].amount, 0)
+function gradeRow(order: PreviewOrder, grade: Grade): GradeRow {
+  return order.grades[grade] ?? { quantity: 0, amount: 0, price: 0 }
+}
+const activeRows = computed(() => orders.map((order) => ({ order, row: gradeRow(order, activeGrade.value) })))
+const gradeTotals = computed(() => gradeOrder.value.map((grade) => {
+  const quantity = orders.reduce((sum, order) => sum + gradeRow(order, grade).quantity, 0)
+  const amount = orders.reduce((sum, order) => sum + gradeRow(order, grade).amount, 0)
   return { grade, quantity, amount, price: amount / quantity, share: quantity / totalQuantity.value }
 }))
-const priceGaps = computed(() => orders.map((order) => ({ ...order, ab: order.grades.A.price - order.grades.B.price, bc: order.grades.B.price - order.grades.C.price, discount: (order.grades.A.price - order.grades.B.price) / order.grades.A.price })))
 const chart = { width: 720, height: 260, left: 48, right: 18, top: 24, bottom: 42 }
 const plotWidth = chart.width - chart.left - chart.right
 const plotHeight = chart.height - chart.top - chart.bottom
 
 function xPosition(index: number): number { return chart.left + (orders.length === 1 ? plotWidth / 2 : (plotWidth / (orders.length - 1)) * index) }
 function yPosition(value: number): number { return chart.top + plotHeight - ((value - 280) / 300) * plotHeight }
-function linePoints(grade: Grade): string { return orders.map((order, index) => `${xPosition(index)},${yPosition(order.grades[grade].price)}`).join(' ') }
+function linePoints(grade: Grade): string { return orders.map((order, index) => `${xPosition(index)},${yPosition(gradeRow(order, grade).price)}`).join(' ') }
 function money(value: number): string { return `¥${value.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}` }
-function price(value: number): string { return `¥${value.toFixed(2)}` }
+function price(value: number): string { return `¥${Math.round(value).toLocaleString('zh-CN')}` }
 function percent(value: number): string { return `${(value * 100).toFixed(1)}%` }
 
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
-const previewLegend = (['A', 'B', 'C'] as Grade[]).map((grade) => ({
+const previewLegend = gradeOrder.value.map((grade) => ({
   label: gradeLabels[grade],
   color: gradeColors[grade],
   variant: 'line' as const,
@@ -55,9 +56,9 @@ const previewLegend = (['A', 'B', 'C'] as Grade[]).map((grade) => ({
 function showOrderTooltip(event: MouseEvent, order: PreviewOrder) {
   showTooltip(event, {
     title: `${order.name} · ${order.date}`,
-    rows: (['A', 'B', 'C'] as Grade[]).map((grade) => ({
+    rows: gradeOrder.value.map((grade) => ({
       label: gradeLabels[grade],
-      value: `${price(order.grades[grade].price)}/千克`,
+      value: `${price(gradeRow(order, grade).price)}/公斤`,
       color: gradeColors[grade],
     })),
     note: `该单 ${order.totalQuantity.toLocaleString()} 件 · ${money(order.totalAmount)}`,
@@ -82,11 +83,11 @@ const ringSegments = computed(() => {
 
 function showShareTooltip(event: MouseEvent, row: (typeof gradeTotals.value)[number]) {
   showTooltip(event, {
-    title: `${row.grade} 果`,
+    title: gradeLabels[row.grade],
     rows: [
       { label: '件数占比', value: percent(row.share), color: gradeColors[row.grade] },
       { label: '件数', value: `${row.quantity.toLocaleString()} 件` },
-      { label: '平均每千克售价', value: price(row.price) },
+      { label: '平均每公斤售价', value: price(row.price) },
     ],
     note: `全部 ${totalQuantity.value.toLocaleString()} 件`,
   })
@@ -102,19 +103,17 @@ function showShareTooltip(event: MouseEvent, row: (typeof gradeTotals.value)[num
 
     <section class="preview-hero" aria-labelledby="preview-title"><div><p class="eyebrow">宝贝品牌 · 3 个业务单</p><h1 id="preview-title">等级独立分析</h1><p class="hero-copy">行情走强：A 果越卖越贵，B 果量价齐升，C 果占比抬升。</p></div><div class="hero-meta"><span>到达日期</span><strong>8/27 — 9/05</strong><small>按业务单分别核算</small></div></section>
 
-    <section class="metric-grid" aria-label="宝贝品牌关键指标"><article class="metric-card"><span>总件数</span><strong>{{ totalQuantity.toLocaleString() }}</strong><small>3 个业务单合计</small></article><article class="metric-card accent-amount"><span>总销售额</span><strong>{{ money(totalAmount) }}</strong><small>全部等级</small></article><article class="metric-card accent-price"><span>平均每千克售价</span><strong>{{ price(totalPrice) }}</strong><small>销售额 ÷ 总件数</small></article><article class="metric-card accent-orders"><span>分析单数</span><strong>{{ orders.length }}</strong><small>按到达日期排序</small></article></section>
+    <section class="metric-grid" aria-label="宝贝品牌关键指标"><article class="metric-card"><span>总件数</span><strong>{{ totalQuantity.toLocaleString() }}</strong><small>3 个业务单合计</small></article><article class="metric-card accent-amount"><span>总销售额</span><strong>{{ money(totalAmount) }}</strong><small>全部等级</small></article><article class="metric-card accent-price"><span>平均每公斤售价</span><strong>{{ price(totalPrice) }}</strong><small>销售额 ÷ 总件数</small></article><article class="metric-card accent-orders"><span>分析单数</span><strong>{{ orders.length }}</strong><small>按到达日期排序</small></article></section>
 
     <section class="visual-grid" aria-label="价格趋势与等级占比">
-      <article class="preview-card trend-card"><header class="card-heading"><div><p class="eyebrow">价格趋势</p><h2>各单平均每千克售价</h2></div><span class="heading-note">单位：元/千克</span></header><div class="chart-wrap"><svg class="preview-line-chart" :viewBox="`0 0 ${chart.width} ${chart.height}`" role="img" aria-label="宝贝品牌各等级各单平均每千克售价趋势图"><g class="chart-grid" aria-hidden="true"><line v-for="tick in [300, 400, 500]" :key="tick" :x1="chart.left" :x2="chart.width - chart.right" :y1="yPosition(tick)" :y2="yPosition(tick)" /><text v-for="tick in [300, 400, 500]" :key="`label-${tick}`" :x="chart.left - 10" :y="yPosition(tick) + 4" text-anchor="end">{{ tick }}</text></g><polyline v-for="grade in (['A', 'B', 'C'] as Grade[])" :key="grade" class="price-line" :points="linePoints(grade)" :stroke="gradeColors[grade]" /><g v-for="grade in (['A', 'B', 'C'] as Grade[])" :key="`dots-${grade}`"><circle v-for="(order, index) in orders" :key="`${grade}-${order.name}`" :cx="xPosition(index)" :cy="yPosition(order.grades[grade].price)" r="5" :fill="gradeColors[grade]" /><circle v-for="(order, index) in orders" :key="`hit-${grade}-${order.name}`" class="price-hit" :cx="xPosition(index)" :cy="yPosition(order.grades[grade].price)" r="14" @mouseenter="showOrderTooltip($event, order)" @mousemove="moveTooltip" @mouseleave="hideTooltip" /></g><g class="chart-x-labels"><text v-for="(order, index) in orders" :key="order.name" :x="xPosition(index)" :y="chart.height - 14" text-anchor="middle">{{ order.name }}</text></g></svg></div><ChartLegend class="legend-row" :items="previewLegend" /></article>
-      <article class="preview-card share-card"><header class="card-heading"><div><p class="eyebrow">数量结构</p><h2>等级件数占比</h2></div><span class="heading-note">占全部件数</span></header><div class="share-layout"><div class="share-ring"><svg class="share-ring-chart" viewBox="0 0 136 136" role="img" aria-label="各等级件数占比环形图"><circle class="share-ring-track" cx="68" cy="68" :r="ringRadius" /><circle v-for="segment in ringSegments" :key="segment.grade" class="share-ring-segment" cx="68" cy="68" :r="ringRadius" :stroke="segment.color" :stroke-dasharray="`${segment.dash} ${ringCircumference}`" :stroke-dashoffset="segment.offset" @mouseenter="showShareTooltip($event, segment)" @mousemove="moveTooltip" @mouseleave="hideTooltip" /></svg><div class="ring-center"><strong>{{ totalQuantity.toLocaleString() }}</strong><span>总件数</span></div></div><ul class="share-list"><li v-for="row in gradeTotals" :key="row.grade"><span class="legend-item"><i :style="{ background: gradeColors[row.grade] }" />{{ row.grade }} 果</span><strong>{{ percent(row.share) }}</strong><small>{{ row.quantity.toLocaleString() }} 件</small></li></ul></div><p class="chart-caption">B 果件数最多，是当前品牌的走量主力；鼠标放在色环或色条上可查看明细。</p></article>
+      <article class="preview-card trend-card"><header class="card-heading"><div><p class="eyebrow">价格趋势</p><h2>各单平均每公斤售价</h2></div><span class="heading-note">单位：元/公斤</span></header><div class="chart-wrap"><svg class="preview-line-chart" :viewBox="`0 0 ${chart.width} ${chart.height}`" role="img" aria-label="宝贝品牌各等级各单平均每公斤售价趋势图"><g class="chart-grid" aria-hidden="true"><line v-for="tick in [300, 400, 500]" :key="tick" :x1="chart.left" :x2="chart.width - chart.right" :y1="yPosition(tick)" :y2="yPosition(tick)" /><text v-for="tick in [300, 400, 500]" :key="`label-${tick}`" :x="chart.left - 10" :y="yPosition(tick) + 4" text-anchor="end">{{ tick }}</text></g><polyline v-for="grade in gradeOrder" :key="grade" class="price-line" :points="linePoints(grade)" :stroke="gradeColors[grade]" /><g v-for="grade in gradeOrder" :key="`dots-${grade}`"><circle v-for="(order, index) in orders" :key="`${grade}-${order.name}`" :cx="xPosition(index)" :cy="yPosition(gradeRow(order, grade).price)" r="5" :fill="gradeColors[grade]" /><circle v-for="(order, index) in orders" :key="`hit-${grade}-${order.name}`" class="price-hit" :cx="xPosition(index)" :cy="yPosition(gradeRow(order, grade).price)" r="14" @mouseenter="showOrderTooltip($event, order)" @mousemove="moveTooltip" @mouseleave="hideTooltip" /></g><g class="chart-x-labels"><text v-for="(order, index) in orders" :key="order.name" :x="xPosition(index)" :y="chart.height - 14" text-anchor="middle">{{ order.name }}</text></g></svg></div><ChartLegend class="legend-row" :items="previewLegend" /></article>
+      <article class="preview-card share-card"><header class="card-heading"><div><p class="eyebrow">数量结构</p><h2>等级件数占比</h2></div><span class="heading-note">占全部件数</span></header><div class="share-layout"><div class="share-ring"><svg class="share-ring-chart" viewBox="0 0 136 136" role="img" aria-label="各等级件数占比环形图"><circle class="share-ring-track" cx="68" cy="68" :r="ringRadius" /><circle v-for="segment in ringSegments" :key="segment.grade" class="share-ring-segment" cx="68" cy="68" :r="ringRadius" :stroke="segment.color" :stroke-dasharray="`${segment.dash} ${ringCircumference}`" :stroke-dashoffset="segment.offset" @mouseenter="showShareTooltip($event, segment)" @mousemove="moveTooltip" @mouseleave="hideTooltip" /></svg><div class="ring-center"><strong>{{ totalQuantity.toLocaleString() }}</strong><span>总件数</span></div></div><ul class="share-list"><li v-for="row in gradeTotals" :key="row.grade"><span class="legend-item"><i :style="{ background: gradeColors[row.grade] }" />{{ gradeLabels[row.grade] }}</span><strong>{{ percent(row.share) }}</strong><small>{{ row.quantity.toLocaleString() }} 件</small></li></ul></div><p class="chart-caption">B 果件数最多，是当前品牌的走量主力；鼠标放在色环或色条上可查看明细。</p></article>
     </section>
     <ChartTooltip :tooltip="tooltip" />
 
-    <section class="preview-card analysis-card" aria-labelledby="grade-analysis-title"><header class="card-heading"><div><p class="eyebrow">分等级核算</p><h2 id="grade-analysis-title">等级独立对比</h2></div><span class="heading-note">点击标签切换等级</span></header><div class="grade-tabs" role="tablist" aria-label="选择水果等级"><button v-for="grade in (['A', 'B', 'C'] as Grade[])" :key="grade" :class="['grade-tab', { active: activeGrade === grade }]" type="button" role="tab" :aria-selected="activeGrade === grade" @click="activeGrade = grade"><span :style="{ background: gradeColors[grade] }" />{{ gradeLabels[grade] }}</button></div><div class="table-wrap"><table><thead><tr><th>单号</th><th>到达日期</th><th>件数</th><th>销售额</th><th>平均每千克售价</th><th>占本单销售额</th></tr></thead><tbody><tr v-for="item in activeRows" :key="item.order.name"><th scope="row">{{ item.order.name }}</th><td>{{ item.order.date }}</td><td>{{ item.row.quantity }}</td><td>{{ money(item.row.amount) }}</td><td class="table-price">{{ price(item.row.price) }}</td><td>{{ percent(item.row.amount / item.order.totalAmount) }}</td></tr><tr class="total-row"><th scope="row">品牌合计</th><td>—</td><td>{{ gradeTotals.find((row) => row.grade === activeGrade)?.quantity }}</td><td>{{ money(gradeTotals.find((row) => row.grade === activeGrade)?.amount ?? 0) }}</td><td class="table-price">{{ price(gradeTotals.find((row) => row.grade === activeGrade)?.price ?? 0) }}</td><td>—</td></tr></tbody></table></div></section>
+    <section class="preview-card analysis-card" aria-labelledby="grade-analysis-title"><header class="card-heading"><div><p class="eyebrow">分等级核算</p><h2 id="grade-analysis-title">等级独立对比</h2></div><span class="heading-note">点击标签切换等级</span></header><div class="grade-tabs" role="tablist" aria-label="选择水果等级"><button v-for="grade in gradeOrder" :key="grade" :class="['grade-tab', { active: activeGrade === grade }]" type="button" role="tab" :aria-selected="activeGrade === grade" @click="activeGrade = grade"><span :style="{ background: gradeColors[grade] }" />{{ gradeLabels[grade] }}</button></div><div class="table-wrap"><table><thead><tr><th>单号</th><th>到达日期</th><th>件数</th><th>销售额</th><th>平均每公斤售价</th><th>占本单销售额</th></tr></thead><tbody><tr v-for="item in activeRows" :key="item.order.name"><th scope="row">{{ item.order.name }}</th><td>{{ item.order.date }}</td><td>{{ item.row.quantity }}</td><td>{{ money(item.row.amount) }}</td><td class="table-price">{{ price(item.row.price) }}</td><td>{{ percent(item.row.amount / item.order.totalAmount) }}</td></tr><tr class="total-row"><th scope="row">品牌合计</th><td>—</td><td>{{ gradeTotals.find((row) => row.grade === activeGrade)?.quantity }}</td><td>{{ money(gradeTotals.find((row) => row.grade === activeGrade)?.amount ?? 0) }}</td><td class="table-price">{{ price(gradeTotals.find((row) => row.grade === activeGrade)?.price ?? 0) }}</td><td>—</td></tr></tbody></table></div></section>
 
-    <section class="preview-card gap-card" aria-labelledby="gap-title"><header class="card-heading"><div><p class="eyebrow">等级价差</p><h2 id="gap-title">等级价差与折价</h2></div><span class="heading-note">均价差额</span></header><div class="table-wrap"><table><thead><tr><th>单号</th><th>A 平均每千克售价</th><th>B 平均每千克售价</th><th>C 平均每千克售价</th><th>A-B 价差</th><th>B-C 价差</th><th>B 比 A 低</th></tr></thead><tbody><tr v-for="row in priceGaps" :key="row.name"><th scope="row">{{ row.name }}</th><td>{{ price(row.grades.A.price) }}</td><td>{{ price(row.grades.B.price) }}</td><td>{{ price(row.grades.C.price) }}</td><td class="gap-value">{{ price(row.ab) }}</td><td class="gap-value">{{ price(row.bc) }}</td><td><span class="discount-pill">{{ percent(row.discount) }}</span></td></tr></tbody></table></div></section>
-
-    <section class="ai-preview" aria-labelledby="ai-title"><div class="ai-icon"><Sparkles :size="20" aria-hidden="true" /></div><div class="ai-content"><div class="ai-heading"><div><p class="eyebrow">AI 分析结论 · 预览</p><h2 id="ai-title">一句话看懂宝贝品牌</h2></div><span class="ai-status">示例结论</span></div><p class="ai-summary">A 果越卖越贵、B 果量价齐升、C 果占比抬升，整体行情逐柜走强。</p><div class="ai-points"><p><strong>整体总览</strong>整体平均每千克售价从 {{ price(orders[0].totalAmount / orders[0].totalQuantity) }} 升至 {{ price(orders[2].totalAmount / orders[2].totalQuantity) }}，晚到业务单价格更好。</p><p><strong>A 果</strong>合计 {{ gradeTotals[0].quantity.toLocaleString() }} 件，平均每千克售价 {{ price(gradeTotals[0].price) }}，是利润核心。</p><p><strong>B 果</strong>合计 {{ gradeTotals[1].quantity.toLocaleString() }} 件，占全部件数 {{ percent(gradeTotals[1].share) }}，是走量主力。</p><p><strong>C 果</strong>合计 {{ gradeTotals[2].quantity.toLocaleString() }} 件，02/03 占比抬升，需关注小箱货比例。</p><p><strong>价差与经营提醒</strong>B-C 价差最高达 {{ price(Math.max(...priceGaps.map((row) => row.bc))) }}，建议持续关注 C 果占比和品质分化。</p></div></div></section>
+    <section class="ai-preview" aria-labelledby="ai-title"><div class="ai-icon"><Sparkles :size="20" aria-hidden="true" /></div><div class="ai-content"><div class="ai-heading"><div><p class="eyebrow">AI 分析结论 · 预览</p><h2 id="ai-title">一句话看懂宝贝品牌</h2></div><span class="ai-status">示例结论</span></div><p class="ai-summary">A 果越卖越贵、B 果量价齐升、C 果占比抬升，整体行情逐柜走强。</p><div class="ai-points"><p><strong>整体总览</strong>整体平均每公斤售价从 {{ price(orders[0].totalAmount / orders[0].totalQuantity) }} 升至 {{ price(orders[2].totalAmount / orders[2].totalQuantity) }}，晚到业务单价格更好。</p><p><strong>A 果</strong>合计 {{ gradeTotals[0].quantity.toLocaleString() }} 件，平均每公斤售价 {{ price(gradeTotals[0].price) }}，是利润核心。</p><p><strong>B 果</strong>合计 {{ gradeTotals[1].quantity.toLocaleString() }} 件，占全部件数 {{ percent(gradeTotals[1].share) }}，是走量主力。</p><p><strong>C 果</strong>合计 {{ gradeTotals[2].quantity.toLocaleString() }} 件，02/03 占比抬升，需关注小箱货比例。</p></div></div></section>
 
     <footer class="preview-footer"><span>这是视觉预览，数字来自示例数据</span><RouterLink to="/login">登录后查看真实数据与 Excel 导出 <ArrowRight :size="15" aria-hidden="true" /></RouterLink><span class="footer-export"><Download :size="15" aria-hidden="true" />导出功能需登录</span></footer>
   </main>

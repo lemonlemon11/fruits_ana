@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>2026-09-14 优化预览 · 视觉伴侣 53001</title>
+    <link rel="stylesheet" href="./20260914-optimization-preview.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <header class="topbar">
+      <div class="wrap topbar-inner">
+        <div class="brand">
+          <span class="brand-dot" aria-hidden="true"></span>
+          <div class="brand-text">
+            <strong>SLD 水果销售分析 · 改造预览</strong>
+            <span>2026-09-14 会议优化点 · v0 设计稿</span>
+          </div>
+        </div>
+        <p class="env">视觉伴侣 <code>127.0.0.1:53001</code></p>
+      </div>
+    </header>
+
+    <main id="main" class="wrap">
+      <section class="hero">
+        <p class="eyebrow">先看效果，再动代码</p>
+        <h1>五个优化点，一次看完整显示</h1>
+        <p class="hero-sub">
+          平均售价改为「平均每公斤售价」并取整；价差 / 价比全部拿掉；等级从 A/B/C 扩展到
+          A/B/C/D/E/F，其余归入「其他」；有销售数据的日期全部展示。
+        </p>
+        <dl class="stats">
+          <div class="stat"><dt>价格单位</dt><dd>元/公斤</dd></div>
+          <div class="stat"><dt>平均售价</dt><dd>保留整数</dd></div>
+          <div class="stat"><dt>等级</dt><dd>A–F + 其他</dd></div>
+          <div class="stat"><dt>价差/价比</dt><dd>已取消</dd></div>
+        </dl>
+      </section>
+
+      <section class="card" aria-labelledby="change-title">
+        <div class="card-head">
+          <div>
+            <h2 id="change-title">改了什么</h2>
+            <p class="card-note">以下均为展示稿；实际实现会沿用现有页面结构和设计变量。</p>
+          </div>
+        </div>
+        <ul class="change-list">
+          <li><strong>① 卖得怎么样</strong><span>趋势图显示全部有销售的日期；等级卡增加 D / E / F / 其他。</span></li>
+          <li><strong>② 每一单</strong><span>结算单列表增加「总件数」，等级件数列按实际存在等级展示。</span></li>
+          <li><strong>③ 结算单详情</strong><span>饼图展示所有实际等级，移除价差/价比，新增同品牌 AI 分析。</span></li>
+          <li><strong>④ 品牌对比</strong><span>移除「等级价差」板块，只保留各等级独立对比。</span></li>
+          <li><strong>⑤ 全站文案</strong><span>平均每千克售价 → 平均每公斤售价，售价显示四舍五入为整数。</span></li>
+        </ul>
+      </section>
+
+      <section class="card" aria-labelledby="overview-title">
+        <div class="card-head">
+          <div>
+            <h2 id="overview-title">卖得怎么样 · 销售总览</h2>
+            <p class="card-note">目标效果：每个有销售数据的日期都在图中标出；等级销售情况不再只显示 A/B/C。</p>
+          </div>
+        </div>
+
+        <div class="kpi-strip">
+          <div><span>总销量</span><strong>1,268</strong><small>件</small></div>
+          <div><span>总销售额</span><strong>¥578,430</strong></div>
+          <div><span>平均每公斤售价</span><strong>¥456</strong></div>
+        </div>
+
+        <div class="mock-section-head">
+          <h3>每日销量和平均每公斤售价</h3>
+          <p>左轴：每日销量 · 右轴：平均每公斤售价</p>
+        </div>
+        <div class="trend-card">
+          <svg class="trend-chart" viewBox="0 0 760 210" role="img" aria-label="示例趋势图，所有有销售数据的日期均已标注">
+            <line x1="36" y1="170" x2="742" y2="170" class="axis" />
+            <line x1="36" y1="170" x2="36" y2="14" class="axis" />
+            <polyline points="36,142 150,122 268,130 384,92 502,74 620,56 742,38" class="sales-line" />
+            <polyline points="36,150 150,134 268,116 384,104 502,90 620,70 742,52" class="price-line" />
+            <g class="dots">
+              <circle cx="36" cy="142" r="4"/><circle cx="150" cy="122" r="4"/><circle cx="268" cy="130" r="4"/><circle cx="384" cy="92" r="4"/><circle cx="502" cy="74" r="4"/><circle cx="620" cy="56" r="4"/><circle cx="742" cy="38" r="4"/>
+            </g>
+            <g class="labels">
+              <text x="36" y="190">09/05</text>
+              <text x="150" y="190">09/06</text>
+              <text x="268" y="190">09/08</text>
+              <text x="384" y="190">09/09</text>
+              <text x="502" y="190">09/11</text>
+              <text x="620" y="190">09/12</text>
+              <text x="742" y="190">09/14</text>
+            </g>
+          </svg>
+          <p class="trend-note">示例：7 个销售日全部显示，不抽样隐藏。</p>
+        </div>
+
+        <div class="mock-section-head">
+          <h3>等级销售情况</h3>
+          <p>按实际存在的等级单独展示；平均每公斤售价取整数</p>
+        </div>
+        <div class="grade-grid">
+          <article class="grade-card grade-a"><span class="badge">A</span><strong>386</strong><small>销量占比 30.4%</small><em>¥512/公斤</em></article>
+          <article class="grade-card grade-b"><span class="badge">B</span><strong>441</strong><small>销量占比 34.8%</small><em>¥468/公斤</em></article>
+          <article class="grade-card grade-c"><span class="badge">C</span><strong>247</strong><small>销量占比 19.5%</small><em>¥431/公斤</em></article>
+          <article class="grade-card grade-d"><span class="badge">D</span><strong>112</strong><small>销量占比 8.8%</small><em>¥398/公斤</em></article>
+          <article class="grade-card grade-e"><span class="badge">E</span><strong>51</strong><small>销量占比 4.0%</small><em>¥362/公斤</em></article>
+          <article class="grade-card grade-f"><span class="badge">F</span><strong>19</strong><small>销量占比 1.5%</small><em>¥339/公斤</em></article>
+          <article class="grade-card grade-other"><span class="badge">其他</span><strong>12</strong><small>销量占比 0.9%</small><em>¥327/公斤</em></article>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="list-title">
+        <div class="card-head">
+          <div>
+            <h2 id="list-title">每一单 · 数据明细</h2>
+            <p class="card-note">目标效果：新增总件数；等级列不再写死 A/B/C，而是显示实际存在的等级。</p>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>商号</th><th>单号</th><th>到达日期</th><th>总件数</th>
+                <th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>其他</th>
+                <th>平均每公斤售价</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>640</td><td>宝贝-004</td><td>09/12 至 09/14</td><td>318</td><td>96</td><td>112</td><td>62</td><td>28</td><td>12</td><td>5</td><td>3</td><td>¥462</td></tr>
+              <tr><td>单637</td><td>宝贝-001</td><td>09/08 至 09/11</td><td>286</td><td>88</td><td>98</td><td>55</td><td>26</td><td>11</td><td>4</td><td>4</td><td>¥451</td></tr>
+              <tr><td>626</td><td>宝贝-003</td><td>09/05 至 09/09</td><td>664</td><td>202</td><td>231</td><td>130</td><td>58</td><td>28</td><td>10</td><td>5</td><td>¥449</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="mock-note">备注：正式实现会按数据中实际出现的等级动态生成列，避免空列占位。</p>
+      </section>
+
+      <section class="card" aria-labelledby="detail-title">
+        <div class="card-head">
+          <div>
+            <h2 id="detail-title">结算单详情</h2>
+            <p class="card-note">目标效果：饼图包含 A/B/C/D/E/F/其他；移除价差/价比；增加同品牌 AI 分析。</p>
+          </div>
+        </div>
+
+        <div class="detail-layout">
+          <div class="detail-main">
+            <div class="kpi-strip detail-kpis">
+              <div><span>销量</span><strong>318</strong><small>件</small></div>
+              <div><span>销售额</span><strong>¥146,916</strong></div>
+              <div><span>平均每公斤售价</span><strong>¥462</strong></div>
+              <div><span>销售额排名</span><strong>第 1 名</strong><small>共 3 单</small></div>
+            </div>
+
+            <div class="mock-section-head">
+              <h3>等级件数结构</h3>
+              <p>按实际等级单独展示，非 A/B 等级不再隐藏</p>
+            </div>
+            <div class="pie-layout">
+              <div class="pie-chart" role="img" aria-label="等级件数结构示例，A、B、C、D、E、F、其他分别展示"></div>
+              <ul class="pie-legend">
+                <li><span class="dot grade-a"></span><strong>A</strong><em>30.2%</em><small>96 件</small></li>
+                <li><span class="dot grade-b"></span><strong>B</strong><em>35.2%</em><small>112 件</small></li>
+                <li><span class="dot grade-c"></span><strong>C</strong><em>19.5%</em><small>62 件</small></li>
+                <li><span class="dot grade-d"></span><strong>D</strong><em>8.8%</em><small>28 件</small></li>
+                <li><span class="dot grade-e"></span><strong>E</strong><em>3.8%</em><small>12 件</small></li>
+                <li><span class="dot grade-f"></span><strong>F</strong><em>1.6%</em><small>5 件</small></li>
+                <li><span class="dot grade-other"></span><strong>其他</strong><em>0.9%</em><small>3 件</small></li>
+              </ul>
+            </div>
+
+            <div class="removed-box">
+              <strong>已取消</strong>
+              <span>原来的「价差与折价比」卡片不再显示。</span>
+            </div>
+          </div>
+
+          <aside class="ai-card">
+            <div class="ai-head"><span class="ai-badge">AI 解读</span><h3>同品牌经营分析</h3></div>
+            <p class="ai-note">对比当前品牌「宝贝」下其他单据的等级价格，给出经营建议。</p>
+            <button class="mock-button" type="button">生成分析</button>
+            <div class="ai-result">
+              <strong>整体行情</strong>
+              <p>本单平均每公斤售价 ¥462，比同品牌其他 2 张单高 ¥18；整体量价更好。</p>
+              <strong>A 果</strong>
+              <p>A 果均价 ¥512/公斤，比同品牌其他单高 ¥9；占比 30.2%，是撑金额的主要等级。</p>
+              <strong>B 果</strong>
+              <p>B 果均价 ¥468/公斤，高于其他单 ¥12，且件数占比最大，建议继续保持分选。</p>
+              <strong>可以留意的地方</strong>
+              <p>D/E/F/其他合计占 15.1%，可复核小果分选是否还能提高 B 果比例。</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="brand-title">
+        <div class="card-head">
+          <div>
+            <h2 id="brand-title">品牌对比</h2>
+            <p class="card-note">目标效果：保留各等级独立对比，移除「等级价差」板块。</p>
+          </div>
+        </div>
+        <div class="mock-section-head">
+          <h3>等级独立对比</h3>
+          <p>每个等级单独核算件数、金额、平均每公斤售价与金额占比</p>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th>单号</th><th>等级</th><th>件数</th><th>金额</th><th>平均每公斤售价</th><th>金额占比</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>宝贝-004</td><td>A</td><td>96</td><td>¥49,152</td><td>¥512</td><td>33.5%</td></tr>
+              <tr><td>宝贝-004</td><td>B</td><td>112</td><td>¥52,416</td><td>¥468</td><td>35.7%</td></tr>
+              <tr><td>宝贝-004</td><td>C</td><td>62</td><td>¥26,722</td><td>¥431</td><td>18.2%</td></tr>
+              <tr><td>宝贝-004</td><td>D</td><td>28</td><td>¥11,144</td><td>¥398</td><td>7.6%</td></tr>
+              <tr><td>宝贝-004</td><td>E</td><td>12</td><td>¥4,344</td><td>¥362</td><td>3.0%</td></tr>
+              <tr><td>宝贝-004</td><td>F</td><td>5</td><td>¥1,695</td><td>¥339</td><td>1.2%</td></tr>
+              <tr><td>宝贝-004</td><td>其他</td><td>3</td><td>¥981</td><td>¥327</td><td>0.7%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="removed-box">
+          <strong>已取消</strong>
+          <span>原来的「等级价差」表格和 A-B / B-C 价差、折价比例不再显示。</span>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="confirm-title">
+        <div class="card-head">
+          <div>
+            <h2 id="confirm-title">落地口径（已按你的确认整理）</h2>
+          </div>
+        </div>
+        <ol class="decision-list">
+          <li><strong>等级范围：</strong>A / B / C / D / E / F 单独展示，其余等级统一归入「其他」。</li>
+          <li><strong>取消价差/价比：</strong>前端、后端和 AI 提示词一并清理，不保留旧口径。</li>
+          <li><strong>趋势图日期：</strong>有销售数据的日期全部展示。</li>
+          <li><strong>等级件数结构：</strong>实际存在的等级单独展示，不合并成「其他」隐藏。</li>
+          <li><strong>结算单 AI：</strong>详情页手动生成，分析范围跟随当前品牌和到达日期。</li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap">
+        <span>仅供 53001 视觉评审使用 · 不进入正式业务代码</span>
+        <a href="./index.html">返回预览索引</a>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -216,6 +216,14 @@ class SeriesAnalysisRequest(BaseModel):
     refresh: bool = False
 
 
+class SettlementAnalysisRequest(BaseModel):
+    """结算单详情同品牌 AI 分析的请求体。"""
+
+    start_date: date | None = None
+    end_date: date | None = None
+    refresh: bool = False
+
+
 class SeriesAnalysisResponse(BaseModel):
     """AI 分析结论。"""
 
@@ -244,6 +252,7 @@ __all__ = [
     "SettlementListResponse",
     "SeriesAnalysisRequest",
     "SeriesAnalysisResponse",
+    "SettlementAnalysisRequest",
     "SettlementRecordRead",
     "SettlementRecordsResponse",
     "SourceFileCreate",

@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getSettlementComparison, getSettlementDetail, getTrend, gradeLabel, recordSourceUrl, type SettlementComparisonItem, type SettlementDetail, type TrendPoint } from '../api/client'
+import { generateSettlementAnalysis, getSettlementComparison, getSettlementDetail, getTrend, gradeLabel, recordSourceUrl, type Grade, type SettlementComparisonItem, type SettlementDetail, type TrendPoint } from '../api/client'
 import DateRangeFilter from '../components/DateRangeFilter.vue'
+import GradeFilterBar from '../components/GradeFilterBar.vue'
 import GradeSummary from '../components/GradeSummary.vue'
 import SettlementGradeBreakdown from '../components/SettlementGradeBreakdown.vue'
 import TrendChart from '../components/TrendChart.vue'
+import AiAnalysisCard from '../components/AiAnalysisCard.vue'
 import { buildOtherSettlementGradeBaseline, settlementOptionLabel, settlementSeries } from '../utils/settlementComparison'
+import { activeGrades } from '../utils/grades'
+import { ANALYSIS_HEADINGS } from '../utils/seriesAnalysis'
 import { displayMerchantNo } from '../utils/merchantNo'
 import { formatAnomalyValue, formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
 
@@ -40,15 +44,30 @@ const baselineRows = computed(() => detail.value?.grades.map((grade) => {
     : null
   return { ...grade, baselinePrice: reference?.weightedAvgPrice ?? null, delta }
 }) ?? [])
+const aiResetKey = computed(() => `${activeMerchantNo.value}|${filters.series}|${filters.startDate}|${filters.endDate}`)
+const canGenerateSettlementAi = computed(() => Boolean(activeMerchantNo.value && !loading.value))
+const availableGradeOrder = computed(() => activeGrades([...(detail.value?.grades ?? []), ...(detail.value?.records ?? [])]))
+const visibleGradeOrder = ref<Grade[]>([])
+watch(availableGradeOrder, (grades) => {
+  visibleGradeOrder.value = [...grades]
+})
 
 function queryText(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+function runSettlementAi(refresh: boolean) {
+  return generateSettlementAnalysis(
+    activeMerchantNo.value,
+    { startDate: filters.startDate, endDate: filters.endDate },
+    { refresh },
+  )
+}
+
 const salesKpis = computed(() => [
   { label: '销量', value: detail.value ? formatNumber(detail.value.total.salesQuantity) : '—', note: `占全部 ${formatPercent(selectedOption.value?.salesQuantityShare)}` },
   { label: '销售额', value: detail.value ? formatCurrency(detail.value.total.salesAmount) : '—', note: `占全部 ${formatPercent(selectedOption.value?.salesAmountShare)}` },
-  { label: '平均每千克售价', value: detail.value ? formatPrice(detail.value.total.weightedAvgPrice) : '—', note: '销售额 ÷ 销量（千克）' },
+  { label: '平均每公斤售价', value: detail.value ? formatPrice(detail.value.total.weightedAvgPrice) : '—', note: '销售额 ÷ 销量（千克）' },
   { label: '销售额排名', value: selectedOption.value?.rank?.salesAmount ? `第 ${selectedOption.value.rank.salesAmount} 名` : '—', note: `共 ${filteredOptions.value.length || '—'} 个结算单` },
 ])
 async function loadOptions() {
@@ -126,21 +145,37 @@ onMounted(refresh)
       <section class="settlement-banner"><div class="settlement-identity"><strong>{{ selectedOption ? settlementOptionLabel(selectedOption) : activeMerchantNo }}</strong><small>商号 {{ activeMerchantLabel }} · {{ detail?.containerNo ? `柜号 ${detail.containerNo}` : '未登记柜号' }} · 到达日期：{{ periodLabel }}</small></div></section>
       <section class="kpi-grid" aria-label="销售核心指标"><article v-for="item in salesKpis" :key="item.label" class="kpi-card"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.note }}</small></article></section>
       <section class="panel grade-summary-panel">
+        <GradeFilterBar
+          v-if="availableGradeOrder.length"
+          v-model="visibleGradeOrder"
+          :grades="availableGradeOrder"
+        />
         <GradeSummary
           :grades="detail?.grades ?? []"
           :total="detail?.total ?? { salesQuantity: 0, salesAmount: 0, weightedAvgPrice: null }"
           :loading="loading"
           :title="`${selectedOption ? settlementOptionLabel(selectedOption) : '当前结算单'} 等级表现`"
+          :grade-order="visibleGradeOrder"
         />
         <SettlementGradeBreakdown
           :grades="detail?.grades ?? []"
           :records="detail?.records ?? []"
           :loading="loading"
+          :grade-order="visibleGradeOrder"
         />
       </section>
+      <AiAnalysisCard
+        title="同品牌经营分析"
+        note="对比当前品牌下其他结算单的等级价格，给出可执行的经营建议"
+        :headings="ANALYSIS_HEADINGS"
+        :reset-key="aiResetKey"
+        :can-generate="canGenerateSettlementAi"
+        :run="runSettlementAi"
+        generate-text="生成同品牌分析"
+      />
       <button type="button" class="mobile-detail-toggle" :aria-expanded="detailOpen" aria-controls="settlement-mobile-detail" @click="detailOpen = !detailOpen">{{ detailOpen ? '收起更多分析' : '查看趋势、对比与明细' }}</button>
       <div v-show="detailOpen" id="settlement-mobile-detail" class="settlement-mobile-detail">
-        <section class="analysis-grid"><div class="panel trend-panel"><TrendChart :points="trend" :loading="loading" title="该结算单每日销量和平均每千克售价" /></div><div class="panel baseline-panel"><header class="panel-head"><h2>和同期其他结算单平均每千克售价对比</h2></header><div v-if="loading" class="skeleton-block">正在计算对比数据</div><div v-else class="baseline-list"><div v-for="row in baselineRows" :key="row.grade" class="baseline-row"><span class="grade-badge" :class="`grade-${row.grade.toLowerCase()}`">{{ row.grade }}</span><div><strong>{{ gradeLabel(row.grade) }}</strong><small>本单 {{ formatPrice(row.weightedAvgPrice) }} · 其他结算单 {{ formatPrice(row.baselinePrice) }}</small></div><span :class="['delta-pill', { negative: row.delta !== null && row.delta < 0 }]">{{ row.delta === null ? '暂无对比' : `${row.delta >= 0 ? '+' : ''}${formatPercent(row.delta)}` }}</span></div></div></div></section>
+        <section class="analysis-grid"><div class="panel trend-panel"><TrendChart :points="trend" :loading="loading" title="该结算单每日销量和平均每公斤售价" /></div><div class="panel baseline-panel"><header class="panel-head"><h2>和同期其他结算单平均每公斤售价对比</h2></header><div v-if="loading" class="skeleton-block">正在计算对比数据</div><div v-else class="baseline-list"><div v-for="row in baselineRows" :key="row.grade" class="baseline-row"><span class="grade-badge" :class="`grade-${row.grade.toLowerCase()}`">{{ row.grade }}</span><div><strong>{{ gradeLabel(row.grade) }}</strong><small>本单 {{ formatPrice(row.weightedAvgPrice) }} · 其他结算单 {{ formatPrice(row.baselinePrice) }}</small></div><span :class="['delta-pill', { negative: row.delta !== null && row.delta < 0 }]">{{ row.delta === null ? '暂无对比' : `${row.delta >= 0 ? '+' : ''}${formatPercent(row.delta)}` }}</span></div></div></div></section>
         <section class="compact-alerts panel"><header class="panel-head"><h2>需要关注</h2></header><div v-if="!detail?.operatingAnomalies.length" class="empty-inline">当前未发现经营异常</div><ul v-else class="alert-list inline-alerts"><li v-for="(item, index) in detail.operatingAnomalies" :key="index" class="alert-item danger"><span class="alert-code">提醒</span><div><strong>{{ item.reason }}</strong><p>当前 {{ formatAnomalyValue(item.type, item.metric) }} · 全部 {{ formatAnomalyValue(item.type, item.baseline) }}</p></div></li></ul></section>
         <details class="secondary-drawer"><summary><span><b>查看结算和销售明细</b><small>需要核对原始数据时再展开</small></span><em>展开</em></summary><div class="drawer-grid"><section class="panel"><header class="panel-head"><h2>结算信息</h2></header><dl class="settlement-strip"><div><dt>售后金额</dt><dd>{{ detail?.settlement.afterSalesAmount == null ? '暂无数据' : formatCurrency(detail.settlement.afterSalesAmount) }}</dd></div><div><dt>费用合计</dt><dd>{{ detail?.settlement.feeAmount == null ? '暂无数据' : formatCurrency(detail.settlement.feeAmount) }}</dd></div><div><dt>清关税费</dt><dd>{{ detail?.settlement.customsTax == null ? '暂无数据' : formatCurrency(detail.settlement.customsTax) }}</dd></div><div><dt>应付结算</dt><dd>{{ detail?.settlement.payableAmount == null ? '暂无数据' : formatCurrency(detail.settlement.payableAmount) }}</dd></div></dl></section><section class="panel"><header class="panel-head"><h2>销售明细</h2><span>{{ detail?.records.length ?? 0 }} 条</span></header><div v-if="!detail?.records.length" class="empty-inline">当前范围没有销售明细</div><div v-else class="trace-results"><div class="table-wrap trace-table"><table><thead><tr><th>到达日期</th><th>等级</th><th>数量</th><th>金额</th><th>来源</th></tr></thead><tbody><tr v-for="record in detail.records" :key="record.id"><td>{{ record.saleDate }}</td><td>{{ record.grade ? gradeLabel(record.grade) : '未知' }}</td><td>{{ formatNumber(record.quantity) }}</td><td>{{ formatCurrency(record.amount) }}</td><td><a class="text-link" :href="recordSourceUrl(record.id)">#{{ record.sourceFileId ?? '—' }}</a></td></tr></tbody></table></div><div class="mobile-trace-cards"><article v-for="record in detail.records" :key="record.id" class="mobile-trace-card"><header><strong>{{ record.saleDate }}</strong><span>{{ record.grade ? gradeLabel(record.grade) : '未知' }}</span></header><dl><div><dt>数量</dt><dd>{{ formatNumber(record.quantity) }}</dd></div><div><dt>金额</dt><dd>{{ formatCurrency(record.amount) }}</dd></div><div><dt>来源</dt><dd><a class="text-link" :href="recordSourceUrl(record.id)">#{{ record.sourceFileId ?? '—' }}</a></dd></div></dl></article></div></div></section></div></details>
       </div>

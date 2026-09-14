@@ -36,8 +36,8 @@ const selectedSettlement = computed(
 const settlements = computed(() => filterSettlementsByMerchant(settlementOptions.value, filters.merchantNo))
 const trendTitle = computed(() => (
   selectedSettlement.value
-    ? `每日销量和平均每千克售价 · ${settlementOptionLabel(selectedSettlement.value)}`
-    : '每日销量和平均每千克售价'
+    ? `每日销量和平均每公斤售价 · ${settlementOptionLabel(selectedSettlement.value)}`
+    : '每日销量和平均每公斤售价'
 ))
 const totalAlertPages = computed(() => Math.max(1, Math.ceil((overview.value?.operatingAnomalies.length ?? 0) / alertPageSize)))
 const pagedAnomalies = computed(() => {

@@ -141,7 +141,19 @@ def test_cache_key_ignores_order_but_not_dates():
     assert first != other
 
 
-def test_payload_keeps_grade_numbers_and_spreads():
+def test_cache_key_distinguishes_current_settlement_for_detail_view():
+    shared = {
+        "merchant_nos": ["M1", "M2"],
+        "start_date": None,
+        "end_date": None,
+    }
+    first = build_cache_key(**shared, current_merchant_no="M1")
+    second = build_cache_key(**shared, current_merchant_no="M2")
+    assert first != second
+    assert first == build_cache_key(**shared, current_merchant_no="M1")
+
+
+def test_payload_keeps_grade_numbers_without_spreads():
     with SessionLocal() as db:
         seed_two_settlements(db)
         comparison = ai_analysis_service.get_series_comparison(
@@ -157,7 +169,8 @@ def test_payload_keeps_grade_numbers_and_spreads():
     assert grades["A"]["件数"] == 15.0
     assert grades["A"]["金额占比"] == pytest.approx(0.625)
     assert payload["结算单"][0]["品牌"] == "宝贝"
-    assert payload["合计"]["价差"]["A比B贵"] == pytest.approx(83.3333)
+    assert "价差" not in payload["合计"]
+    assert grades["C"]["件数"] == 5.0
 
 
 def test_payload_adds_sample_size_and_comparison_insights():
@@ -172,10 +185,10 @@ def test_payload_adds_sample_size_and_comparison_insights():
 
     assert payload["样本量"] == {"结算单数量": 2, "是否够下趋势结论": False}
     insights = payload["对比结论"]
-    rankings = insights["结算单价差排名"]
+    rankings = insights["结算单均价排名"]
     assert len(rankings) == 2
-    assert rankings[0]["平均每千克售价"] >= rankings[1]["平均每千克售价"]
-    assert insights["最高比最低每件贵"] is not None
+    assert rankings[0]["平均每公斤售价"] >= rankings[1]["平均每公斤售价"]
+    assert insights["最高比最低每公斤贵"] is not None
     signals = {row["等级"]: row for row in insights["等级结构信号"]}
     assert signals["A"]["金额占比减件数占比"] == pytest.approx(0.625 - 15 / 40)
 
@@ -242,6 +255,27 @@ def test_analysis_api_rejects_single_settlement(client):
     )
     assert response.status_code == 422
     assert "至少选择两个" in response.json()["detail"]
+
+
+def test_analysis_api_rejects_cross_brand_selection(client):
+    with SessionLocal() as db:
+        seed_two_settlements(db)
+        add_settlement(
+            db,
+            merchant_no="M3",
+            order_no="香香01",
+            sale_date=date(2026, 9, 6),
+            rows=[(StandardGrade.B, 10, 60)],
+        )
+        db.commit()
+
+    response = client.post(
+        "/api/analytics/series-comparison/analysis",
+        json={"merchant_no": ["M1", "M3"]},
+    )
+
+    assert response.status_code == 422
+    assert "同一品牌" in response.json()["detail"]
 
 
 def test_analysis_api_rejects_reversed_dates(client):

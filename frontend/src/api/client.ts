@@ -159,6 +159,21 @@ export async function generateGradeDetailAnalysis(
   return normalizeSeriesAnalysis(await request(path, jsonRequest(body)))
 }
 
+/** 生成当前结算单与同品牌其他结算单的对比分析；相同条件会返回缓存。 */
+export async function generateSettlementAnalysis(
+  merchantNo: string,
+  filters: AnalyticsFilters = {},
+  options: { refresh?: boolean } = {},
+): Promise<SeriesAnalysisResult> {
+  const body = {
+    start_date: filters.startDate || null,
+    end_date: filters.endDate || null,
+    refresh: options.refresh === true,
+  }
+  const path = `${API_ROOT}/analytics/settlements/${encodeURIComponent(merchantNo)}/analysis`
+  return normalizeSeriesAnalysis(await request(path, jsonRequest(body)))
+}
+
 export async function getImports(): Promise<ImportBatch[]> {
   const body = unwrap(await request(`${API_ROOT}/imports`))
   return asArray(Array.isArray(body) ? body : body.imports ?? body.items).map(normalizeImportBatch)

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 
 import type { Grade, GradeMetric } from '../api/client'
 import { gradeLabel } from '../api/client'
+import { activeGrades, gradeColors } from '../utils/grades'
 import { useChartTooltip } from '../utils/chartTooltip'
 import { formatNumber, formatPercent } from '../utils/format'
 import ChartTooltip from './ChartTooltip.vue'
@@ -13,12 +14,11 @@ const props = defineProps<{
   gradeOrder?: Grade[]
 }>()
 
-const gradeColors: Record<Grade, string> = { A: '#16856b', B: '#bd7414', C: '#b94a3c' }
 const radius = 48
 const circumference = 2 * Math.PI * radius
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
 
-const visibleGrades = computed(() => props.gradeOrder ?? ['A', 'B', 'C'])
+const visibleGrades = computed(() => props.gradeOrder ?? activeGrades(props.grades))
 
 const rows = computed(() => visibleGrades.value.map((grade) => {
   const source = props.grades.find((item) => item.grade === grade)

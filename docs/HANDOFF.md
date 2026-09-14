@@ -25,12 +25,26 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 状态：P0-1 / P0-2 / P0-3 / P0-4 均已完成 / COMMITTED
 
+本轮新增（2026-09-14，ADR-019）：品牌对比只允许同一品牌内选择结算单。前端 `SettlementPicker.vue`
+改为先选品牌、再选同品牌结算单，品牌内搜索 + 每页 6 张分页；历史跨品牌 `selected=` 会收敛；
+后端系列对比与两处 AI 分析接口增加同品牌校验，跨品牌返回 422。另完成 AI 分析默认展示与缓存
+自动复用：页面条件满足后自动先读后端缓存，同条件已分析过直接返回旧结论，不再重复生成。
+详见 Current Status / Test Status。
+
 当前进度：
 - **品牌与日期筛选（2026-09-14）**：新增 `DateRangeFilter.vue`，五个业务页统一从一个
    面板选择起止日期；结算单详情页新增品牌筛选，商号候选与价格基线随品牌收窄；
    前端用户可见文案的「系列」统一为「品牌」，后端 `UNKNOWN_SERIES` 显示值改为「未识别品牌」；
    AI 数据包字段由「系列」改为「品牌」，`PROMPT_VERSION` `v5 → v6`。
    验证：前端 123 项测试 / `typecheck` / `build` 通过，后端 236 项 pytest 通过。
+- **品牌对比同品牌约束与分页选择（2026-09-14，ADR-019）**：选择器改为两步；
+   品牌内搜索商号 / 单号 / 柜号并每页 6 张分页；历史 `selected=` 跨品牌链接收敛；
+   后端系列对比与两处 AI 分析接口增加同品牌校验，跨品牌返回 422。
+   验证：前端 126 项测试 / `typecheck` / `build` 通过；后端 241 项 pytest 通过。
+- **AI 分析默认展示与缓存自动复用（2026-09-14）**：`AiAnalysisCard.vue` 默认自动读取缓存，
+   只有同条件没有缓存时才请求生成；命中缓存直接展示上次 `generated_at` 与模型信息并标记
+   `cached=true`；筛选条件变化用请求版本号丢弃过期响应，避免旧结果覆盖新条件。
+   验证：前端 126 项测试 / `typecheck` / `build` 通过；后端 241 项 pytest 通过。
 - **结算单详情等级图表（2026-09-14）**：新增 `SettlementGradeBreakdown.vue`，在等级表现
    板块展示 A/B 件数占比环形图、A/B 均价柱状图、A-B 价差与 B 比 A 折价比，以及 A/B/C
    各等级各规格件数横向柱状图；`GradePieChart.vue` 增加可选 `gradeOrder` 以支持按 A/B 展示。
@@ -600,7 +614,7 @@ npm --prefix frontend run typecheck
 
 ## Test Status
 
-当前测试：PASS（2026-09-14 实测：后端 236 项 pytest、前端 123 项测试、
+当前测试：PASS（2026-09-14 实测：后端 241 项 pytest、前端 126 项测试、
 `typecheck`、`vite build` 全通过；服务已重启，`/health` 返回 `{"status":"ok"}`。）
 
 ### 品牌口径与统一日期范围（2026-09-14，未提交）
@@ -610,6 +624,20 @@ npm --prefix frontend run typecheck
 - 前端 `npm --prefix frontend run typecheck`：通过，退出码 0
 - 前端 `npm --prefix frontend run build`：成功
 - 运行服务：已重启 `fruits_ana` 后端，`GET /health` 返回 200；Nginx 继续托管最新 `dist`
+
+### 品牌对比同品牌约束与分页选择（2026-09-14，未提交）
+
+- 后端 `pytest`：241 项全部通过，退出码 0
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0
+- 前端 `npm --prefix frontend run build`：成功
+- 前端 `npm --prefix frontend run test`：126 项全部通过，退出码 0
+
+### AI 分析默认展示与缓存自动复用（2026-09-14，未提交）
+
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0
+- 前端 `npm --prefix frontend run build`：成功
+- 前端 `npm --prefix frontend run test`：126 项全部通过，退出码 0
+- 后端 `pytest`：241 项全部通过，退出码 0
 
 ### 导入等待、回顶与移动端优化（2026-09-11，未提交）
 

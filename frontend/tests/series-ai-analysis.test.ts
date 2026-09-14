@@ -96,6 +96,8 @@ test('AI 分析卡片使用果农能看懂的文案', () => {
   const card = fs.readFileSync(path.join(src, 'components', 'AiAnalysisCard.vue'), 'utf8')
   assert.match(card, /生成分析/)
   assert.match(card, /正在生成/)
+  assert.match(card, /autoRun\?: boolean/)
+  assert.match(card, /generate\(false\)/)
   assert.doesNotMatch(card, /加权均价|贡献度|环比|同比/)
 
   const series = fs.readFileSync(path.join(src, 'components', 'SeriesAiAnalysis.vue'), 'utf8')

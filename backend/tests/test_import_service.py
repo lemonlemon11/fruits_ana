@@ -219,7 +219,7 @@ def test_missing_merchant_no_fails_with_file_level_error(tmp_path):
     db.close()
 
 
-def test_unknown_grade_and_missing_numeric_field_create_issues_and_skip_rows(tmp_path):
+def test_unrecognized_grade_falls_back_to_other_and_missing_numeric_skips_row(tmp_path):
     path = write_csv(
         tmp_path,
         "container_no,sale_date,grade,quantity,unit_price,amount\n"
@@ -230,12 +230,13 @@ def test_unknown_grade_and_missing_numeric_field_create_issues_and_skip_rows(tmp
     result = import_file(db, path)
 
     assert result.status == "partial"
-    assert result.success_count == 0
-    assert result.failure_count == 2
+    assert result.success_count == 1
+    assert result.failure_count == 1
     issues = db.query(DataIssue).order_by(DataIssue.row_number).all()
-    assert issues[0].issue_type == "unknown_grade"
-    assert issues[1].issue_type == "missing_field"
-    assert db.query(SaleRecord).count() == 0
+    assert [issue.issue_type for issue in issues] == ["missing_field"]
+    record = db.query(SaleRecord).one()
+    assert record.grade.value == "OTHER"
+    assert record.grade_raw == "X6"
     db.close()
 
 
@@ -329,7 +330,7 @@ def test_overwrite_purges_previous_issues_and_summary_rows(tmp_path):
         "MWCU0000001",
         [
             ["2026-08-27", "A6", 2, 500, 1000],
-            ["2026-08-27", "X6", 1, 500, 500],
+            ["2026-08-27", "A6", None, 500, 1000],
         ],
         payable=1000,
     )
@@ -383,7 +384,6 @@ def test_data_issue_rows_keep_severity_field_and_raw_value(tmp_path):
     path = write_csv(
         tmp_path,
         "container_no,sale_date,grade,quantity,unit_price,amount\n"
-        "C009,2026-08-09,X6,1,2,2\n"
         "C009,2026-08-09,A,,2,2\n"
         "C009,2026-08-09,A,1,2,3\n",
     )
@@ -392,18 +392,15 @@ def test_data_issue_rows_keep_severity_field_and_raw_value(tmp_path):
     result = import_file(db, path)
 
     issues = db.query(DataIssue).order_by(DataIssue.row_number).all()
-    assert [issue.row_number for issue in issues] == [2, 3, 4]
+    assert [issue.row_number for issue in issues] == [2, 3]
     assert [issue.issue_type for issue in issues] == [
-        "unknown_grade",
         "missing_field",
         "amount_mismatch",
     ]
-    assert [issue.severity for issue in issues] == ["error", "error", "warning"]
-    assert issues[0].field_name == "grade"
-    assert issues[0].raw_value == "X6"
-    assert issues[1].field_name == "quantity"
-    assert issues[2].field_name == "amount"
-    assert issues[2].message == "金额与数量乘以单价不一致"
+    assert [issue.severity for issue in issues] == ["error", "warning"]
+    assert issues[0].field_name == "quantity"
+    assert issues[1].field_name == "amount"
+    assert issues[1].message == "金额与数量乘以单价不一致"
 
     batch = db.query(ImportBatch).one()
     assert result.warning_count == 1
@@ -411,7 +408,6 @@ def test_data_issue_rows_keep_severity_field_and_raw_value(tmp_path):
     assert all(issue.import_batch_id == batch.id for issue in issues)
     assert all(issue.source_file_id is not None for issue in issues)
     assert {issue.issue_type for issue in result.issues} == {
-        "unknown_grade",
         "missing_field",
         "amount_mismatch",
     }

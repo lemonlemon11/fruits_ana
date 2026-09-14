@@ -83,6 +83,10 @@ def test_settlement_comparison_returns_ranks_and_global_contributions(client):
         "A": 0.1667,
         "B": 0.25,
         "C": 0.0,
+        "D": 0.0,
+        "E": 0.0,
+        "F": 0.0,
+        "OTHER": 0.0,
     }
     assert settlements["M1"]["grades"][0]["quantity_share"] == 0.4
 

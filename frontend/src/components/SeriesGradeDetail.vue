@@ -3,6 +3,7 @@ import { computed } from 'vue'
 
 import { gradeLabel } from '../api/client'
 import type { Grade, GradeDetailBucket, GradeDetailData } from '../api/types'
+import { activeGrades, gradeColors } from '../utils/grades'
 import { useChartTooltip } from '../utils/chartTooltip'
 import { formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
 import ChartLegend from './ChartLegend.vue'
@@ -13,7 +14,7 @@ const props = defineProps<{
   loading?: boolean
 }>()
 
-const GRADE_ORDER: Grade[] = ['A', 'B', 'C']
+const gradeOrder = computed(() => activeGrades(props.details.buckets))
 
 interface GradeGroup {
   grade: Grade
@@ -24,7 +25,7 @@ interface GradeGroup {
 }
 
 const groups = computed<GradeGroup[]>(() =>
-  GRADE_ORDER.map((grade) => {
+  gradeOrder.value.map((grade) => {
     const items = props.details.buckets.filter((row) => row.grade === grade)
     const quantity = items.reduce((total, row) => total + row.salesQuantity, 0)
     const amount = items.reduce((total, row) => total + row.salesAmount, 0)
@@ -42,27 +43,22 @@ const barWidth = (row: GradeDetailBucket) =>
 const hasUnrecognized = computed(() => props.details.unrecognized.recordCount > 0)
 
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
-const gradeColors: Record<Grade, string> = {
-  A: 'var(--grade-a)',
-  B: 'var(--grade-b)',
-  C: 'var(--grade-c)',
-}
-const legendItems = GRADE_ORDER.map((grade) => ({
+const legendItems = computed(() => gradeOrder.value.map((grade) => ({
   label: gradeLabel(grade),
   color: gradeColors[grade],
   variant: 'dot' as const,
-}))
+})))
 
 function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
   showTooltip(event, {
     title: `${row.label} · ${gradeLabel(row.grade)}`,
     rows: [
-      { label: '平均每千克售价', value: formatPrice(row.weightedAvgPrice), color: gradeColors[row.grade] },
+      { label: '平均每公斤售价', value: formatPrice(row.weightedAvgPrice), color: gradeColors[row.grade] },
       { label: '件数', value: `${formatNumber(row.salesQuantity)} 件` },
       { label: '金额', value: formatCurrency(row.salesAmount) },
       { label: '件数占比', value: formatPercent(row.quantityShare) },
     ],
-    note: row.qualityMarks.length ? `品质标记：${row.qualityMarks.join('、')}` : '条形长度按平均每千克售价绘制',
+    note: row.qualityMarks.length ? `品质标记：${row.qualityMarks.join('、')}` : '条形长度按平均每公斤售价绘制',
   })
 }
 </script>
@@ -73,7 +69,7 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
       <div>
         <h2 id="grade-detail-title">按等级号别看价格</h2>
         <p class="section-note">
-          把等级再拆成号别。带斜杠的（如 B6/7）是一段区间，原样保留，不拆分；条形长度代表平均每千克售价。
+          把等级再拆成号别。带斜杠的（如 B6/7）是一段区间，原样保留，不拆分；条形长度代表平均每公斤售价。
         </p>
       </div>
       <ChartLegend :items="legendItems" />
@@ -85,7 +81,7 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
 
     <div v-else-if="!details.buckets.length" class="empty-state compact">
       <strong>暂时没有可细分的等级</strong>
-      <span>勾选结算单后，这里会按号别列出件数、金额与平均每千克售价。</span>
+      <span>勾选结算单后，这里会按号别列出件数、金额与平均每公斤售价。</span>
     </div>
 
     <template v-else>
@@ -101,7 +97,7 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
             <strong>{{ gradeLabel(group.grade) }}</strong>
             <span class="ladder-sum">
               {{ formatNumber(group.quantity) }} 件 · {{ formatCurrency(group.amount) }} ·
-              平均每千克售价 {{ formatPrice(group.avgPrice) }}
+              平均每公斤售价 {{ formatPrice(group.avgPrice) }}
             </span>
           </p>
           <div
@@ -118,7 +114,7 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
                 class="ladder-bar"
                 :style="{ width: barWidth(row) }"
                 role="img"
-                :aria-label="`${row.label} 平均每千克售价 ${formatPrice(row.weightedAvgPrice)}`"
+                :aria-label="`${row.label} 平均每公斤售价 ${formatPrice(row.weightedAvgPrice)}`"
               ></div>
             </div>
             <span class="ladder-price">{{ formatPrice(row.weightedAvgPrice) }}</span>
@@ -141,13 +137,13 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
         <summary>查看数据表</summary>
         <div class="table-wrap">
           <table>
-            <caption class="sr-only">各细分等级的件数、金额、平均每千克售价与占比</caption>
+            <caption class="sr-only">各细分等级的件数、金额、平均每公斤售价与占比</caption>
             <thead>
               <tr>
                 <th scope="col">等级</th>
                 <th scope="col">件数</th>
                 <th scope="col">金额</th>
-                <th scope="col">平均每千克售价</th>
+                <th scope="col">平均每公斤售价</th>
                 <th scope="col">件数占比</th>
                 <th scope="col">金额占比</th>
               </tr>

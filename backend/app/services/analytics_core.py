@@ -105,7 +105,8 @@ def metrics(records: list[SaleRecord]) -> dict:
 def grade_metrics(records: list[SaleRecord]) -> list[dict]:
     total_quantity = sum((item.quantity for item in records), Decimal("0"))
     result = []
-    for grade in GRADES:
+    present_grades = [grade for grade in GRADES if any(item.grade == grade for item in records)]
+    for grade in present_grades:
         current = metrics([item for item in records if item.grade == grade])
         quantity = Decimal(str(current["sales_quantity"]))
         share = quantity / total_quantity if total_quantity else None
@@ -229,7 +230,7 @@ def settlement_anomalies(
     batches: dict[int, ImportBatch],
     thresholds: AnomalyThresholds = DEFAULT_THRESHOLDS,
 ) -> list[dict]:
-    """对比同期其他结算单，返回平均每千克售价与等级占比异常。"""
+    """对比同期其他结算单，返回平均每公斤售价与等级占比异常。"""
 
     settlement_count = len(
         {
@@ -251,7 +252,7 @@ def settlement_anomalies(
         anomalies.append(
             {
                 "type": "low_weighted_avg_price",
-                "reason": "结算单平均每千克售价低于同期整体平均每千克售价阈值",
+                "reason": "结算单平均每公斤售价低于同期整体平均每公斤售价阈值",
                 "metric": rounded(metric),
                 "baseline": rounded(baseline),
                 "threshold": rounded(thresholds.low_price_ratio),

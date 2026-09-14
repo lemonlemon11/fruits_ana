@@ -30,15 +30,15 @@ test('buildAnalyticsQuery sends only populated contract filters', () => {
   )
 })
 
-test('normalizeGradeMetrics keeps A/B/C visible and maps BC into C', () => {
+test('normalizeGradeMetrics 只保留实际出现过的等级并把 BC 归入 C', () => {
   const grades = normalizeGradeMetrics([
     { grade: 'BC', sales_quantity: 4, sales_amount: 32, weighted_avg_price: 8, quantity_share: 0.4 },
     { grade: 'A', sales_quantity: 6, sales_amount: 72, weighted_avg_price: 12, quantity_share: 0.6 },
   ])
 
-  assert.deepEqual(grades.map((item) => item.grade), ['A', 'B', 'C'])
-  assert.equal(grades[1].salesQuantity, 0)
-  assert.equal(grades[2].salesQuantity, 4)
+  assert.deepEqual(grades.map((item) => item.grade), ['A', 'C'])
+  assert.equal(grades[0].salesQuantity, 6)
+  assert.equal(grades[1].salesQuantity, 4)
   assert.equal(gradeLabel('C'), 'C果（含BC）')
 })
 
@@ -104,7 +104,9 @@ test('normalizeSettlementList reads the default range and grade quantities', () 
   assert.deepEqual(list.dateRange, { startDate: '2026-08-09', endDate: '2026-09-09', isDefault: true })
   assert.equal(list.settlements[0].merchantNo, '640')
   assert.equal(list.settlements[0].orderNo, '宝贝L004')
-  assert.deepEqual(list.settlements[0].gradeQuantities, { A: 12, B: 6, C: 2 })
+  assert.deepEqual(list.settlements[0].gradeQuantities, {
+    A: 12, B: 6, C: 2, D: 0, E: 0, F: 0, OTHER: 0,
+  })
   assert.equal(list.settlements[0].averagePrice, 400)
   assert.equal(list.settlements[0].recordCount, 3)
 })
@@ -153,7 +155,7 @@ test('getImportIssues calls the batch endpoint and normalizes its response', asy
 })
 
 test('formatAnomalyValue applies units from type or issue_type', () => {
-  assert.match(formatAnomalyValue('low_weighted_avg_price', 8), /8\.00/)
+  assert.equal(formatAnomalyValue('low_weighted_avg_price', 8), '¥8')
   assert.equal(formatAnomalyValue('grade_share_deviation', 0.125), '12.5%')
   assert.equal(formatAnomalyValue('daily_quantity_deviation', 1234), '1,234')
 })

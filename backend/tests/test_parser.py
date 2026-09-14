@@ -26,9 +26,9 @@ def test_grade_normalization_supports_explicit_real_world_patterns():
     assert normalize_grade("C8/9") == StandardGrade.C
 
 
-def test_grade_normalization_rejects_letters_inside_words():
+def test_grade_normalization_falls_back_to_other_for_unrecognized_words():
     for raw in ("bad", "Black Thorn", "carton"):
-        assert normalize_grade(raw) is None
+        assert normalize_grade(raw) == StandardGrade.OTHER
 
 
 @pytest.mark.parametrize(

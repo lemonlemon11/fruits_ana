@@ -3,6 +3,7 @@ import { computed } from 'vue'
 
 import { gradeLabel } from '../api/client'
 import type { Grade, SeriesComparisonItem } from '../api/types'
+import { activeGrades, gradeColors } from '../utils/grades'
 import { useChartTooltip } from '../utils/chartTooltip'
 import { formatNumber, formatPrice } from '../utils/format'
 import { gradePrice } from '../utils/seriesComparison'
@@ -13,21 +14,20 @@ import ChartTooltip from './ChartTooltip.vue'
 
 const props = defineProps<{ items: SeriesComparisonItem[]; loading?: boolean }>()
 
-const gradeOrder: Grade[] = ['A', 'B', 'C']
-const gradeColors: Record<Grade, string> = { A: '#16856b', B: '#bd7414', C: '#b94a3c' }
+const gradeOrder = computed(() => activeGrades(props.items.flatMap((item) => item.grades)))
 
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
-const legendItems = gradeOrder.map((grade) => ({
+const legendItems = computed(() => gradeOrder.value.map((grade) => ({
   label: gradeLabel(grade),
   color: gradeColors[grade],
   variant: 'block' as const,
-}))
+})))
 
 const maxPrice = computed(() =>
   Math.max(
     0,
     ...props.items.flatMap((item) =>
-      gradeOrder.map((grade) => gradePrice(item, grade) ?? 0),
+      gradeOrder.value.map((grade) => gradePrice(item, grade) ?? 0),
     ),
   ),
 )
@@ -57,7 +57,7 @@ const groups = computed(() =>
     rawMerchantNo: rawMerchantNo(item),
     orderNo: displayOrderNo(item),
     rawOrderNo: rawOrderNo(item),
-    bars: gradeOrder.map((grade) => ({
+    bars: gradeOrder.value.map((grade) => ({
       grade,
       color: gradeColors[grade],
       value: gradePrice(item, grade),
@@ -67,14 +67,18 @@ const groups = computed(() =>
 
 /** 每个等级的最高价：柱顶数字加粗用深色，柱子加一圈内描边。 */
 const bestPrices = computed(() => {
-  const best: Record<Grade, number> = { A: 0, B: 0, C: 0 }
-  gradeOrder.forEach((grade) => {
+  const best = {} as Record<Grade, number>
+  gradeOrder.value.forEach((grade) => {
     best[grade] = Math.max(0, ...props.items.map((item) => gradePrice(item, grade) ?? 0))
   })
   return best
 })
 
-const plotMinWidth = computed(() => `${Math.max(props.items.length, 2) * 132}px`)
+const plotMinWidth = computed(() => {
+  const gradeCount = Math.max(gradeOrder.value.length, 1)
+  const clusterWidth = Math.max(132, gradeCount * 30 + 12)
+  return `${Math.max(props.items.length, 2) * clusterWidth}px`
+})
 
 /** 柱高与刻度位置共用同一套比例，保证柱顶和左侧刻度对得上。 */
 function position(value: number | null): string {
@@ -106,7 +110,7 @@ function showBarTooltip(event: MouseEvent, group: { merchantNo: string; orderNo:
   showTooltip(event, {
     title: `${group.merchantNo}${group.orderNo ? ` · ${group.orderNo}` : ''}`,
     rows: [
-      { label: gradeLabel(bar.grade), value: `${formatPrice(bar.value)}/千克`, color: bar.color },
+      { label: gradeLabel(bar.grade), value: `${formatPrice(bar.value)}/公斤`, color: bar.color },
     ],
     note: isBest(bar.grade, bar.value) ? `该等级所选结算单中的最高价` : undefined,
   })
@@ -117,8 +121,8 @@ function showBarTooltip(event: MouseEvent, group: { merchantNo: string; orderNo:
   <section class="dashboard-section" aria-labelledby="series-price-title">
     <header class="section-heading">
       <div>
-        <h2 id="series-price-title">各等级平均每千克售价对比</h2>
-        <p class="section-note">每张结算单一组，柱内按等级排列，同一颜色的柱子可跨结算单比较；单位：元/千克，深色数字为该等级最高价</p>
+        <h2 id="series-price-title">各等级平均每公斤售价对比</h2>
+        <p class="section-note">每张结算单一组，柱内按等级排列，同一颜色的柱子可跨结算单比较；单位：元/公斤，深色数字为该等级最高价</p>
       </div>
       <ChartLegend :items="legendItems" />
     </header>

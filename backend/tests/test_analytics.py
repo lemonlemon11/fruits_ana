@@ -65,8 +65,7 @@ def test_grade_summary_is_stable_when_there_are_no_sales():
         "sales_amount": 0.0,
         "weighted_avg_price": None,
     }
-    assert [item["grade"] for item in summary["grades"]] == ["A", "B", "C"]
-    assert all(item["quantity_share"] is None for item in summary["grades"])
+    assert summary["grades"] == []
 
 
 def test_grade_summary_uses_weighted_price_and_filtered_denominator():
@@ -91,8 +90,7 @@ def test_grade_summary_uses_weighted_price_and_filtered_denominator():
     }
     assert summary["grades"][0]["quantity_share"] == 0.25
     assert summary["grades"][1]["quantity_share"] == 0.75
-    assert summary["grades"][2]["sales_quantity"] == 0.0
-    assert summary["grades"][2]["weighted_avg_price"] is None
+    assert [item["grade"] for item in summary["grades"]] == ["A", "B"]
 
 
 def test_daily_trend_aggregates_by_sale_date():
@@ -131,7 +129,7 @@ def test_settlement_comparison_and_detail_reuse_the_same_metrics():
 
     assert [item["merchant_no"] for item in comparison] == ["M1", "M2"]
     assert comparison[0]["total"] == detail["total"]
-    assert [item["grade"] for item in detail["grades"]] == ["A", "B", "C"]
+    assert [item["grade"] for item in detail["grades"]] == ["A"]
     assert detail["sales_period"] == {
         "start_date": "2026-01-01",
         "end_date": "2026-01-01",
@@ -221,7 +219,7 @@ def test_settlement_detail_explains_low_price_anomaly_with_record_ids():
     assert detail["operating_anomalies"] == [
         {
             "type": "low_weighted_avg_price",
-            "reason": "结算单平均每千克售价低于同期整体平均每千克售价阈值",
+            "reason": "结算单平均每公斤售价低于同期整体平均每公斤售价阈值",
             "metric": 5.0,
             "baseline": 14.0,
             "threshold": 0.8,

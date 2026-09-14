@@ -38,6 +38,10 @@ class StandardGrade(str, Enum):
     A = "A"
     B = "B"
     C = "C"
+    D = "D"
+    E = "E"
+    F = "F"
+    OTHER = "OTHER"
 
 
 # Grade 是对外更短的兼容别名，统一仍由 StandardGrade 定义取值。
@@ -156,7 +160,10 @@ class SaleRecord(Base):
 
     __tablename__ = "sale_record"
     __table_args__ = (
-        CheckConstraint("grade IN ('A', 'B', 'C')", name="ck_sale_record_grade"),
+        CheckConstraint(
+            "grade IN ('A', 'B', 'C', 'D', 'E', 'F', 'OTHER')",
+            name="ck_sale_record_grade",
+        ),
         Index("ix_sale_record_sale_date", "sale_date"),
         Index("ix_sale_record_grade", "grade"),
     )

@@ -6,7 +6,7 @@ export interface AnalysisSection {
 }
 
 /** 与后端提示词约定的小标题顺序保持一致。 */
-export const ANALYSIS_HEADINGS = ['整体行情', 'A果', 'B果', 'C果', '可以留意的地方'] as const
+export const ANALYSIS_HEADINGS = ['整体行情', 'A果', 'B果', 'C果', 'D果', 'E果', 'F果', '其他', '可以留意的地方'] as const
 
 /** 「等级细分」AI 小结的小标题，与后端 grade_detail 提示词保持一致。 */
 export const GRADE_DETAIL_HEADINGS = [

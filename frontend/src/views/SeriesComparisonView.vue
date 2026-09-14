@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getSeriesComparison, getSettlements } from '../api/client'
+import { emptyGradeRecord } from '../utils/grades'
 import type {
   GradeDetailData,
   SeriesAggregate,
@@ -21,6 +22,7 @@ import DateRangeFilter from '../components/DateRangeFilter.vue'
 import { friendlyErrorMessage } from '../utils/seriesAnalysis'
 import { MAX_SERIES_COMPARISON } from '../utils/seriesComparison'
 import {
+  normalizeSameSeriesSelection,
   parseSelectedParam,
   serializeSelectedParam,
 } from '../utils/settlementPicker'
@@ -65,13 +67,7 @@ function emptyAggregate(): SeriesAggregate {
   return {
     total: { salesQuantity: 0, salesAmount: 0, weightedAvgPrice: null },
     grades: [],
-    gradeAmountShares: { A: null, B: null, C: null },
-    spread: {
-      aMinusB: null,
-      bMinusC: null,
-      bDiscountVsA: null,
-      gradePrices: { A: null, B: null, C: null },
-    },
+    gradeAmountShares: emptyGradeRecord(null),
   }
 }
 
@@ -79,7 +75,7 @@ async function loadComparison() {
   const version = ++requestVersion
   if (!canCompare.value) {
     result.value = emptyComparison()
-    notice.value = '请至少勾选两个结算单再对比；同一品牌或不同品牌都可以。'
+    notice.value = '请至少勾选两个结算单再对比；只能在同一个品牌内选择。'
     return
   }
   loadingComparison.value = true
@@ -110,11 +106,11 @@ async function loadOptions() {
   try {
     const data = await getSettlements({ ...filters })
     options.value = data.settlements
-    const available = new Set(options.value.map((item) => item.merchantNo))
-    const kept = selected.value.filter((merchantNo) => available.has(merchantNo))
-    selected.value = kept.length
-      ? kept
-      : options.value.slice(0, DEFAULT_SELECTION).map((item) => item.merchantNo)
+    selected.value = normalizeSameSeriesSelection(
+      options.value,
+      selected.value,
+      DEFAULT_SELECTION,
+    )
     syncSelectedQuery()
     await loadComparison()
   } catch (caught) {
@@ -153,13 +149,13 @@ onMounted(loadOptions)
     <header class="page-header">
       <div>
         <h1>品牌对比</h1>
-        <p>勾选结算单后，按各等级分别核算件数、金额和平均每千克售价，支持同一品牌与不同品牌对比。</p>
+        <p>先选择品牌，再选择该品牌下的结算单，按各等级核算件数、金额和平均每公斤售价。</p>
       </div>
     </header>
 
     <section class="how-to" aria-label="查看方法">
       <strong>怎么查看</strong>
-      <span>第一步：选择到达日期范围并点击“查看结算单”。第二步：点“选择结算单”挑两张及以上，下方立即出现对比结果。</span>
+      <span>第一步：选择到达日期范围并点击“查看结算单”。第二步：点“选择结算单”，先选品牌，再挑同一品牌的两张及以上。</span>
     </section>
 
     <form class="filter-bar comparison-filter" @submit.prevent="loadOptions">
@@ -231,6 +227,7 @@ onMounted(loadOptions)
           :start-date="filters.startDate"
           :end-date="filters.endDate"
           :disabled="loadingComparison"
+          :active="view === 'series'"
         />
       </div>
 
@@ -241,6 +238,7 @@ onMounted(loadOptions)
           :start-date="filters.startDate"
           :end-date="filters.endDate"
           :disabled="loadingComparison"
+          :active="view === 'grade'"
         />
       </div>
     </div>

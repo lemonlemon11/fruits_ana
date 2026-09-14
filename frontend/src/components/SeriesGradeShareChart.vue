@@ -3,6 +3,7 @@ import { computed } from 'vue'
 
 import { gradeLabel } from '../api/client'
 import type { Grade, SeriesComparisonItem } from '../api/types'
+import { activeGrades, gradeColors } from '../utils/grades'
 import { useChartTooltip } from '../utils/chartTooltip'
 import { formatNumber, formatPercent } from '../utils/format'
 import { gradeOf, shortLabel } from '../utils/seriesComparison'
@@ -11,26 +12,25 @@ import ChartTooltip from './ChartTooltip.vue'
 
 const props = defineProps<{ items: SeriesComparisonItem[]; loading?: boolean }>()
 
-const gradeOrder: Grade[] = ['A', 'B', 'C']
-const gradeColors: Record<Grade, string> = { A: '#16856b', B: '#bd7414', C: '#b94a3c' }
+const gradeOrder = computed(() => activeGrades(props.items.flatMap((item) => item.grades)))
 
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
-const legendItems = gradeOrder.map((grade) => ({
+const legendItems = computed(() => gradeOrder.value.map((grade) => ({
   label: gradeLabel(grade),
   color: gradeColors[grade],
   variant: 'block' as const,
-}))
+})))
 
 const rows = computed(() =>
   props.items.map((item) => {
-    const total = gradeOrder.reduce(
+    const total = gradeOrder.value.reduce(
       (sum, grade) => sum + (gradeOf(item, grade)?.salesQuantity ?? 0),
       0,
     )
     return {
       label: shortLabel(item),
       series: item.series,
-      segments: gradeOrder.map((grade) => {
+      segments: gradeOrder.value.map((grade) => {
         const quantity = gradeOf(item, grade)?.salesQuantity ?? 0
         return {
           grade,

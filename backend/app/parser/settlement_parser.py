@@ -102,11 +102,11 @@ def parse_settlement(file_path: str | Path, source_type: str | None = None) -> P
 def normalize_grade(raw: str | None) -> StandardGrade | None:
     if not raw:
         return None
-    match = re.search(r"(?i)(?<![a-z])(BC|A|B|C)(?![a-z])", raw.strip())
+    match = re.search(r"(?i)(?<![a-z])(BC|A|B|C|D|E|F)(?![a-z])", raw.strip())
     if not match:
-        return None
+        return StandardGrade.OTHER
     value = match.group(1).upper()
-    return StandardGrade.C if value in {"C", "BC"} else StandardGrade(value)
+    return StandardGrade.C if value == "BC" else StandardGrade(value)
 
 
 def _normalized_header(value: Any) -> str:

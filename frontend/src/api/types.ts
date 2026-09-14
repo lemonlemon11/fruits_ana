@@ -1,4 +1,6 @@
-export type Grade = 'A' | 'B' | 'C'
+import type { Grade } from '../utils/grades'
+
+export type { Grade }
 
 export interface AuthUser {
   id: number
@@ -162,18 +164,10 @@ export interface SettlementRecordsData {
   records: SettlementRecord[]
 }
 
-export interface PriceSpread {
-  aMinusB: number | null
-  bMinusC: number | null
-  bDiscountVsA: number | null
-  gradePrices: Record<Grade, number | null>
-}
-
 export interface SeriesAggregate {
   total: MetricTotal
   grades: GradeMetric[]
   gradeAmountShares: Record<Grade, number | null>
-  spread: PriceSpread
 }
 
 export interface SeriesComparisonItem extends SeriesAggregate {

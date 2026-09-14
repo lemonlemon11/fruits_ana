@@ -24,7 +24,7 @@ from .analytics_core import (
     settlement_map,
     share,
 )
-from .order_no_naming import order_no_display
+from .order_no_naming import order_no_display, series_name
 from .merchant_no_naming import merchant_no_display
 
 
@@ -112,6 +112,10 @@ def get_settlement_comparison(
                 "order_no": batch.order_no,
                 "order_no_normalized": order_no_display(
                     batch.order_no, batch.order_no_normalized
+                ),
+                "series": series_name(
+                    order_no_display(batch.order_no, batch.order_no_normalized)
+                    or batch.order_no
                 ),
                 "container_no": batch.container_no,
                 "vehicle_no": batch.vehicle_no,

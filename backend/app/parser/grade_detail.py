@@ -20,7 +20,7 @@ DEFAULT_FRUIT_TYPE = "榴莲"
 QUALITY_MARKS = ("熟", "裂", "黄皮")
 _QUALITY_ALIASES = {"大裂": "裂"}
 
-_PREFIX = re.compile(r"^(BC|A|B|C)", re.IGNORECASE)
+_PREFIX = re.compile(r"^(BC|A|B|C|D|E|F)", re.IGNORECASE)
 _NUMBERS = re.compile(r"^(\d+(?:/\d+)*)")
 _GRADE_ALIASES = {"BC": "C"}
 

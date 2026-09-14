@@ -2,7 +2,7 @@
 
 系列取自结算单单号（``order_no``，例如 ``宝贝01``）的中文前缀；识别不出时归入
 「未识别系列」，不影响其余结算单参与对比。对比主体仍是结算单（商号唯一）。
-所有金额与平均每千克售价口径与全站一致：平均每千克售价 = 销售金额 ÷ 销量（千克）。
+所有金额与平均每公斤售价口径与全站一致：平均每公斤售价 = 销售金额 ÷ 销量（千克）。
 系列识别与单号统一命名规则见 ``services/order_no_naming.py``（ADR-015）。
 """
 
@@ -50,39 +50,25 @@ def grade_amount_shares(records: list[SaleRecord]) -> dict[str, float | None]:
     }
 
 
-def _grade_prices(records: list[SaleRecord]) -> dict[str, Decimal | None]:
-    prices: dict[str, Decimal | None] = {}
-    for grade in GRADE_VALUES:
-        current = [item for item in records if item.grade.value == grade]
-        quantity = sum((item.quantity for item in current), Decimal("0"))
-        amount = sum((item.amount for item in current), Decimal("0"))
-        prices[grade] = amount / quantity if quantity else None
-    return prices
+def settlement_series_names(db: Session, merchant_nos: Sequence[str]) -> list[str]:
+    """返回所选结算单实际归属的品牌集合；没有匹配时返回空列表。"""
 
-
-def _difference(left: Decimal | None, right: Decimal | None) -> float | None:
-    if left is None or right is None:
-        return None
-    return rounded(left - right)
-
-
-def price_spread(records: list[SaleRecord]) -> dict:
-    """A-B 价差、B-C 价差与 B 相对 A 的折价比例；缺等级时返回空值。"""
-
-    prices = _grade_prices(records)
-    grade_a, grade_b, grade_c = prices["A"], prices["B"], prices["C"]
-    discount = (
-        (grade_a - grade_b) / grade_a if grade_a and grade_b is not None else None
+    if not merchant_nos:
+        return []
+    batches = (
+        db.query(ImportBatch)
+        .filter(ImportBatch.merchant_no.in_(list(dict.fromkeys(merchant_nos))))
+        .all()
     )
-    return {
-        "a_minus_b": _difference(grade_a, grade_b),
-        "b_minus_c": _difference(grade_b, grade_c),
-        "b_discount_vs_a": rounded(discount) if discount is not None else None,
-        "grade_prices": {
-            grade: rounded(value) if value is not None else None
-            for grade, value in prices.items()
-        },
-    }
+    return sorted(
+        {
+            series_name(
+                order_no_display(batch.order_no, batch.order_no_normalized)
+                or batch.order_no
+            )
+            for batch in batches
+        }
+    )
 
 
 def aggregate(records: list[SaleRecord]) -> dict:
@@ -92,7 +78,6 @@ def aggregate(records: list[SaleRecord]) -> dict:
         "total": metrics(records),
         "grades": grade_metrics(records),
         "grade_amount_shares": grade_amount_shares(records),
-        "spread": price_spread(records),
     }
 
 
@@ -165,7 +150,7 @@ def get_series_comparison(
     start_date: date | None = None,
     end_date: date | None = None,
 ) -> dict:
-    """返回所选结算单的各等级独立指标、价差与系列汇总。"""
+    """返回所选结算单的各等级独立指标与系列汇总。"""
 
     filtered = core_records(
         db,
@@ -188,6 +173,6 @@ __all__ = [
     "aggregate",
     "get_series_comparison",
     "grade_amount_shares",
-    "price_spread",
     "series_name",
+    "settlement_series_names",
 ]

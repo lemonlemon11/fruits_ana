@@ -69,7 +69,8 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 ### Series Analytics（`backend/app/api/analytics.py`、`services/series_analytics_service.py`）
 
-- 职责：「品牌对比」页的数据来源：按勾选的结算单（可跨品牌）核算各等级独立指标、价差与品牌汇总。
+- 职责：「品牌对比」页的数据来源：按勾选结算单核算各等级独立指标与品牌汇总；
+  页面只允许选择同一品牌，后端在传入 `merchant_no` 时校验品牌唯一。
 - 路由：`GET /api/analytics/series-comparison`，参数为可重复的 `merchant_no`，外加
   `start_date` / `end_date`；不传 `merchant_no` 时返回日期范围内全部结算单。
 - 品牌识别：取结算单单号（优先适配后的 `order_no_normalized`，回落 `order_no`，
@@ -77,7 +78,7 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   识别不出时归入「未识别品牌」，不影响其余结算单参与对比。见 ADR-009。
 - 返回结构：`settlements`（逐结算单）、`series`（逐品牌汇总）、`total`（全部所选合计），
   三者使用同一套口径：`total` / `grades` / `grade_amount_shares` / `spread`。
-- 注意：品牌只是分组标签，对比与查询的唯一键仍是商号 `merchant_no`。
+- 注意：品牌只允许同品牌参与对比；对比与查询的唯一键仍是商号 `merchant_no`。
 
 ### Settlement List（`backend/app/api/settlements.py`、`services/settlement_list_service.py`）
 
@@ -113,7 +114,8 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   `SeriesComparisonView`（品牌对比，内含「按品牌 / 按等级号别」两个视图）、
   `LoginView` / `RegisterView` / `PublicPreviewView`。
 - 等级细分组件：`SeriesGradeDetail.vue`（号别阶梯与数据表）、`GradeDetailAiAnalysis.vue`（号别小结）。
-  AI 结论的渲染与状态机抽到通用组件 `AiAnalysisCard.vue`，两个页面的封装只负责接口与小标题。
+  AI 结论的渲染与状态机抽到通用组件 `AiAnalysisCard.vue`，两个页面的封装只负责接口与小标题；
+  卡片默认可见并自动以 `refresh=false` 先读缓存，命中缓存直接展示 `cached` 标记。
 - 下拉框：展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
 - 日期范围：五个业务页统一使用 `DateRangeFilter.vue` 组件，在一个面板内选择开始 / 结束日期。
 - 单号展示口径（ADR-015）：统一用适配后单号 `orderNoNormalized`，

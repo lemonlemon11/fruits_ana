@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 
-import { getSettlements, type SettlementListItem } from '../api/client'
+import { getSettlements, gradeLabel, type SettlementListItem } from '../api/client'
+import { GRADES } from '../utils/grades'
 import DateRangeFilter from '../components/DateRangeFilter.vue'
 import SettlementRecordsDialog from '../components/SettlementRecordsDialog.vue'
 import { formatCurrency, formatNumber, formatPrice } from '../utils/format'
@@ -24,6 +25,12 @@ const rangeHint = computed(() => {
     ? `默认展示最新到达日期往前一个月：${startDate} 至 ${endDate}`
     : `当前查询范围：${startDate} 至 ${endDate}`
 })
+
+const visibleGrades = computed(() =>
+  GRADES.filter((grade) =>
+    settlements.value.some((item) => (item.gradeQuantities[grade] ?? 0) > 0),
+  ),
+)
 
 const activeSettlement = computed(
   () => options.value.find((item) => item.merchantNo === activeMerchantNo.value)
@@ -81,7 +88,7 @@ onMounted(() => {
     <header class="page-header">
       <div>
         <h1>数据明细</h1>
-        <p>按商号查看每张结算单的销售额、各等级件数和平均每千克售价，并可展开查看全部销售明细。</p>
+        <p>按商号查看每张结算单的销售额、各等级件数和平均每公斤售价，并可展开查看全部销售明细。</p>
       </div>
     </header>
 
@@ -126,8 +133,9 @@ onMounted(() => {
           <table>
             <thead>
               <tr>
-                <th>商号</th><th>单号</th><th>柜号</th><th>到达日期</th><th>销售额</th>
-                <th>A件数</th><th>B件数</th><th>C件数</th><th>平均每千克售价</th><th>操作</th>
+                <th>商号</th><th>单号</th><th>柜号</th><th>到达日期</th><th>总件数</th>
+                <th v-for="grade in visibleGrades" :key="grade">{{ gradeLabel(grade) }}件数</th>
+                <th>销售额</th><th>平均每公斤售价</th><th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -140,10 +148,9 @@ onMounted(() => {
                 </td>
                 <td>{{ item.containerNo || '—' }}</td>
                 <td>{{ salesPeriod(item) }}</td>
+                <td>{{ formatNumber(item.totalQuantity) }}</td>
+                <td v-for="grade in visibleGrades" :key="grade">{{ formatNumber(item.gradeQuantities[grade]) }}</td>
                 <td>{{ formatCurrency(item.salesAmount) }}</td>
-                <td>{{ formatNumber(item.gradeQuantities.A) }}</td>
-                <td>{{ formatNumber(item.gradeQuantities.B) }}</td>
-                <td>{{ formatNumber(item.gradeQuantities.C) }}</td>
                 <td>{{ formatPrice(item.averagePrice) }}</td>
                 <td><button class="text-button" type="button" @click="openRecords(item)">查看明细</button></td>
               </tr>
@@ -162,10 +169,8 @@ onMounted(() => {
             </header>
             <div class="mobile-settlement-stats">
               <span>销售额 <b>{{ formatCurrency(item.salesAmount) }}</b></span>
-              <span>A <b>{{ formatNumber(item.gradeQuantities.A) }}</b></span>
-              <span>B <b>{{ formatNumber(item.gradeQuantities.B) }}</b></span>
-              <span>C <b>{{ formatNumber(item.gradeQuantities.C) }}</b></span>
-              <span>平均每千克售价 <b>{{ formatPrice(item.averagePrice) }}</b></span>
+              <span v-for="grade in visibleGrades" :key="grade">{{ gradeLabel(grade) }} <b>{{ formatNumber(item.gradeQuantities[grade]) }}</b></span>
+              <span>平均每公斤售价 <b>{{ formatPrice(item.averagePrice) }}</b></span>
             </div>
           </article>
         </div>

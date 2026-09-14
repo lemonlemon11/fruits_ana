@@ -1,4 +1,5 @@
 import type { Grade, GradeMetric, SettlementComparisonItem } from '../api/types'
+import { activeGrades } from './grades.ts'
 import { displayOrderNo } from './orderNo.ts'
 import { displayMerchantNo } from './merchantNo.ts'
 import { UNKNOWN_SERIES } from '../api/normalize.ts'
@@ -52,8 +53,8 @@ export function buildOtherSettlementGradeBaseline(
   items: SettlementComparisonItem[],
   activeMerchantNo: string,
 ): GradeMetric[] {
-  const grades: Grade[] = ['A', 'B', 'C']
   const peers = items.filter((item) => item.merchantNo !== activeMerchantNo)
+  const grades: Grade[] = activeGrades(peers.flatMap((item) => item.grades))
   const overallQuantity = peers.reduce((total, item) => total + item.salesQuantity, 0)
   return grades.map((grade) => {
     const rows = peers.flatMap((item) => item.grades.filter((row) => row.grade === grade))

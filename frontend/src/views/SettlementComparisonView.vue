@@ -35,7 +35,7 @@ onMounted(refresh)
 <template>
   <div class="page-stack comparison-page">
     <header class="page-header comparison-page-header">
-      <div><h1>结算单对比</h1><p>按到达日期查看各结算单（按商号归集）的销量、销售额和平均每千克售价。</p></div>
+      <div><h1>结算单对比</h1><p>按到达日期查看各结算单（按商号归集）的销量、销售额和平均每公斤售价。</p></div>
     </header>
     <section class="how-to" aria-label="查看方法">
       <strong>怎么查看</strong>

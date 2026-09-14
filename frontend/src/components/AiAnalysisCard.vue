@@ -11,7 +11,7 @@ import {
 } from '../utils/seriesAnalysis'
 
 /** 通用 AI 结论卡片：只负责状态机与渲染，调哪个接口、用哪些小标题由调用方决定。 */
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   title: string
   note: string
   headings: readonly string[]
@@ -21,7 +21,14 @@ const props = defineProps<{
   run: (refresh: boolean) => Promise<SeriesAnalysisResult>
   generateText?: string
   loadingText?: string
-}>()
+  /** 只在卡片可见时自动加载；隐藏的 AI 卡片不请求。 */
+  active?: boolean
+  /** 条件满足后默认自动读取缓存，没有缓存才生成。 */
+  autoRun?: boolean
+}>(), {
+  active: true,
+  autoRun: true,
+})
 
 const analysis = ref<SeriesAnalysisResult | null>(null)
 const loading = ref(false)
@@ -35,23 +42,40 @@ const generatedAtText = computed(() => formatDateTime(analysis.value?.generatedA
 const buttonText = computed(() => props.generateText ?? '生成分析')
 const loadingHint = computed(() => props.loadingText ?? '正在生成，请稍候，大约需要半分钟')
 
-watch(() => props.resetKey, () => {
-  analysis.value = null
-  error.value = ''
-  askedOnce.value = false
-})
+let lastAutoKey = ''
+let requestVersion = 0
+
+watch(
+  () => [props.resetKey, props.canGenerate, props.active, props.autoRun] as const,
+  ([resetKey, canGenerate, active, autoRun]) => {
+    const key = [resetKey, String(canGenerate), String(active), String(autoRun)].join('::')
+    if (key === lastAutoKey) return
+    lastAutoKey = key
+    requestVersion += 1
+    loading.value = false
+    analysis.value = null
+    error.value = ''
+    askedOnce.value = false
+    if (autoRun && active && canGenerate) void generate(false)
+  },
+  { immediate: true },
+)
 
 async function generate(refresh = false) {
-  if (!props.canGenerate || loading.value) return
+  if (!props.canGenerate) return
+  const version = ++requestVersion
   loading.value = true
   error.value = ''
   askedOnce.value = true
   try {
-    analysis.value = await props.run(refresh)
+    const result = await props.run(refresh)
+    if (version !== requestVersion) return
+    analysis.value = result
   } catch (caught) {
+    if (version !== requestVersion) return
     error.value = friendlyErrorMessage(caught instanceof Error ? caught.message : '')
   } finally {
-    loading.value = false
+    if (version === requestVersion) loading.value = false
   }
 }
 </script>

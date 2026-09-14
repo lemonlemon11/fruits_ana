@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>结算单选择交互改造 · 视觉伴侣 53002</title>
+    <link rel="stylesheet" href="./settlement-picker-redesign.css" />
+  </head>
+  <body>
+    <header class="vp-topbar">
+      <div class="vp-wrap vp-topbar-inner">
+        <div class="vp-brand">
+          <span class="vp-brand-dot" aria-hidden="true"></span>
+          <div>
+            <strong>SLD 水果销售分析 · 选择交互改造稿</strong>
+            <span>品牌对比页 · 先选品牌，再选同品牌结算单</span>
+          </div>
+        </div>
+        <p class="vp-env">视觉伴侣 <code>127.0.0.1:53002</code></p>
+      </div>
+    </header>
+
+    <main class="vp-wrap vp-main">
+      <section class="vp-hero">
+        <p class="vp-eyebrow">Interaction Prototype</p>
+        <h1>单量增长后，不再把所有结算单一次摊开</h1>
+        <p>
+          品牌对比页的结算单选择改为两步：先锁定一个品牌，再在该品牌内搜索、分页勾选。
+          同品牌约束同时做进界面提示和后端校验，避免分享链接绕开限制。
+        </p>
+        <div class="vp-hero-meta">
+          <span>同品牌内对比</span>
+          <span>品牌优先</span>
+          <span>搜索 + 分页</span>
+          <span>最多 6 张</span>
+        </div>
+      </section>
+
+      <section class="vp-principles" aria-label="设计要点">
+        <article>
+          <strong>01</strong>
+          <h2>先选品牌</h2>
+          <p>抽屉第一步只展示品牌和单量，不再直接列出几十、几百张结算单。</p>
+        </article>
+        <article>
+          <strong>02</strong>
+          <h2>品牌内再挑单</h2>
+          <p>第二步只显示当前品牌，支持搜商号 / 单号 / 柜号，并按每页 6 张分页。</p>
+        </article>
+        <article>
+          <strong>03</strong>
+          <h2>锁死同品牌</h2>
+          <p>切换品牌会清掉其他品牌草稿；确认结果和后端接口都拒绝跨品牌组合。</p>
+        </article>
+      </section>
+
+      <section class="vp-stage-card">
+        <div class="vp-stage-toolbar">
+          <div>
+            <h2>可交互演示</h2>
+            <p>点击「选择结算单」体验两步选择；可切换桌面 / 手机尺寸。</p>
+          </div>
+          <div class="vp-device-toggle" role="group" aria-label="预览尺寸">
+            <button type="button" data-device="desktop" class="is-active">桌面</button>
+            <button type="button" data-device="mobile">手机</button>
+          </div>
+        </div>
+
+        <div class="vp-browser" id="stage">
+          <div class="vp-browser-bar" aria-hidden="true">
+            <span class="vp-dot"></span><span class="vp-dot"></span><span class="vp-dot"></span>
+            <span class="vp-url">localhost:53000/#/series-comparison</span>
+          </div>
+          <div class="vp-app" id="appFrame">
+            <header class="app-page-head">
+              <p class="app-kicker">结算单对比</p>
+              <h1>品牌对比</h1>
+              <p class="app-sub">在同一品牌内选择两张及以上结算单，对比各等级销量、金额与平均每公斤售价。</p>
+            </header>
+
+            <section class="app-picker">
+              <header class="app-section-head">
+                <div>
+                  <h2>选择要对比的结算单</h2>
+                  <p>已选 <strong id="selectedCount">0</strong> / 6 · 仅同一品牌</p>
+                </div>
+                <div class="app-trigger-actions">
+                  <button type="button" class="app-primary" id="openPicker">选择结算单</button>
+                  <button type="button" class="app-text" id="clearSelection">清空</button>
+                </div>
+              </header>
+              <ul class="app-chips" id="selectedChips"></ul>
+              <div class="app-empty" id="emptySelection">
+                <strong>还没有选择结算单</strong>
+                <span>点「选择结算单」，先选品牌，再挑两张及以上。</span>
+              </div>
+              <p class="app-notice" id="pageNotice" aria-live="polite">请选择同一个品牌下的至少 2 张结算单。</p>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="vp-footnote">
+        <p>
+          这是交互稿，只用于 <code>53002</code> 视觉评审；实际实现会沿用
+          <code>frontend/src/components/SettlementPicker.vue</code> 的现有设计变量与无障碍交互。
+        </p>
+      </section>
+    </main>
+
+    <div class="vp-overlay" id="pickerOverlay" hidden>
+      <section class="vp-drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+        <header class="drawer-head">
+          <div>
+            <p class="drawer-kicker" id="drawerTitle">选择要对比的结算单</p>
+            <h2 id="drawerStepTitle">第一步：选择品牌</h2>
+            <p id="drawerHint">对比只能在一个品牌内进行。</p>
+          </div>
+          <button type="button" class="drawer-close" id="closePicker" aria-label="关闭">×</button>
+        </header>
+
+        <div class="drawer-banner">
+          <strong>同品牌对比</strong>
+          <span>选择其他品牌时，会清空当前草稿里不属于该品牌的结算单。</span>
+        </div>
+
+        <div class="drawer-body">
+          <section id="stepBrand">
+            <label class="drawer-search">
+              <span>搜索品牌</span>
+              <input id="brandSearch" type="search" placeholder="输入品牌名，例如：宝贝" autocomplete="off" />
+            </label>
+            <div class="brand-list" id="brandList"></div>
+          </section>
+
+          <section id="stepSettlement" hidden>
+            <button type="button" class="drawer-back" id="backToBrand">← 返回品牌列表</button>
+            <div class="active-brand">
+              <div>
+                <span>当前品牌</span>
+                <strong id="activeBrandName">宝贝</strong>
+              </div>
+              <span id="activeBrandCount">共 24 张</span>
+            </div>
+            <label class="drawer-search">
+              <span>搜索当前品牌结算单</span>
+              <input id="settlementSearch" type="search" placeholder="搜商号、单号或柜号" autocomplete="off" />
+            </label>
+            <div class="settlement-tools">
+              <strong>已选 <span id="draftCount">0</span> / 6</strong>
+              <div>
+                <button type="button" class="app-text" id="selectAllBrand">全选本品牌</button>
+                <button type="button" class="app-text" id="clearBrandDraft">清空本品牌</button>
+              </div>
+            </div>
+            <div class="settlement-list" id="settlementList"></div>
+            <nav class="pagination" aria-label="结算单分页">
+              <button type="button" id="prevPage">上一页</button>
+              <span id="pageInfo">第 1 / 1 页</span>
+              <button type="button" id="nextPage">下一页</button>
+            </nav>
+          </section>
+        </div>
+
+        <footer class="drawer-foot">
+          <button type="button" class="app-text" id="cancelPicker">取消</button>
+          <button type="button" class="app-primary" id="confirmPicker">确定（0 张）</button>
+        </footer>
+      </section>
+    </div>
+
+    <script src="./settlement-picker-redesign.data.js"></script>
+    <script src="./settlement-picker-redesign.js"></script>
+  </body>
+</html>

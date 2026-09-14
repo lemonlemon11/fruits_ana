@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 
 import type { Grade, SettlementComparisonItem } from '../api/client'
+import { activeGrades } from '../utils/grades'
 import { displayMerchantNo } from '../utils/merchantNo'
 import { settlementOptionLabel, settlementSeries } from '../utils/settlementComparison'
 import { formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
@@ -17,7 +18,7 @@ const props = withDefaults(defineProps<{
 const metricsSortOptions = [
   { value: 'salesAmount', label: '按销售额' },
   { value: 'salesQuantity', label: '按销量' },
-  { value: 'weightedAvgPrice', label: '按平均每千克售价' },
+  { value: 'weightedAvgPrice', label: '按平均每公斤售价' },
 ] as const
 const identitySortOptions = [
   { value: 'series', label: '按品牌' },
@@ -25,7 +26,7 @@ const identitySortOptions = [
   { value: 'merchantNo', label: '按商号' },
 ] as const
 
-const gradeOrder: Grade[] = ['A', 'B', 'C']
+const gradeOrder = computed(() => activeGrades(props.items.flatMap((item) => item.grades)))
 
 const sortOptions = computed(() => props.mode === 'identity' ? identitySortOptions : metricsSortOptions)
 const sortBy = ref<SortKey>(props.mode === 'identity' ? 'saleDate' : 'salesAmount')
@@ -79,7 +80,7 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
     <header class="section-heading comparison-heading">
       <div>
         <h2 id="comparison-title">结算单销售情况</h2>
-        <p class="section-note">{{ mode === 'identity' ? '按品牌、销售日期或商号排序查看' : '按销售额、销量或平均每千克售价排序查看' }}</p>
+        <p class="section-note">{{ mode === 'identity' ? '按品牌、销售日期或商号排序查看' : '按销售额、销量或平均每公斤售价排序查看' }}</p>
       </div>
       <label class="compact-field">排序
         <select v-model="sortBy">
@@ -108,7 +109,7 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
         </span>
         <span class="simple-metric"><small>销售额</small><strong>{{ formatCurrency(item.salesAmount) }}</strong></span>
         <span class="simple-metric"><small>销量</small><strong>{{ formatNumber(item.salesQuantity) }}</strong></span>
-        <span class="simple-metric"><small>平均每千克售价</small><strong>{{ formatPrice(item.weightedAvgPrice) }}</strong></span>
+        <span class="simple-metric"><small>平均每公斤售价</small><strong>{{ formatPrice(item.weightedAvgPrice) }}</strong></span>
         <div class="simple-grade-shares" aria-label="等级、等级均价与占比">
           <div v-for="grade in gradeOrder" :key="grade" class="simple-grade-cell">
             <strong>{{ grade }}果</strong>
@@ -146,7 +147,7 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
 .simple-container-name small,
 .simple-metric small { color: var(--muted); font-size: .85rem; }
 .simple-metric strong { overflow-wrap: anywhere; font-size: .9rem; }
-.simple-grade-shares { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .simple-grade-shares { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 6px; }
 .simple-grade-cell { display: grid; gap: 4px; padding: 7px 6px; background: var(--surface-soft); text-align: center; }
 .simple-grade-cell strong { font-size: .9rem; }
 .simple-grade-cell small { color: var(--muted); font-size: .78rem; line-height: 1.25; }

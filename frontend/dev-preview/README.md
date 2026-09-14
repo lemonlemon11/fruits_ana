@@ -19,6 +19,8 @@ npm --prefix frontend run dev -- --port 53001 --strictPort --host 0.0.0.0
 | --- | --- |
 | `index.html` | 预览索引 |
 | `review-2026-09-11.html` | 本轮改动呈现（AI 结论醒目化 + 抽屉式选择器） |
+| `20260914-optimization-preview.html` | 2026-09-14 会议优化点展示稿（价格单位、等级扩展、日期全展示、取消价差/价比） |
+| `settlement-picker-redesign.html` | 结算单选择交互改造稿（先选品牌，再选同品牌结算单；桌面 / 手机可切换） |
 | `grade-preview.html` | 「系列对比」真实页面（真实组件 + 真实结算单数据） |
 | `grade-detail-design.html` | 等级细分视图的静态设计稿 |
 | `mobile-review/index.html` | 手机端 6 个业务页面现状预览（截图与横向溢出/滚动指标） |

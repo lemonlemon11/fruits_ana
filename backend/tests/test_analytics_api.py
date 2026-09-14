@@ -82,7 +82,7 @@ def test_empty_overview_has_stable_shape(client):
         "sales_amount": 0.0,
         "weighted_avg_price": None,
     }
-    assert [item["grade"] for item in body["grades"]] == ["A", "B", "C"]
+    assert body["grades"] == []
     assert body["trend"] == []
     assert body["settlements"] == []
     assert body["issue_counts"]["total"] == 0
@@ -105,8 +105,9 @@ def test_standard_filters_apply_to_overview_numerator_and_denominator(client):
     body = response.json()
 
     assert body["total"]["sales_quantity"] == 8.0
-    assert body["grades"][1]["quantity_share"] == 1.0
-    assert body["grades"][0]["sales_quantity"] == 0.0
+    assert [item["grade"] for item in body["grades"]] == ["B"]
+    assert body["grades"][0]["sales_quantity"] == 8.0
+    assert body["grades"][0]["quantity_share"] == 1.0
 
 
 def test_trend_comparison_and_settlement_detail_routes(client):

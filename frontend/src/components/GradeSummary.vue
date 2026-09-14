@@ -1,24 +1,25 @@
 <script setup lang="ts">
-import type { GradeMetric, MetricTotal } from '../api/client'
+import { computed } from 'vue'
+
+import type { Grade, GradeMetric, MetricTotal } from '../api/client'
 import { gradeLabel } from '../api/client'
+import { gradeColors } from '../utils/grades'
 import { useChartTooltip } from '../utils/chartTooltip'
 import { formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
 import ChartTooltip from './ChartTooltip.vue'
 
-defineProps<{
+const props = defineProps<{
   grades: GradeMetric[]
   total: MetricTotal
   loading?: boolean
   title?: string
+  gradeOrder?: Grade[]
 }>()
 
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
-
-const gradeColors: Record<string, string> = {
-  A: 'var(--grade-a)',
-  B: 'var(--grade-b)',
-  C: 'var(--grade-c)',
-}
+const skeletonCount = computed(() => (props.grades.length > 0 ? props.grades.length : 3))
+const visibleGrades = computed(() => props.gradeOrder ?? props.grades.map((item) => item.grade))
+const visibleItems = computed(() => props.grades.filter((item) => visibleGrades.value.includes(item.grade)))
 
 function showShareTooltip(event: MouseEvent, item: GradeMetric) {
   showTooltip(event, {
@@ -27,7 +28,7 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
       { label: '销量占比', value: formatPercent(item.quantityShare), color: gradeColors[item.grade] },
       { label: '销量', value: `${formatNumber(item.salesQuantity)} 件` },
       { label: '销售额', value: formatCurrency(item.salesAmount) },
-      { label: '平均每千克售价', value: formatPrice(item.weightedAvgPrice) },
+      { label: '平均每公斤售价', value: formatPrice(item.weightedAvgPrice) },
     ],
     note: '占比 = 该等级销量 ÷ 总销量',
   })
@@ -38,12 +39,12 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
   <section class="dashboard-section" aria-labelledby="grade-summary-title">
     <header class="section-heading">
       <h2 id="grade-summary-title">{{ title ?? '等级销售情况' }}</h2>
-      <p class="section-note">平均每千克售价 = 销售额 ÷ 销量（千克）</p>
+      <p class="section-note">平均每公斤售价 = 销售额 ÷ 销量（千克）</p>
     </header>
 
     <div v-if="loading" class="grade-grid" aria-live="polite" aria-busy="true">
-      <div v-for="grade in ['A', 'B', 'C']" :key="grade" class="grade-card skeleton-block">
-        <span class="sr-only">正在加载{{ grade }}果数据</span>
+      <div v-for="index in skeletonCount" :key="index" class="grade-card skeleton-block">
+        <span class="sr-only">正在加载等级数据</span>
       </div>
     </div>
 
@@ -58,14 +59,14 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
           <strong>{{ formatCurrency(total.salesAmount) }}</strong>
         </div>
         <div>
-          <span>平均每千克售价</span>
+          <span>平均每公斤售价</span>
           <strong>{{ formatPrice(total.weightedAvgPrice) }}</strong>
         </div>
       </div>
 
-      <div class="grade-grid">
+      <div v-if="visibleItems.length" class="grade-grid">
         <article
-          v-for="item in grades"
+          v-for="item in visibleItems"
           :key="item.grade"
           class="grade-card"
           :class="`grade-${item.grade.toLowerCase()}`"
@@ -97,11 +98,15 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
               <dd>{{ formatCurrency(item.salesAmount) }}</dd>
             </div>
             <div>
-              <dt>平均每千克售价</dt>
+              <dt>平均每公斤售价</dt>
               <dd>{{ formatPrice(item.weightedAvgPrice) }}</dd>
             </div>
           </dl>
         </article>
+      </div>
+      <div v-else class="empty-state compact">
+        <strong>暂未选择要展示的等级</strong>
+        <span>请至少勾选一个等级后再查看。</span>
       </div>
     </template>
     <ChartTooltip :tooltip="tooltip" />
@@ -109,6 +114,18 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
 </template>
 
 <style scoped>
+.grade-grid {
+  display: flex;
+  gap: .82rem;
+  overflow-x: auto;
+  padding-bottom: .35rem;
+}
+
+.grade-card {
+  flex: 1 1 240px;
+  min-width: 220px;
+}
+
 /* 占比条只有 5px 高，用透明覆盖层把悬浮命中区放大到可点范围。 */
 .grade-card .share-track { position: relative; }
 .grade-card .share-track::after { content: ''; position: absolute; inset: -10px 0; }

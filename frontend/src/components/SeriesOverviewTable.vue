@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import { gradeLabel } from '../api/client'
 import type { Grade, SeriesAggregate, SeriesComparisonItem } from '../api/types'
+import { activeGrades, gradeColors } from '../utils/grades'
 import { useChartTooltip } from '../utils/chartTooltip'
 import { formatCurrency, formatDate, formatNumber, formatPercent, formatPrice } from '../utils/format'
 import { displayOrderNo, rawOrderNo } from '../utils/orderNo'
@@ -14,8 +17,12 @@ const props = defineProps<{
   loading?: boolean
 }>()
 
-const gradeOrder: Grade[] = ['A', 'B', 'C']
-const gradeColors: Record<Grade, string> = { A: '#16856b', B: '#bd7414', C: '#b94a3c' }
+const gradeOrder = computed(() =>
+  activeGrades([
+    ...props.items.flatMap((item) => item.grades),
+    ...props.total.grades,
+  ]),
+)
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
 const quantity = (item: SeriesComparisonItem, grade: Grade) => gradeOf(item, grade).salesQuantity
 /** 表格与提示里回溯填写人员原始写法的 tooltip 文案。 */
@@ -77,7 +84,7 @@ function showShareTooltip(event: MouseEvent, item: SeriesComparisonItem, grade: 
               <th v-for="grade in gradeOrder" :key="grade" scope="col">{{ gradeLabel(grade) }}件数</th>
               <th scope="col">总件数</th>
               <th scope="col">总金额</th>
-              <th scope="col">平均每千克售价</th>
+              <th scope="col">平均每公斤售价</th>
               <th v-for="grade in gradeOrder" :key="`share-${grade}`" scope="col">{{ gradeLabel(grade) }}占比</th>
             </tr>
           </thead>
@@ -135,7 +142,7 @@ function showShareTooltip(event: MouseEvent, item: SeriesComparisonItem, grade: 
           <div class="mobile-series-kpis">
             <span><small>总件数</small><strong>{{ formatNumber(item.total.salesQuantity) }}</strong></span>
             <span><small>总金额</small><strong>{{ formatCurrency(item.total.salesAmount) }}</strong></span>
-            <span><small>平均每千克售价</small><strong>{{ formatPrice(item.total.weightedAvgPrice) }}</strong></span>
+            <span><small>平均每公斤售价</small><strong>{{ formatPrice(item.total.weightedAvgPrice) }}</strong></span>
           </div>
           <dl>
             <div v-for="grade in gradeOrder" :key="grade">
@@ -149,7 +156,7 @@ function showShareTooltip(event: MouseEvent, item: SeriesComparisonItem, grade: 
           <div class="mobile-series-kpis">
             <span><small>总件数</small><strong>{{ formatNumber(props.total.total.salesQuantity) }}</strong></span>
             <span><small>总金额</small><strong>{{ formatCurrency(props.total.total.salesAmount) }}</strong></span>
-            <span><small>平均每千克售价</small><strong>{{ formatPrice(props.total.total.weightedAvgPrice) }}</strong></span>
+            <span><small>平均每公斤售价</small><strong>{{ formatPrice(props.total.total.weightedAvgPrice) }}</strong></span>
           </div>
           <dl>
             <div v-for="grade in gradeOrder" :key="grade">

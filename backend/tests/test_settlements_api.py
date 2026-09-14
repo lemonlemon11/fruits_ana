@@ -135,7 +135,15 @@ def test_settlement_item_exposes_sales_metrics(client):
         "sales_amount": 160.0,
         "total_quantity": 8.0,
         "average_price": 20.0,
-        "grade_quantities": {"A": 6.0, "B": 2.0, "C": 0.0},
+        "grade_quantities": {
+            "A": 6.0,
+            "B": 2.0,
+            "C": 0.0,
+            "D": 0.0,
+            "E": 0.0,
+            "F": 0.0,
+            "OTHER": 0.0,
+        },
         "record_count": 2,
     }
 

@@ -11,6 +11,7 @@ const props = defineProps<{
   startDate?: string
   endDate?: string
   disabled?: boolean
+  active?: boolean
 }>()
 
 const resetKey = computed(() =>
@@ -34,6 +35,7 @@ const run = (refresh: boolean) =>
     :headings="GRADE_DETAIL_HEADINGS"
     :reset-key="resetKey"
     :can-generate="canGenerate"
+    :active="active"
     :run="run"
     generate-text="生成号别小结"
   />

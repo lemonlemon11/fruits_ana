@@ -6,6 +6,7 @@
  */
 
 import type { SettlementListItem } from '../api/types'
+import { groupBySeries } from './seriesComparison.ts'
 
 /** 按商号、单号、品牌或柜号匹配；关键词为空时返回全部。 */
 export function filterSettlementOptions(
@@ -89,4 +90,56 @@ export function parseSelectedParam(value: unknown, max = Number.MAX_SAFE_INTEGER
 /** 把已选商号写成地址栏参数；没有选择时返回空串，调用方据此删除该参数。 */
 export function serializeSelectedParam(selected: string[]): string {
   return selected.map((item) => item.trim()).filter(Boolean).join(',')
+}
+
+
+export interface SettlementPage {
+  items: SettlementListItem[]
+  page: number
+  pages: number
+  total: number
+}
+
+/** 前端分页：保证页码不越界，并把当前页数据切出来。 */
+export function paginateSettlementOptions(
+  items: SettlementListItem[],
+  page: number,
+  pageSize = 6,
+): SettlementPage {
+  const pages = Math.max(1, Math.ceil(items.length / pageSize))
+  const safePage = Math.min(Math.max(page, 1), pages)
+  const start = (safePage - 1) * pageSize
+  return {
+    items: items.slice(start, start + pageSize),
+    page: safePage,
+    pages,
+    total: items.length,
+  }
+}
+
+/** 从候选里按「先到品牌」挑出默认选择，保证默认不会跨品牌。 */
+export function initialSameSeriesSelection(
+  items: SettlementListItem[],
+  count = 3,
+): string[] {
+  const groups = groupBySeries(items)
+  const target = groups.find((group) => group.items.length >= 2) ?? groups[0]
+  return target?.items.slice(0, count).map((item) => item.merchantNo) ?? []
+}
+
+/** 把历史/分享链接里的跨品牌选择收敛到第一张所属品牌。 */
+export function normalizeSameSeriesSelection(
+  items: SettlementListItem[],
+  selected: string[],
+  count = 3,
+): string[] {
+  const available = new Set(items.map((item) => item.merchantNo))
+  const kept = selected.filter((merchantNo) => available.has(merchantNo))
+  if (!kept.length) return initialSameSeriesSelection(items, count)
+  const anchor = items.find((item) => item.merchantNo === kept[0])
+  const series = anchor?.series ?? ''
+  const sameSeries = kept.filter(
+    (merchantNo) => items.find((item) => item.merchantNo === merchantNo)?.series === series,
+  )
+  return sameSeries.length >= 2 ? sameSeries : initialSameSeriesSelection(items, count)
 }
