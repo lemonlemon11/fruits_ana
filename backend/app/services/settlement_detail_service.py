@@ -45,6 +45,7 @@ def _record_payload(record: SaleRecord) -> dict:
         "source_file_id": record.source_file_id,
         "import_batch_id": record.import_batch_id,
         "sale_date": record.sale_date.isoformat(),
+        "fruit_type": record.fruit_type,
         "grade": record.grade.value,
         "grade_raw": record.grade_raw,
         "spec_raw": record.spec_raw,
@@ -52,6 +53,7 @@ def _record_payload(record: SaleRecord) -> dict:
         "unit_price": _number(record.unit_price),
         "amount": _number(record.amount),
         "remark": record.remark,
+        "sales_region": record.sales_region,
     }
 
 

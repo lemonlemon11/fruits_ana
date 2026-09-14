@@ -1,18 +1,76 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-import type { SettlementComparisonItem } from '../api/client'
-import { settlementOptionLabel } from '../utils/settlementComparison'
+import type { Grade, SettlementComparisonItem } from '../api/client'
+import { displayMerchantNo } from '../utils/merchantNo'
+import { settlementOptionLabel, settlementSeries } from '../utils/settlementComparison'
 import { formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
 
-const props = defineProps<{ items: SettlementComparisonItem[]; loading?: boolean }>()
-const sortBy = ref<'salesAmount' | 'salesQuantity' | 'weightedAvgPrice'>('salesAmount')
-const sortedItems = computed(() => [...props.items].sort(
-  (left, right) => (right[sortBy.value] ?? -1) - (left[sortBy.value] ?? -1),
-))
+type SortKey = 'salesAmount' | 'salesQuantity' | 'weightedAvgPrice' | 'series' | 'saleDate' | 'merchantNo'
 
-function gradeShare(item: SettlementComparisonItem, grade: 'A' | 'B' | 'C') {
-  return item.grades.find((row) => row.grade === grade)?.quantityShare
+const props = withDefaults(defineProps<{
+  items: SettlementComparisonItem[]
+  loading?: boolean
+  mode?: 'metrics' | 'identity'
+}>(), { mode: 'metrics' })
+
+const metricsSortOptions = [
+  { value: 'salesAmount', label: '按销售额' },
+  { value: 'salesQuantity', label: '按销量' },
+  { value: 'weightedAvgPrice', label: '按平均每千克售价' },
+] as const
+const identitySortOptions = [
+  { value: 'series', label: '按品牌' },
+  { value: 'saleDate', label: '按销售日期' },
+  { value: 'merchantNo', label: '按商号' },
+] as const
+
+const gradeOrder: Grade[] = ['A', 'B', 'C']
+
+const sortOptions = computed(() => props.mode === 'identity' ? identitySortOptions : metricsSortOptions)
+const sortBy = ref<SortKey>(props.mode === 'identity' ? 'saleDate' : 'salesAmount')
+
+function merchantLabel(item: SettlementComparisonItem): string {
+  return displayMerchantNo(item)
+}
+
+function compareText(left: string, right: string): number {
+  return left.localeCompare(right, 'zh-Hans-CN', { numeric: true })
+}
+
+function compareDate(left: SettlementComparisonItem, right: SettlementComparisonItem): number {
+  return compareText(right.startDate || right.endDate || '', left.startDate || left.endDate || '')
+}
+
+function compareSeries(left: SettlementComparisonItem, right: SettlementComparisonItem): number {
+  return compareText(settlementSeries(left), settlementSeries(right))
+}
+
+function compareMerchant(left: SettlementComparisonItem, right: SettlementComparisonItem): number {
+  return compareText(merchantLabel(right), merchantLabel(left))
+}
+
+const sortedItems = computed(() => [...props.items].sort((left, right) => {
+  if (sortBy.value === 'series') {
+    return compareSeries(left, right) || compareDate(left, right) || compareMerchant(left, right)
+  }
+  if (sortBy.value === 'saleDate') {
+    return compareDate(left, right) || compareSeries(left, right) || compareMerchant(left, right)
+  }
+  if (sortBy.value === 'merchantNo') {
+    return compareMerchant(left, right) || compareDate(left, right) || compareSeries(left, right)
+  }
+  return (right[sortBy.value] ?? -1) - (left[sortBy.value] ?? -1)
+}))
+
+function periodLabel(item: SettlementComparisonItem): string {
+  if (!item.startDate && !item.endDate) return '销售日期未登记'
+  if (!item.startDate || item.startDate === item.endDate) return item.startDate || item.endDate || '销售日期未登记'
+  return `${item.startDate} 至 ${item.endDate}`
+}
+
+function gradeOf(item: SettlementComparisonItem, grade: Grade) {
+  return item.grades.find((row) => row.grade === grade)
 }
 </script>
 
@@ -21,13 +79,11 @@ function gradeShare(item: SettlementComparisonItem, grade: 'A' | 'B' | 'C') {
     <header class="section-heading comparison-heading">
       <div>
         <h2 id="comparison-title">结算单销售情况</h2>
-        <p class="section-note">按销售额、销量或平均每件售价排序查看</p>
+        <p class="section-note">{{ mode === 'identity' ? '按品牌、销售日期或商号排序查看' : '按销售额、销量或平均每千克售价排序查看' }}</p>
       </div>
       <label class="compact-field">排序
         <select v-model="sortBy">
-          <option value="salesAmount">按销售额</option>
-          <option value="salesQuantity">按销量</option>
-          <option value="weightedAvgPrice">按均价</option>
+          <option v-for="option in sortOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
         </select>
       </label>
     </header>
@@ -45,16 +101,21 @@ function gradeShare(item: SettlementComparisonItem, grade: 'A' | 'B' | 'C') {
       >
         <span class="simple-container-name">
           <strong>{{ settlementOptionLabel(item) }}</strong>
-          <small>{{ item.containerNo ? `柜号 ${item.containerNo}` : '未登记柜号' }}</small>
+          <small>
+            {{ periodLabel(item) }} · {{ settlementSeries(item) }}
+            <template v-if="item.containerNo"> · 柜号 {{ item.containerNo }}</template>
+          </small>
         </span>
         <span class="simple-metric"><small>销售额</small><strong>{{ formatCurrency(item.salesAmount) }}</strong></span>
         <span class="simple-metric"><small>销量</small><strong>{{ formatNumber(item.salesQuantity) }}</strong></span>
-        <span class="simple-metric"><small>平均售价</small><strong>{{ formatPrice(item.weightedAvgPrice) }}</strong></span>
-        <span class="simple-grade-shares" aria-label="等级销量占比">
-          <span>A果 {{ formatPercent(gradeShare(item, 'A')) }}</span>
-          <span>B果 {{ formatPercent(gradeShare(item, 'B')) }}</span>
-          <span>C果 {{ formatPercent(gradeShare(item, 'C')) }}</span>
-        </span>
+        <span class="simple-metric"><small>平均每千克售价</small><strong>{{ formatPrice(item.weightedAvgPrice) }}</strong></span>
+        <div class="simple-grade-shares" aria-label="等级、等级均价与占比">
+          <div v-for="grade in gradeOrder" :key="grade" class="simple-grade-cell">
+            <strong>{{ grade }}果</strong>
+            <small>等级均价 {{ formatPrice(gradeOf(item, grade)?.weightedAvgPrice ?? null) }}</small>
+            <small>占比 {{ formatPercent(gradeOf(item, grade)?.quantityShare ?? null) }}</small>
+          </div>
+        </div>
       </article>
     </div>
   </section>
@@ -86,7 +147,9 @@ function gradeShare(item: SettlementComparisonItem, grade: 'A' | 'B' | 'C') {
 .simple-metric small { color: var(--muted); font-size: .85rem; }
 .simple-metric strong { overflow-wrap: anywhere; font-size: .9rem; }
 .simple-grade-shares { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.simple-grade-shares span { padding: 7px 6px; background: var(--surface-soft); text-align: center; font-size: .85rem; }
+.simple-grade-cell { display: grid; gap: 4px; padding: 7px 6px; background: var(--surface-soft); text-align: center; }
+.simple-grade-cell strong { font-size: .9rem; }
+.simple-grade-cell small { color: var(--muted); font-size: .78rem; line-height: 1.25; }
 @media (max-width: 1050px) {
   .simple-container-row { grid-template-columns: minmax(140px, 1fr) repeat(3, minmax(100px, .75fr)); }
   .simple-grade-shares { grid-column: 1 / -1; }
@@ -99,5 +162,20 @@ function gradeShare(item: SettlementComparisonItem, grade: 'A' | 'B' | 'C') {
   .simple-container-name { grid-column: 1 / -1; }
   .simple-metric:nth-of-type(4) { grid-column: 1 / -1; }
   .simple-grade-shares { grid-column: 1 / -1; }
+}
+
+@media (max-width: 560px) {
+  .simple-container-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 8px; min-height: 0; }
+  .simple-metric:nth-of-type(4) { grid-column: auto; }
+  .simple-container-name { gap: 1px; }
+  .simple-container-name strong { font-size: .9rem; line-height: 1.25; }
+  .simple-container-name small { font-size: .7rem; line-height: 1.25; }
+  .simple-metric { gap: 2px; }
+  .simple-metric strong { font-size: .78rem; }
+  .simple-metric small { font-size: .68rem; }
+  .simple-grade-shares { gap: 3px; }
+  .simple-grade-cell { gap: 2px; padding: 3px 2px; }
+  .simple-grade-cell strong { font-size: .7rem; }
+  .simple-grade-cell small { font-size: .66rem; line-height: 1.2; }
 }
 </style>

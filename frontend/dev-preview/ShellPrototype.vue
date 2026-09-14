@@ -22,7 +22,7 @@ interface NavItem {
 const HOME_PATH = '/overview'
 
 const primaryNav: NavItem[] = [
-  { path: '/overview', label: '卖得怎么样', icon: ChartColumn, summary: '本期的件数、金额和平均每件售价总览' },
+  { path: '/overview', label: '卖得怎么样', icon: ChartColumn, summary: '本期的件数、金额和平均每千克售价总览' },
   { path: '/settlements', label: '每一单', icon: Table2, summary: '按结算单逐单查看 A / B / C 明细' },
   { path: '/imports', label: '数据导入', icon: Upload, summary: '导入结算单，自动做数据质量检查' },
 ]

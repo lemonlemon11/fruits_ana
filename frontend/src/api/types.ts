@@ -5,6 +5,22 @@ export interface AuthUser {
   displayName: string
 }
 
+export interface AppNotification {
+  id: number
+  title: string
+  content: string
+  notification_type: 'announcement' | 'task' | 'system'
+  priority: 'normal' | 'important' | 'urgent'
+  publish_at: string | null
+  is_read: boolean
+  read_at: string | null
+}
+
+export interface NotificationListData {
+  items: AppNotification[]
+  unread_count: number
+}
+
 export interface LoginPayload {
   displayName: string
   password: string
@@ -84,12 +100,15 @@ export interface SettlementRecord {
   id: number | string
   sourceFileId: number | string | null
   saleDate: string
+  fruitType: string
   gradeRaw: string
   grade: Grade | null
   specRaw: string
   quantity: number
   unitPrice: number
   amount: number
+  remark: string
+  salesRegion: string
 }
 
 export interface SettlementDetail extends OverviewData {

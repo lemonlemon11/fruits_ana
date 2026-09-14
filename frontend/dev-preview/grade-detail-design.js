@@ -14,7 +14,7 @@
       ['结算单', `${D.meta.settlements}`, '张'],
       ['销售明细', `${D.meta.records}`, '行'],
       ['总件数', num(D.meta.totalQty), '件'],
-      ['整体均价', num(D.meta.overallAvg, 2), '元/件'],
+      ['整体平均每千克售价', num(D.meta.overallAvg, 2), '元/千克'],
     ];
     document.getElementById('stats').innerHTML = items
       .map(([label, value, unit]) =>
@@ -50,9 +50,9 @@
               <span class="bar-label">${row.label}</span>
               <div class="bar-track">
                 <div class="bar-fill grade-${grade.toLowerCase()}" style="width:${((row.avg / maxAvg) * 100).toFixed(1)}%"
-                     role="img" aria-label="${row.label} 均价 ${num(row.avg, 2)} 元每件"></div>
+                     role="img" aria-label="${row.label} 平均每千克售价 ${num(row.avg, 2)} 元每件"></div>
               </div>
-              <span class="bar-value">${num(row.avg, 2)} <span class="unit">元/件</span></span>
+              <span class="bar-value">${num(row.avg, 2)} <span class="unit">元/千克</span></span>
               <span class="bar-qty">${num(row.qty)} 件</span>
             </div>`)
           .join('');
@@ -60,7 +60,7 @@
           <div class="grade-group grade-${grade.toLowerCase()}">
             <p class="group-head">
               <span class="dot"></span>${GRADE_NAME[grade]}
-              <span class="sum">${num(qty)} 件 · ${num(amount)} 元 · 均价 ${num(amount / qty, 2)} 元/件</span>
+              <span class="sum">${num(qty)} 件 · ${num(amount)} 元 · 平均每千克售价 ${num(amount / qty, 2)} 元/千克</span>
             </p>
             ${bars}
           </div>`;
@@ -88,7 +88,7 @@
       .map(([label, value]) => `
         <li class="quality">
           <strong>${label}</strong>
-          <p class="avg">${num(value.avg, 2)} <span class="unit">元/件</span></p>
+          <p class="avg">${num(value.avg, 2)} <span class="unit">元/千克</span></p>
           <p class="sub">${num(value.qty)} 件 · 占总量 ${share(value.qty)}</p>
         </li>`)
       .join('');

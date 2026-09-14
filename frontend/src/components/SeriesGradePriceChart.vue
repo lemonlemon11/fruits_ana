@@ -106,7 +106,7 @@ function showBarTooltip(event: MouseEvent, group: { merchantNo: string; orderNo:
   showTooltip(event, {
     title: `${group.merchantNo}${group.orderNo ? ` · ${group.orderNo}` : ''}`,
     rows: [
-      { label: gradeLabel(bar.grade), value: `${formatPrice(bar.value)}/件`, color: bar.color },
+      { label: gradeLabel(bar.grade), value: `${formatPrice(bar.value)}/千克`, color: bar.color },
     ],
     note: isBest(bar.grade, bar.value) ? `该等级所选结算单中的最高价` : undefined,
   })
@@ -117,8 +117,8 @@ function showBarTooltip(event: MouseEvent, group: { merchantNo: string; orderNo:
   <section class="dashboard-section" aria-labelledby="series-price-title">
     <header class="section-heading">
       <div>
-        <h2 id="series-price-title">A/B/C 平均每件售价对比</h2>
-        <p class="section-note">每张结算单一组，柱内从左到右为 A、B、C，同一颜色的柱子可跨结算单比较；单位：元/件，深色数字为该等级最高价</p>
+        <h2 id="series-price-title">各等级平均每千克售价对比</h2>
+        <p class="section-note">每张结算单一组，柱内按等级排列，同一颜色的柱子可跨结算单比较；单位：元/千克，深色数字为该等级最高价</p>
       </div>
       <ChartLegend :items="legendItems" />
     </header>

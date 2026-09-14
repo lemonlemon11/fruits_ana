@@ -82,11 +82,11 @@ test('normalizeSettlementList 带出系列字段', () => {
   })
 
   assert.equal(data.settlements[0].series, '宝贝')
-  assert.equal(data.settlements[1].series, '未识别系列')
+  assert.equal(data.settlements[1].series, '未识别品牌')
   assert.equal(data.dateRange?.isDefault, true)
 })
 
-test('groupBySeries 按系列分组，系列内保持原顺序', () => {
+test('groupBySeries 按品牌分组，品牌内保持原顺序', () => {
   const groups = groupBySeries([
     { series: '宝贝', merchantNo: '单624' },
     { series: '香香', merchantNo: '单637' },

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import ArrowUp from '@lucide/vue/dist/esm/icons/arrow-up.mjs'
+import Bell from '@lucide/vue/dist/esm/icons/bell.mjs'
+import BellRing from '@lucide/vue/dist/esm/icons/bell-ring.mjs'
 import Boxes from '@lucide/vue/dist/esm/icons/boxes.mjs'
 import ChartColumn from '@lucide/vue/dist/esm/icons/chart-column.mjs'
 import Clock3 from '@lucide/vue/dist/esm/icons/clock-3.mjs'
@@ -16,7 +18,13 @@ import X from '@lucide/vue/dist/esm/icons/x.mjs'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
-import { logout as logoutRequest } from './api/client'
+import {
+  getNotifications,
+  logout as logoutRequest,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type AppNotification,
+} from './api/client'
 import { currentUser, setCurrentUser } from './auth'
 import BrandMark from './components/BrandMark.vue'
 import {
@@ -40,9 +48,16 @@ import {
   restoreTabs,
   type ShellTab,
 } from './utils/shellTabs'
+import { notificationPlainText, sanitizeNotificationHtml } from './utils/notificationHtml'
 
 const mobileNavOpen = ref(false)
 const signingOut = ref(false)
+const notifications = ref<AppNotification[]>([])
+const unreadNotificationCount = ref(0)
+const notificationPanelOpen = ref(false)
+const notificationPanel = ref<HTMLElement | null>(null)
+const notificationBanner = ref<AppNotification | null>(null)
+const notificationDetail = ref<AppNotification | null>(null)
 const sidebarCollapsed = ref(readStoredSidebarState())
 const clockNow = ref(new Date())
 const showBackToTop = ref(false)
@@ -69,7 +84,7 @@ const primaryNavItems = [
 const moreNavItems = [
   { path: '/settlement-detail', label: '结算单详情', icon: PackageSearch },
   { path: '/settlement-comparison', label: '结算单对比', icon: GitCompareArrows },
-  { path: '/series-comparison', label: '系列对比', icon: Boxes },
+  { path: '/series-comparison', label: '品牌对比', icon: Boxes },
 ]
 const navItems = [...primaryNavItems, ...moreNavItems]
 const moreNavActive = computed(() => moreNavItems.some((item) => route.path.startsWith(item.path)))
@@ -85,6 +100,8 @@ const userInitial = computed(() => currentUser.value?.displayName?.slice(0, 1) ?
 const headerClock = computed(() => formatHeaderClock(clockNow.value))
 const tabsStrip = ref<HTMLElement | null>(null)
 let clockTimer: number | undefined
+let notificationTimer: number | undefined
+let notificationReminderTimer: number | undefined
 
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown)
@@ -92,6 +109,11 @@ onMounted(() => {
   clockTimer = window.setInterval(() => {
     clockNow.value = new Date()
   }, HEADER_CLOCK_REFRESH_MS)
+  void loadNotifications()
+  notificationTimer = window.setInterval(loadNotifications, 60_000)
+  notificationReminderTimer = window.setInterval(() => {
+    if (unreadNotificationCount.value > 0 && !notificationPanelOpen.value) showNotificationBanner()
+  }, 30 * 60 * 1000)
   window.addEventListener('scroll', handleScroll, { passive: true })
 })
 watch(
@@ -104,6 +126,75 @@ watch(
   },
   { immediate: true },
 )
+
+function showNotificationBanner() {
+  if (notificationPanelOpen.value || notificationDetail.value) return
+  const unread =
+    notifications.value.find((item) => !item.is_read && item.priority === 'urgent') ??
+    notifications.value.find((item) => !item.is_read && item.priority === 'important') ??
+    notifications.value.find((item) => !item.is_read) ??
+    null
+  if (!unread) return
+  notificationBanner.value = unread
+}
+
+async function loadNotifications() {
+  try {
+    const data = await getNotifications(12)
+    const previousCount = unreadNotificationCount.value
+    notifications.value = data.items
+    unreadNotificationCount.value = data.unread_count
+    if (data.unread_count > previousCount && data.unread_count > 0) showNotificationBanner()
+  } catch {
+    // 登录态失效或后端暂不可用时静默忽略，避免 header 反复报错。
+  }
+}
+
+function toggleNotificationPanel() {
+  notificationPanelOpen.value = !notificationPanelOpen.value
+  if (notificationPanelOpen.value) {
+    notificationBanner.value = null
+    void loadNotifications()
+  }
+}
+
+async function markRead(notification: AppNotification) {
+  if (notification.is_read) return
+  try {
+    const updated = await markNotificationRead(notification.id)
+    const target = notifications.value.find((item) => item.id === notification.id)
+    if (target) {
+      target.is_read = updated.is_read
+      target.read_at = updated.read_at
+    }
+    unreadNotificationCount.value = Math.max(0, unreadNotificationCount.value - 1)
+  } catch {
+    // 网络异常时保留未读状态，用户可稍后重试。
+  }
+}
+
+async function markAllRead() {
+  try {
+    await markAllNotificationsRead()
+    notifications.value.forEach((item) => {
+      item.is_read = true
+    })
+    unreadNotificationCount.value = 0
+  } catch {
+    // 保持现有未读状态。
+  }
+}
+
+function openNotification(notification: AppNotification) {
+  notificationDetail.value = notification
+  notificationPanelOpen.value = false
+  notificationBanner.value = null
+  void markRead(notification)
+}
+
+function closeNotificationDetail() {
+  notificationDetail.value = null
+}
 watch(openedTabs, persistTabs, { deep: true })
 watch(activeTabPath, () => void scrollActiveTabIntoView())
 watch(
@@ -195,14 +286,21 @@ function toggleFontSizePanel() {
 }
 
 function handleGlobalPointerDown(event: PointerEvent) {
-  if (!fontSizePanelOpen.value || !fontSizePanel.value) return
-  if (!fontSizePanel.value.contains(event.target as Node)) fontSizePanelOpen.value = false
+  if (fontSizePanelOpen.value && fontSizePanel.value && !fontSizePanel.value.contains(event.target as Node)) {
+    fontSizePanelOpen.value = false
+  }
+  if (notificationPanelOpen.value && notificationPanel.value && !notificationPanel.value.contains(event.target as Node)) {
+    notificationPanelOpen.value = false
+  }
 }
 
 function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
   mobileNavOpen.value = false
   fontSizePanelOpen.value = false
+  notificationPanelOpen.value = false
+  notificationBanner.value = null
+  notificationDetail.value = null
 }
 
 function activateTab(tab: ShellTab) {
@@ -242,6 +340,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', handleGlobalPointerDown)
   window.removeEventListener('scroll', handleScroll)
   if (clockTimer !== undefined) window.clearInterval(clockTimer)
+  if (notificationTimer !== undefined) window.clearInterval(notificationTimer)
+  if (notificationReminderTimer !== undefined) window.clearInterval(notificationReminderTimer)
 })
 
 function handleScroll() {
@@ -318,6 +418,49 @@ function scrollToTop() {
             <span class="font-size-options" aria-hidden="true">小 · 标准 · 大 · 特大</span>
           </div>
         </div>
+        <div ref="notificationPanel" class="app-header-notification">
+          <button
+            type="button"
+            class="notification-trigger"
+            :class="{ 'is-active': notificationPanelOpen }"
+            :aria-expanded="notificationPanelOpen"
+            aria-controls="notification-popover"
+            :aria-label="`站内通知，${unreadNotificationCount} 条未读`"
+            @click="toggleNotificationPanel"
+          >
+            <Bell :size="18" aria-hidden="true" />
+            <span v-if="unreadNotificationCount > 0" class="notification-badge" aria-hidden="true">
+              {{ unreadNotificationCount > 99 ? '99+' : unreadNotificationCount }}
+            </span>
+          </button>
+          <div v-if="notificationPanelOpen" id="notification-popover" class="notification-popover">
+            <div class="notification-popover-head">
+              <strong>站内通知</strong>
+              <button type="button" class="link-button" @click="markAllRead">全部已读</button>
+            </div>
+            <div v-if="notifications.length" class="notification-list">
+              <button
+                v-for="item in notifications"
+                :key="item.id"
+                type="button"
+                class="notification-item"
+                :class="{ 'is-unread': !item.is_read }"
+                @click="openNotification(item)"
+              >
+                <span class="notification-item-head">
+                  <strong>{{ item.title }}</strong>
+                  <span v-if="!item.is_read" class="unread-dot" aria-label="未读"></span>
+                </span>
+                <span class="notification-item-body">{{ notificationPlainText(item.content) }}</span>
+                <span class="notification-item-meta">
+                  {{ item.priority === 'urgent' ? '紧急' : item.priority === 'important' ? '重要' : '普通' }}
+                  · {{ item.publish_at ? new Date(item.publish_at).toLocaleString() : '—' }}
+                </span>
+              </button>
+            </div>
+            <div v-else class="notification-empty">暂无通知</div>
+          </div>
+        </div>
         <div class="app-header-account">
           <span class="account-avatar" aria-hidden="true">{{ userInitial }}</span>
           <span class="account-name">{{ currentUser?.displayName }}</span>
@@ -327,6 +470,36 @@ function scrollToTop() {
           </button>
         </div>
       </header>
+      <div v-if="notificationBanner && !notificationPanelOpen" class="notification-banner" role="status">
+        <div class="notification-banner-head">
+          <BellRing :size="18" aria-hidden="true" />
+          <div class="notification-banner-copy">
+            <strong>{{ notificationBanner.title }}</strong>
+            <span>{{ notificationPlainText(notificationBanner.content) }}</span>
+          </div>
+          <button type="button" class="notification-banner-close" aria-label="关闭提醒" @click="notificationBanner = null">
+            <X :size="16" aria-hidden="true" />
+          </button>
+        </div>
+        <button type="button" class="notification-banner-view" @click="openNotification(notificationBanner)">查看详情</button>
+      </div>
+      <div v-if="notificationDetail" class="notification-detail-mask" @click.self="closeNotificationDetail">
+        <article class="notification-detail-card" role="dialog" aria-modal="true" aria-label="通知详情">
+          <header class="notification-detail-head">
+            <div>
+              <h2>{{ notificationDetail.title }}</h2>
+              <p>
+                {{ notificationDetail.priority === 'urgent' ? '紧急' : notificationDetail.priority === 'important' ? '重要' : '普通' }}
+                · {{ notificationDetail.publish_at ? new Date(notificationDetail.publish_at).toLocaleString() : '—' }}
+              </p>
+            </div>
+            <button type="button" class="notification-detail-close" aria-label="关闭通知详情" @click="closeNotificationDetail">
+              <X :size="18" aria-hidden="true" />
+            </button>
+          </header>
+          <div class="notification-detail-content" v-html="sanitizeNotificationHtml(notificationDetail.content)"></div>
+        </article>
+      </div>
       <div class="app-body">
         <aside class="app-sidebar" aria-label="主要导航">
           <nav id="primary-nav" aria-label="主要导航">
@@ -413,3 +586,4 @@ function scrollToTop() {
 
 <style src="./styles.css"></style>
 <style src="./styles-shell.css"></style>
+<style src="./styles-responsive.css"></style>

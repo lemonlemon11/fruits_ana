@@ -16,7 +16,7 @@ Browser (Vue 3 SPA, Nginx :53000)
 FastAPI (:8000)  backend/app/main.py
         ├── api/auth.py      注册 / 登录 / 会话
         ├── api/imports.py   上传、批次列表、问题明细
-        ├── api/analytics.py 总览 / 趋势 / 结算单对比 / 结算单详情 / 系列对比 / 等级细分小结
+        ├── api/analytics.py 总览 / 趋势 / 结算单对比 / 结算单详情 / 品牌对比 / 等级细分小结
         ├── api/settlements.py 数据明细列表 / 单张结算单全部明细
         └── api/exports.py   总览 CSV、结算单 xlsx、原始文件下载
         ▼
@@ -61,7 +61,7 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 ### Analytics（`backend/app/api/analytics.py`、`services/*`）
 
-- 职责：总览指标、A/B/C 趋势、结算单对比、结算单摘要与明细。
+- 职责：总览指标、各等级趋势、结算单对比、结算单摘要与明细。
 - `analytics_service` 为兼容门面；`analytics_core` 提供筛选与指标，`settlement_analytics_service`
   提供对比/详情/异常，`overview_service`、`settlement_detail_service` 负责具体聚合。
 - 查询维度：`merchant_no`；柜号不再是查询条件。
@@ -69,15 +69,15 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 ### Series Analytics（`backend/app/api/analytics.py`、`services/series_analytics_service.py`）
 
-- 职责：「系列对比」页的数据来源：按勾选的结算单（可跨系列）核算 A/B/C 独立指标、价差与系列汇总。
+- 职责：「品牌对比」页的数据来源：按勾选的结算单（可跨品牌）核算各等级独立指标、价差与品牌汇总。
 - 路由：`GET /api/analytics/series-comparison`，参数为可重复的 `merchant_no`，外加
   `start_date` / `end_date`；不传 `merchant_no` 时返回日期范围内全部结算单。
-- 系列识别：取结算单单号（优先适配后的 `order_no_normalized`，回落 `order_no`，
-  如 `宝贝-001` / `宝贝01`）开头连续的中文前缀作为系列名；
-  识别不出时归入「未识别系列」，不影响其余结算单参与对比。见 ADR-009。
-- 返回结构：`settlements`（逐结算单）、`series`（逐系列汇总）、`total`（全部所选合计），
+- 品牌识别：取结算单单号（优先适配后的 `order_no_normalized`，回落 `order_no`，
+  如 `宝贝-001` / `宝贝01`）开头连续的中文前缀作为品牌名；
+  识别不出时归入「未识别品牌」，不影响其余结算单参与对比。见 ADR-009。
+- 返回结构：`settlements`（逐结算单）、`series`（逐品牌汇总）、`total`（全部所选合计），
   三者使用同一套口径：`total` / `grades` / `grade_amount_shares` / `spread`。
-- 注意：系列只是分组标签，对比与查询的唯一键仍是商号 `merchant_no`。
+- 注意：品牌只是分组标签，对比与查询的唯一键仍是商号 `merchant_no`。
 
 ### Settlement List（`backend/app/api/settlements.py`、`services/settlement_list_service.py`）
 
@@ -97,7 +97,7 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 ### Grade Detail AI（`services/grade_detail_analysis_service.py`）
 
 - 职责：按勾选的结算单生成「号别小结」，复用 `ai_analysis_service` 的缓存与调用机制（ADR-011）。
-- 路由：`POST /api/analytics/grade-detail/analysis`，请求体与系列对比一致
+- 路由：`POST /api/analytics/grade-detail/analysis`，请求体与品牌对比一致
   （`merchant_no[]` / `start_date` / `end_date` / `refresh`）。
 - 缓存键包含 `feature='grade-detail'` 与口径版本 `v1-schemeA`，口径变化后旧结论自动失效。
 - 数据包必须带样本量；样本结算单少于 5 张时，提示词禁止输出趋势类结论。
@@ -110,11 +110,12 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 - 视图：`OverviewView`（总览看板）、`SettlementListView`（数据明细）、
   `SettlementComparisonView`（结算单对比）、`SettlementView`（结算单诊断）、`ImportView`（导入）、
-  `SeriesComparisonView`（系列对比，内含「按系列 / 按等级号别」两个视图）、
+  `SeriesComparisonView`（品牌对比，内含「按品牌 / 按等级号别」两个视图）、
   `LoginView` / `RegisterView` / `PublicPreviewView`。
 - 等级细分组件：`SeriesGradeDetail.vue`（号别阶梯与数据表）、`GradeDetailAiAnalysis.vue`（号别小结）。
   AI 结论的渲染与状态机抽到通用组件 `AiAnalysisCard.vue`，两个页面的封装只负责接口与小标题。
 - 下拉框：展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
+- 日期范围：五个业务页统一使用 `DateRangeFilter.vue` 组件，在一个面板内选择开始 / 结束日期。
 - 单号展示口径（ADR-015）：统一用适配后单号 `orderNoNormalized`，
   经 `utils/orderNo.ts` 的 `displayOrderNo` 取值（缺失时回退原始 `orderNo`）；
   原始单号用 `rawOrderNo` 放在 tooltip / 副标题里，新增展示位不得直接渲染 `orderNo`。

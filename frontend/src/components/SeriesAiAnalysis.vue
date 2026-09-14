@@ -5,7 +5,7 @@ import { generateSeriesAnalysis } from '../api/client'
 import { ANALYSIS_HEADINGS } from '../utils/seriesAnalysis'
 import AiAnalysisCard from './AiAnalysisCard.vue'
 
-/** 「系列对比」的 AI 分析结论；渲染与状态机在 AiAnalysisCard。 */
+/** 「品牌对比」的 AI 分析结论；渲染与状态机在 AiAnalysisCard。 */
 const props = defineProps<{
   merchantNos: string[]
   startDate?: string

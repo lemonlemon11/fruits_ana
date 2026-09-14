@@ -118,7 +118,7 @@ def series_comparison(
     end_date: date | None = None,
     db: Session = Depends(get_db),
 ):
-    """按勾选的结算单返回 A/B/C 独立对比、价差与系列汇总。"""
+    """按勾选的结算单返回各等级独立对比、价差与系列汇总。"""
 
     if start_date and end_date and start_date > end_date:
         raise HTTPException(422, "start_date 不能晚于 end_date")

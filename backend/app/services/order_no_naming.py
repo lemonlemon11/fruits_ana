@@ -23,7 +23,7 @@ import re
 import unicodedata
 
 
-UNKNOWN_SERIES = "未识别系列"
+UNKNOWN_SERIES = "未识别品牌"
 SERIAL_WIDTH = 3
 
 _SERIES_PREFIX = re.compile(r"^[\u4e00-\u9fff]+")

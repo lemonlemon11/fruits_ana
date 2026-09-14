@@ -229,7 +229,7 @@ def settlement_anomalies(
     batches: dict[int, ImportBatch],
     thresholds: AnomalyThresholds = DEFAULT_THRESHOLDS,
 ) -> list[dict]:
-    """对比同期其他结算单，返回均价与等级占比异常。"""
+    """对比同期其他结算单，返回平均每千克售价与等级占比异常。"""
 
     settlement_count = len(
         {
@@ -251,7 +251,7 @@ def settlement_anomalies(
         anomalies.append(
             {
                 "type": "low_weighted_avg_price",
-                "reason": "结算单加权均价低于同期整体均价阈值",
+                "reason": "结算单平均每千克售价低于同期整体平均每千克售价阈值",
                 "metric": rounded(metric),
                 "baseline": rounded(baseline),
                 "threshold": rounded(thresholds.low_price_ratio),

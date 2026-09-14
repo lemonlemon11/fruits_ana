@@ -27,7 +27,7 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
       { label: '销量占比', value: formatPercent(item.quantityShare), color: gradeColors[item.grade] },
       { label: '销量', value: `${formatNumber(item.salesQuantity)} 件` },
       { label: '销售额', value: formatCurrency(item.salesAmount) },
-      { label: '平均每件售价', value: formatPrice(item.weightedAvgPrice) },
+      { label: '平均每千克售价', value: formatPrice(item.weightedAvgPrice) },
     ],
     note: '占比 = 该等级销量 ÷ 总销量',
   })
@@ -38,7 +38,7 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
   <section class="dashboard-section" aria-labelledby="grade-summary-title">
     <header class="section-heading">
       <h2 id="grade-summary-title">{{ title ?? '等级销售情况' }}</h2>
-      <p class="section-note">平均每件售价 = 销售额 ÷ 销量</p>
+      <p class="section-note">平均每千克售价 = 销售额 ÷ 销量（千克）</p>
     </header>
 
     <div v-if="loading" class="grade-grid" aria-live="polite" aria-busy="true">
@@ -58,7 +58,7 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
           <strong>{{ formatCurrency(total.salesAmount) }}</strong>
         </div>
         <div>
-          <span>平均每件售价</span>
+          <span>平均每千克售价</span>
           <strong>{{ formatPrice(total.weightedAvgPrice) }}</strong>
         </div>
       </div>
@@ -97,7 +97,7 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
               <dd>{{ formatCurrency(item.salesAmount) }}</dd>
             </div>
             <div>
-              <dt>平均每件售价</dt>
+              <dt>平均每千克售价</dt>
               <dd>{{ formatPrice(item.weightedAvgPrice) }}</dd>
             </div>
           </dl>

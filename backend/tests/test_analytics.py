@@ -194,17 +194,19 @@ def test_settlement_detail_records_follow_date_filter_and_include_source_ids():
 
     assert detail["records"] == [{
         "id": included_id,
-        "source_file_id": source_id,
-        "import_batch_id": batch_id,
-        "sale_date": "2026-01-02",
-        "grade": "B",
-        "grade_raw": "B级",
-        "spec_raw": "B6",
-        "quantity": 2.0,
-        "unit_price": 15.0,
-        "amount": 30.0,
-        "remark": None,
-    }]
+            "source_file_id": source_id,
+            "import_batch_id": batch_id,
+            "sale_date": "2026-01-02",
+            "fruit_type": "榴莲",
+            "grade": "B",
+            "grade_raw": "B级",
+            "spec_raw": "B6",
+            "quantity": 2.0,
+            "unit_price": 15.0,
+            "amount": 30.0,
+            "remark": None,
+            "sales_region": None,
+        }]
 
 
 def test_settlement_detail_explains_low_price_anomaly_with_record_ids():
@@ -219,7 +221,7 @@ def test_settlement_detail_explains_low_price_anomaly_with_record_ids():
     assert detail["operating_anomalies"] == [
         {
             "type": "low_weighted_avg_price",
-            "reason": "结算单加权均价低于同期整体均价阈值",
+            "reason": "结算单平均每千克售价低于同期整体平均每千克售价阈值",
             "metric": 5.0,
             "baseline": 14.0,
             "threshold": 0.8,

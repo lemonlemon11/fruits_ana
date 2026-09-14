@@ -67,7 +67,7 @@ test('号别小结按自己的小标题切分，不误用系列小标题', () =>
 
 test('等级细分页面使用果农能看懂的文案且不出现专业术语', () => {
   const component = read('components/SeriesGradeDetail.vue')
-  assert.match(component, /平均每件售价/)
+  assert.match(component, /平均每千克售价/)
   assert.match(component, /号别/)
   assert.doesNotMatch(component, /加权均价|贡献度|环比|同比/)
 

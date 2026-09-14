@@ -47,22 +47,63 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
       <div v-if="error" class="error-banner" role="alert"><span><strong>明细加载失败</strong>{{ error }}</span><button type="button" @click="loadRecords">重新加载</button></div>
       <div v-if="loading" class="skeleton-block">正在加载明细</div>
       <div v-else-if="!records.length" class="empty-inline">该结算单没有销售明细</div>
-      <div v-else class="table-wrap records-table">
-        <table>
-          <thead>
-            <tr><th>到达日期</th><th>等级</th><th>规格</th><th>数量</th><th>单价</th><th>金额</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="record in records" :key="record.id">
-              <td>{{ record.saleDate }}</td>
-              <td>{{ record.grade ? gradeLabel(record.grade) : record.gradeRaw || '未知' }}</td>
-              <td>{{ record.specRaw || '—' }}</td>
-              <td>{{ formatNumber(record.quantity) }}</td>
-              <td>{{ formatPrice(record.unitPrice) }}</td>
-              <td>{{ formatCurrency(record.amount) }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-else class="records-results">
+        <div class="records-grid" role="list">
+          <article v-for="(record, index) in records" :key="record.id" class="record-card" role="listitem">
+            <header class="record-card-head">
+              <div class="record-title">
+                <span class="record-index">#{{ index + 1 }}</span>
+                <strong>{{ record.saleDate }}</strong>
+              </div>
+              <span
+                class="record-grade"
+                :class="`grade-${(record.grade ?? 'unknown').toLowerCase()}`"
+              >
+                {{ record.grade ? gradeLabel(record.grade) : record.gradeRaw || '未知' }}
+              </span>
+            </header>
+            <div class="record-metrics" aria-label="销售核心指标">
+              <div>
+                <span>数量</span>
+                <strong>{{ formatNumber(record.quantity) }}</strong>
+              </div>
+              <div>
+                <span>单价</span>
+                <strong>{{ formatPrice(record.unitPrice) }}</strong>
+              </div>
+              <div>
+                <span>金额</span>
+                <strong>{{ formatCurrency(record.amount) }}</strong>
+              </div>
+            </div>
+            <dl class="record-fields">
+              <div>
+                <dt>品种</dt>
+                <dd>{{ record.fruitType || '—' }}</dd>
+              </div>
+              <div>
+                <dt>等级</dt>
+                <dd>{{ record.grade ? gradeLabel(record.grade) : record.gradeRaw || '未知' }}</dd>
+              </div>
+              <div>
+                <dt>等级原文</dt>
+                <dd>{{ record.gradeRaw || '—' }}</dd>
+              </div>
+              <div>
+                <dt>规格</dt>
+                <dd>{{ record.specRaw || '—' }}</dd>
+              </div>
+              <div>
+                <dt>销售地区</dt>
+                <dd>{{ record.salesRegion || '—' }}</dd>
+              </div>
+              <div class="record-remark">
+                <dt>备注</dt>
+                <dd>{{ record.remark || '—' }}</dd>
+              </div>
+            </dl>
+          </article>
+        </div>
       </div>
     </section>
   </div>
@@ -117,11 +158,140 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 }
 
 .records-close:hover { border-color: var(--primary); color: var(--primary-dark); }
-.records-table { max-height: 60vh; }
-.records-table table { min-width: 620px; }
-.records-table thead th { position: sticky; top: 0; background: var(--surface-soft); }
-/* 到达日期 / 等级 / 规格是文字列，左对齐才不参差；数量、单价、金额仍右对齐便于比大小。 */
-.records-table th:nth-child(1), .records-table td:nth-child(1),
-.records-table th:nth-child(2), .records-table td:nth-child(2),
-.records-table th:nth-child(3), .records-table td:nth-child(3) { text-align: left; }
+.records-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.record-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.record-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.record-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.record-title strong {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+
+.record-index {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: .78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.record-grade {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--primary-dark);
+  font-size: .78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.record-grade.grade-a { color: var(--grade-a); }
+.record-grade.grade-b { color: var(--grade-b); }
+.record-grade.grade-c { color: var(--grade-c); }
+.record-grade.grade-unknown { color: var(--muted); }
+
+.record-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.record-metrics div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.record-metrics span {
+  display: block;
+  color: var(--muted);
+  font-size: .75rem;
+}
+
+.record-metrics strong {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  font-size: .95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.record-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.record-fields div {
+  min-width: 0;
+}
+
+.record-fields dt {
+  color: var(--muted);
+  font-size: .75rem;
+}
+
+.record-fields dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: .88rem;
+  line-height: 1.4;
+}
+
+.record-remark {
+  grid-column: 1 / -1;
+}
+
+.record-remark dd {
+  padding: 8px 9px;
+  border-left: 3px solid var(--line-strong);
+  background: var(--surface);
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .records-overlay { padding: 0; place-items: end center; }
+  .records-dialog { width: 100%; max-height: calc(100vh - 18px); padding: 16px 14px calc(16px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; }
+  .records-results { min-width: 0; }
+  .records-grid { grid-template-columns: 1fr; gap: 10px; }
+  .record-card { padding: 10px; }
+  .record-metrics { gap: 6px; }
+  .record-metrics div { padding: 7px; }
+  .record-metrics span { font-size: .68rem; }
+  .record-metrics strong { font-size: .86rem; }
+  .record-fields { gap: 6px; }
+  .record-fields dt { font-size: .68rem; }
+  .record-fields dd { font-size: .82rem; }
+}
 </style>

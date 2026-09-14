@@ -65,7 +65,8 @@ test('normalizeSettlementDetail exposes settlement and traceable records', () =>
     settlement: { after_sales_amount: 10, fee_amount: 20, customs_tax: 30, payable_amount: 940 },
     records: [{
       id: 7, source_file_id: 2, sale_date: '2026-01-02', grade_raw: 'BC6', grade: 'C',
-      quantity: 4, unit_price: 8, amount: 32,
+      fruit_type: '榴莲', quantity: 4, unit_price: 8, amount: 32,
+      remark: '客户: 张', sales_region: '华东',
     }],
   }, '640')
 
@@ -81,6 +82,9 @@ test('normalizeSettlementDetail exposes settlement and traceable records', () =>
   assert.equal(detail.records[0].saleDate, '2026-01-02')
   assert.equal(detail.records[0].gradeRaw, 'BC6')
   assert.equal(detail.records[0].grade, 'C')
+  assert.equal(detail.records[0].fruitType, '榴莲')
+  assert.equal(detail.records[0].salesRegion, '华东')
+  assert.equal(detail.records[0].remark, '客户: 张')
   assert.equal(detail.records[0].unitPrice, 8)
   assert.equal(detail.records[0].sourceFileId, 2)
   assert.equal(recordSourceUrl(detail.records[0].id), '/api/exports/records/7/source')

@@ -26,8 +26,8 @@ type JsonRecord = Record<string, unknown>
 
 const GRADES: Grade[] = ['A', 'B', 'C']
 
-/** 与后端 `series_name` 保持一致：识别不出系列时使用该名称。 */
-export const UNKNOWN_SERIES = '未识别系列'
+/** 与后端 `series_name` 保持一致：识别不出品牌时使用该名称。 */
+export const UNKNOWN_SERIES = '未识别品牌'
 
 function emptyGradeRecord<T>(value: T): Record<Grade, T> {
   return { A: value, B: value, C: value }
@@ -189,12 +189,15 @@ export function normalizeSettlementRecords(input: unknown): SettlementRecord[] {
     id: idOrEmpty(pick(row, 'id', 'record_id', 'recordId')),
     sourceFileId: nullableId(pick(row, 'source_file_id', 'sourceFileId')),
     saleDate: stringOr(pick(row, 'sale_date', 'saleDate'), ''),
+    fruitType: stringOr(pick(row, 'fruit_type', 'fruitType'), '榴莲'),
     gradeRaw: stringOr(pick(row, 'grade_raw', 'gradeRaw'), ''),
     grade: normalizeGrade(row.grade),
     specRaw: stringOr(pick(row, 'spec_raw', 'specRaw'), ''),
     quantity: numberOr(row.quantity, 0),
     unitPrice: numberOr(pick(row, 'unit_price', 'unitPrice'), 0),
     amount: numberOr(row.amount, 0),
+    remark: stringOr(pick(row, 'remark'), ''),
+    salesRegion: stringOr(pick(row, 'sales_region', 'salesRegion'), ''),
   }))
 }
 

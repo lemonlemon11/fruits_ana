@@ -142,17 +142,19 @@ def test_trend_comparison_and_settlement_detail_routes(client):
     }
     assert detail.json()["records"][0] == {
         "id": first_id,
-        "source_file_id": None,
-        "import_batch_id": batch_id,
-        "sale_date": "2026-01-01",
-        "grade": "A",
-        "grade_raw": "A",
-        "spec_raw": None,
-        "quantity": 2.0,
-        "unit_price": 10.0,
-        "amount": 20.0,
-        "remark": None,
-    }
+            "source_file_id": None,
+            "import_batch_id": batch_id,
+            "sale_date": "2026-01-01",
+            "fruit_type": "榴莲",
+            "grade": "A",
+            "grade_raw": "A",
+            "spec_raw": None,
+            "quantity": 2.0,
+            "unit_price": 10.0,
+            "amount": 20.0,
+            "remark": None,
+            "sales_region": None,
+        }
 
 
 def test_settlement_detail_reads_its_batch_summary(client):

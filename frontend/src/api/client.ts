@@ -14,11 +14,13 @@ import {
   unwrap,
 } from './normalize.ts'
 import type {
+  AppNotification,
   AnalyticsFilters,
   AuthUser,
   ImportBatch,
   ImportIssue,
   LoginPayload,
+  NotificationListData,
   OverviewData,
   RegisterPayload,
   SettlementComparisonItem,
@@ -67,6 +69,23 @@ export async function getCurrentUser(): Promise<AuthUser> {
 
 export async function logout(): Promise<void> {
   await request(`${API_ROOT}/auth/logout`, { method: 'POST' })
+}
+
+export async function getNotifications(limit = 20): Promise<NotificationListData> {
+  const body = await request(`${API_ROOT}/notifications?limit=${limit}`) as NotificationListData
+  return {
+    items: Array.isArray(body.items) ? body.items : [],
+    unread_count: Number(body.unread_count ?? 0),
+  }
+}
+
+export async function markNotificationRead(notificationId: number | string): Promise<AppNotification> {
+  return await request(`${API_ROOT}/notifications/${encodeURIComponent(String(notificationId))}/read`, { method: 'POST' }) as AppNotification
+}
+
+export async function markAllNotificationsRead(): Promise<number> {
+  const body = await request(`${API_ROOT}/notifications/read-all`, { method: 'POST' }) as { unread_count?: number }
+  return Number(body.unread_count ?? 0)
 }
 
 export async function getOverview(filters: AnalyticsFilters = {}): Promise<OverviewData> {

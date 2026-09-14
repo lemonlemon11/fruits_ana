@@ -10,7 +10,7 @@ export interface SeriesGroup<T> {
   items: T[]
 }
 
-/** 按系列分组，系列名缺失时归入「未识别系列」。 */
+/** 按品牌分组，品牌名缺失时归入「未识别品牌」。 */
 export function groupBySeries<T extends { series: string }>(items: T[]): SeriesGroup<T>[] {
   const groups = new Map<string, T[]>()
   items.forEach((item) => {
@@ -35,7 +35,7 @@ export function toggleSelection(
   return [...selected, merchantNo]
 }
 
-/** 追加同一系列的结算单，按上限截断并去重。 */
+/** 追加同一品牌的结算单，按上限截断并去重。 */
 export function selectWholeSeries(
   selected: string[],
   seriesMerchantNos: string[],

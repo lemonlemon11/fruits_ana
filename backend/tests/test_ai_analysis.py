@@ -156,7 +156,7 @@ def test_payload_keeps_grade_numbers_and_spreads():
     grades = {row["等级"]: row for row in payload["合计"]["分等级"]}
     assert grades["A"]["件数"] == 15.0
     assert grades["A"]["金额占比"] == pytest.approx(0.625)
-    assert payload["结算单"][0]["系列"] == "宝贝"
+    assert payload["结算单"][0]["品牌"] == "宝贝"
     assert payload["合计"]["价差"]["A比B贵"] == pytest.approx(83.3333)
 
 
@@ -174,7 +174,7 @@ def test_payload_adds_sample_size_and_comparison_insights():
     insights = payload["对比结论"]
     rankings = insights["结算单价差排名"]
     assert len(rankings) == 2
-    assert rankings[0]["平均每件售价"] >= rankings[1]["平均每件售价"]
+    assert rankings[0]["平均每千克售价"] >= rankings[1]["平均每千克售价"]
     assert insights["最高比最低每件贵"] is not None
     signals = {row["等级"]: row for row in insights["等级结构信号"]}
     assert signals["A"]["金额占比减件数占比"] == pytest.approx(0.625 - 15 / 40)

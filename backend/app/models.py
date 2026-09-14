@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -268,7 +269,78 @@ class AiAnalysis(Base):
     )
 
 
+class AdminNotification(Base):
+    """管理端写入、用户端只读的站内通知。"""
+
+    __tablename__ = "admin_notification"
+    __table_args__ = (
+        Index("ix_admin_notification_created_at", "created_at"),
+        Index("ix_admin_notification_publish_at", "publish_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    notification_type: Mapped[str] = mapped_column(
+        String(32), default="announcement", nullable=False
+    )
+    priority: Mapped[str] = mapped_column(
+        String(16), default="normal", nullable=False
+    )
+    target_type: Mapped[str] = mapped_column(
+        String(16), default="all", nullable=False
+    )
+    target_role_ids: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_user_ids: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    publish_at: Mapped[datetime | None] = mapped_column(PRECISE_DATETIME, nullable=True)
+    expire_at: Mapped[datetime | None] = mapped_column(PRECISE_DATETIME, nullable=True)
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, default=utc_now, onupdate=utc_now, nullable=False
+    )
+
+
+class AdminNotificationRecipient(Base):
+    """当前用户与通知的阅读状态。"""
+
+    __tablename__ = "admin_notification_recipient"
+    __table_args__ = (
+        Index(
+            "ux_admin_notification_recipient",
+            "notification_id",
+            "user_id",
+            unique=True,
+        ),
+        Index("ix_admin_notification_recipient_user_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    notification_id: Mapped[int] = mapped_column(
+        ForeignKey("admin_notification.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"), nullable=False
+    )
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    read_at: Mapped[datetime | None] = mapped_column(PRECISE_DATETIME, nullable=True)
+    last_reminded_at: Mapped[datetime | None] = mapped_column(
+        PRECISE_DATETIME, nullable=True
+    )
+    remind_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, default=utc_now, nullable=False
+    )
+
+
 __all__ = [
+    "AdminNotification",
+    "AdminNotificationRecipient",
     "AiAnalysis",
     "DataIssue",
     "Grade",

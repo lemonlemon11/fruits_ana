@@ -27,7 +27,7 @@ const analysis = ref<SeriesAnalysisResult | null>(null)
 const loading = ref(false)
 const error = ref('')
 const askedOnce = ref(false)
-// 同一页可能同时挂载两张卡片（按系列 / 按等级号别），标题 id 必须唯一。
+// 同一页可能同时挂载两张卡片（按品牌 / 按等级号别），标题 id 必须唯一。
 const titleId = `ai-analysis-title-${useId()}`
 
 const sections = computed(() => parseAnalysisSections(analysis.value?.content ?? '', props.headings))

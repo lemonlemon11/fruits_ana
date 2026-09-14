@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import { getSettlements, type SettlementListItem } from '../api/client'
+import DateRangeFilter from '../components/DateRangeFilter.vue'
 import SettlementRecordsDialog from '../components/SettlementRecordsDialog.vue'
 import { formatCurrency, formatNumber, formatPrice } from '../utils/format'
 import { settlementOptionLabel } from '../utils/settlementComparison'
@@ -80,7 +81,7 @@ onMounted(() => {
     <header class="page-header">
       <div>
         <h1>数据明细</h1>
-        <p>按商号查看每张结算单的销售额、各等级件数和平均售价，并可展开查看全部销售明细。</p>
+        <p>按商号查看每张结算单的销售额、各等级件数和平均每千克售价，并可展开查看全部销售明细。</p>
       </div>
     </header>
 
@@ -96,8 +97,10 @@ onMounted(() => {
           <option v-for="item in options" :key="item.merchantNo" :value="item.merchantNo">{{ settlementOptionLabel(item) }}</option>
         </select>
       </label>
-      <label>到达日期起<input v-model="filters.startDate" type="date"></label>
-      <label>到达日期止<input v-model="filters.endDate" type="date"></label>
+      <DateRangeFilter
+        v-model:start-date="filters.startDate"
+        v-model:end-date="filters.endDate"
+      />
       <button class="primary-button" type="submit" :disabled="loading">{{ loading ? '正在查询' : '查看结果' }}</button>
     </form>
 
@@ -118,33 +121,54 @@ onMounted(() => {
         <strong>当前范围没有结算单</strong>
         <span>请调整到达日期范围，或从左侧菜单进入“数据导入”补充结算单。</span>
       </div>
-      <div v-else class="table-wrap settlement-table">
-        <table>
-          <thead>
-            <tr>
-              <th>商号</th><th>单号</th><th>柜号</th><th>到达日期</th><th>销售额</th>
-              <th>A件数</th><th>B件数</th><th>C件数</th><th>平均售价</th><th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in settlements" :key="item.merchantNo">
-              <td :title="rawMerchantNo(item) && rawMerchantNo(item) !== displayMerchantNo(item) ? `原始商号：${rawMerchantNo(item)}` : ''">
-                {{ displayMerchantNo(item) }}
-              </td>
-              <td :title="item.orderNo && item.orderNo !== item.orderNoNormalized ? `原始单号：${item.orderNo}` : ''">
-                {{ item.orderNoNormalized || item.orderNo || '—' }}
-              </td>
-              <td>{{ item.containerNo || '—' }}</td>
-              <td>{{ salesPeriod(item) }}</td>
-              <td>{{ formatCurrency(item.salesAmount) }}</td>
-              <td>{{ formatNumber(item.gradeQuantities.A) }}</td>
-              <td>{{ formatNumber(item.gradeQuantities.B) }}</td>
-              <td>{{ formatNumber(item.gradeQuantities.C) }}</td>
-              <td>{{ formatPrice(item.averagePrice) }}</td>
-              <td><button class="text-button" type="button" @click="openRecords(item)">查看明细</button></td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-else class="settlement-list-results">
+        <div class="table-wrap settlement-table">
+          <table>
+            <thead>
+              <tr>
+                <th>商号</th><th>单号</th><th>柜号</th><th>到达日期</th><th>销售额</th>
+                <th>A件数</th><th>B件数</th><th>C件数</th><th>平均每千克售价</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in settlements" :key="item.merchantNo">
+                <td :title="rawMerchantNo(item) && rawMerchantNo(item) !== displayMerchantNo(item) ? `原始商号：${rawMerchantNo(item)}` : ''">
+                  {{ displayMerchantNo(item) }}
+                </td>
+                <td :title="item.orderNo && item.orderNo !== item.orderNoNormalized ? `原始单号：${item.orderNo}` : ''">
+                  {{ item.orderNoNormalized || item.orderNo || '—' }}
+                </td>
+                <td>{{ item.containerNo || '—' }}</td>
+                <td>{{ salesPeriod(item) }}</td>
+                <td>{{ formatCurrency(item.salesAmount) }}</td>
+                <td>{{ formatNumber(item.gradeQuantities.A) }}</td>
+                <td>{{ formatNumber(item.gradeQuantities.B) }}</td>
+                <td>{{ formatNumber(item.gradeQuantities.C) }}</td>
+                <td>{{ formatPrice(item.averagePrice) }}</td>
+                <td><button class="text-button" type="button" @click="openRecords(item)">查看明细</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mobile-settlement-cards">
+          <article v-for="item in settlements" :key="item.merchantNo" class="mobile-settlement-card">
+            <header>
+              <div>
+                <strong>{{ displayMerchantNo(item) }}</strong>
+                <small>{{ item.orderNoNormalized || item.orderNo || '未登记单号' }} · {{ item.containerNo || '未登记柜号' }} · {{ salesPeriod(item) }}</small>
+              </div>
+              <button class="primary-button mobile-detail-button" type="button" @click="openRecords(item)">查看明细</button>
+            </header>
+            <div class="mobile-settlement-stats">
+              <span>销售额 <b>{{ formatCurrency(item.salesAmount) }}</b></span>
+              <span>A <b>{{ formatNumber(item.gradeQuantities.A) }}</b></span>
+              <span>B <b>{{ formatNumber(item.gradeQuantities.B) }}</b></span>
+              <span>C <b>{{ formatNumber(item.gradeQuantities.C) }}</b></span>
+              <span>平均每千克售价 <b>{{ formatPrice(item.averagePrice) }}</b></span>
+            </div>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -159,7 +183,7 @@ onMounted(() => {
 
 <style scoped>
 .settlement-list-page { gap: 16px; }
-.settlement-list-filter { grid-template-columns: repeat(3, minmax(160px, 1fr)) auto; }
+.settlement-list-filter { grid-template-columns: repeat(2, minmax(160px, 1fr)) auto; }
 .range-note { margin: 0; color: var(--muted); font-size: .86rem; }
 .settlement-table table { min-width: 900px; }
 /* 表格的 min-width 会把 .page-stack 的网格轨道顶到 900px，在 640–1177px 之间整页被撑出横向滚动；
@@ -175,8 +199,31 @@ onMounted(() => {
 .settlement-table td:nth-child(4) { text-align: left; }
 .text-button { padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--primary-dark); cursor: pointer; font-weight: 700; }
 .text-button:hover { border-color: var(--primary); }
+.mobile-settlement-cards { display: none; }
 
 @media (max-width: 860px) {
   .settlement-list-filter { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .settlement-list-results { min-width: 0; }
+  .settlement-list-page .range-note { display: none; }
+  .settlement-list-page .panel-head { display: none; }
+  .filter-bar.settlement-list-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; }
+  .filter-bar.settlement-list-filter input,
+  .filter-bar.settlement-list-filter select { min-height: 36px; font-size: .9rem; }
+  .filter-bar.settlement-list-filter > * { grid-column: auto; }
+  .filter-bar.settlement-list-filter .primary-button { grid-column: 1 / -1; min-height: 40px; }
+  .settlement-list-results .table-wrap { display: none; }
+  .mobile-settlement-cards { display: grid; gap: 8px; }
+  .mobile-settlement-card { display: grid; gap: 5px; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+  .mobile-settlement-card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .mobile-settlement-card header > div { display: grid; gap: 2px; min-width: 0; }
+  .mobile-settlement-card header strong { overflow-wrap: anywhere; font-size: .95rem; line-height: 1.25; }
+  .mobile-settlement-card header small { color: var(--muted); font-size: .7rem; line-height: 1.3; }
+  .mobile-detail-button { flex: 0 0 auto; min-height: 38px; padding: 0 10px; font-size: .82rem; }
+  .mobile-settlement-stats { display: flex; flex-wrap: wrap; gap: 2px 8px; color: var(--muted); font-size: .7rem; line-height: 1.25; }
+  .mobile-settlement-stats span { display: inline-flex; align-items: baseline; gap: 3px; }
+  .mobile-settlement-stats b { color: var(--ink); font-size: .82rem; font-variant-numeric: tabular-nums; }
 }
 </style>

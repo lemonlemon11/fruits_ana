@@ -5,7 +5,7 @@ import { generateGradeDetailAnalysis } from '../api/client'
 import { GRADE_DETAIL_HEADINGS } from '../utils/seriesAnalysis'
 import AiAnalysisCard from './AiAnalysisCard.vue'
 
-/** 「等级细分」的 AI 小结；提示词与系列对比不同，必须标注样本量。 */
+/** 「等级细分」的 AI 小结；提示词与品牌对比不同，必须标注样本量。 */
 const props = defineProps<{
   merchantNos: string[]
   startDate?: string

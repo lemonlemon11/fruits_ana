@@ -18,3 +18,6 @@ attachments/
 frontend/dev-preview/fixture.json
 frontend/dev-preview/grade-detail-data.js
 frontend/dev-preview/review-data.ts
+
+# 移动端视觉伴侣输出：含真实经营数据截图与 data.json，禁止入库
+frontend/dev-preview/mobile-review/

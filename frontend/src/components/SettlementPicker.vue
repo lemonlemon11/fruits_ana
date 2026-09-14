@@ -15,7 +15,7 @@ import {
 
 /**
  * 结算单选择器：主页面只显示「已选摘要」，点按钮才打开选择面板。
- * 单量变大时靠搜索和系列折叠定位，不再把全部结算单平铺在页面上。
+ * 单量变大时靠搜索和品牌折叠定位，不再把全部结算单平铺在页面上。
  */
 const props = defineProps<{
   options: SettlementListItem[]
@@ -33,7 +33,7 @@ const limitHit = ref(false)
 const collapsed = ref<string[]>([])
 const searchInput = ref<HTMLInputElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
-// 排列方式：按系列分组（默认）或按到达日期从近到远铺开。
+// 排列方式：按品牌分组（默认）或按到达日期从近到远铺开。
 const sortMode = ref<'series' | 'recent'>('series')
 
 const maxSelect = computed(() => props.max ?? MAX_SERIES_COMPARISON)
@@ -174,6 +174,13 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
+    <div class="picker-mobile-actions">
+      <button type="button" class="primary-button" @click="openPicker">选择结算单</button>
+      <button v-if="selected.length" type="button" class="text-button" @click="emit('apply', [])">
+        清空
+      </button>
+    </div>
+
     <ul v-if="selectedItems.length" class="picker-chips">
       <li v-for="item in selectedItems" :key="item.merchantNo">
         <span class="picker-chip-text">{{ settlementOptionLabel(item) }}</span>
@@ -217,7 +224,7 @@ onBeforeUnmount(() => {
               ref="searchInput"
               v-model="keyword"
               type="search"
-              placeholder="搜商号、单号或系列"
+              placeholder="搜商号、单号或品牌"
               autocomplete="off"
             >
           </label>
@@ -233,7 +240,7 @@ onBeforeUnmount(() => {
                 :aria-pressed="sortMode === 'series'"
                 @click="sortMode = 'series'"
               >
-                按系列
+                按品牌
               </button>
               <button
                 type="button"
@@ -279,8 +286,8 @@ onBeforeUnmount(() => {
                   >
                     {{
                       isWholeSeriesSelected(draft, groupMerchantNos(group.items))
-                        ? '取消本系列'
-                        : '全选本系列'
+                        ? '取消本品牌'
+                        : '全选本品牌'
                     }}
                   </button>
                 </header>
@@ -323,6 +330,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .picker-trigger-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.picker-mobile-actions { display: none; }
 .picker-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .picker-chips li {
   display: inline-flex; align-items: center; gap: 8px;
@@ -437,5 +445,26 @@ onBeforeUnmount(() => {
 @media (max-width: 720px) {
   .picker-panel { width: 100%; }
   .series-options { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .section-heading .picker-trigger-actions { display: none; }
+  .picker-mobile-actions {
+    display: flex;
+    position: sticky;
+    z-index: 20;
+    bottom: calc(var(--mobile-tabbar-height) + env(safe-area-inset-bottom) + 10px);
+    justify-content: stretch;
+    gap: 8px;
+    margin: 0 -14px;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .94);
+    box-shadow: 0 8px 20px rgba(31, 41, 35, .08);
+  }
+  .picker-mobile-actions > * { flex: 1 1 auto; min-width: 0; }
+  .picker-chips { display: none; }
+  .picker-chip-remove { width: 44px; height: 44px; }
 }
 </style>

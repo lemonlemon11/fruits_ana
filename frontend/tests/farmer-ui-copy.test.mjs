@@ -28,7 +28,7 @@ test('移动端用底部大按钮导航，完整功能收进「更多」', () =>
   assert.match(shell, /class="mobile-tabbar"/)
   assert.match(shell, /mobile-tabbar-more/)
   assert.match(shell, /const moreNavItems = \[[\s\S]*?\]/)
-  for (const label of ['结算单详情', '结算单对比', '系列对比']) {
+  for (const label of ['结算单详情', '结算单对比', '品牌对比']) {
     assert.match(shell.split('const moreNavItems')[1].split(']')[0], new RegExp(label))
   }
 })
@@ -54,7 +54,10 @@ test('所有商号下拉在切换后自动查询，日期筛选仍需点击按�
     const matches = content.match(autoQuery) ?? []
     const name = path.basename(file)
     if (merchantSelectViews.includes(name)) {
-      assert.deepEqual(matches, ['@change="refresh"'], `${name} 商号下拉应在切换后自动查询`)
+      const expected = name === 'SettlementView.vue'
+        ? ['@change="refresh"', '@change="refresh"']
+        : ['@change="refresh"']
+      assert.deepEqual(matches, expected, `${name} 商号/品牌下拉应在切换后自动查询`)
       assert.match(content, /<select v-model="filters\.merchantNo"[^>]*@change="refresh"/)
       assert.doesNotMatch(content, /type="date"[^>]*@change/)
     } else {
@@ -63,10 +66,10 @@ test('所有商号下拉在切换后自动查询，日期筛选仍需点击按�
   }
 })
 
-test('结算单详情商号下拉默认选中第一张，范围变化后回落到新的第一张', () => {
+test('结算单详情商号下拉默认选中当前品牌第一张，范围变化后回落到新的第一张', () => {
   const detailView = fs.readFileSync(path.join(root, 'views', 'SettlementView.vue'), 'utf8')
-  assert.match(detailView, /filters\.merchantNo = options\.value\[0\]\?\.merchantNo \?\? ''/)
-  assert.match(detailView, /!options\.value\.some\(\(item\) => item\.merchantNo === filters\.merchantNo\)/)
+  assert.match(detailView, /filters\.merchantNo = filteredOptions\.value\[0\]\?\.merchantNo \?\? ''/)
+  assert.match(detailView, /!filteredOptions\.value\.some\(\(item\) => item\.merchantNo === filters\.merchantNo\)/)
 })
 
 test('结算单详情只使用最近一次成功查询的商号展示结果', () => {
@@ -103,7 +106,7 @@ test('导入结果明确区分失败、重复和成功', () => {
   assert.doesNotMatch(importView, /解析结果已进入质量检查/)
 })
 
-test('结算单选择器收进抽屉，靠搜索与系列折叠定位，不平铺全部结算单', () => {
+test('结算单选择器收进抽屉，靠搜索与品牌折叠定位，不平铺全部结算单', () => {
   const picker = fs.readFileSync(path.join(root, 'components', 'SettlementPicker.vue'), 'utf8')
   const checkbox = picker.match(/\.series-option input\[type='checkbox'\] \{[^}]*\}/)?.[0] ?? ''
   const options = picker.match(/\.series-options \{[^}]*\}/)?.[0] ?? ''
@@ -113,7 +116,7 @@ test('结算单选择器收进抽屉，靠搜索与系列折叠定位，不平�
   assert.match(options, /repeat\(auto-fill,\s*minmax\(\d+px,\s*1fr\)\)/)
   assert.match(picker, /:class="\{ selected: draft\.includes\(item\.merchantNo\) \}"/)
   // 单量变大后要靠搜索和折叠定位，并且只在点「确定」时刷新一次。
-  assert.match(picker, /placeholder="搜商号、单号或系列"/)
+  assert.match(picker, /placeholder="搜商号、单号或品牌"/)
   assert.match(picker, /filterSettlementOptions/)
   assert.match(picker, /emit\('apply'/)
   const view = fs.readFileSync(path.join(root, 'views', 'SeriesComparisonView.vue'), 'utf8')

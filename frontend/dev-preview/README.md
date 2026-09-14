@@ -21,6 +21,7 @@ npm --prefix frontend run dev -- --port 53001 --strictPort --host 0.0.0.0
 | `review-2026-09-11.html` | 本轮改动呈现（AI 结论醒目化 + 抽屉式选择器） |
 | `grade-preview.html` | 「系列对比」真实页面（真实组件 + 真实结算单数据） |
 | `grade-detail-design.html` | 等级细分视图的静态设计稿 |
+| `mobile-review/index.html` | 手机端 6 个业务页面现状预览（截图与横向溢出/滚动指标） |
 
 ## 数据文件（已加入 `.gitignore`，必须本地保留才能打开预览）
 

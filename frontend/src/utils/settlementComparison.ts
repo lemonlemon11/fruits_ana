@@ -1,6 +1,7 @@
 import type { Grade, GradeMetric, SettlementComparisonItem } from '../api/types'
 import { displayOrderNo } from './orderNo.ts'
 import { displayMerchantNo } from './merchantNo.ts'
+import { UNKNOWN_SERIES } from '../api/normalize.ts'
 
 export const MAX_COMPARISON_SETTLEMENTS = 3
 export const MIN_COMPARISON_SETTLEMENTS = 2
@@ -17,6 +18,16 @@ export function settlementOptionLabel(item: {
   if (merchantNo && orderNo) return `商号 ${merchantNo}（${orderNo}）`
   if (merchantNo) return `商号 ${merchantNo}`
   return orderNo || '未知结算单'
+}
+
+/** 从单号开头中文前缀推导品牌；无法识别时返回「未识别品牌」。 */
+export function settlementSeries(item: {
+  orderNo?: string | null
+  orderNoNormalized?: string | null
+}): string {
+  const orderNo = item.orderNoNormalized || item.orderNo || ''
+  const match = orderNo.match(/^[\u4e00-\u9fff]+/)
+  return match?.[0] || UNKNOWN_SERIES
 }
 
 /** 总览页：下拉候选保持全部结算单，展示列表跟随所选商号收窄到该商号自己的数据。 */

@@ -10,15 +10,17 @@ import ChartTooltip from './ChartTooltip.vue'
 const props = defineProps<{
   grades: GradeMetric[]
   loading?: boolean
+  gradeOrder?: Grade[]
 }>()
 
-const gradeOrder: Grade[] = ['A', 'B', 'C']
 const gradeColors: Record<Grade, string> = { A: '#16856b', B: '#bd7414', C: '#b94a3c' }
 const radius = 48
 const circumference = 2 * Math.PI * radius
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
 
-const rows = computed(() => gradeOrder.map((grade) => {
+const visibleGrades = computed(() => props.gradeOrder ?? ['A', 'B', 'C'])
+
+const rows = computed(() => visibleGrades.value.map((grade) => {
   const source = props.grades.find((item) => item.grade === grade)
   return {
     grade,
@@ -48,10 +50,10 @@ function showSegmentTooltip(event: MouseEvent, row: (typeof rows.value)[number])
   showTooltip(event, {
     title: gradeLabel(row.grade),
     rows: [
-      { label: '销量占比', value: formatPercent(shareValue(row)), color: gradeColors[row.grade] },
-      { label: '销量', value: `${formatNumber(row.quantity)} 件` },
+      { label: '件数占比', value: formatPercent(shareValue(row)), color: gradeColors[row.grade] },
+      { label: '件数', value: `${formatNumber(row.quantity)} 件` },
     ],
-    note: '占比 = 该等级销量 ÷ 总销量',
+    note: '占比 = 该等级件数 ÷ 总件数',
   })
 }
 </script>
@@ -60,9 +62,9 @@ function showSegmentTooltip(event: MouseEvent, row: (typeof rows.value)[number])
   <section class="dashboard-section grade-pie-section" aria-labelledby="grade-pie-title">
     <header class="section-heading">
       <div>
-        <h2 id="grade-pie-title">等级销量结构</h2>
+        <h2 id="grade-pie-title">等级件数结构</h2>
       </div>
-      <p class="section-note">按销量占比</p>
+      <p class="section-note">按件数占比</p>
     </header>
 
     <div v-if="loading" class="pie-skeleton skeleton-block" aria-live="polite">正在加载等级结构</div>
@@ -72,7 +74,7 @@ function showSegmentTooltip(event: MouseEvent, row: (typeof rows.value)[number])
     </div>
     <div v-else class="pie-layout">
       <div class="pie-graphic">
-        <svg class="pie-chart" viewBox="0 0 136 136" role="img" aria-label="A、B、C 等级销量占比环形图，环形面积按各等级销量占比绘制">
+        <svg class="pie-chart" viewBox="0 0 136 136" role="img" :aria-label="`${visibleGrades.map(gradeLabel).join('、')} 等级件数占比环形图，环形面积按各等级件数占比绘制`">
           <circle class="pie-track" cx="68" cy="68" :r="radius" />
           <circle
             v-for="(row, index) in rows"
@@ -89,7 +91,7 @@ function showSegmentTooltip(event: MouseEvent, row: (typeof rows.value)[number])
             @mouseleave="hideTooltip"
           />
           <text class="pie-total" x="68" y="64" text-anchor="middle">{{ formatNumber(totalQuantity) }}</text>
-          <text class="pie-caption" x="68" y="79" text-anchor="middle">总销量</text>
+          <text class="pie-caption" x="68" y="79" text-anchor="middle">总件数</text>
         </svg>
       </div>
       <ul class="pie-legend" aria-label="等级销量明细">
@@ -97,7 +99,7 @@ function showSegmentTooltip(event: MouseEvent, row: (typeof rows.value)[number])
           <span class="pie-dot" :style="{ backgroundColor: gradeColors[row.grade] }" aria-hidden="true" />
           <span class="pie-grade">{{ gradeLabel(row.grade) }}</span>
           <strong>{{ formatPercent(shareValue(row)) }}</strong>
-          <small>{{ formatNumber(row.quantity) }}</small>
+          <small>{{ formatNumber(row.quantity) }} 件</small>
         </li>
       </ul>
     </div>

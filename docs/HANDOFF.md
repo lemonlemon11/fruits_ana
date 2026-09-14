@@ -1,9 +1,14 @@
 # HANDOFF
 
-Last updated：2026-09-11 22:53 (CST)
+Last updated：2026-09-14 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## Current Goal
+
+本轮（2026-09-14）完成「品牌口径统一 + 结算单详情品牌筛选 + 全站统一日期范围组件」：
+界面可见的「系列」统一改为「品牌」，结算单详情页新增品牌下拉，五个业务页的起止日期
+改由 `DateRangeFilter.vue` 一个面板选择；AI 系列数据包字段同步改名并提升 `PROMPT_VERSION` 到 `v6`。
+相关代码、测试、文档已完成，见 Current Status / Test Status。
 
 单号与商号命名适配（ADR-015 / ADR-016）均已交付：**原始写法 + 适配后写法双写落库，
 页面统一展示适配后写法，原始写法保留可追溯**；线上 MySQL 迁移已执行、真实浏览器验收通过，
@@ -14,20 +19,34 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 桌面侧栏收起、本地时间显示，移动端保留底部导航。相关代码与文档尚未提交，见 In Progress。
 
 随后补上导入等待遮罩、右下角一键回顶、header 秒级时间和手机端展示优化，并计划提交到 `dev`。
+最新一轮已完成手机端 4 个核心页面的卡片化与收折改造；随后又完成第二轮手机端全局紧凑化与关键组件压缩，见 In Progress。
 
 ## Current Status
 
 状态：P0-1 / P0-2 / P0-3 / P0-4 均已完成 / COMMITTED
 
 当前进度：
+- **品牌与日期筛选（2026-09-14）**：新增 `DateRangeFilter.vue`，五个业务页统一从一个
+   面板选择起止日期；结算单详情页新增品牌筛选，商号候选与价格基线随品牌收窄；
+   前端用户可见文案的「系列」统一为「品牌」，后端 `UNKNOWN_SERIES` 显示值改为「未识别品牌」；
+   AI 数据包字段由「系列」改为「品牌」，`PROMPT_VERSION` `v5 → v6`。
+   验证：前端 123 项测试 / `typecheck` / `build` 通过，后端 236 项 pytest 通过。
+- **结算单详情等级图表（2026-09-14）**：新增 `SettlementGradeBreakdown.vue`，在等级表现
+   板块展示 A/B 件数占比环形图、A/B 均价柱状图、A-B 价差与 B 比 A 折价比，以及 A/B/C
+   各等级各规格件数横向柱状图；`GradePieChart.vue` 增加可选 `gradeOrder` 以支持按 A/B 展示。
+   验证：前端 123 项测试 / `typecheck` / `build` 通过，后端 236 项 pytest 通过。
+- **等级文案去枚举化（2026-09-14）**：系统可见描述中的「A/B/C 独立对比」等枚举式文案
+   统一改为「等级独立对比 / 各等级」，覆盖品牌对比页、预览页、图表说明、README 与后端
+   docstring / AI 提示词；实际等级列、图例与演示数据中的 A/B/C 数值文案保持不变。
+   验证：前端 123 项测试 / `typecheck` / `build` 通过，后端 236 项 pytest 通过。
 1. 上一批「商号维度重构」已由本会话复核并拆分为 7 个提交（`0160fdf`..`2160b38`），工作区已收口。
-2. 系列识别口径落定为「单号中文前缀」，写入 ADR-009；均价口径为元/件（用户确认）。
+2. 系列识别口径落定为「单号中文前缀」，写入 ADR-009；平均每千克售价口径为元/千克（用户确认）。
 3. 后端新增 `series_analytics_service` 与 `/api/analytics/series-comparison`，
    `GET /api/settlements` 追加 `series` 字段，新增 13 项后端用例。
 4. 前端新增「系列对比」页（勾选业务单 + 总览表 + A/B/C 独立表 + 价差表 + 两张图表），
    新增 8 项前端用例并同步响应式与菜单守卫测试。
 5. 真实数据核对：线上 4 张结算单结果与设计稿基线完全一致；其中宝贝01/02/003 三张的
-   A/B/C 件数、金额、均价、价差与用户手算结果**逐项一致**。
+   A/B/C 件数、金额、平均每千克售价、价差与用户手算结果**逐项一致**。
 6. 下拉框展示顺序按用户确认改为「商号（单号）」、取值仍为商号，提交为 `3e50d9f`。
 7. 界面日期口径统一为「到达日期」（ADR-010）：涉及结算单列表 / 结算单详情 / 数据明细 /
    趋势表 / 系列总览 / 结算单对比 / 系列对比 / 数据导入共 10 个前端文件，
@@ -68,6 +87,28 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
     实测无 `@vite/client`、无 WebSocket，`/api/auth/me` 经 Nginx 返回预期 401，
     `/assets/` 返回 `public, immutable` 缓存头；后端 236 项、前端 120 项、
     `typecheck` 与 `build` 均通过。
+18. **header 字号偏好（23:05，未提交）**：header 增加「小 / 标准 / 大 / 特大」
+    四档滑动条，默认停在「小」；写入 `localStorage` 记住用户最近一次修改；
+    根字号保持 `clamp()` 视口自适应的前提下再乘用户缩放系数，移动端 header /
+    页签 / 底部导航高度同步缩放。验证：前端 123 项测试、`typecheck`、`vite build` 均通过。
+19. **手机端 4 核心页卡片化与收折（23:45，未提交）**：在用户确认 A+B 方向后，
+    只改移动端（≤560px），不动桌面端与 API 契约；数据明细 / 明细弹窗 / 系列总览 /
+    结算单详情销售明细 / 导入问题表均改为纵向卡片，系列对比详细分析默认收起，
+    结算单选择器主操作在移动端固定到底部导航上方。前端 123 项测试、`typecheck`、
+    `vite build` 均通过；Playwright 实测 5 个关键交互通过。
+20. **卖得怎么样「按商号」改倒序（2026-09-13，未提交）**：`SettlementComparison.vue`
+    的 `compareMerchant` 改为按适配后商号倒序，仅影响总览页 `mode="identity"` 的
+    「结算单销售情况」；默认仍按销售日期排序，品牌 / 销售日期排序规则不变。
+    同步更新两份 Word 文档至 V1.3。验证：前端 123 项测试、`typecheck`、`vite build` 均通过。
+21. **结算单销售情况等级明细改版（2026-09-13，未提交）**：`SettlementComparison.vue`
+    的 A/B/C 等级块由「等级 + 占比」改为「等级 / 等级均价 / 占比」，保留销售额 / 销量 /
+    平均每千克售价列，数据沿用 `grades[].weightedAvgPrice` 与 `quantityShare`。
+    同步更新两份 Word 文档至 V1.4。验证：前端 123 项测试、`typecheck`、`vite build` 均通过。
+22. **售价描述统一为「平均每千克售价」（2026-09-13，未提交）**：前端页面、图表、
+    表格、AI 提示词与异常文案中的「平均每件售价 / 平均售价 / 元每件」统一调整为
+    「平均每千克售价 / 元每千克」，不改变 `weightedAvgPrice` 字段与计算口径。
+    两份 Word 文档同步至 V1.5，并在 ADR-009 追加修订说明。
+    验证：后端 pytest、前端 123 项测试、`typecheck`、`vite build` 均通过。
 
 ## Completed
 
@@ -98,6 +139,18 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 - [x] `2a71d04 feat(ui): 默认入口改为登录页`（`/` → `/login`，`/preview` 仍可直达）
 
 ## In Progress
+
+header 字号偏好与本地记忆（2026-09-11，代码与自动化验证完成，**未提交**）：
+
+- `AppShell.vue`：header 增加 `app-header-font-size` 原生 `input[type="range"]`
+  滑动条，提供「小 / 标准 / 大 / 特大」四档，默认停在「小」，`v-model` 绑定
+  `fontSizeIndex` 并映射回 `fontSize`。
+- `utils/shellHeader.ts`：新增 `FONT_SIZE_STORAGE_KEY`、`FONT_SIZE_OPTIONS`、
+  `restoreFontSize`、`fontScaleFor`；字号状态写入 `localStorage`。
+- `styles.css`：根字号保留桌面 `clamp()` 视口自适应，再乘 `--font-scale`；
+  移动端与窄屏 header / 页签 / 底部导航高度同步按字号缩放。
+- 测试：`shell-header.test.ts` 新增字号偏好与 header 滑动条断言；前端 123 项、
+  `typecheck`、`vite build` 均通过。
 
 工作台外壳改版（2026-09-11，**已提交 `668f572`**）：
 
@@ -172,7 +225,7 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
   「商号（适配后） + 原始商号」、文件名 `settlement-{适配商号}-{适配单号}.xlsx`；
   AI 系列数据包 `PROMPT_VERSION` `v3 → v4`，旧缓存自动失效。
 - 前端：新增 `utils/merchantNo.ts`（`displayMerchantNo` / `rawMerchantNo`）；数据明细、
-  导入记录副标题、总览经营异常、结算单详情、系列对比总览与均价图统一展示适配后商号，
+  导入记录副标题、总览经营异常、结算单详情、系列对比总览与平均每千克售价图统一展示适配后商号，
   原始商号放 tooltip；下拉标签为「商号 624（宝贝-001）」。
 - 验证：后端 233 项通过（含 `test_merchant_no_naming.py` 6 项、`test_merchant_no_migration.py` 4 项）；
   前端 110 项 + `typecheck` + `build` 通过；线上迁移已 `--apply`
@@ -265,11 +318,11 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 
 ## Incidents（已解决）
 
-### 「A/B/C 平均每件售价对比」柱状图不显示（2026-09-10）
+### 「A/B/C 平均每千克售价对比」柱状图不显示（2026-09-10）
 
 - 现象：系列对比页该图只剩等级标题、金额文字和单据名，柱子看不见（疑似没渲染）。
 - 排查：接口侧正常——直接调用 `get_series_comparison` 拿到真实数据，
-  `spread.grade_prices` 有 A/B/C 三个均价，前端 `gradePrice()` 取值不为空。
+  `spread.grade_prices` 有 A/B/C 三个平均每千克售价，前端 `gradePrice()` 取值不为空。
   用 Playwright 打开真实页面（拦截接口注入同一份真实数据）后实测：
   12 根 `.price-bar` 的 inline 高度分别是 `88.83% / 98.08% / 100% …`，
   但 `getBoundingClientRect().height` 全是 **2px**（即 `min-height: 2px` 兜底值）。
@@ -321,6 +374,36 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 
 原因：三者均未加入 `.gitignore`，但也没有被 stage；提交时务必使用显式路径，不要 `git add -A`。
 
+手机端 4 核心页卡片化与收折（2026-09-11，代码与自动化验证完成，**未提交**）：
+
+- 目标：修复手机端按钮被横向表格甩出屏幕 / 被底部导航遮挡，并减少长页滚动；
+  只改移动端（≤560px），不改变桌面端布局、接口字段与数据口径。
+- `SettlementListView.vue`：移动端用紧凑结算单卡片替代 900px 宽表，「查看明细」放在卡片头部。
+- `SettlementRecordsDialog.vue`：明细弹窗移动端改为底部抽屉式卡片列表，消除 620px 宽表。
+- `SeriesOverviewTable.vue`：移动端用单张对比卡片替代 900px 宽总览表。
+- `SeriesComparisonView.vue`：移动端默认收起详细分析，点击「展开详细对比」后再显示
+  A/B/C 独立表、图表、AI 分析；桌面端仍默认全部展示。
+- `SettlementView.vue`：结算单详情的销售明细移动端改为卡片，避免内部 520px 表格横向滚动。
+- `ImportView.vue`：导入问题明细移动端改为卡片；历史区标题在手机端吸顶，保证「重新加载」始终可用。
+- `SettlementPicker.vue`：移动端新增独立主操作条，固定在底部导航上方，避免「选择结算单 / 清空」被遮挡。
+- 验证：前端 `npm test` 123 项、`typecheck`、`vite build` 全部通过；Playwright 390×844
+  实测系列选择抽屉、系列详细展开、数据明细弹窗、结算单销售明细卡片、导入重新加载均通过；
+  临时验收账号已清理。
+
+手机端第二轮紧凑化（2026-09-12，代码与自动化验证完成，**未提交**）：
+
+- 修复 `styles-responsive.css` 被 `styles.css` 基础规则覆盖的问题：从 `styles.css` 移除
+  `@import './styles-responsive.css'`，改在 `AppShell.vue` 的基础样式之后加载，确保移动端
+  「隐藏说明 / 两列筛选 / 紧凑卡片」等规则真正生效。
+- 手机端隐藏 `how-to` 说明与页面副标题，筛选器统一改为两列紧凑排布，缩小输入控件、
+  页面标题与卡片间距；总览 / 结算单详情 / 导入 / 系列对比继续使用「展开更多」收纳次要内容。
+- `SettlementComparisonView` / `SeriesComparisonView` 窄屏筛选器改为两列；
+  `SettlementComparison.vue`、`SeriesOverviewTable.vue`、`SettlementListView.vue`、
+  `SettlementView.vue` 的移动端卡片与 KPI 进一步压缩字号、内边距与行列间距。
+- 验证：前端 123 项测试、`typecheck`、`vite build` 均通过；Playwright 390×844 下
+  展开 / 收起 / 数据明细弹窗等关键交互通过，横向溢出为 0。页面高度从约 1.8~2.3 屏
+  压缩到 1.0~1.7 屏（数据导入约 1.0 屏）。
+
 ## Next Steps
 
 下一模型应该按以下顺序继续（不要跳步）：
@@ -335,6 +418,9 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
    c. 真实业绩数据到位后的整体回归验收（目前线上只有 4 张示例结算单）。
    d. 已确认：`FRUIT_ANALYSIS_AI_*` 由 `backend/app/ai_settings.py` 读取，不再视为未使用配置。
    e. 已完成：品牌化收口、真实浏览器验收与文档同步；剩余事项是确认这些未提交改动如何拆提。
+   f. **文档同步（长期约定）**：界面功能、操作流程或指标口径新增/调整时，必须同步更新
+      `docs/SLD-水果市场销售分析-功能说明书.docx` 与 `docs/SLD-水果市场销售分析-用户操作手册.docx`；
+      改动说明可顺带在 `docs/TODO.md` 或 `docs/DECISIONS.md` 留痕，不视为独立提交阻塞项。
 3. 改完后端记得重启 `./start.sh`（Known Issues 4）；每次改动后运行基线验证，再按功能提交。
 
 ## Known Issues
@@ -411,7 +497,7 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 - 默认路由：`/` → `/login`；已登录用户经 `guestOnly` 守卫跳 `/overview`；
   `/preview` 仍是公开只读演示页，但需直接访问，不再是默认入口。
 - 系列与对比口径（ADR-009）：系列 = 单号 `order_no` 开头连续中文前缀；对比主体是结算单（商号），
-  均价 = 销售金额 ÷ 件数（元/件）；一次最多勾选 6 张结算单；不传 `merchant_no` 时返回范围内全部结算单。
+  平均每千克售价 = 销售金额 ÷ 销量（千克）（元/千克）；一次最多勾选 6 张结算单；不传 `merchant_no` 时返回范围内全部结算单。
 - 「系列对比」页的勾选变化会立即重新请求 `GET /api/analytics/series-comparison`（带 requestVersion 竞态保护），
   日期筛选仍需点击按钮，符合「筛选控件不自动查询」的既有约定。
 - 仓库未配置全局 git 身份，已设置**仓库级** `user.name=Thomas Lin` / `user.email=bill56789@126.com`
@@ -459,20 +545,25 @@ frontend/src/components/AuthPortal.vue   # 登录/注册共用骨架
 frontend/src/api/types.ts                # API 契约
 frontend/src/views/ImportView.vue        # 导入页（本轮修复点）
 frontend/src/views/PublicPreviewView.vue # 免登录演示页（/preview）
-backend/app/services/series_analytics_service.py  # 系列识别、A/B/C 指标、价差与系列汇总
-backend/app/services/order_no_naming.py           # 单号统一命名（系列识别 + 适配后单号，ADR-015）
+backend/app/services/series_analytics_service.py  # 品牌识别、A/B/C 指标、价差与品牌汇总
+backend/app/services/order_no_naming.py           # 单号统一命名（品牌识别 + 适配后单号，ADR-015）
 backend/app/services/merchant_no_naming.py        # 商号统一命名（去「单」前缀，ADR-016）
 backend/scripts/column_backfill.py                # 通用「加列 + 回填」迁移工具（幂等 / 演练 / --force）
 backend/scripts/add_order_no_normalized.py        # 适配后单号加列与回填（基于 column_backfill）
 backend/scripts/add_merchant_no_normalized.py     # 适配后商号加列与回填（基于 column_backfill）
 frontend/src/utils/orderNo.ts                     # displayOrderNo / rawOrderNo 展示口径
 frontend/src/utils/merchantNo.ts                  # displayMerchantNo / rawMerchantNo 展示口径
-frontend/src/views/SeriesComparisonView.vue       # 系列对比页
-frontend/src/components/SeriesGradePriceChart.vue # A/B/C 均价对比图
+frontend/src/views/SeriesComparisonView.vue       # 品牌对比页
+frontend/src/views/SettlementView.vue             # 结算单详情页（新增品牌筛选）
+frontend/src/components/DateRangeFilter.vue       # 五个业务页的统一起止日期选择组件
+frontend/src/components/SettlementGradeBreakdown.vue # 结算单详情等级图表（A/B 占比、均价、价差、规格件数）
+frontend/src/components/SeriesGradePriceChart.vue # A/B/C 平均每千克售价对比图
 frontend/src/components/SeriesGradeShareChart.vue # 等级件数占比图
 docs/ARCHITECTURE.md
 docs/DECISIONS.md
 docs/TODO.md
+docs/SLD-水果市场销售分析-功能说明书.docx
+docs/SLD-水果市场销售分析-用户操作手册.docx
 ```
 
 ## Commands
@@ -509,8 +600,16 @@ npm --prefix frontend run typecheck
 
 ## Test Status
 
-当前测试：PASS（2026-09-11 21:59 实测：后端 236 项 pytest、前端 120 项测试、
-`typecheck`、`vite build` 全通过；真实浏览器验收通过。）
+当前测试：PASS（2026-09-14 实测：后端 236 项 pytest、前端 123 项测试、
+`typecheck`、`vite build` 全通过；服务已重启，`/health` 返回 `{"status":"ok"}`。）
+
+### 品牌口径与统一日期范围（2026-09-14，未提交）
+
+- 后端 `pytest`：236 项全部通过，退出码 0
+- 前端 `npm --prefix frontend run test`：123 项全部通过，退出码 0
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0
+- 前端 `npm --prefix frontend run build`：成功
+- 运行服务：已重启 `fruits_ana` 后端，`GET /health` 返回 200；Nginx 继续托管最新 `dist`
 
 ### 导入等待、回顶与移动端优化（2026-09-11，未提交）
 
@@ -614,6 +713,36 @@ npm --prefix frontend run typecheck
     `商号 E2E<时间戳>`；临时账号、上传批次、销售明细与上传文件均已清理。
   - 仅有的控制台错误是登录/注册前 `restoreSession()` 对 `/api/auth/me` 的预期 401，不影响页面。
 
+### 手机端 4 核心页卡片化与收折（2026-09-11，未提交）
+### 手机端第二轮紧凑化（2026-09-12，未提交）
+
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0。
+- 前端 `npm --prefix frontend run test`：**123 项通过**，退出码 0。
+- 前端 `npm --prefix frontend run build`：成功（vite 6.4.3，145 modules）。
+- Playwright + Chromium（53001 开发实例，390×844，真实 MySQL 数据，临时账号已清理）：
+  - 总览、结算单详情、数据导入、系列对比的移动端展开/收起按钮均可正常切换；
+  - 数据明细「查看明细」可打开底部抽屉并正常关闭；
+  - 各页面 `scrollWidth` 均等于 390，无横向溢出。
+- 改造后移动端页面高度：
+  - 销售总览 1035px（约 1.23 屏）
+  - 数据明细 1134px（约 1.34 屏）
+  - 结算单对比 1412px（约 1.67 屏）
+  - 结算单详情 1181px（约 1.40 屏）
+  - 系列对比 1343px（约 1.59 屏）
+  - 数据导入 844px（约 1.00 屏）
+- 预览截图已重新生成至 `frontend/dev-preview/mobile-review/`，该目录已加入 `.gitignore`；
+  临时预览账号 `tmp_mobile_review_20260911` 已从数据库删除。
+
+
+- 前端 `npm --prefix frontend run test`：**123 项通过**，退出码 0。
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0。
+- 前端 `npm --prefix frontend run build`：成功（vite 6.4.3，144 modules）。
+- Playwright + Chromium（53001 开发实例，390×844，真实 MySQL 数据，临时账号已清理）：
+  系列选择抽屉开关、系列详细分析展开、数据明细弹窗、结算单销售明细卡片、导入重新加载
+  5 个关键移动交互均通过；4 个改造页面未再出现被底部导航遮挡的操作按钮。
+- 改造后移动端页面高度：数据明细约 2039px、系列对比约 2056px、结算单详情约 2816px、
+  数据导入约 2301px；不再有 5000px+ 的系列对比长页。
+
 ### 追加验证（2026-09-10 16:30，商号筛选修复）
 
 - 前端 `npm --prefix frontend run test`：58 个用例通过，退出码 0
@@ -640,8 +769,8 @@ npm --prefix frontend run typecheck
 - 前端 `npm --prefix frontend run typecheck`：通过（2026-09-10 16:15，退出码 0）
 - 前端 `vite build`：成功（1915 modules，2026-09-10 16:15）
 - 线上 MySQL 真实数据核对（`series_analytics_service`，2026-09-10 16:10）：
-  4 张结算单合计 3,821 件 / ¥1,654,520 / 均价 ¥433.0071，与设计稿基线（¥433.01）一致；
-  宝贝01/02/003 三张的 A/B/C 件数、金额、均价、价差与用户手算结果逐项一致。
+  4 张结算单合计 3,821 件 / ¥1,654,520 / 平均每千克售价 ¥433.0071，与设计稿基线（¥433.01）一致；
+  宝贝01/02/003 三张的 A/B/C 件数、金额、平均每千克售价、价差与用户手算结果逐项一致。
 - 浏览器端到端（Playwright + Chromium）：商号维度批次 15 + 23 项检查通过（系列对比页尚未做）。
 
 失败：无

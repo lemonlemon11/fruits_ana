@@ -36,6 +36,26 @@ class AuthResponse(BaseModel):
     user: UserRead
 
 
+class NotificationRead(BaseModel):
+    id: int
+    title: str
+    content: str
+    notification_type: str
+    priority: str
+    publish_at: datetime | None
+    is_read: bool
+    read_at: datetime | None
+
+
+class NotificationListResponse(BaseModel):
+    items: list[NotificationRead]
+    unread_count: int
+
+
+class NotificationUnreadCount(BaseModel):
+    unread_count: int
+
+
 class SettlementListItem(BaseModel):
     merchant_no: str
     merchant_no_normalized: str | None = None
@@ -69,6 +89,7 @@ class SettlementRecordRead(BaseModel):
     source_file_id: int | None
     import_batch_id: int | None
     sale_date: date
+    fruit_type: str | None = None
     grade: str
     grade_raw: str | None
     spec_raw: str | None
@@ -76,6 +97,7 @@ class SettlementRecordRead(BaseModel):
     unit_price: float | None
     amount: float | None
     remark: str | None
+    sales_region: str | None = None
 
 
 class SettlementRecordsResponse(BaseModel):
@@ -207,6 +229,9 @@ __all__ = [
     "DataIssueCreate",
     "DataIssueRead",
     "AuthResponse",
+    "NotificationListResponse",
+    "NotificationRead",
+    "NotificationUnreadCount",
     "ImportBatchCreate",
     "ImportBatchRead",
     "LoginRequest",

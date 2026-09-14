@@ -7,7 +7,7 @@
 
 import type { SettlementListItem } from '../api/types'
 
-/** 按商号、单号、系列或柜号匹配；关键词为空时返回全部。 */
+/** 按商号、单号、品牌或柜号匹配；关键词为空时返回全部。 */
 export function filterSettlementOptions(
   items: SettlementListItem[],
   keyword: string,
@@ -59,7 +59,7 @@ export function addWholeSeries(
   return { next, limited }
 }
 
-/** 该系列是否已经全部选中，用于切换「全选本系列 / 取消本系列」文案。 */
+/** 该品牌是否已经全部选中，用于切换「全选本品牌 / 取消本品牌」文案。 */
 export function isWholeSeriesSelected(draft: string[], seriesMerchantNos: string[]): boolean {
   return (
     seriesMerchantNos.length > 0 &&

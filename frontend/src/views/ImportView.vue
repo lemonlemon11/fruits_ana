@@ -19,6 +19,7 @@ const loadingIssues = ref('')
 const issuesByBatch = reactive<Record<string, ImportIssue[]>>({})
 const issueErrors = reactive<Record<string, string>>({})
 const dragging = ref(false)
+const detailOpen = ref(false)
 let dragDepth = 0
 
 const warningBatches = computed(() => batches.value.filter((batch) => batch.warningCount > 0).length)
@@ -244,26 +245,39 @@ onBeforeUnmount(() => {
       <div><span>等级口径</span><strong>A果 / B果 / C果</strong><small>原始BC等级自动归入C果</small></div>
     </section>
 
-    <section class="dashboard-section" aria-labelledby="history-title">
-      <header class="section-heading"><div><h2 id="history-title">导入记录和问题</h2><p class="section-note">只在需要时展开问题明细</p></div><button class="secondary-button" type="button" :disabled="loading" @click="loadBatches">重新加载</button></header>
-      <div v-if="loading" class="history-skeleton skeleton-block">正在加载导入记录</div>
-      <div v-else-if="!batches.length" class="empty-state prominent"><strong>还没有导入记录</strong><span>完成首次文件导入后，批次与质量统计会显示在这里。</span></div>
-      <div v-else class="batch-list">
-        <article v-for="batch in batches" :key="batch.id" class="batch-row">
-          <div class="batch-file"><strong>{{ batchTitle(batch) }}</strong><small>{{ batchSubtitle(batch) }}</small></div>
-          <span class="status-badge" :class="statusTone(batch.status)">{{ statusLabel(batch.status) }}</span>
-          <dl class="batch-counts"><div><dt>成功</dt><dd>{{ batch.successCount }}</dd></div><div><dt>警告</dt><dd class="count-warning">{{ batch.warningCount }}</dd></div><div><dt>失败</dt><dd class="count-error">{{ batch.failureCount }}</dd></div></dl>
-          <p v-if="batch.errorSummary" class="batch-error">{{ batch.errorSummary }}</p>
-          <div v-if="batch.warningCount || batch.failureCount" class="batch-actions"><button class="secondary-button compact-button" type="button" :aria-expanded="expandedBatch === String(batch.id)" :aria-controls="`batch-issues-${batch.id}`" @click="toggleIssues(batch.id)">{{ expandedBatch === String(batch.id) ? '收起问题' : '查看问题' }}</button><a class="secondary-button compact-button" :href="issuesCsvUrl(batch.id)" download>下载问题明细</a></div>
-          <div v-if="expandedBatch === String(batch.id)" :id="`batch-issues-${batch.id}`" class="batch-issues">
-            <p v-if="loadingIssues === String(batch.id)" class="section-note" aria-live="polite">正在加载问题明细</p>
-            <div v-else-if="issueErrors[String(batch.id)]" class="issue-load-error" role="alert"><span>{{ issueErrors[String(batch.id)] }}</span><button type="button" class="text-button" @click="toggleIssues(batch.id).then(() => toggleIssues(batch.id))">重试</button></div>
-            <p v-else-if="!issuesByBatch[String(batch.id)]?.length" class="section-note">该批次没有问题明细。</p>
-            <div v-else class="table-wrap"><table><thead><tr><th>行号</th><th>级别</th><th>类型</th><th>字段</th><th>说明</th><th>原始值</th></tr></thead><tbody><tr v-for="issue in issuesByBatch[String(batch.id)]" :key="issue.id"><td>{{ issue.rowNumber ?? '—' }}</td><td><span class="issue-severity" :class="severityTone(issue.severity)">{{ severityLabel(issue.severity) }}</span></td><td>{{ issueTypeLabel(issue.issueType) }}</td><td>{{ fieldLabel(issue.fieldName) }}</td><td>{{ issue.message }}</td><td>{{ issue.rawValue || '—' }}</td></tr></tbody></table></div>
-          </div>
-        </article>
-      </div>
-    </section>
+    <button type="button" class="mobile-detail-toggle" :aria-expanded="detailOpen" aria-controls="import-mobile-history" @click="detailOpen = !detailOpen">{{ detailOpen ? '收起导入记录' : '查看导入记录' }}</button>
+
+    <div v-show="detailOpen" id="import-mobile-history" class="import-mobile-history">
+      <section class="dashboard-section" aria-labelledby="history-title">
+        <header class="section-heading"><div><h2 id="history-title">导入记录和问题</h2><p class="section-note">只在需要时展开问题明细</p></div><button class="secondary-button" type="button" :disabled="loading" @click="loadBatches">重新加载</button></header>
+        <div v-if="loading" class="history-skeleton skeleton-block">正在加载导入记录</div>
+        <div v-else-if="!batches.length" class="empty-state prominent"><strong>还没有导入记录</strong><span>完成首次文件导入后，批次与质量统计会显示在这里。</span></div>
+        <div v-else class="batch-list">
+          <article v-for="batch in batches" :key="batch.id" class="batch-row">
+            <div class="batch-file"><strong>{{ batchTitle(batch) }}</strong><small>{{ batchSubtitle(batch) }}</small></div>
+            <span class="status-badge" :class="statusTone(batch.status)">{{ statusLabel(batch.status) }}</span>
+            <dl class="batch-counts"><div><dt>成功</dt><dd>{{ batch.successCount }}</dd></div><div><dt>警告</dt><dd class="count-warning">{{ batch.warningCount }}</dd></div><div><dt>失败</dt><dd class="count-error">{{ batch.failureCount }}</dd></div></dl>
+            <p v-if="batch.errorSummary" class="batch-error">{{ batch.errorSummary }}</p>
+            <div v-if="batch.warningCount || batch.failureCount" class="batch-actions"><button class="secondary-button compact-button" type="button" :aria-expanded="expandedBatch === String(batch.id)" :aria-controls="`batch-issues-${batch.id}`" @click="toggleIssues(batch.id)">{{ expandedBatch === String(batch.id) ? '收起问题' : '查看问题' }}</button><a class="secondary-button compact-button" :href="issuesCsvUrl(batch.id)" download>下载问题明细</a></div>
+            <div v-if="expandedBatch === String(batch.id)" :id="`batch-issues-${batch.id}`" class="batch-issues">
+              <p v-if="loadingIssues === String(batch.id)" class="section-note" aria-live="polite">正在加载问题明细</p>
+              <div v-else-if="issueErrors[String(batch.id)]" class="issue-load-error" role="alert"><span>{{ issueErrors[String(batch.id)] }}</span><button type="button" class="text-button" @click="toggleIssues(batch.id).then(() => toggleIssues(batch.id))">重试</button></div>
+              <p v-else-if="!issuesByBatch[String(batch.id)]?.length" class="section-note">该批次没有问题明细。</p>
+              <div v-else class="issue-results">
+                <div class="table-wrap"><table><thead><tr><th>行号</th><th>级别</th><th>类型</th><th>字段</th><th>说明</th><th>原始值</th></tr></thead><tbody><tr v-for="issue in issuesByBatch[String(batch.id)]" :key="issue.id"><td>{{ issue.rowNumber ?? '—' }}</td><td><span class="issue-severity" :class="severityTone(issue.severity)">{{ severityLabel(issue.severity) }}</span></td><td>{{ issueTypeLabel(issue.issueType) }}</td><td>{{ fieldLabel(issue.fieldName) }}</td><td>{{ issue.message }}</td><td>{{ issue.rawValue || '—' }}</td></tr></tbody></table></div>
+                <div class="mobile-issue-cards">
+                  <article v-for="issue in issuesByBatch[String(batch.id)]" :key="issue.id" class="mobile-issue-card">
+                    <header><span class="issue-severity" :class="severityTone(issue.severity)">{{ severityLabel(issue.severity) }}</span><strong>{{ issueTypeLabel(issue.issueType) }}</strong><small>行 {{ issue.rowNumber ?? '—' }} · {{ fieldLabel(issue.fieldName) }}</small></header>
+                    <p>{{ issue.message }}</p>
+                    <p v-if="issue.rawValue" class="mobile-issue-raw">原始值：{{ issue.rawValue }}</p>
+                  </article>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -318,6 +332,9 @@ onBeforeUnmount(() => {
 .batch-counts dd.count-error { color: var(--danger); }
 .batch-actions { gap: 8px; }
 .batch-issues { padding-top: 12px; }
+.mobile-issue-cards { display: none; }
+.mobile-detail-toggle { display: none; }
+.import-mobile-history { display: grid; gap: 18px; }
 .issue-severity { display: inline-flex; padding: 4px 7px; border-radius: var(--radius-sm); font-size: .85rem; font-weight: 700; }
 .issue-warning { background: #f8edda; color: var(--warning); }
 .issue-error { background: #f8e4e2; color: var(--danger); }
@@ -337,12 +354,41 @@ onBeforeUnmount(() => {
   .batch-actions { justify-content: flex-start; }
 }
 
+@media (min-width: 561px) {
+  .import-mobile-history { display: grid !important; }
+}
+
 @media (max-width: 560px) {
+  .mobile-detail-toggle { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--primary-dark); font-size: .95rem; font-weight: 800; }
+  .import-mobile-history { gap: 12px; }
+  .upload-workbench--compact { gap: 12px; padding: 12px; }
+  .upload-copy p { display: none; }
+  .file-picker-panel { min-height: 64px; padding: 12px; }
+  .quality-summary > div { gap: 2px; padding: 8px; }
+  .quality-summary small { display: none; }
   .file-picker-panel { align-items: stretch; flex-direction: column; }
   .quality-summary > div { padding: 12px; }
   .batch-row { padding: 12px; }
   .batch-actions { flex-wrap: wrap; }
   .batch-actions .compact-button { flex: 1 1 130px; }
   .batch-issues .table-wrap table { min-width: 680px; }
+  .dashboard-section > .section-heading {
+    position: sticky;
+    z-index: 20;
+    top: calc(var(--app-header-height) + var(--app-tabs-height) + 8px);
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .95);
+  }
+  .issue-results { min-width: 0; }
+  .issue-results .table-wrap { display: none; }
+  .mobile-issue-cards { display: grid; gap: 8px; }
+  .mobile-issue-card { display: grid; gap: 7px; padding: 11px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); }
+  .mobile-issue-card header { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+  .mobile-issue-card header strong { font-size: .95rem; }
+  .mobile-issue-card header small { color: var(--muted); font-size: .8rem; }
+  .mobile-issue-card p { margin: 0; line-height: 1.5; }
+  .mobile-issue-raw { color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; }
 }
 </style>
