@@ -1278,6 +1278,8 @@ Branch：`dev`
 Latest commits：
 
 ```text
+dfbd8a3 chore(frontend): 上线前清理旧入口与临时文件
+876bd61 docs(handoff): 同步提交与推送状态
 de40eca feat(import): 收口多文件导入手工录单与顺仔问答
 4903399 feat(analytics): 等级动态展示并新增结算单同品牌AI分析
 2c7c5c8 feat(frontend): 完善侧栏分页与系统页脚
@@ -1285,14 +1287,11 @@ d1dd57b chore(backend): 统一环境变量到 backend/.env
 0a20e9f docs: 更新README页签与通知说明
 b740af4 feat(frontend): 页签右键菜单支持刷新与关闭操作
 eeb6681 feat: 品牌化统一日期筛选并优化结算详情与移动端
-65e06d8 feat(frontend): 字号按钮点击后弹出滑杆并记忆偏好
-2cc4947 fix(frontend): 系列对比移动端表格改为纵向卡片消除横向滚动
-1cbcb49 feat(deploy): 切换 Nginx 生产托管并优化移动端展示
 ```
 
-Uncommitted changes（2026-09-18 提交后）：
+Uncommitted changes（2026-09-18 上线前清理后）：
 
-- `fruits_ana` 当前仅 `tickets/` 未跟踪；`git status` 为 `dev...origin/dev [ahead 2]`。
+- `fruits_ana` 工作区干净；`git status` 为 `dev...origin/dev [ahead 1]`，`tickets/` 已忽略。
 - `fruits_ana_admin` 已合入 `main` 并推送到 `origin/main`，本地 `main`/`dev` 与远端同步。
 - 未改动 `.env`、`backend/.env`、MySQL 配置；`.superpowers/`、`.superpowersigeria/`、
   `attachments/`、`backend/data/` 仍被 `.gitignore` 忽略，不会提交。
