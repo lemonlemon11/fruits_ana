@@ -53,4 +53,5 @@ def test_mysql_datetime_columns_preserve_microseconds() -> None:
         for model in tables
     ]
 
-    assert sum(statement.count("DATETIME(6)") for statement in statements) == 7
+    # 7 个原有列 + import_batch.confirmed_at + data_issue.resolved_at（ADR-028 确认/复核留痕）
+    assert sum(statement.count("DATETIME(6)") for statement in statements) == 9

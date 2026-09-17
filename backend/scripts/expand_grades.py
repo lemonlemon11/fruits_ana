@@ -21,8 +21,9 @@ from app.db import engine
 
 TABLE = "sale_record"
 CONSTRAINT = "ck_sale_record_grade"
-GRADE_VALUES = ("A", "B", "C", "D", "E", "F", "OTHER")
+GRADE_VALUES = ("A", "B", "AB", "C", "D", "E", "F", "OTHER")
 NEW_SQL = f"grade IN ({', '.join(repr(value) for value in GRADE_VALUES)})"
+ENUM_SQL = f"ENUM({', '.join(repr(value) for value in GRADE_VALUES)})"
 
 
 def quote(identifier: str) -> str:
@@ -51,6 +52,24 @@ def _has_new_grade_set(sqltext: str | None) -> bool:
     return all(value in normalized for value in GRADE_VALUES)
 
 
+def _column_type(engine: Engine, table: str, column: str) -> str:
+    inspector = inspect(engine)
+    if table not in inspector.get_table_names():
+        return ""
+    for item in inspector.get_columns(table):
+        if item.get("name") == column:
+            return str(item.get("type") or "")
+    return ""
+
+
+def _needs_enum_expansion(engine: Engine) -> bool:
+    column_type = _column_type(engine, TABLE, "grade")
+    normalized = column_type.replace(" ", "").replace("'", "").replace('"', "")
+    return "enum" in normalized.lower() and not all(
+        value in normalized for value in GRADE_VALUES
+    )
+
+
 def build_plan(engine: Engine) -> MigrationPlan:
     """返回需要执行的 DDL；不识别旧约束时不强行修改。"""
 
@@ -59,6 +78,10 @@ def build_plan(engine: Engine) -> MigrationPlan:
         return plan
     if TABLE not in inspect(engine).get_table_names():
         return plan
+    if _needs_enum_expansion(engine):
+        plan.statements.append(
+            f"ALTER TABLE {quote(TABLE)} MODIFY COLUMN {quote('grade')} {ENUM_SQL} NOT NULL"
+        )
     for constraint in _constraints(engine, TABLE):
         if constraint.get("name") != CONSTRAINT:
             continue

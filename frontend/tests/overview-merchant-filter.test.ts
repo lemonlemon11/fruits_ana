@@ -27,6 +27,6 @@ test('总览页下拉候选保留全部结算单，避免选中后无法切回',
 
   assert.match(view, /getSettlementComparison\(\{ \.\.\.query, includeAllSettlements: true \}\)/)
   assert.match(view, /settlementOptions\.value = nextSettlements/)
-  assert.match(view, /v-for="item in settlementOptions"/)
+  assert.match(view, /:options="merchantSelectOptions"/)
   assert.match(view, /filterSettlementsByMerchant\(settlementOptions\.value, filters\.merchantNo\)/)
 })

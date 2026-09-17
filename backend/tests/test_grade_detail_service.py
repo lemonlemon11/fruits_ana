@@ -51,6 +51,13 @@ def test_bc_folds_into_c() -> None:
     assert result["buckets"][0]["grade"] == "C"
 
 
+def test_ab_stays_independent_by_record_grade() -> None:
+    records = [make_record("AB6", "10", "3000", grade=StandardGrade.AB)]
+    result = grade_detail_metrics(records)
+    assert result["buckets"][0]["label"] == "AB6"
+    assert result["buckets"][0]["grade"] == "AB"
+
+
 def test_quality_marks_do_not_split_buckets() -> None:
     records = [
         make_record("A6熟", "10", "5000", grade=StandardGrade.A),

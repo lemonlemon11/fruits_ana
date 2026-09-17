@@ -31,6 +31,19 @@ export function settlementSeries(item: {
   return match?.[0] || UNKNOWN_SERIES
 }
 
+/** 统计同品牌的其他结算单数量；后端「同品牌经营分析」要求至少还有一张。 */
+export function countSameBrandPeers(
+  items: SettlementComparisonItem[],
+  merchantNo: string,
+): number {
+  const current = items.find((item) => item.merchantNo === merchantNo)
+  if (!current) return 0
+  const brand = current.series || settlementSeries(current)
+  return items.filter(
+    (item) => item.merchantNo !== merchantNo && (item.series || settlementSeries(item)) === brand,
+  ).length
+}
+
 /** 总览页：下拉候选保持全部结算单，展示列表跟随所选商号收窄到该商号自己的数据。 */
 export function filterSettlementsByMerchant(
   items: SettlementComparisonItem[],

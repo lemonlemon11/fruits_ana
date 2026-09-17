@@ -24,3 +24,6 @@ frontend/dev-preview/mobile-review/
 
 # 视觉伴侣截图输出：含真实经营数据，禁止入库
 frontend/dev-preview/.preview-20260914/
+
+# 本地运行日志（后端 uvicorn 输出），不提交
+backend/*.log

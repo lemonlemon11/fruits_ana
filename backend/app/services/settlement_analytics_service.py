@@ -167,6 +167,10 @@ def get_settlement_detail(
         ),
         "container_no": batch.container_no,
         "vehicle_no": batch.vehicle_no,
+        "source_type": batch.source_type,
+        "market": batch.market,
+        "arrival_date": batch.arrival_date.isoformat() if batch.arrival_date else None,
+        "arrival_quantity": batch.arrival_quantity,
         "total": metrics(current),
         "grades": grade_metrics(current),
         "trend": get_daily_trend(

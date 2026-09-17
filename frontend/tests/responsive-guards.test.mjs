@@ -52,9 +52,11 @@ test('系列对比的等级表在移动端不固定 400px 列宽', () => {
   assert.match(mobile, /grid-template-columns:\s*minmax\(0,\s*1fr\)/)
 })
 
-test('系列对比的等级表让长表头折行，避免 5 列被卡片裁掉最后一列', () => {
+test('系列对比的等级表在窄屏折成卡片，宽屏靠内部横向滚动兜底', () => {
   const source = fs.readFileSync(path.join(src, 'components', 'SeriesGradeTables.vue'), 'utf8')
 
-  assert.match(source, /thead th:nth-child\(4\) \{[^}]*white-space:\s*normal/)
-  assert.match(source, /th, td \{[^}]*padding:\s*7px 6px/)
+  // 5 列 + 长表头在卡片里放不下时不再被裁掉最后一列：窄屏走卡片模式，宽屏由组件内部滚动。
+  assert.match(source, /cards-on-narrow/)
+  assert.match(source, /min-width="320px"/)
+  assert.match(source, /foot-label="合计"/)
 })

@@ -1,0 +1,251 @@
+/* 顺仔 · 悬浮问答：1) 悬浮入口 .ask-fab  2) 悬浮对话窗 .ask-panel
+   与系统「回顶部」(.back-to-top) 的位置约定：
+   - 「回顶部」固定在底部 24px，顺仔固定在它正上方（--ask-lift 抬高 64px），两块永不相交；
+   - 对话窗打开时 AppShell 会隐藏「回顶部」，右下角整块让给对话窗。
+   层级也做了区分：回顶部 z-index 35 < 机器人 40 < 对话窗 45。 */
+
+:root {
+  --ask-primary: var(--primary, #17663f);
+  --ask-primary-dark: var(--primary-dark, #104a2f);
+  --ask-primary-soft: var(--primary-soft, #dcece2);
+  --ask-ink: var(--ink, #1f2923);
+  --ask-muted: var(--muted, #56635b);
+  --ask-line: var(--line, #d4dbd6);
+  --ask-surface: var(--surface, #ffffff);
+  --ask-surface-soft: var(--surface-soft, #edf1ee);
+  --ask-danger: #9b3029;
+  --ask-radius: 8px;
+  --ask-gap: 24px;
+  --ask-lift: 64px;
+  --ask-tabbar: var(--mobile-tabbar-height, 56px);
+  --ask-shadow: 0 18px 44px rgba(16, 74, 47, .2);
+}
+
+/* ---------- 悬浮入口按钮：榴莲外壳 ---------- */
+
+/* 默认收起来贴在右下角：缩小、半透明、略微向边缘收，不抢视线也不挡内容。
+   --ask-open 由「鼠标移入 / 键盘聚焦 / 对话窗打开」置 1，数值全部由它插值，
+   展开与收回都走同一条过渡，收起时才有收回动作。 */
+.ask-fab {
+  --ask-open: 0;
+  --ask-ease: cubic-bezier(.34, 1.42, .64, 1);
+  /* 收起时整块往右趴到屏幕边缘：右边出血约三分之一被视口裁掉，看起来是藏在边上。
+     水平贴边（right: 0）而不是留在 --ask-gap 位置，是为了让展开后的区域完全盖住
+     收起时的可见区——否则元素一展开就从鼠标下面滑走，悬停会反复丢失、来回抖。 */
+  --ask-tuck: 18px;
+  position: fixed; z-index: 40;
+  right: 0; bottom: calc(var(--ask-gap) + var(--ask-lift));
+  display: inline-flex; align-items: center;
+  padding: 0; border: 0; background: transparent;
+  font: inherit; cursor: pointer;
+  transform-origin: right bottom;
+  transform: translateX(calc(var(--ask-tuck) * (1 - var(--ask-open)))) scale(calc(.74 + .26 * var(--ask-open)));
+  opacity: calc(.68 + .32 * var(--ask-open));
+  transition: transform .3s var(--ask-ease), opacity .2s ease;
+}
+.ask-fab:focus-visible { outline: 3px solid rgba(23, 102, 63, .28); outline-offset: 4px; border-radius: 999px; }
+.ask-fab.is-open,
+.ask-fab:focus-visible { --ask-open: 1; }
+/* 触屏没有悬停，靠点击（打开 / 收起对话窗）切换；用 hover: hover 把悬停展开限定在鼠标设备。 */
+@media (hover: hover) {
+  .ask-fab:hover { --ask-open: 1; }
+}
+
+/* 名字标签：宽度从 0 撑开，配合轻微位移做出「弹出来」的手感。 */
+.ask-fab__label {
+  box-sizing: border-box;
+  width: calc(3.9rem * var(--ask-open));
+  margin-right: calc(8px * var(--ask-open));
+  padding: calc(8px * var(--ask-open)) calc(12px * var(--ask-open));
+  border-radius: 999px;
+  background: var(--ask-surface);
+  box-shadow: inset 0 0 0 1px var(--ask-line), 0 8px 20px rgba(16, 74, 47, .18);
+  overflow: hidden; white-space: nowrap;
+  color: var(--ask-primary-dark); font-size: .84rem; font-weight: 700; line-height: 1;
+  opacity: var(--ask-open);
+  transform: translateX(calc(8px * (1 - var(--ask-open))));
+  transition: width .3s var(--ask-ease), margin-right .3s var(--ask-ease),
+    padding .3s var(--ask-ease), opacity .18s ease, transform .3s var(--ask-ease);
+}
+
+/* 顺仔本体：榴莲从果壳里探出半个头在观察，圆底衬只负责把按钮从页面里托出来。 */
+.ask-fab__avatar {
+  position: relative; display: grid; place-items: end center;
+  width: 72px; height: 72px; border-radius: 50%;
+  background: radial-gradient(circle at 36% 26%, rgba(255, 255, 255, .96), rgba(250, 246, 226, .9) 60%, rgba(232, 220, 178, .88));
+  box-shadow: 0 10px 24px rgba(16, 74, 47, .26), inset 0 0 0 1px rgba(255, 255, 255, .7);
+  transition: box-shadow .18s ease;
+}
+.ask-fab__avatar-img {
+  display: block; width: 100%; height: 100%;
+  object-fit: contain; object-position: center bottom;
+  animation: ask-peek 3.2s ease-in-out infinite;
+}
+@keyframes ask-peek {
+  0%, 62%, 100% { transform: translateY(0); }
+  74% { transform: translateY(-5px); }
+}
+.ask-fab__avatar-close {
+  position: absolute; right: -3px; bottom: -3px;
+  display: none; place-items: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--ask-primary-soft); color: var(--ask-primary-dark);
+  box-shadow: 0 0 0 2px #fff; font-size: .84rem; font-weight: 700; line-height: 1;
+}
+
+.ask-fab.is-open .ask-fab__avatar { box-shadow: 0 6px 16px rgba(16, 74, 47, .2), inset 0 0 0 1px rgba(255, 255, 255, .7); }
+.ask-fab.is-open .ask-fab__avatar-img { animation: none; filter: saturate(.9); }
+.ask-fab.is-open .ask-fab__avatar-close { display: grid; }
+
+/* 未展开时的呼吸光圈，提示这里可以点。 */
+.ask-fab__avatar::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid rgba(23, 102, 63, .45);
+  border-radius: 50%;
+  animation: ask-ring 2.4s ease-out infinite;
+  pointer-events: none;
+}
+.ask-fab.is-open .ask-fab__avatar::after { display: none; }
+@keyframes ask-ring { 0% { opacity: .55; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(1.12); } }
+
+/* ---------- 悬浮对话窗 ---------- */
+
+.ask-panel {
+  position: fixed;
+  z-index: 45;
+  right: var(--ask-gap);
+  bottom: calc(var(--ask-gap) + var(--ask-lift));
+  display: flex;
+  flex-direction: column;
+  width: min(460px, calc(100vw - var(--ask-gap) * 2));
+  height: min(720px, calc(100vh - 140px));
+  max-height: calc(100vh - 140px);
+  border: 1px solid var(--ask-line);
+  border-radius: var(--ask-radius);
+  background: var(--ask-surface);
+  box-shadow: var(--ask-shadow);
+  overflow: hidden;
+  animation: ask-pop .18s ease-out;
+}
+@keyframes ask-pop {
+  from { opacity: 0; transform: translateY(12px); }
+}
+
+.ask-panel__head {
+  display: flex; flex: none; align-items: center; gap: 10px;
+  padding: 12px 14px; background: var(--ask-primary); color: #fff;
+}
+.ask-panel__avatar {
+  display: grid; place-items: center; width: 34px; height: 34px;
+  border-radius: 50%; background: rgba(255, 255, 255, .2); font-size: .95rem;
+}
+.ask-panel__meta { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.ask-panel__meta strong { font-size: .98rem; }
+.ask-panel__meta span { overflow: hidden; color: rgba(255, 255, 255, .8); font-size: .74rem; text-overflow: ellipsis; white-space: nowrap; }
+.ask-panel__close {
+  flex: none; width: 28px; height: 28px;
+  border: 1px solid rgba(255, 255, 255, .5); border-radius: 50%;
+  background: transparent; color: #fff; font: inherit; font-size: 1rem; line-height: 1; cursor: pointer;
+}
+.ask-panel__close:hover { background: rgba(255, 255, 255, .18); }
+
+/* 消息区：微信式 —— 顺仔在左，用户在右。 */
+.ask-panel__scroll {
+  flex: 1 1 auto; min-height: 0; padding: 14px;
+  overflow-y: auto; background: #f6f8f6; overscroll-behavior: contain;
+}
+.chat-log { display: grid; gap: 14px; }
+
+.msg { display: flex; align-items: flex-start; gap: 8px; }
+.msg-user { flex-direction: row-reverse; }
+.msg-avatar {
+  display: grid; flex: none; place-items: center;
+  width: 30px; height: 30px; border-radius: 50%; font-size: .78rem;
+}
+.msg-bot .msg-avatar,
+.msg-pending .msg-avatar { background: var(--ask-primary); color: #fff; }
+.msg-user .msg-avatar { background: var(--ask-surface-soft); color: var(--ask-muted); box-shadow: inset 0 0 0 1px var(--ask-line); }
+.msg-error .msg-avatar { background: #f0dbd9; color: var(--ask-danger); }
+
+/* justify-items: start 让气泡贴着内容宽度（像聊天软件），而不是撑满整行。 */
+.msg-main { display: grid; justify-items: start; gap: 5px; max-width: 82%; min-width: 0; }
+.msg-user .msg-main { justify-items: end; }
+.msg-role { margin: 0; color: var(--ask-muted); font-size: .72rem; }
+.msg-user .msg-role { display: none; }
+
+.msg-body {
+  padding: 9px 12px; border: 1px solid var(--ask-line); border-radius: 3px 10px 10px 10px;
+  background: var(--ask-surface); font-size: .88rem; line-height: 1.65; overflow-wrap: anywhere;
+}
+.msg-body p { margin-bottom: 6px; }
+.msg-body p:last-child { margin-bottom: 0; }
+.msg-body ul { margin: 0; padding-left: 1.1rem; }
+.msg-body li { margin-bottom: 3px; }
+.msg-body li:last-child { margin-bottom: 0; }
+
+.msg-user .msg-body {
+  border-color: var(--ask-primary-dark); border-radius: 10px 3px 10px 10px;
+  background: var(--ask-primary); color: #fff;
+}
+.msg-pending .msg-body { background: var(--ask-surface-soft); color: var(--ask-muted); }
+.msg-error .msg-body { border-color: #e2c3c0; background: #fbf1f0; color: var(--ask-danger); }
+
+/* 底部输入区：输入框随内容长高，不出滚动条。 */
+.ask-panel__foot {
+  display: grid; flex: none; gap: 8px; padding: 10px 12px 12px;
+  border-top: 1px solid var(--ask-line); background: var(--ask-surface);
+}
+.composer { display: flex; align-items: flex-end; gap: 8px; }
+.composer textarea {
+  flex: 1; min-height: 40px; padding: 9px 11px;
+  border: 1px solid var(--ask-line); border-radius: var(--ask-radius);
+  font: inherit; font-size: .86rem; line-height: 1.5; resize: none;
+  overflow-y: hidden;
+}
+.composer textarea:focus { outline: none; border-color: var(--ask-primary); box-shadow: 0 0 0 3px rgba(23, 102, 63, .12); }
+.composer button {
+  flex: none; height: 40px; padding: 0 18px;
+  border: 1px solid var(--ask-primary-dark); border-radius: var(--ask-radius);
+  background: var(--ask-primary); color: #fff; font: inherit; font-size: .86rem; cursor: pointer;
+}
+.composer button:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 820px) {
+  .ask-fab {
+    --ask-tuck: 8px;
+    right: 0;
+    bottom: calc(var(--ask-tabbar) + env(safe-area-inset-bottom) + 74px);
+  }
+  .ask-fab__avatar { width: 62px; height: 62px; }
+  .ask-panel__close { width: 34px; height: 34px; }
+  /* 全屏对话窗：高度与位置跟随「可视视口」（--ask-vv-height / --ask-vv-top 由 AskWidget
+     监听 visualViewport 写入），软键盘弹出时整窗收缩，输入区始终留在键盘上方；
+     100vh 只作为不支持 dvh 的老浏览器兜底。 */
+  .ask-panel {
+    top: var(--ask-vv-top, 0px);
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    height: 100vh;
+    height: var(--ask-vv-height, 100dvh);
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+  /* 刘海 / 灵动岛与底部横条：顶部与底部各让出安全区，避免遮挡关闭按钮与输入框。 */
+  .ask-panel__head { padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
+  .ask-panel__foot { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .ask-panel__scroll { padding: 12px; }
+  .msg-main { max-width: 84%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-fab__avatar::after { animation: none; }
+  .ask-fab__avatar-img { animation: none; }
+  .ask-panel { animation: none; }
+  .ask-fab,
+  .ask-fab__avatar { transition: none; }
+}

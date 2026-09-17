@@ -1,4 +1,5 @@
 import '../src/AppShell.vue'
+import '../src/components/AskWidget.vue'
 import '../src/views/ImportView.vue'
 import '../src/views/LoginView.vue'
 import '../src/views/OverviewView.vue'

@@ -1,0 +1,280 @@
+/* 顺仔 · 悬浮问答组件（可整体移植到 frontend/src）
+   1) 悬浮入口 .ask-fab  2) 悬浮对话窗 .ask-panel
+
+   与系统「回顶部」(.back-to-top) 的位置约定：
+   - 「回顶部」固定在底部 24px，顺仔固定在它正上方（--ask-lift 抬高 64px），两块永不相交；
+   - 对话窗打开时，body 加 .is-ask-open，让「回顶部」暂时隐藏，右下角整块让给对话窗。
+   层级也做了区分：回顶部 z-index 35 < 机器人 40 < 对话窗 45。 */
+
+:root {
+  --ask-primary: #17663f;
+  --ask-primary-dark: #104a2f;
+  --ask-primary-soft: #dcece2;
+  --ask-ink: #1f2923;
+  --ask-muted: #56635b;
+  --ask-line: #d4dbd6;
+  --ask-surface: #ffffff;
+  --ask-surface-soft: #edf1ee;
+  --ask-danger: #9b3029;
+  --ask-radius: 8px;
+  --ask-gap: 24px;
+  --ask-lift: 64px;
+  --ask-tabbar: var(--mobile-tabbar-height, 56px);
+  --ask-shadow: 0 18px 44px rgba(16, 74, 47, .2);
+}
+
+/* ---------- 悬浮入口按钮：榴莲外壳 ---------- */
+
+.ask-fab {
+  position: fixed; z-index: 40;
+  right: var(--ask-gap); bottom: calc(var(--ask-gap) + var(--ask-lift));
+  display: block;
+  padding: 0; border: 0; background: transparent;
+  font: inherit; cursor: pointer;
+  transition: transform .18s ease;
+}
+.ask-fab:hover { transform: translateY(-3px); }
+.ask-fab:focus-visible { outline: 3px solid rgba(23, 102, 63, .28); outline-offset: 4px; border-radius: 999px; }
+
+/* 顺仔本体：榴莲从果壳里探出半个头在观察，圆底衬只负责把按钮从页面里托出来。 */
+.ask-fab__avatar {
+  position: relative; display: grid; place-items: end center;
+  width: 72px; height: 72px; border-radius: 50%;
+  background: radial-gradient(circle at 36% 26%, rgba(255, 255, 255, .96), rgba(250, 246, 226, .9) 60%, rgba(232, 220, 178, .88));
+  box-shadow: 0 10px 24px rgba(16, 74, 47, .26), inset 0 0 0 1px rgba(255, 255, 255, .7);
+  transition: box-shadow .18s ease;
+}
+.ask-fab__avatar-img {
+  display: block; width: 100%; height: 100%;
+  object-fit: contain; object-position: center bottom;
+  animation: ask-peek 3.2s ease-in-out infinite;
+}
+@keyframes ask-peek {
+  0%, 62%, 100% { transform: translateY(0); }
+  74% { transform: translateY(-5px); }
+}
+.ask-fab__avatar-close {
+  position: absolute; right: -3px; bottom: -3px;
+  display: none; place-items: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--ask-primary-soft); color: var(--ask-primary-dark);
+  box-shadow: 0 0 0 2px #fff; font-size: .84rem; font-weight: 700; line-height: 1;
+}
+
+.ask-fab.is-open .ask-fab__avatar { box-shadow: 0 6px 16px rgba(16, 74, 47, .2), inset 0 0 0 1px rgba(255, 255, 255, .7); }
+.ask-fab.is-open .ask-fab__avatar-img { animation: none; filter: saturate(.9); }
+.ask-fab.is-open .ask-fab__avatar-close { display: grid; }
+
+/* 未展开时的呼吸光圈，提示这里可以点。 */
+.ask-fab__avatar::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid rgba(23, 102, 63, .45);
+  border-radius: 50%;
+  animation: ask-ring 2.4s ease-out infinite;
+  pointer-events: none;
+}
+.ask-fab.is-open .ask-fab__avatar::after { display: none; }
+@keyframes ask-ring { 0% { opacity: .55; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(1.12); } }
+
+/* ---------- 悬浮对话窗 ---------- */
+
+.ask-panel {
+  position: fixed;
+  z-index: 45;
+  right: var(--ask-gap);
+  bottom: calc(var(--ask-gap) + var(--ask-lift));
+  display: flex;
+  flex-direction: column;
+  width: min(460px, calc(100vw - var(--ask-gap) * 2));
+  height: min(720px, calc(100vh - 140px));
+  max-height: calc(100vh - 140px);
+  border: 1px solid var(--ask-line);
+  border-radius: var(--ask-radius);
+  background: var(--ask-surface);
+  box-shadow: var(--ask-shadow);
+  overflow: hidden;
+  animation: ask-pop .18s ease-out;
+}
+.ask-panel[hidden] { display: none; }
+@keyframes ask-pop {
+  from { opacity: 0; transform: translateY(12px); }
+}
+
+.ask-panel__head {
+  display: flex; flex: none; align-items: center; gap: 10px;
+  padding: 12px 14px; background: var(--ask-primary); color: #fff;
+}
+.ask-panel__avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .2);
+  font-size: .95rem;
+}
+.ask-panel__meta { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.ask-panel__meta strong { font-size: .98rem; }
+.ask-panel__meta span { overflow: hidden; color: rgba(255, 255, 255, .8); font-size: .74rem; text-overflow: ellipsis; white-space: nowrap; }
+.ask-panel__close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+/* 窄屏点按区域更大一些 */
+@media (max-width: 820px) { .ask-panel__close { width: 34px; height: 34px; } }
+.ask-panel__close:hover { background: rgba(255, 255, 255, .18); }
+
+/* 消息区：微信式 —— 顺仔在左，用户在右。 */
+.ask-panel__scroll {
+  flex: 1 1 auto;
+  min-height: 140px;
+  padding: 14px;
+  overflow-y: auto;
+  background: #f6f8f6;
+  overscroll-behavior: contain;
+}
+.chat-log { display: grid; gap: 14px; }
+
+.msg { display: flex; align-items: flex-start; gap: 8px; }
+.msg-user { flex-direction: row-reverse; }
+.msg-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: .78rem;
+}
+.msg-bot .msg-avatar,
+.msg-pending .msg-avatar { background: var(--ask-primary); color: #fff; }
+.msg-user .msg-avatar { background: var(--ask-surface-soft); color: var(--ask-muted); box-shadow: inset 0 0 0 1px var(--ask-line); }
+.msg-error .msg-avatar { background: #f0dbd9; color: var(--ask-danger); }
+
+/* justify-items: start 让气泡贴着内容宽度（像聊天软件），而不是撑满整行。 */
+.msg-main { display: grid; justify-items: start; gap: 5px; max-width: 82%; min-width: 0; }
+.msg-user .msg-main { justify-items: end; }
+.msg-role { margin: 0; color: var(--ask-muted); font-size: .72rem; }
+.msg-user .msg-role { display: none; }
+
+.msg-body {
+  padding: 9px 12px; border: 1px solid var(--ask-line); border-radius: 3px 10px 10px 10px;
+  background: var(--ask-surface); font-size: .88rem; line-height: 1.65; overflow-wrap: anywhere;
+}
+.msg-body p { margin-bottom: 6px; }
+.msg-body p:last-child { margin-bottom: 0; }
+.msg-body ul { margin: 0; padding-left: 1.1rem; }
+.msg-body li { margin-bottom: 3px; }
+.msg-body li:last-child { margin-bottom: 0; }
+
+.msg-user .msg-body {
+  border-color: var(--ask-primary-dark);
+  border-radius: 10px 3px 10px 10px;
+  background: var(--ask-primary);
+  color: #fff;
+}
+.msg-pending .msg-body { background: var(--ask-surface-soft); color: var(--ask-muted); }
+.msg-error .msg-body { border-color: #e2c3c0; background: #fbf1f0; color: var(--ask-danger); }
+
+/* 底部：输入区 */
+.ask-panel__foot {
+  display: grid;
+  flex: none;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--ask-line);
+  background: var(--ask-surface);
+}
+.composer { display: flex; align-items: flex-end; gap: 8px; }
+.composer textarea {
+  flex: 1;
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid var(--ask-line);
+  border-radius: var(--ask-radius);
+  font: inherit;
+  font-size: .86rem;
+  line-height: 1.5;
+  resize: none;
+}
+.composer textarea:focus { outline: none; border-color: var(--ask-primary); box-shadow: 0 0 0 3px rgba(23, 102, 63, .12); }
+.composer button {
+  flex: none;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--ask-primary-dark);
+  border-radius: var(--ask-radius);
+  background: var(--ask-primary);
+  color: #fff;
+  font: inherit;
+  font-size: .86rem;
+  cursor: pointer;
+}
+.composer button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* 登录门（复用业务端同一套会话接口） */
+.login-gate {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 10px;
+  padding: 18px;
+  overflow-y: auto;
+}
+.login-gate[hidden] { display: none; }
+.login-gate h2 { margin-bottom: 0; font-size: 1rem; }
+.login-gate p { margin-bottom: 0; color: var(--ask-muted); font-size: .8rem; line-height: 1.6; }
+.login-form { display: grid; gap: 10px; }
+.login-gate label { display: grid; gap: 4px; font-size: .8rem; }
+.login-gate input { padding: 8px 10px; border: 1px solid var(--ask-line); border-radius: var(--ask-radius); font: inherit; font-size: .86rem; }
+.login-gate button {
+  padding: 9px 14px;
+  border: 1px solid var(--ask-primary-dark);
+  border-radius: var(--ask-radius);
+  background: var(--ask-primary);
+  color: #fff;
+  font: inherit;
+  font-size: .88rem;
+  cursor: pointer;
+}
+.login-error { color: var(--ask-danger); font-size: .78rem; }
+
+/* 对话窗打开时让出右下角，「回顶部」不与它重叠。 */
+body.is-ask-open .to-top,
+body.is-ask-open .back-to-top { display: none !important; }
+
+@media (max-width: 820px) {
+  .ask-fab {
+    right: 14px;
+    bottom: calc(var(--ask-tabbar) + env(safe-area-inset-bottom) + 74px);
+  }
+  .ask-fab__avatar { width: 62px; height: 62px; }
+  .ask-panel {
+    inset: 0;
+    width: auto;
+    height: auto;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+  .ask-panel__scroll { padding: 12px; }
+  .msg-main { max-width: 84%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-fab__avatar::after { animation: none; }
+  .ask-panel { animation: none; }
+  .ask-fab,
+  .ask-fab__avatar { transition: none; }
+}

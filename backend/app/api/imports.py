@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
 from uuid import uuid4
@@ -17,8 +18,18 @@ from starlette.concurrency import run_in_threadpool
 
 from ..auth import require_current_user
 from ..db import BACKEND_DIR, SessionLocal, get_db
-from ..models import DataIssue, ImportBatch, SourceFile
+from ..models import DataIssue, ImportBatch, SourceFile, User
 from ..parser.settlement_parser import SettlementParseError
+from ..parser.settlement_template import parse_settlement_template
+from ..services.import_draft_service import (
+    ImportConfirmBlocked,
+    confirm_import_job as confirm_import_job_service,
+    create_import_job,
+    discard_import_job as discard_import_job_service,
+    get_import_draft,
+    get_import_job,
+    update_import_draft as update_import_draft_service,
+)
 from ..services.import_service import import_file
 
 
@@ -79,6 +90,113 @@ def download_issues(batch_id: int, db: Session = Depends(get_db)):
         "Content-Disposition": f'attachment; filename="import-{batch_id}-issues.csv"'
     }
     return StreamingResponse(payload, media_type="text/csv", headers=headers)
+
+
+@router.post("/preview")
+async def preview_imports(
+    files: list[UploadFile] = File(...),
+    user: User = Depends(require_current_user),
+):
+    """新模板多文件上传：只创建草稿任务，不写入正式销售事实。"""
+
+    parsed_files: list[tuple[object, str, str, str]] = []
+    failures: list[dict] = []
+    for upload in files:
+        filename = upload.filename or "upload.csv"
+        try:
+            path, created = await _store_upload(upload)
+        except UploadProblem as exc:
+            failures.append({"file_name": filename, "error": str(exc)})
+            continue
+        try:
+            parsed = await run_in_threadpool(parse_settlement_template, path)
+            parsed_files.append(
+                (parsed, filename, path.stem, str(path))
+            )
+        except Exception as exc:
+            await _cleanup_new_upload(path, created)
+            failures.append({"file_name": filename, "error": str(exc) or "无法解析新模板"})
+
+    if not parsed_files:
+        raise HTTPException(status_code=422, detail={"message": "没有文件可预览", "failures": failures})
+
+    db = SessionLocal()
+    try:
+        result = create_import_job(db, parsed_files, user.id)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+    return {**result, "failures": failures}
+
+
+@router.get("/jobs/{job_token}")
+def read_import_job(
+    job_token: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_current_user),
+):
+    result = get_import_job(db, job_token)
+    if result is None:
+        raise HTTPException(status_code=404, detail="导入任务不存在")
+    return result
+
+
+@router.get("/jobs/{job_token}/drafts/{draft_token}")
+def read_import_draft(
+    job_token: str,
+    draft_token: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_current_user),
+):
+    result = get_import_draft(db, job_token, draft_token)
+    if result is None:
+        raise HTTPException(status_code=404, detail="导入草稿不存在")
+    return result
+
+
+@router.put("/jobs/{job_token}/drafts/{draft_token}")
+def update_import_draft(
+    job_token: str,
+    draft_token: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_current_user),
+):
+    try:
+        return update_import_draft_service(db, job_token, draft_token, payload, user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/jobs/{job_token}/confirm")
+def confirm_import_job(
+    job_token: str,
+    body: dict,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_current_user),
+):
+    force = body.get("force") is True
+    try:
+        return confirm_import_job_service(db, job_token, force=force, user_id=user.id)
+    except ImportConfirmBlocked as exc:
+        raise HTTPException(status_code=409, detail=json.loads(str(exc))) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/jobs/{job_token}/discard")
+def discard_import_job(
+    job_token: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_current_user),
+):
+    try:
+        return discard_import_job_service(db, job_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 async def _store_upload(upload: UploadFile) -> tuple[Path, bool]:

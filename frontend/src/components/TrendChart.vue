@@ -6,6 +6,7 @@ import { useChartTooltip } from '../utils/chartTooltip'
 import { formatCurrency, formatDate, formatNumber, formatPrice } from '../utils/format'
 import ChartLegend from './ChartLegend.vue'
 import ChartTooltip from './ChartTooltip.vue'
+import DataTable, { type DataTableColumn } from './DataTable.vue'
 
 const props = defineProps<{
   points: TrendPoint[]
@@ -28,6 +29,14 @@ const maxQuantity = computed(() => Math.max(...props.points.map((point) => point
 const maxPrice = computed(() => Math.max(...props.points.map((point) => point.weightedAvgPrice ?? 0), 1))
 const isSinglePoint = computed(() => props.points.length === 1)
 const singlePoint = computed(() => props.points[0])
+/** 趋势数据表列固定；行取值都在这里格式化，和图表口径保持一致。 */
+const tableColumns: DataTableColumn<TrendPoint>[] = [
+  { key: 'date', label: '到达日期', rowHeader: true, emphasis: true },
+  { key: 'salesQuantity', label: '销量', numeric: true, value: (point) => formatNumber(point.salesQuantity) },
+  { key: 'salesAmount', label: '销售额', numeric: true, value: (point) => formatCurrency(point.salesAmount) },
+  { key: 'weightedAvgPrice', label: '平均每公斤售价', numeric: true, value: (point) => formatPrice(point.weightedAvgPrice) },
+]
+
 const totalTablePages = computed(() => Math.max(1, Math.ceil(props.points.length / tablePageSize)))
 const pagedPoints = computed(() => {
   const start = (tablePage.value - 1) * tablePageSize
@@ -197,22 +206,22 @@ watch(() => props.points.length, () => {
 
       <details class="data-details">
         <summary>查看趋势数据表</summary>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>到达日期</th><th>销量</th><th>销售额</th><th>平均每公斤售价</th></tr></thead>
-            <tbody>
-              <tr v-for="point in pagedPoints" :key="point.date">
-                <td>{{ point.date }}</td><td>{{ formatNumber(point.salesQuantity) }}</td>
-                <td>{{ formatCurrency(point.salesAmount) }}</td><td>{{ formatPrice(point.weightedAvgPrice) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-if="totalTablePages > 1" class="trend-table-pagination">
-          <span>共 {{ points.length }} 条 · 第 {{ tablePage }} / {{ totalTablePages }} 页</span>
-          <button type="button" :disabled="tablePage <= 1" @click="goTablePage(tablePage - 1)">上一页</button>
-          <button type="button" :disabled="tablePage >= totalTablePages" @click="goTablePage(tablePage + 1)">下一页</button>
-        </div>
+        <DataTable
+          :columns="tableColumns"
+          :rows="pagedPoints"
+          :row-key="(point) => point.date"
+          caption="所选范围的趋势数据"
+          min-width="480px"
+          cards-on-narrow
+        >
+          <template #footer>
+            <div v-if="totalTablePages > 1" class="trend-table-pagination">
+              <span>共 {{ points.length }} 条 · 第 {{ tablePage }} / {{ totalTablePages }} 页</span>
+              <button type="button" :disabled="tablePage <= 1" @click="goTablePage(tablePage - 1)">上一页</button>
+              <button type="button" :disabled="tablePage >= totalTablePages" @click="goTablePage(tablePage + 1)">下一页</button>
+            </div>
+          </template>
+        </DataTable>
       </details>
     </template>
     <ChartTooltip :tooltip="tooltip" />
@@ -240,15 +249,13 @@ watch(() => props.points.length, () => {
 .scale-hint { display: flex; justify-content: space-between; margin: -4px 44px 0; color: var(--muted); font-size: .85rem; }
 .trend-skeleton { min-height: 258px; }
 .data-details { margin-top: 13px; }
-.data-details .table-wrap { overflow: visible; }
-.data-details table { width: 100%; table-layout: fixed; }
+/* 分页条放在表格底栏里，贴齐底边不再自带上间距。 */
 .trend-table-pagination {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: .59rem;
-  margin-top: .71rem;
   color: var(--muted);
   font-size: .9rem;
 }

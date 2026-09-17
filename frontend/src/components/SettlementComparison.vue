@@ -6,6 +6,7 @@ import { activeGrades } from '../utils/grades'
 import { displayMerchantNo } from '../utils/merchantNo'
 import { settlementOptionLabel, settlementSeries } from '../utils/settlementComparison'
 import { formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
+import SearchableSelect from './SearchableSelect.vue'
 
 type SortKey = 'salesAmount' | 'salesQuantity' | 'weightedAvgPrice' | 'series' | 'saleDate' | 'merchantNo'
 
@@ -29,6 +30,9 @@ const identitySortOptions = [
 const gradeOrder = computed(() => activeGrades(props.items.flatMap((item) => item.grades)))
 
 const sortOptions = computed(() => props.mode === 'identity' ? identitySortOptions : metricsSortOptions)
+const sortSelectOptions = computed(() =>
+  sortOptions.value.map((option) => ({ value: option.value, label: option.label })),
+)
 const sortBy = ref<SortKey>(props.mode === 'identity' ? 'saleDate' : 'salesAmount')
 
 function merchantLabel(item: SettlementComparisonItem): string {
@@ -82,11 +86,14 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
         <h2 id="comparison-title">结算单销售情况</h2>
         <p class="section-note">{{ mode === 'identity' ? '按品牌、销售日期或商号排序查看' : '按销售额、销量或平均每公斤售价排序查看' }}</p>
       </div>
-      <label class="compact-field">排序
-        <select v-model="sortBy">
-          <option v-for="option in sortOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-        </select>
-      </label>
+      <div class="comparison-sort">
+        <SearchableSelect
+          v-model="sortBy"
+          :options="sortSelectOptions"
+          aria-label="排序"
+          placeholder="选择排序"
+        />
+      </div>
     </header>
 
     <div v-if="loading" class="comparison-skeleton skeleton-block">正在加载结算单数据</div>
@@ -125,6 +132,21 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
 <style scoped>
 .comparison-heading { align-items: flex-end; }
 .comparison-heading h2 { margin-bottom: 4px; }
+.comparison-sort { width: min(220px, 100%); }
+.comparison-sort :deep(input) {
+  min-height: 3.06rem;
+  padding: 0 2rem 0 .65rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+.comparison-sort :deep(input:focus) {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+  outline: none;
+}
 .simple-container-list { display: grid; gap: 10px; }
 .simple-container-row {
   display: grid;
@@ -158,7 +180,12 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
 
 @media (max-width: 660px) {
   .comparison-heading { align-items: stretch; }
-  .comparison-heading .compact-field { grid-template-columns: auto minmax(0, 1fr); }
+  .comparison-sort { width: 100%; }
+  .comparison-sort :deep(input) {
+    min-height: 38px;
+    padding: 0 1.75rem 0 .45rem;
+    font-size: .95rem;
+  }
   .simple-container-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px; }
   .simple-container-name { grid-column: 1 / -1; }
   .simple-metric:nth-of-type(4) { grid-column: 1 / -1; }

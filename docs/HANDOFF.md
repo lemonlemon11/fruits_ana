@@ -1,37 +1,192 @@
 # HANDOFF
 
-Last updated：2026-09-14 (CST)
+Last updated：2026-09-18 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
+
+> 2026-09-18 文档收口：本轮只盘点未完成任务并同步 TODO/HANDOFF，未修改业务代码，
+> 也未新增验证结果；当前未完成事项以 `docs/TODO.md` 为准。
 
 ## Current Goal
 
-本轮（2026-09-14）完成「品牌口径统一 + 结算单详情品牌筛选 + 全站统一日期范围组件」：
-界面可见的「系列」统一改为「品牌」，结算单详情页新增品牌下拉，五个业务页的起止日期
-改由 `DateRangeFilter.vue` 一个面板选择；AI 系列数据包字段同步改名并提升 `PROMPT_VERSION` 到 `v6`。
-相关代码、测试、文档已完成，见 Current Status / Test Status。
+本轮（2026-09-17）收口新结算单模板多文件导入与二次确认：
+1) 多文件预览草稿闭环：`POST /api/imports/preview` → `import_job/import_draft` →
+   `/import-review` → `confirm_import_job`；确认前不写正式事实；
+2) 字段转换与统计口径：`field_conversion.convert_grade()` 按管理端规则生成 `sale_record.grade`，
+   `grade_raw` 保留原文；`AB` 默认独立，配置 `BC→C` 后统计归 C；
+3) 修改留痕：`settlement_revision` 同时覆盖导入复核修改与手工单覆盖修改；
+4) 表结构新增 `import_job` / `import_draft` / `settlement_revision`，并给
+   `import_batch` / `import_draft` / `settlement_summary` 增审计列。
 
-单号与商号命名适配（ADR-015 / ADR-016）均已交付：**原始写法 + 适配后写法双写落库，
-页面统一展示适配后写法，原始写法保留可追溯**；线上 MySQL 迁移已执行、真实浏览器验收通过，
-代码与文档已提交到 `dev`（尚未 push）。工作区剩余的未提交改动属并发会话的品牌化与预览页改造，见 In Progress。
-
-本轮另完成「认证门户精简 + 可选 30 天免登录 + 工作台外壳控制」：登录/注册能力说明与
-「先看演示效果」入口已移除，`remember_me` 控制 7/30 天会话；header 增加品牌首页链接、
-桌面侧栏收起、本地时间显示，移动端保留底部导航。相关代码与文档尚未提交，见 In Progress。
-
-随后补上导入等待遮罩、右下角一键回顶、header 秒级时间和手机端展示优化，并计划提交到 `dev`。
-最新一轮已完成手机端 4 个核心页面的卡片化与收折改造；随后又完成第二轮手机端全局紧凑化与关键组件压缩，见 In Progress。
+历史两条线（2026-09-15）保留：
+1) 「手工录单 + 录单字段配置」：`fruits_ana` 新增 `/entry` 录单页与录单 API，
+   `fruits_ana_admin` 新增「录单字段配置」页，仅 `fruit_admin` 可维护市场 / 品种字典；
+   商号冲突沿用现有导入覆盖语义，手工单支持再次修改和按模板导出；
+2) **真实库误删事故的恢复**（ADR-021）：已用留存上传原件重建业务数据并通过快照校验，
+   并已补上「非测试库禁止 destructive metadata 操作」的硬保护（ADR-024）；
+3) **自然语言数据问答「顺仔」**（ADR-023）：用 Text-to-API 让用户通过提问查数据，
+   已从 `53001` 预览页整合进正式外壳（`frontend/src/components/AskWidget.vue`：右下角悬浮
+   机器人按钮 + 微信式对话窗），数字全部复用现有分析服务。
 
 ## Current Status
 
-状态：P0-1 / P0-2 / P0-3 / P0-4 均已完成 / COMMITTED
+**文档收口（2026-09-18）**：工作区仍有 76 个已修改文件、75 个未跟踪文件，包含
+手工录单 / 字段配置 / 顺仔 / 新模板多文件导入等未提交功能与配套测试、设计文档；
+本轮只更新交接文档，没有对这些在途改动做代码级收尾或重跑测试。
 
-本轮新增（2026-09-14，ADR-019）：品牌对比只允许同一品牌内选择结算单。前端 `SettlementPicker.vue`
-改为先选品牌、再选同品牌结算单，品牌内搜索 + 每页 6 张分页；历史跨品牌 `selected=` 会收敛；
-后端系列对比与两处 AI 分析接口增加同品牌校验，跨品牌返回 422。另完成 AI 分析默认展示与缓存
-自动复用：页面条件满足后自动先读后端缓存，同条件已分析过直接返回旧结论，不再重复生成。
-详见 Current Status / Test Status。
+状态：手工录单与字段配置已完成；真实库已恢复（ADR-021）且已补硬保护（ADR-024）；
+新模板多文件导入已代码落地并通过前端 typecheck/test/build 与后端定向 pytest；
+仍需用户在运维窗口执行新表/列迁移并配置管理端 `BC→C` 规则。
+
+**新模板多文件导入与二次确认（2026-09-17，ADR-030，未提交）**：
+
+- 新解析器：`backend/app/parser/settlement_template.py`，覆盖基本信息、销售、售后、费用、文件合计；
+  销售日期首行填写后向下继承；`variety` / `grade_raw` 保留 `AB` / `BC` 原文。
+- 草稿与任务：`ImportJob` 一任务多文件，`ImportDraft` 单文件槽位 JSON + 原文 JSON + 问题清单；
+  预览只写草稿，确认接口才写 `ImportBatch/SourceFile/SaleRecord/SettlementSummary/DataIssue`。
+- 二次确认页：`frontend/src/views/ImportReviewView.vue` 多页签回填原值、显示系统金额/合计，
+  错误红行、提示黄行；保存草稿重新校验；确认有错/冲突时先 409，二段确认后 `force=true` 带错提交。
+- 多页签已改为切换前自动保存当前草稿，避免用户只保存当前页导致其他页签修改丢失；
+  销售行原始 `amount` 已随草稿回传保留，系统金额与文件金额对账不会失真。
+- 草稿校验补充到达日期/来货数量/销售日期/品种格式校验，避免确认入库阶段因非法值触发 500；
+  `settlement_revision` 同时记录基本信息字段修改，`manual_edit_count` 按草稿留痕统计。
+- 商号冲突：与库内已有 `import_batch.merchant_no` 冲突时 409；同一任务内商号重复也会冲突，
+  force 时最后一个草稿生效，早先重复草稿置 `discarded`。
+- 金额口径：正式入库以系统计算为准——销售金额=数量×单价，总件数/各项合计全部从明细重算；
+  文件写错的原值保存到 `settlement_summary.file_*`。
+- 前端二次确认页与手工录单页的“总件数”已统一为销售数量之和，不再按规格头数合计。
+- 等级口径：`SaleRecord.grade_raw` 展示原文，`SaleRecord.grade` 动态按
+  `admin_field_conversion_rule` 生成；`StandardGrade` 与前端 `Grade` 均支持 `AB`。
+
+**品牌文件 AI 解析的 P0 已落地：规格/头数文本化 + A1~A11 口径（2026-09-16，ADR-027/028，未提交）**：
+客户已逐条拍板异常数据处理方案（确认单 `docs/2026-09-16-导入异常数据处理确认单.md`
+第二节 A 组），据此把规格与头数从数值列改成**归一后的文本 + 派生 min/max 数值列**：
+
+- 唯一入口 `backend/app/parser/spec_range.py`（`parse_spec_range()` 返回 `canonical/min/max`，
+  `split_spec_cell()` 拆等级/头数/KG/后缀），前端镜像在 `frontend/src/utils/specRange.ts`，
+  两边同一套规则、同一批用例。
+- 口径：`3/4`、`6/8`、`5/7` 保留区间；`B3/B4`→`3/4`、`B7/5`→`5/7`；`5/7/8` 三段原样保留
+  （min/max 取 5/8）；`9/10KG`、`10/11KG` 保留且不合并；后缀（熟/裂/尾/硬包…）不参与计算只进备注；
+  没有 KG 的行留空并标红人工补全（全品牌 67 行，其中宝贝 47 行）。
+- 数据：`sale_record.piece_count` / `spec_kg` 改 `VARCHAR(32)`，新增
+  `piece_count_min/max`、`spec_kg_min/max`（`NUMERIC(18,2)`，标量指标取上限）；
+  导入链路（`settlement_parser._record`）与手工录单链路（`entry_service._sale_model`）都写这套字段。
+- 回归集：`tickets/` 17 个 xlsx 的 501 行销售规格冻结为
+  `backend/tests/fixtures/spec_cells_2026-09-16.json`，用例 `backend/tests/test_spec_range.py`
+  断言「501 行全部可拆出头数、67 行缺 KG、4 行 KG 区间、头数区间写法集合」。
+
+**待用户执行（我不会自动跑）**：开发库 `fruits_ana` 里 `piece_count` 仍是 `INTEGER`、
+`spec_kg` 是 `DECIMAL(18,2)`，需要清库重建后重新导入 `tickets/`：
+
+```bash
+cd backend
+.venv/bin/python scripts/rebuild_dev_schema.py                       # 演练，只打印目标库与表
+FRUIT_ANALYSIS_ALLOW_DESTRUCTIVE=1 .venv/bin/python scripts/rebuild_dev_schema.py --apply
+```
+
+重建后由导入页把 `tickets/` 的 17 个 xlsx 重新导入（重复的 638 两份文件、香香目录里的
+宝贝单等仍按确认单 C 组的待定口径处理）。`backend/scripts/add_entry_schema.py` 已同步新列定义，
+并对旧类型给出「需要重建」提示。
+
+**导入与手工录单合并为一个菜单入口（2026-09-15，ADR-025，未提交）**：侧栏第三项由
+「数据导入」改为「录单 / 导入」，指向新页面 `/entry-hub`（方案 C）：先选录入方式——
+「文件导入 / 手工录单」两张卡片，再列出最近 3 条导入批次（状态胶囊）与本地未完成的手工单
+（「继续录单」跳 `/entry?draft=1`）。`/imports`、`/entry` 路由与页签保持不变，只做分流；
+`AppShell.vue` 的导航项扩展为 `ShellNavItem { path; label; icon; matches? }` 并新增
+`isNavActive()`，让三个路径共享同一菜单高亮（`/entry-hub` 必须排在 `/entry` 之前）。
+手工单草稿只存浏览器 `localStorage`（键 `fruit-entry-draft:v1:<userId>`，防抖 800ms 写入、
+保存成功后清除），纯逻辑在 `utils/entryDraft.ts`；无 `entry:view` 的角色只看到「文件导入」
+卡片与导入记录，后续新增同级入口沿用 `matches` 沿用本结构。
+
+**录单字段配置改版与录单页收窄（2026-09-15，未提交）**：管理端「录单字段配置」从选项卡
+改为左侧字段树 + 右侧选项面板，树按「基本信息 / 销售明细」分组，后续新增字段只需扩展
+`FIELD_TREE`；选项排序改为拖拽，新增 `PUT /api/admin/entry-field-options/reorder` 批量持久化。
+市场字典当前为「海吉星2 / 江南市场」（`海吉星2` 疑似验收改名残留，已记 TODO 待业务确认）。
+业务端录单页去掉 1180px 居中上限和额外左右留白，
+品种下拉列增加最小宽度，销售表在移动端改为卡片内横向滚动，消除页面级横向溢出。
+
+**列表通用化与结算单列表现观（2026-09-16，未提交）**：新增通用列表组件
+`frontend/src/components/DataTable.vue`——列配置驱动（`columns / rows / rowKey`），
+`cell-<key>` 插槽自定义单元格，`numeric` 右对齐 + 等宽数字，`emphasis` 文字列加粗，
+`bordered` 完整网格（剩余场景用浅色列分隔线），空数据自动占位行，`footer` 插槽用于内嵌
+分页 / 合计行（留在表格外框内侧，与数据区一起构成一个整体，且不随数据区滚动）；
+高度交给父级，父级限高时表头吸顶、只有列表内部滚动。`SettlementListView.vue` 由手写
+`<table>` 改为该组件，分页条移进 `#footer` 插槽内嵌在表格底部（移动端卡片模式只隐藏数据区，
+底栏分页排到卡片下方，`order` 控制顺序），并在桌面端
+收紧顶部区块、把整页上限改为 `max-height: max(32rem, calc(100dvh - var(--settle-reserved)))`：
+默认每页 10 行在 1440×900 / 1600×900 / 1920×1080 下全部完整显示且整页不滚动；行数超过可视
+高度时只压缩列表区域并在内部滚动（吸顶表头 + 常驻分页）。翻页控件靠左排，右下角整块留空，
+避免被「顺仔」悬浮入口盖住点不到。其余页面（录单记录、导入记录、结算单详情 trace 表、
+系列对比等级表）仍是手写 `<table>` + 全局 `.table-wrap` 样式，可按同一组件继续迁移。
+
+**生产库误删与恢复（2026-09-15，ADR-021）**：调试脚本 `import app.db` 后执行
+`Base.metadata.drop_all(bind=engine)`，真实库 `fruits_ana` 的 12 张表被删
+（binlog `binlog.000004` 末尾连续 12 条 DROP 为证，随后因 `admin_role` 外键报错中断）。
+恢复动作：① 先导出存活 8 表为回滚点
+`backend/data/recovery/backup-surviving-tables-20260915-140439.sql`；
+② `init_db()` 重建 13 张缺失表（库内 23 表）；③ 用 `backend/data/uploads/` 的 12 个 xlsx
+按原顺序重放导入，恢复 12 张结算单 / 364 条销售明细 / 12 条摘要 / 1 条 `data_issue`；
+④ 管理端 `seed_admin_data` 重建 `admin_permission`(15) / `admin_role_permission`(43) /
+`admin_user_role`(1) / 录单菜单；⑤ 与 09-11 快照逐字段比对 1244 个字段，差异仅为预期元数据。
+不可恢复：8 个文件的原始文件名、历史导入/存储时间戳、`ai_analysis` 缓存、
+`admin_notification` 通知、全部登录会话（用户需重新登录）。
+
+**同品牌经营分析小标题（2026-09-15，ADR-022）**：结算单详情 AI 卡片原先固定输出 9 个小标题，
+导致只有 A/B/C 的单据也渲染「D果 / E果 / F果 / 其他」空小节。现改为按当前结算单实际存在的
+等级动态生成小标题，`PROMPT_VERSION` `v1 → v2`，前端 `parseAnalysisSections` 丢弃
+「暂无数据」占位行兜底。
+
+**数据问答「顺仔」已整合进正式外壳（2026-09-15，ADR-023）**：新增 `POST /api/ask` 与
+`ask_service` / `ask_tools` / `ask_payloads` / `ask_tool_schemas`，只读工具复用现有分析服务；
+前端新增 `AskWidget.vue` + `ask-widget.css` + `utils/askWidget.ts`（右下角悬浮机器人按钮 +
+微信式左右气泡对话窗，机器人称「顺仔」），挂在 `AppShell.vue`，与「回顶部」按钮用
+`askOpen` 状态互斥避让（对话窗打开时隐藏回顶部），z-index 保持 35/40/45 不动。
+权限按业务要求收口：新增 `ask:view`（仅 `fruit_admin` 持有），后端 `require_permission` + 前端
+`canAsk` 双层拦截，未授权角色连悬浮按钮都不渲染。
+按客户反馈收口：不设常见问题、不显示模型名、不显示「本次用到的数据」溯源面板、
+输入内容变长不出现滚动条；右下角常驻悬浮按钮（机器人头像 + 名称），点击展开
+`min(460px, 100vw-48px)` × `min(720px, 100vh-140px)` 对话窗，Esc 或点关闭可收起。
+真实浏览器验证：登录 → 提问 → 答案正常，品牌汇总走 `compare_settlements` 后端合计，
+采购成本等系统外数据会明确拒答。详见 Test Status。
+移动端遮挡专项修复（2026-09-15）：≤820px 时对话窗改为跟随 `visualViewport` 的「可视视口」
+（`--ask-vv-height` / `--ask-vv-top`，取不到有效高度时回落 `100dvh`），软键盘弹出整窗收缩、
+输入区始终留在键盘上方；刘海与底部横条按 `env(safe-area-inset-*)` 避让；消息区改
+`min-height: 0` 可收缩，短视口不再裁掉发送按钮；站内通知横幅在对话窗打开时不再压住窗口。
+悬浮入口视觉改版（2026-09-15，客户反馈）：去掉按钮旁的「顺仔」文字标签；旧 PNG 头像
+（白底 + 第三方水印）换成自绘矢量吉祥物 `frontend/public/durian-mascot.svg`——Q 版榴莲
+从绿色果壳里探出半个头「在观察」，透明底、缩放不糊；桌面 72px / ≤820px 62px，默认
+`ask-peek` 轻微探头呼吸动画（打开时停止，`prefers-reduced-motion` 下关闭）。
+
+本轮新增（2026-09-15，ADR-020）：手工录单沿用商号唯一键与覆盖逻辑；品种只允许单个 A-Z、
+本期预置 A-F，市场由 `fruit_admin` 配置；销售数量为录入数字，金额 = 销售数量 × 单价；
+固定费用六项 + 动态其他费用；售后填正数并按减项处理；导出只写值不保留公式。
 
 当前进度：
+- **顺仔悬浮入口默认收起（2026-09-16，未提交）**：默认缩成小图标贴角待命，鼠标悬停 / 键盘聚焦 /
+  打开对话窗时带弹性弹出名字标签，触屏用点击切换。验证见 Test Status。
+- **结算单列表按行导出 + 填满可视区（2026-09-16，未提交）**：每行「导出」用
+  `结算单模板样式.xlsx` 出单张结算单（手工单与导入件同一入口），列表页去掉分页条下方留白、
+  行高放宽、操作列不折行。验证见 Test Status。
+- **结算单列表分类明细导出 + 分页与边框（2026-09-15，未提交）**：导出 xlsx 扩为
+  「汇总 + 销售明细 / 售后明细 / 支出费用明细 + 说明」5 张 sheet；列表页增加后端分页
+  （每页 10 / 20 / 50）与表格单元格边框（`DataTable` 新增 `bordered`），并修掉桌面端
+  「顺仔」悬浮按钮遮挡分页按钮的问题。验证见 Test Status。
+- **手工录单业务端（2026-09-15）**：`backend/app/api/entry.py`、`services/entry_service.py`、
+  `services/entry_export.py`、`frontend/src/views/EntryView.vue`、`utils/entryForm.ts`；
+  新增 `source_type/market/arrival_date/arrival_quantity` 与 `piece_count/spec_kg`，
+  以及售后 / 费用 / 字段字典三张表；迁移脚本 `backend/scripts/add_entry_schema.py` 幂等。
+- **录单字段配置管理端（2026-09-15）**：`fruits_ana_admin` 新增
+  `api/entry_field_options.py`、`EntryFieldConfigView.vue`，仅 `fruit_admin` 可见；
+  种子写入 `entry:*` 权限、菜单与品种 A-F，市场不预置。
+- **登录权限即时返回（2026-09-15）**：`/api/auth/me` 与登录/注册响应均返回 `permissions`，
+  避免登录后需刷新才显示手工录单入口。
+- **导出行定位修正（2026-09-15）**：动态销售 / 售后 / 自定义费用行会插入行并重建合并单元格，
+  导出结果只写值、不含公式。
+- **测试（2026-09-15）**：新增后端 `test_entry_service.py` / `test_entry_api.py` 与权限用例，
+  前端新增 `entry-form.test.ts`；全量验证见 Test Status。
+- **导入记录分页（2026-09-15，未提交）**：数据导入页「导入记录和问题」改为每页 5 批翻页展示；
+  `ImportView.vue` 新增 `batchPage` / `batchPageSize` / `totalBatchPages` / `pagedBatches`
+  与 `goBatchPage`，批次增删后 `watch` 自动回到第 1 页，页码越界会被钳制；
+  分页栏仅在 `totalBatchPages > 1` 时出现，文案「共 N 批 · 第 x / y 页」+ 上一页 / 下一页。
 - **品牌与日期筛选（2026-09-14）**：新增 `DateRangeFilter.vue`，五个业务页统一从一个
    面板选择起止日期；结算单详情页新增品牌筛选，商号候选与价格基线随品牌收窄；
    前端用户可见文案的「系列」统一为「品牌」，后端 `UNKNOWN_SERIES` 显示值改为「未识别品牌」；
@@ -332,6 +487,23 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 
 ## Incidents（已解决）
 
+### 真实库被 `drop_all` 误删 12 张表（2026-09-15，已恢复）
+
+- 现象：远程真实库 `fruits_ana` 的 12 张表整体消失，业务数据（结算单 / 销售明细 / 导入批次）
+  全部不可读。
+- 根因：临时调试脚本直接 `import app.db`，`backend/.env` 让 `app.db` 指向真实 MySQL，
+  随后执行 `Base.metadata.drop_all(bind=engine)`；`tests/conftest.py` 的
+  `FRUIT_ANALYSIS_DATABASE_URL` 隔离只覆盖 pytest，不覆盖临时脚本。
+  binlog `binlog.000004` 末尾 12 条 `DROP TABLE` 为直接证据，最后一条执行后因
+  `admin_role` 被 `admin_role_menu` 外键引用而报错中断，损坏范围因此止于 12 张表。
+- 排查手段：`SHOW TABLES` 与模型表清单比对；`SHOW BINLOG EVENTS` 定位删表位点与事件类型；
+  `SHOW MASTER STATUS` / `SHOW BINARY LOGS` / `secure_file_priv` 评估 binlog 回放可行性
+  （结论：ROW 事件无法通过 SQL 解码，且本机无 `mysqlbinlog`、无 DB 主机 SSH，回放不可行）。
+- 处理：见 ADR-021 —— 先导出存活 8 表为回滚点，`init_db()` 重建表结构，用留存上传原件重放导入，
+  管理端 seed 重建 RBAC，最后与 09-11 快照逐字段比对确认。
+- 遗留：需要补一条「非测试库禁止 destructive metadata 操作」的硬保护，避免同类事件复发。
+
+
 ### 「A/B/C 平均每千克售价对比」柱状图不显示（2026-09-10）
 
 - 现象：系列对比页该图只剩等级标题、金额文字和单据名，柱子看不见（疑似没渲染）。
@@ -424,17 +596,21 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 
 1. 只读复述当前状态并与用户确认，再决定做哪一项。
 2. 候选任务（优先级从高到低）：
-   a. 与并发会话确认品牌化改动的处理（`AGENTS.md` / `backend/app/main.py` / `backend/app/__init__.py` /
-      `frontend/index.html` / `AuthPortal.vue` / `RegisterView.vue` / `styles-auth.css` /
-      `dev-preview/**` / `public/**` / `BrandMark.vue` / `PublicPreviewView.vue`）：
-      这些**不属于命名适配**，不要混进命名相关提交，先确认归属再提交。
-   b. 系列对比后续能力：到港日期字段与一次库迁移、元/KG 口径、Excel 导出、系列别名字典。
-   c. 真实业绩数据到位后的整体回归验收（目前线上只有 4 张示例结算单）。
-   d. 已确认：`FRUIT_ANALYSIS_AI_*` 由 `backend/app/ai_settings.py` 读取，不再视为未使用配置。
-   e. 已完成：品牌化收口、真实浏览器验收与文档同步；剩余事项是确认这些未提交改动如何拆提。
-   f. **文档同步（长期约定）**：界面功能、操作流程或指标口径新增/调整时，必须同步更新
-      `docs/SLD-水果市场销售分析-功能说明书.docx` 与 `docs/SLD-水果市场销售分析-用户操作手册.docx`；
-      改动说明可顺带在 `docs/TODO.md` 或 `docs/DECISIONS.md` 留痕，不视为独立提交阻塞项。
+   a. **先拆分并提交工作区在途改动**：当前 76 个已修改文件、75 个未跟踪文件混在一起，
+      需按「手工录单 / 字段配置 / 顺仔 / 导入分页 / 新模板多文件导入 / 文档」拆主题 commit；
+      提交前先确认 `tickets/` 与设计稿/截图等文件是否入库，避免提交业务附件。
+   b. 多文件导入收尾：确认 `backend/scripts/add_import_draft_schema.py` 与
+      `backend/scripts/expand_grades.py` 的 `--apply` 执行窗口；在 `fruits_ana_admin`
+      配置 `grade:BC→C` 默认规则并检查 `AB` 是否保持独立；真实浏览器验收
+      `/imports` → `/import-review` → 确认带错提交。
+   c. 待用户执行清库重建后重新导入 `tickets/`，并核对规格 `3/4`、`9/10` 与导出头数上限口径。
+   d. 待客户回复异常数据处理确认单 B/C 组；见 `docs/2026-09-16-导入异常数据处理确认单.md`。
+   e. 顺仔生产化收口：频控、问题/工具/耗时审计、结果留档决策（`docs/TODO.md` P0）。
+   f. 确认 4 项产品口径：入口页落点、市场字典命名、品牌对比 AI 小标题、`lhp` 角色恢复。
+   g. 系列对比后续能力：到港日期字段与一次库迁移、元/KG 口径、Excel 导出、系列别名字典。
+   h. 真实业绩数据到位后的整体回归验收（目前线上只有 4 张示例结算单）。
+   i. **文档同步（长期约定）**：界面功能、操作流程或指标口径新增/调整时，必须同步更新
+      `docs/SLD-水果市场销售分析-功能说明书.docx` 与 `docs/SLD-水果市场销售分析-用户操作手册.docx`。
 3. 改完后端记得重启 `./start.sh`（Known Issues 4）；每次改动后运行基线验证，再按功能提交。
 
 ## Known Issues
@@ -531,7 +707,7 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 - `design/*.md`：早期关键决策记录，只读不改写。
 - `docs/superpowers/specs|plans/**`：已归档的历史 spec / plan；需要修订时在文件内追加「修订」段落，
   不要删除既有结论。
-- 等级映射（`BC → C`）、指标口径（金额 ÷ 数量、按销售日期筛选）：变更必须先新增 ADR。
+- 等级映射由 `fruits_ana_admin` 字段转换规则生成，明细保留原文；规则或指标口径变更必须先新增 ADR。
 - 现有 API 路径与响应字段：变更需同步前端 `api/types.ts` + `normalize.ts`。
 - 结算单身份：商号唯一键与「商号（单号）展示 / 商号取值」的下拉框约定，变更需先新增 ADR。
 - 单号双写口径（ADR-015）：`order_no` 是原始写法、`order_no_normalized` 是适配后写法，
@@ -553,11 +729,25 @@ backend/app/db.py                        # MySQL 连接与环境变量读取
 backend/app/models.py                    # SQLAlchemy 模型
 backend/app/services/import_service.py   # 导入与去重
 backend/app/parser/settlement_parser.py  # 结算单解析
+backend/app/parser/settlement_template.py      # 新模板解析器（多文件预览）
+backend/app/services/import_draft_service.py   # 预览草稿 / 二次确认 / 确认入库 / 留痕
+backend/app/services/field_conversion.py       # 管理端字段转换规则读取与等级映射
+backend/app/api/entry.py                        # 手工录单；覆盖修改写 settlement_revision
+frontend/src/views/ImportReviewView.vue        # 多文件二次确认页
+frontend/src/views/EntryView.vue               # 手工录单；默认支持 AB/BC 原文
 frontend/src/main.ts                     # 路由与守卫（默认入口 /login）
 frontend/src/auth.ts                     # 前端会话状态与 safeRedirect
 frontend/src/components/AuthPortal.vue   # 登录/注册共用骨架
 frontend/src/api/types.ts                # API 契约
 frontend/src/views/ImportView.vue        # 导入页（本轮修复点）
+frontend/src/utils/grades.ts             # 前端 Grade 类型含 AB
+frontend/src/components/AskWidget.vue     # 顺仔悬浮入口 + 对话窗（ADR-023）
+frontend/src/components/ask-widget.css    # 顺仔样式（全局引入，变量回退 --primary；含移动端可视视口适配）
+frontend/src/utils/askWidget.ts           # 顺仔纯逻辑（分段 / 耗时 / 错误文案 / 历史裁剪）
+frontend/src/AppShell.vue                # 挂载 AskWidget，askOpen 与回顶按钮 / 通知横幅互斥避让
+backend/app/api/ask.py                   # POST /api/ask（require_permission("ask:view")）
+fruits_ana_admin/backend/app/seed.py     # 权限点 ask:view（FRUIT_PERMISSIONS，仅授予 fruit_admin）
+backend/app/services/ask_service.py      # 问答编排（3 轮工具调用上限）
 frontend/src/views/PublicPreviewView.vue # 免登录演示页（/preview）
 backend/app/services/series_analytics_service.py  # 品牌识别、A/B/C 指标、价差与品牌汇总
 backend/app/services/order_no_naming.py           # 单号统一命名（品牌识别 + 适配后单号，ADR-015）
@@ -614,8 +804,284 @@ npm --prefix frontend run typecheck
 
 ## Test Status
 
-当前测试：PASS（2026-09-14 实测：后端 241 项 pytest、前端 126 项测试、
-`typecheck`、`vite build` 全通过；服务已重启，`/health` 返回 `{"status":"ok"}`。）
+当前测试：定向 PASS / 全量有 4 个已知环境用例失败（2026-09-17 实测）：
+- 前端 `npm --prefix frontend run test` 189 项通过、`typecheck` 通过、`build` 成功。
+- 后端新增导入相关 `test_settlement_template.py` / `test_import_draft_service.py` /
+  `test_imports_api.py` / `test_field_conversion.py` 均通过。
+- 后端全量 `.venv/bin/python -m pytest backend/tests -q --basetemp=backend/.pytest-tmp`：
+  除 4 个导出用例因缺少 `attachments/结算单模板样式.xlsx` 失败外，其余通过。
+
+### 新模板多文件导入二次确认（2026-09-17，ADR-030，未提交）
+
+- 后端定向：`.venv/bin/python -m pytest backend/tests/test_settlement_template.py
+  backend/tests/test_import_draft_service.py backend/tests/test_imports_api.py
+  backend/tests/test_field_conversion.py -q --basetemp=backend/.pytest-tmp`：通过。
+- 前端 `npm --prefix frontend run test`：189 项通过；`typecheck` 通过；`build` 成功。
+- 已覆盖：三份客户样例解析、多文件 preview、草稿保存与版本递增、无 force 阻断、
+  force 带错提交、同任务商号重复冲突、文件金额不一致对账、`BC→C`/`AB` 动态映射。
+- 未验证：真实 MySQL 执行 `add_import_draft_schema.py --apply` / `expand_grades.py --apply`；
+  `fruits_ana_admin` 配置页手工配置 `BC→C` 后的浏览器端到端；新模板三文件真实浏览器复核。
+
+### 规格/头数文本化 + A1~A11 口径（2026-09-16，ADR-027/028，未提交）
+
+- 后端 `.venv/bin/python -m pytest backend/tests -q --basetemp=backend/.pytest-tmp`：
+  **332 项全部通过，退出码 0**（新增 `test_spec_range.py` 46 项；同步更新
+  `test_entry_service.py` / `test_entry_api.py` / `test_exports.py` 中头数·规格的文本口径断言）。
+- 前端 `npm --prefix frontend run test`：**189 项全部通过**（新增 `tests/spec-range.test.ts`）；
+  `npm --prefix frontend run typecheck` 通过；`npm --prefix frontend run build` 成功。
+- `cd backend && ../.venv/bin/python scripts/rebuild_dev_schema.py`：演练通过，只打印目标库
+  （`mysql://root@120.48.117.234:13306/fruits_ana`）与 17 张待重建表，**未执行任何写操作**；
+  正式清库重建按交接说明由用户执行。
+- 未验证：清库重建后 `tickets/` 的重新导入与浏览器端到端（待用户重建后再做）。
+- 说明：`frontend/dev-preview/entry-design.js` 仍是旧设计稿（数值输入），未同步文本口径，
+  不影响正式页面，P2 二次确认页改造时一并收敛。
+
+### 顺仔悬浮入口视觉改版（2026-09-15，未提交）
+
+- 改动：`AskWidget.vue` 去掉「顺仔」文字标签、头像换 `durian-mascot.svg`；
+  `ask-widget.css` 删除 `.ask-fab__label`、按钮改 72px（≤820px 62px）+ `ask-peek` 探头动画；
+  demo 页 `dev-preview/ask-demo.html` / `ask-demo.js` / `ask-widget.css` 同步。
+- 前端 `npm --prefix frontend run test`：175 项全部通过，退出码 0。
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0；`npm --prefix frontend run build`：成功。
+- Playwright（`/dev-preview/ask-demo.html`，53001）：桌面 1440×900 → `.ask-fab__avatar` 与
+  `.ask-fab__avatar-img` 均为 72×72 且完全重合（图片零裁切）；移动 390×844 为 62×62；
+  按钮旁不再有文字标签；截图 `/tmp/shunzai-shots/new-closed-d.png`、`new-closed-m.png`。
+- 已按客户确认删除旧图 `frontend/public/durian-fab.png`（白底 + 第三方水印），`dist` 内的同名副本一并清理。
+
+### 顺仔悬浮入口改为「默认收起 + 悬停弹出」（2026-09-16，未提交）
+
+- `components/AskWidget.vue`：按钮内的名字标签改成 `<span class="ask-fab__label">`（视觉隐藏，
+  由 CSS 控制展开），结构为「标签在左、头像在右」，容器 `right` 固定，展开时头像位置不动
+- `components/ask-widget.css`：收起态由 `--ask-open: 0` 驱动——`translateX(6px) scale(.86)`、
+  `opacity .78`；鼠标移入（`@media (hover: hover)` 限定）、`:focus-visible`、`.is-open`
+  三处把 `--ask-open` 置 1，标签宽度 `0 → 3.9rem`、内边距与位移同步插值，
+  过渡曲线 `cubic-bezier(.34, 1.42, .64, 1)`（弹性收尾）；`prefers-reduced-motion` 仍关闭全部过渡
+- 触屏没有悬停：移动端仍靠点击开关对话窗，点击时按钮同时进入展开态；收起态触摸目标
+  桌面 53px / 移动 46px，均不小于 44px
+- 副作用：收起后不再遮挡结算单列表最后一行的「查看明细」按钮
+- 踩坑记录（2026-09-16）：贴边收起 + 悬停展开时，若展开后元素右边缘比收起态更靠左（例如
+  收起 `right: 24px` + 右移出血、展开回落 `right: 24px`），元素会从鼠标下方滑走，`:hover`
+  反复丢失、宽度在 105~131px 之间抖动。修法是把按钮 `right` 固定为 `0`，只用 `--ask-tuck`
+  控制收起时的出血量，保证「展开后的矩形完全覆盖收起时的可见区」，悬停一次到位。
+- 验证：前端 180 项测试通过（`ask-widget.test.ts` 新增 1 项守护收起 / 展开与过渡曲线）；
+  53001 实测四态——收起贴边（右间隙 0、桌面出血 18px 可见 35px、移动出血 8px 可见 38px、
+  `opacity .68`、labelW 0）、悬停 `137x72 / opacity 1 / labelW 57`、
+  移开自动收回、点击打开对话窗（标签变「收起」）；移动端收起 `46x46`、点开 `130x62`；
+  `console error 0`
+
+### 结算单列表按行导出（模板版式）+ 列表填满可视区（2026-09-16，未提交）
+
+- `services/entry_export.py` 拆成「数据来源 + 模板渲染」两层：新增
+  `render_entry_workbook(entry)`、`read_imported_entry(db, merchant_no)`、
+  `build_settlement_template_workbook(db, merchant_no)`；`build_entry_workbook` 保持
+  「只导手工单、非手工单 404」的既有契约不变
+- 导入件映射口径：商号 / 单号走 `merchant_no_display` / `order_no_display` 兜底归一，
+  品种取 `grade.value`、规格原文进「备注」，售后取 `abs(after_sale_amount)` 一行，
+  费用用 `parse_fee_detail(fee_detail)` 拆项、`customs_tax` 单列「清关税费」，
+  件数与规格（KG）整列留空（`_write` 显式写 None，避免模板第 14 行示例值 4 / 10 残留）
+- 接口：`GET /api/exports/settlements/{merchant_no}/template.xlsx`（`require_current_user`，
+  与其它 `/api/exports/*` 一致），文件名 `{适配商号}-{适配单号}-结算单.xlsx`
+- 前端：`api/client.ts` 新增 `settlementTemplateExportUrl`；列表页每行新增「导出」
+  （`a.row-action-button`，`download` 直链）与主操作「查看明细」，两者都带 lucide 图标，
+  「查看明细」实心绿；操作列固定 `10.5rem` 且不折行；面板标题不再重复「共 N 张 · 第 x / y 页」
+  （该信息只在分页条出现一次）；移动端卡片仍为 `a.text-button.export-row-link` + `primary-button`
+- 列表样式：桌面端分页条回到 28px 高并贴住面板底部（不再给底部留整块空白，表格高度
+  增加约 76px），表格行高 `.4rem .8rem → .45rem .7rem`（本页 scoped 覆盖；`.5rem` 会让
+  1440×900 下第 10 行被压掉 5px，只能内部滚动，故取两者之间的值），
+  移动端卡片「导出 / 查看明细」同排不折行
+- 验证：后端 286 项 pytest 通过；前端 179 项测试 + `typecheck` 通过；
+  53001 实测桌面 1440 / 移动 390 均 10 个可见导出入口，下载 `TEST-test-结算单.xlsx`
+  12,343 字节（Sheet：结算单 / Sheet1）、`docH` 不超视口、横向溢出 0px、console error 0；
+  curl 复核导入件 `单637` 与手工单 `test` 均 200 且模板坐标正确
+
+### 结算单列表分类明细导出 + 分页与表格边框（2026-09-15，未提交）
+
+- 导出：`services/settlement_list_export.py` 由单表改为 5 张 sheet——
+  `结算单列表`（汇总，追加 `售后合计` / `费用合计` / `应付贵方总金额(RMB)`，无值留空而非 0）、
+  `销售明细`（商号/单号/柜号/销售日期/品种/等级原文/规格原文/规格（头数）/规格（KG）/销售数量/单价/金额/备注）、
+  `售后明细`、`支出费用明细`、`说明`；路由 `/api/exports/settlements.xlsx` 未改，权限沿用 `require_current_user`
+- 明细来源：手工单读 `SettlementAfterSaleItem` / `SettlementFeeItem`，导入件售后回填
+  `SettlementSummary.after_sale_amount`，费用用新增 `parse_fee_detail()` 拆 `fee_detail`
+  文本（`代卖佣金 10000: 10000；车位费 600: 600` → 名称 + 金额）；`来源` 列区分
+  「录单录入 / 录单自定义 / 结算摘要 / 费用明细」
+- 列表页分页：`SettlementListView.vue` 新增 `page` / `pageSize`（10 / 20 / 50）、
+  `totalCount` / `totalPages` / `goPage` / `onPageSizeChange`，请求参数 `page` / `page_size`
+  走后端；切商号与点「查看结果」回到第 1 页，翻页不重置；等级列按筛选范围累积（翻页不跳变）
+- 表格边框：`components/DataTable.vue` 新增 `bordered` 属性（外框由容器提供，单元格只画右线避免
+  相邻边框叠成 2px），结算单列表启用；移动端仍走卡片布局
+- 顺带修复：桌面一屏高布局下分页行贴在窗口右下角，会被「顺仔」悬浮按钮盖住导致点不到，
+  `.list-pagination` 在 ≥861px 预留 `padding-bottom: 4.75rem`
+- 验证：后端 284 项 pytest 通过（退出码 0）；前端 175 项测试 + `typecheck` 通过；
+  curl 导出 200 / 33,791 字节，sheet 结构 `['结算单列表','销售明细','售后明细','支出费用明细','说明']`；
+  Playwright 53001 桌面 1440 / 移动 390 实测：13 张分页 10 + 3、每页 50 显示 13 行、
+  下载 `结算单列表.xlsx` 33,810 字节、`console error 0`、横向溢出 0px
+
+### 导入与手工录单入口整合（2026-09-15，ADR-025，未提交）
+
+- 后端 `pytest`：**280 项通过**，0 失败 / 0 错误 / 0 跳过，退出码 0
+  （`--junit-xml` 实测 32.8s；本轮未改后端，用于确认基线未被前端改动破坏）
+- 前端 `npm --prefix frontend run test`：**162 项通过**，0 失败，退出码 0
+  （新增 `entry-hub.test.ts` 4 项 + `entry-draft.test.ts` 5 项；`farmer-ui-copy.test.mjs`
+  导航断言改为 `['卖得怎么样','每一单','录单 / 导入']` + `['ChartColumn','Table2','ClipboardPen']`）
+- 前端 `typecheck`：通过，退出码 0；`vite build`：成功，产物含
+  `EntryHubView-*.js` 4.27 kB 与 `entryDraft-*.js`（已刷新 53000 nginx 托管的 `frontend/dist`）
+- Playwright + Chromium（53000 正式前端 + 8000 后端；桌面 1440 与移动 390 各一轮）：
+  - 侧栏不再出现「数据导入」；`/entry-hub`、`/imports`、`/entry` 三个路径都点亮「录单 / 导入」
+  - 入口页两张方式卡片；最近导入 3 条（香香-006 成功 48 行 / 宝贝-006 成功 20 行 /
+    香香-004 需关注 1 行）；页面 `overflow` 0px；**console error 0**
+  - 点「继续录单」跳 `/entry?draft=1` 并成功恢复草稿内容
+  - 角色 `__ask_perm_viewer`（无 `entry:view`）：只渲染「文件导入」卡片，无草稿区块
+  - SPA 内切页再回 `/entry-hub`：草稿卡片出现（`商号 838 测试-838 · 0 行明细 · 最后编辑 刚刚`），
+    页签仍为「录单 / 导入」，`isNavActive` 高亮正常
+- 数据残留核对：`import_batch` 共 12 条，`source_type='manual'` 手工单 0 条（验收数据已清理干净）
+
+### 导出模板保真 + 结算单详情 422 收敛（2026-09-15，未提交）
+
+- 导出：`services/entry_export.py` 新增 `_snapshot_row` / `_apply_row` / `_restore_row_heights`，
+  修掉 `ws.insert_rows()` 不搬样式与行高、`ws.cell(r, c, value)` 重置样式导致的动态行掉格式
+  （字号 14→11、边框/日期格式丢失、行高错乱）
+- 导出逐格复核：模板同构场景 29 个合并区域与模板一致，B13–I13 / C16 / H16 / C26 / H26 / C27 /
+  C33 / B35 / I35 的样式与数字格式逐格相同；动态行场景新增行样式/行高与模板参考行逐项相同
+- 回归测试：`backend/tests/test_entry_service.py` 新增
+  `test_export_inserted_rows_inherit_template_style_and_height`（本轮 5 项全通过）
+- 详情页 422：根因是 `normalizeSettlementComparison` 丢掉后端 `series`，同品牌判断拿不到品牌值；
+  已补 `series` 字段并抽出纯函数 `countSameBrandPeers`（`series` 为空时回退单号中文前缀）
+- 详情页实测（390×844 isMobile）：修复前 `POST /api/analytics/settlements/999101/analysis` 返回 422
+  且页面报错横幅；修复后**不再发起 analysis 请求**、无 console error、显示
+  「该品牌暂无其他结算单」空状态、`errorBanner` 为 null
+- 前端用例：`settlement-comparison-selection.test.ts` 6 项通过（含 `series` 缺失回退），
+  `farmer-ui-copy.test.mjs` 断言 `countSameBrandPeers` 与 `empty-title`
+
+### schema 漂移收敛（2026-09-15，未提交）
+
+- `fruits_ana_admin` 只读映射 `sale_record.grade`：`String(1)` → `String(5)`，与业务端
+  枚举映射（`OTHER` 最长 5 字符）对齐
+- 两端 `import_batch.source_type` 增加 `server_default=text("'import'")`，
+  `create_all` 现在产出与 `add_entry_schema.py` 相同的
+  `source_type VARCHAR(16) NOT NULL DEFAULT 'import'`
+- 证据：MySQL 与 SQLite 方言 `CreateTable(...)` 编译逐列核对；后端 278 项 pytest 全通过；
+  两端 `compileall` + `import app.main` 通过；两端服务重启后 `/health` 200，
+  `GET /api/entry/field-options` 返回 `market` 2 项、`variety` A-F 6 项
+- 只改模型映射，未执行任何 DDL、未改动线上数据
+
+### 非测试库硬保护 + 录单移动端实机验收（2026-09-15，未提交）
+
+- 后端 `pytest`：全量 **278 项通过**，退出码 0（新增 `backend/tests/test_db_guard.py` 6 项）
+- 前端 `npm --prefix frontend run test`：**149 项全部通过**，退出码 0
+- 前端 `npm --prefix frontend run typecheck` / `build`：通过，退出码 0
+- 两端 `compileall` 与 `import app.main`：通过；两条服务重启后 `GET /health` 均 200，
+  `53000/api/auth/me` 与 `54000/api/admin/auth/me` 未登录返回 401（代理链路正常）
+- Playwright + Chromium（390×844 isMobile，真实 MySQL + nginx 构建产物）跑通录单全链路：
+  填单（来货 100 / 件数 60 / 规格 12 / 销售数量 720 / 单价 6.5）→ 保存 →
+  同商号冲突弹窗两个按钮 `disabled=false`、尺寸 68×42 与 145×42 → 确认覆盖 →
+  跳转 `/settlement-detail?merchant_no=999001` → `GET /api/entry/999001/export.xlsx`
+  返回 200 / `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` / 12,376 字节
+- 汇总口径实测：`销售金额 4680.00`（60×12×6.5）、`售后合计 30.00`、`货款合计 4650.00`、
+  `费用合计 115.00`、`应付贵方总金额(RMB) 4535.00`，`总件数 60 差异 +40 件` 红字提醒正常，
+  页面 `scrollWidth == clientWidth == 390`（无横向溢出）
+- 控制台仅 1 条 `409 Conflict`（冲突探测的预期响应，非缺陷）
+- 验收产生的 `999001` 手工单已清理：残留 0 / 批次总数 12 / 手工单 0
+- 收尾重启后复测（390×844）：`/entry` 加载正常，品种下拉 6 项、市场下拉 3 项（含占位）、
+  4 张表单卡片，console 无 error
+- 未验证：管理端「录单字段配置」页的浏览器复测本轮未重跑（上一轮已通过）
+
+### 生产库恢复与同品牌分析小标题（2026-09-15，未提交）
+
+- 恢复结果核对：`SHOW TABLES` 23 张；`import_batch` 12 / `source_file` 12 / `sale_record` 364 /
+  `settlement_summary` 12 / `data_issue` 1；管理端 `admin_permission` 15 /
+  `admin_role_permission` 43 / `admin_menu` 10 / `admin_role_menu` 31 / `entry_field_option` 6
+- 快照比对：与 `snapshot-order-no-20260911-082044.sql` 比对 1244 个字段，13 处差异全部为预期
+  （重放时间戳、快照更早的 `user` / `user_session` 状态、`宝贝L004 → 宝贝-004` 为 09-11 后的有意修复）
+- 服务层读取：`list_settlements` 返回 12 张结算单，`get_settlement_detail('单638')`、
+  `get_series_comparison(['单638','单643'])` 均正常返回
+- 后端 `pytest`：251 项全部通过（新增 `test_settlement_ai_analysis.py` 小标题用例 1 项）
+- 前端 `npm --prefix frontend run test`：133 项全部通过（新增占位行解析用例 1 项）
+- **未验证**：管理端浏览器端到端验收、移动端录单 / 导出 / 冲突覆盖实机验收、
+  品牌对比页 AI 是否同步「只列实际等级」（待业务确认）
+
+### 导入记录分页（2026-09-15，未提交）
+
+- 前端 `npm --prefix frontend run test`：133 项全部通过，退出码 0
+  （`import-view-binding.test.mjs` 新增「导入记录按页展示，批次列表只渲染当前页」1 项）
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0
+- 前端 `npm --prefix frontend run build`：成功，退出码 0
+- Playwright 实测（vite dev `53001` + 打桩 12 条批次）：第 1 / 2 / 3 页行数 5 / 5 / 2，
+  文案「共 12 批 · 第 x / 3 页」；第 1 页「上一页」与第 3 页「下一页」为禁用态，
+  回退上一页正常；展开「查看问题」渲染 6 行明细；移动端 390px 横向溢出 0px、无 console error
+- 仅改动 `frontend/src/views/ImportView.vue` 与 `frontend/tests/import-view-binding.test.mjs`，
+  未触碰 API 契约与数据口径
+
+### 手工录单与字段配置（2026-09-15，未提交）
+
+- 后端 `pytest`：全量通过，退出码 0；新增 `test_entry_service.py` 4 项、
+  `test_entry_api.py` 3 项、`test_auth_api.py` 登录权限 1 项
+- 前端 `npm --prefix frontend run test`：131 项全部通过，退出码 0（新增 `entry-form.test.ts` 5 项）
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0
+- 前端 `npm --prefix frontend run build`：成功
+- 管理端 `npm --prefix /home/python/workspace/fruits_ana_admin/frontend run typecheck`：通过，退出码 0
+- 管理端 `npm --prefix /home/python/workspace/fruits_ana_admin/frontend run build`：成功
+- 两端 Python `compileall`：通过
+- **未验证**：真实 MySQL 执行 `backend/scripts/add_entry_schema.py --apply`、管理端种子真实入库、
+  移动端真机录单 / 导出 / 冲突覆盖的浏览器端到端验收
+
+### 数据问答「顺仔」整合进正式外壳（2026-09-15，未提交）
+
+- 后端 `pytest`：280 项全部通过（退出码 0）；其中新增
+  `backend/tests/test_ask_service.py` 12 项 + `backend/tests/test_ask_api.py` 10 项
+  （含未登录 401、无 `ask:view` 403）。
+- 前端 `npm --prefix frontend run test`：150 项全部通过，退出码 0（整合当时基线；
+  移动端遮挡修复后为 162 项，见下节「顺仔移动端遮挡修复」）
+  （新增 `frontend/tests/ask-widget.test.ts` 14 项，覆盖 `parseAnswerBlocks` 等纯逻辑、
+  `AskWidget.vue` 源码契约与「只对 `ask:view` 显示」断言；
+  `frontend/tests/sfc-build-entry.ts` 已加入该 SFC 编译入口）。
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0。
+- 前端 `npm --prefix frontend run build`：成功，退出码 0。
+- Playwright + Chromium（53001 demo + 8010 后端，整合前）：真实登录 → 多轮提问 → 答案正常；
+  品牌整体表现、结算单排名、单张明细、系统外字段拒答均符合预期，移动端 390px 横向溢出 0px。
+- Playwright + Chromium（53000 正式前端 + 8000 后端，整合后）：登录 → 滚动后回顶按钮出现且
+  与悬浮机器人按钮不重叠 → 点按钮开窗 → 回顶按钮隐藏 → 欢迎语「你好，我是顺仔」→ 连问两题
+  拿到真实数据答案 → 无溯源块 → 输入框 173px 高无滚动条 → 微信式左右气泡 → Esc 收起 →
+  桌面 0 横向溢出 → 手机端 390×844 全屏无溢出 → 零 JS 错误。
+- Demo 地址（历史预览，仍可用）：`http://127.0.0.1:53001/dev-preview/ask-demo.html`；
+  临时账号 `__ask_demo_probe` 已清理（`user_session` / 角色 / 通知均无残留）。
+- 权限收口（2026-09-15）：管理端种子 `fruits_ana_admin/backend/app/seed.py` 的 `FRUIT_PERMISSIONS`
+  新增 `ask:view`（module=ask，type=action），`fruit_admin` 的权限列表由该常量整表派生，因此自动持有；
+  `operator` / `viewer` / `data_entry` 未授予，即当前只有 `fruit_admin` 能看到顺仔。
+  权限数据已落真实库：`admin_permission` id=16 `ask:view`，`admin_role_permission` 已授予
+  `fruit_admin`(role_id=4)，持有者仅 `test / fruit_admin`。
+- Playwright + Chromium（53000 正式前端 + 8000 后端，权限 E2E）：`viewer`（7 项权限、无 `ask:view`）
+  → `.ask-fab` 与 `#ask-panel` 均不渲染；`fruit_admin`（16 项权限、含 `ask:view`）→ 悬浮按钮可见、
+  对话窗可展开，零 JS 错误。截图 `/tmp/xs-perm-viewer.png`、`/tmp/xs-perm-fruit_admin.png`；
+  临时验收账号 `__ask_perm_viewer` / `__ask_perm_admin` 均已清理，无残留。
+
+### 顺仔移动端遮挡修复（2026-09-15，未提交）
+
+- 复现与定位（Playwright + Chromium，53000 正式前端 + 8000 后端）：桌面 1440×900 无遮挡，
+  真实缺陷集中在移动端——① 横屏 844×390 时面板底 302px、页脚底 314px，发送按钮被
+  `overflow: hidden` 裁掉（`clippedChildren=1`）；② 软键盘弹出只缩小可视视口，`inset: 0` 的固定
+  窗口不收缩，输入框被键盘盖住；③ 刘海 / 底部横条贴边；④ 站内通知横幅（z-index 55）压住
+  对话窗（z-index 45）。
+- 修复：`ask-widget.css` 把 `.ask-panel__scroll` 由 `min-height: 140px` 改为
+  `flex: 1 1 auto; min-height: 0`；≤820px 媒体查询改为 `top: var(--ask-vv-top, 0px)` +
+  `height: var(--ask-vv-height, 100dvh)`；头部 / 底部补 `env(safe-area-inset-top/bottom)`。
+  `AskWidget.vue` 新增 `syncVisualViewport()` 并监听 `visualViewport` 的 `resize` / `scroll`
+  （卸载时移除），可视视口不可用或高度非法时清变量回落整屏；`AppShell.vue` 的通知横幅条件
+  加 `!askOpen`。
+- 前端 `npm --prefix frontend run test`：162 项全部通过，退出码 0（`ask-widget.test.ts`
+  由 14 项增至 17 项：视口跟随与监听器、安全区避让 + `min-height: 0`、通知横幅避让；
+  其余增量来自并行会话新增的 `entry-*.test.ts`，与本次改动无关）。
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0；`npm --prefix frontend run build`：成功。
+- Playwright 终验：桌面 1440×900 → 面板 720px、零裁切；横屏 844×390 → 面板 250px，
+  页脚底 301 ≤ 面板底 302、输入框可点（修复前此项失败）；短视口 360×480 零裁切；
+  软键盘桩（`visualViewport` 收缩到 430）→ 面板随之为 430、输入框底 418 可点，收起后恢复 844；
+  可视视口异常防护：无 `visualViewport` / 高度为 0 时回落 844px（修复前会塌成 2121px）；
+  提问走真实 `/api/ask` 后仍零裁切、零 JS 错误。截图 `/tmp/ask-fix-landscape-844x390.png`、
+  `/tmp/ask-fix-short-360x480.png`、`/tmp/ask-fix-keyboard.png`、`/tmp/ask-fix-mobile-chat.png`。
+- 边界：`320×568` 极窄屏登录后有 39px 横向溢出，来源不在顺仔组件（疑似
+  `frontend/src/styles-responsive.css` 的移动端守卫），本次未处理；真实 iOS Safari 的软键盘
+  行为无法在本机复现，本次以 `visualViewport` 桩验证，建议客户真机确认一次。
+- 临时验收账号 `__ask_perm_viewer` / `__ask_perm_admin` 已清理（`/tmp/ask_perm_seed.py drop`
+  输出残留 0）。
 
 ### 品牌口径与统一日期范围（2026-09-14，未提交）
 
@@ -815,39 +1281,24 @@ Branch：`dev`
 Latest commits：
 
 ```text
-4823631 feat(backend): 单号商号双写并增加回填迁移
-294cf2f feat(frontend): 统一图表图例与悬浮提示
-03dbb6d feat(frontend): 页面统一展示适配后单号与商号
-668f572 feat(frontend): 外壳增加顶部 header 与页签栏
-bbbce09 docs: 修正导入文件类型与日期接口参数口径
-09dfb4b fix(frontend): 修复系列对比移动端横向溢出
-168f126 docs: 记录果农版简化设计并更新交接与待办
-a1e8bfd test(frontend): 更新界面与筛选交互守卫
-4dbe9b8 style(frontend): 全站字号统一并修正表格文字对齐
-c773dd8 fix(frontend): 修复系列对比均价柱状图高度塌缩
-fe586aa fix(frontend): 单日趋势图增加参考线与提示
-d2d8a3e fix(frontend): 商号下拉默认选中并切换立即刷新
-9f7bb11 fix(frontend): 总览页结算单销售情况跟随商号筛选
-48b4ed5 feat(frontend): 果农版主导航收敛并增加移动端底部导航
-3e50d9f fix(frontend): 下拉框改为商号在前展示避免误选
-58d164b docs: 记录系列对比口径与实现范围
-7703981 feat(frontend): 增加系列对比页面与图表
-57468ee feat(backend): 增加按系列组织的结算单对比分析
-2160b38 docs(agent): 更新交接状态
-e0ce64b chore(project): 忽略本地工具状态与业务附件
-9270c4b docs: 记录商号维度设计与迁移决策
-bbcd09e refactor(frontend): 页面口径切换到商号维度
-72e6d66 chore(frontend): 补充 test 与 typecheck 脚本
-aaea0f8 feat(auth): 认证页接入本地榴莲主图
-0160fdf refactor(backend): 以商号替换柜号作为结算单唯一键
+4903399 feat(analytics): 等级动态展示并新增结算单同品牌AI分析
+2c7c5c8 feat(frontend): 完善侧栏分页与系统页脚
+d1dd57b chore(backend): 统一环境变量到 backend/.env
+0a20e9f docs: 更新README页签与通知说明
+b740af4 feat(frontend): 页签右键菜单支持刷新与关闭操作
+eeb6681 feat: 品牌化统一日期筛选并优化结算详情与移动端
+65e06d8 feat(frontend): 字号按钮点击后弹出滑杆并记忆偏好
+2cc4947 fix(frontend): 系列对比移动端表格改为纵向卡片消除横向滚动
+1cbcb49 feat(deploy): 切换 Nginx 生产托管并优化移动端展示
+20e80fc feat(auth-shell): 优化认证门户外壳导入交互与移动端展示
 ```
 
-Uncommitted changes（2026-09-11 22:53 实测，待随本次提交落到 `dev`）：
+Uncommitted changes（2026-09-18 实测）：
 
-- 部署切换：`start.sh`、`frontend/vite.config.ts`、`deploy/fruits_ana.nginx.conf`、
-  `README.md`、`docs/ARCHITECTURE.md`；`start.sh` 默认改为 Nginx 生产模式。
-- 前端展示与测试：四个 `styles-*.css`、`frontend/tests/shell-header.test.ts`、
-  `frontend/tests/farmer-ui-copy.test.mjs`。
-- 文档与规则同步：`AGENTS.md`、`docs/HANDOFF.md`、`docs/TODO.md`。
-- `.superpowers/`、`.superpowersigeria/`、`attachments/`、`backend/data/` 仍被 `.gitignore`
-  忽略，不会提交；未改动 `.env`、`backend/.env`、MySQL 配置。
+- `git diff --shortstat`：76 files changed, 4773 insertions(+), 827 deletions(-)。
+- 已修改：76 个文件，覆盖后端 API/模型/解析/服务、前端页面/组件/工具/样式、
+  前后端测试，以及 `README.md` / `docs/*` 与 `.gitignore`。
+- 未跟踪：75 个文件，含新功能源码与测试、`docs/superpowers/**`、`tickets/`、
+  前端 `dev-preview/**` 与公开静态资源；提交前需人工筛掉业务附件与设计稿。
+- 未改动 `.env`、`backend/.env`、MySQL 配置；`.superpowers/`、`.superpowersigeria/`、
+  `attachments/`、`backend/data/` 仍被 `.gitignore` 忽略，不会提交。

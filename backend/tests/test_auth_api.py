@@ -11,7 +11,14 @@ from sqlalchemy import text
 
 from app.db import Base, SessionLocal, engine
 from app.main import app
-from app.models import UserSession
+from app.models import (
+    AdminPermission,
+    AdminRole,
+    AdminRolePermission,
+    AdminUserRole,
+    User,
+    UserSession,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -163,3 +170,29 @@ def test_business_api_requires_authentication(client, method, path):
 
     with SessionLocal() as db:
         assert db.execute(text("SELECT COUNT(*) FROM user_session")).scalar_one() == 0
+
+
+def test_login_and_me_return_business_rbac_permissions(client):
+    registered = client.post("/api/auth/register", json=_credentials())
+    assert registered.status_code == 201
+
+    with SessionLocal() as db:
+        user = db.query(User).one()
+        role = AdminRole(code="fruit_admin", name="水果系统管理员", is_active=True)
+        db.add(role)
+        db.flush()
+        permission = AdminPermission(code="entry:view", name="查看手工录单")
+        db.add(permission)
+        db.flush()
+        db.add(AdminRolePermission(role_id=role.id, permission_id=permission.id))
+        db.add(AdminUserRole(user_id=user.id, role_id=role.id))
+        db.commit()
+
+    client.post("/api/auth/logout")
+    login = client.post("/api/auth/login", json=_credentials())
+    me = client.get("/api/auth/me")
+
+    assert login.status_code == 200
+    assert login.json()["user"]["permissions"] == ["entry:view"]
+    assert me.status_code == 200
+    assert me.json()["user"]["permissions"] == ["entry:view"]

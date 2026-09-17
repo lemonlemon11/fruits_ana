@@ -31,7 +31,7 @@ FEATURE = "series-comparison"
 # 旧结论可能仍在正文里写 `宝贝-L004`，因此提升版本让缓存失效。
 # v4：数据包改用适配后单号 / 适配后商号，并补充「原始单号」「原始商号」
 # （ADR-015 / ADR-016），旧缓存自动失效。
-PROMPT_VERSION = "v7"
+PROMPT_VERSION = "v8"
 # 低于该样本量时禁止下趋势/规律结论，只描述这批货本身。
 MIN_TREND_SAMPLES = 5
 # 部分模型会先消耗「思考」token，输出上限需要留足余量，避免正文被截断。
@@ -65,6 +65,7 @@ SYSTEM_PROMPT = """你是水果销售数据分析助手，服务对象是果农�
 整体行情
 A果
 B果
+AB果
 C果
 D果
 E果
@@ -305,6 +306,41 @@ def _post_json(settings: AiSettings, payload: dict, timeout: int) -> dict:
         raise AiCallFailed("大模型返回的内容无法解析，请稍后重试") from exc
 
 
+def chat_completion_choice(
+    settings: AiSettings,
+    messages: list[dict],
+    *,
+    tools: list[dict] | None = None,
+    max_tokens: int = MAX_OUTPUT_TOKENS,
+    timeout: int = REQUEST_TIMEOUT_SECONDS,
+) -> dict:
+    """调用对话补全接口，返回原始 choice 对象（可选 function calling）。
+
+    ``call_chat_completion`` 只要结论文本，问答工具链还需要原始 ``tool_calls``，
+    因此把「组包 → 调用 → 去掉服务商不认的参数后重试」抽到这里共用。
+    """
+
+    payload: dict[str, object] = {
+        "model": settings.model,
+        "messages": messages,
+        "temperature": 0.3,
+        "max_tokens": max_tokens,
+        "stream": False,
+        **REASONING_OFF,
+    }
+    if tools:
+        payload["tools"] = tools
+        payload["tool_choice"] = "auto"
+    try:
+        body = _post_json(settings, payload, timeout)
+    except _UnsupportedParameter:
+        payload = {key: value for key, value in payload.items() if key not in REASONING_OFF}
+        body = _post_json(settings, payload, timeout)
+
+    choices = body.get("choices") or []
+    return choices[0] if choices else {}
+
+
 def call_chat_completion(
     settings: AiSettings,
     messages: list[dict],
@@ -313,22 +349,7 @@ def call_chat_completion(
 ) -> str:
     """调用 OpenAI 兼容的对话补全接口，返回结论文本。"""
 
-    payload = {
-        "model": settings.model,
-        "messages": messages,
-        "temperature": 0.3,
-        "max_tokens": MAX_OUTPUT_TOKENS,
-        "stream": False,
-        **REASONING_OFF,
-    }
-    try:
-        body = _post_json(settings, payload, timeout)
-    except _UnsupportedParameter:
-        payload = {key: value for key, value in payload.items() if key not in REASONING_OFF}
-        body = _post_json(settings, payload, timeout)
-
-    choices = body.get("choices") or []
-    choice = choices[0] if choices else {}
+    choice = chat_completion_choice(settings, messages, timeout=timeout)
     message = choice.get("message") or {}
     content = message.get("content")
     if not isinstance(content, str) or not content.strip():

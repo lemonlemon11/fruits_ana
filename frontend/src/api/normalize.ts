@@ -1,9 +1,18 @@
 import type {
   AnalyticsFilters,
+  AskResult,
+  EntryAfterSaleItem,
+  EntryFeeItem,
+  EntryFieldOption,
+  EntryRead,
+  EntrySaleItem,
   GradeDetailData,
   GradeMetric,
   ImportBatch,
+  ImportConfirmResult,
   ImportIssue,
+  ImportJob,
+  ImportReviewDraft,
   IssueCounts,
   MetricTotal,
   OperatingAnomaly,
@@ -14,7 +23,9 @@ import type {
   SettlementComparisonItem,
   SettlementDetail,
   SettlementListData,
+  SettlementListFilters,
   SettlementListItem,
+  SettlementPagination,
   SettlementRecord,
   SettlementRecordsData,
   TrendPoint,
@@ -28,12 +39,15 @@ type JsonRecord = Record<string, unknown>
 /** 与后端 `series_name` 保持一致：识别不出品牌时使用该名称。 */
 export const UNKNOWN_SERIES = '未识别品牌'
 
-export function buildAnalyticsQuery(filters: AnalyticsFilters): string {
+/** 组装分析/列表类接口的查询串；`page` / `pageSize` 只有结算单列表会用到。 */
+export function buildAnalyticsQuery(filters: SettlementListFilters): string {
   const params = new URLSearchParams()
   if (filters.startDate) params.set('start_date', filters.startDate)
   if (filters.endDate) params.set('end_date', filters.endDate)
   if (filters.merchantNo) params.set('merchant_no', filters.merchantNo)
   if (filters.includeAllSettlements) params.set('include_all_settlements', 'true')
+  if (filters.page) params.set('page', String(filters.page))
+  if (filters.pageSize) params.set('page_size', String(filters.pageSize))
   const query = params.toString()
   return query ? `?${query}` : ''
 }
@@ -128,6 +142,7 @@ export function normalizeSettlementComparison(payload: unknown): SettlementCompa
       orderNoNormalized: stringOr(pick(row, 'order_no_normalized', 'orderNoNormalized'), ''),
       containerNo: stringOr(pick(row, 'container_no', 'containerNo'), ''),
       vehicleNo: stringOr(pick(row, 'vehicle_no', 'vehicleNo'), ''),
+      series: stringOr(pick(row, 'series', 'seriesName'), ''),
       grades: overview.grades,
       startDate: stringOr(pick(row, 'start_date', 'startDate', 'sale_start'), ''),
       endDate: stringOr(pick(row, 'end_date', 'endDate', 'sale_end'), ''),
@@ -169,6 +184,10 @@ export function normalizeSettlementDetail(payload: unknown, merchantNo: string):
     orderNoNormalized: stringOr(pick(body, 'order_no_normalized', 'orderNoNormalized'), ''),
     containerNo: stringOr(pick(body, 'container_no', 'containerNo'), ''),
     vehicleNo: stringOr(pick(body, 'vehicle_no', 'vehicleNo'), ''),
+    sourceType: pick(body, 'source_type', 'sourceType') === 'manual' ? 'manual' : 'import',
+    market: stringOr(pick(body, 'market'), ''),
+    arrivalDate: stringOr(pick(body, 'arrival_date', 'arrivalDate'), ''),
+    arrivalQuantity: nullableNumber(pick(body, 'arrival_quantity', 'arrivalQuantity')),
     startDate: stringOr(pick(period, 'start_date', 'startDate'), ''),
     endDate: stringOr(pick(period, 'end_date', 'endDate'), ''),
     settlement: {
@@ -179,6 +198,60 @@ export function normalizeSettlementDetail(payload: unknown, merchantNo: string):
     },
     records: normalizeSettlementRecords(body.records ?? body.sale_records),
   }
+}
+
+export function normalizeEntrySales(input: unknown): EntrySaleItem[] {
+  return asArray(input).map((row) => ({
+    saleDate: stringOr(pick(row, 'sale_date', 'saleDate'), ''),
+    variety: stringOr(pick(row, 'variety', 'grade_raw', 'gradeRaw'), 'A'),
+    headCount: specText(pick(row, 'head_count', 'piece_count', 'headCount', 'pieceCount')),
+    specKg: specText(pick(row, 'spec_kg', 'specKg')),
+    salesQuantity: numberOr(pick(row, 'sales_quantity', 'quantity', 'salesQuantity'), 0),
+    unitPrice: numberOr(pick(row, 'unit_price', 'unitPrice'), 0),
+    remark: stringOr(pick(row, 'remark'), ''),
+  }))
+}
+
+export function normalizeEntryAfterSales(input: unknown): EntryAfterSaleItem[] {
+  return asArray(input).map((row) => ({
+    content: stringOr(pick(row, 'content'), ''),
+    summary: stringOr(pick(row, 'summary'), ''),
+    amount: numberOr(pick(row, 'amount'), 0),
+  }))
+}
+
+export function normalizeEntryFees(input: unknown): EntryFeeItem[] {
+  return asArray(input).map((row) => ({
+    name: stringOr(pick(row, 'name'), ''),
+    amount: numberOr(pick(row, 'amount'), 0),
+    isCustom: pick(row, 'is_custom', 'isCustom') === true,
+  }))
+}
+
+export function normalizeEntryRead(payload: unknown): EntryRead {
+  const body = unwrap(payload)
+  return {
+    merchantNo: stringOr(pick(body, 'merchant_no', 'merchantNo'), ''),
+    orderNo: stringOr(pick(body, 'order_no', 'orderNo'), ''),
+    containerNo: stringOr(pick(body, 'container_no', 'containerNo'), ''),
+    vehicleNo: stringOr(pick(body, 'vehicle_no', 'vehicleNo'), ''),
+    market: stringOr(pick(body, 'market'), ''),
+    arrivalDate: stringOr(pick(body, 'arrival_date', 'arrivalDate'), ''),
+    arrivalQuantity: nullableNumber(pick(body, 'arrival_quantity', 'arrivalQuantity')),
+    sales: normalizeEntrySales(body.sales),
+    afterSales: normalizeEntryAfterSales(body.after_sales ?? body.afterSales),
+    fees: normalizeEntryFees(body.fees),
+    sourceType: pick(body, 'source_type', 'sourceType') === 'manual' ? 'manual' : 'import',
+  }
+}
+
+export function normalizeEntryFieldOptions(payload: unknown): EntryFieldOption[] {
+  const body = unwrap(payload)
+  return asArray(Array.isArray(body) ? body : body.options ?? body.items).map((row) => ({
+    field: pick(row, 'field', 'field_key', 'fieldKey') === 'variety' ? 'variety' : 'market',
+    value: stringOr(pick(row, 'value'), ''),
+    sortOrder: numberOr(pick(row, 'sort_order', 'sortOrder'), 0),
+  }))
 }
 
 export function normalizeSettlementRecords(input: unknown): SettlementRecord[] {
@@ -213,6 +286,20 @@ export function normalizeSettlementList(payload: unknown): SettlementListData {
       : null,
     settlements: asArray(Array.isArray(body) ? body : body.settlements ?? body.items)
       .map(normalizeSettlementListItem),
+    pagination: normalizeSettlementPagination(body.pagination),
+  }
+}
+
+function normalizeSettlementPagination(input: unknown): SettlementPagination | null {
+  const row = asRecord(input)
+  if (!row || row.total === undefined) return null
+  const total = numberOr(row.total, 0)
+  const pageSize = numberOr(pick(row, 'page_size', 'pageSize'), 0)
+  return {
+    total,
+    page: numberOr(row.page, 1),
+    pageSize,
+    pages: Math.max(1, numberOr(row.pages, pageSize ? Math.ceil(total / pageSize) : 1)),
   }
 }
 
@@ -246,7 +333,7 @@ function normalizeSettlementListItem(row: JsonRecord): SettlementListItem {
     averagePrice: nullableNumber(pick(row, 'average_price', 'averagePrice')),
     gradeQuantities: GRADES.reduce<Record<Grade, number>>(
       (result, grade) => ({ ...result, [grade]: numberOr(pick(quantities, grade, grade.toLowerCase()), 0) }),
-      { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, OTHER: 0 },
+      emptyGradeRecord(0),
     ),
     recordCount: numberOr(pick(row, 'record_count', 'recordCount'), 0),
   }
@@ -280,6 +367,101 @@ export function normalizeImportIssues(payload: unknown): ImportIssue[] {
     message: stringOr(row.message, '发现数据问题'),
     rawValue: stringOr(pick(row, 'raw_value', 'rawValue'), ''),
   }))
+}
+
+export function normalizeImportJob(payload: unknown): ImportJob {
+  const body = unwrap(payload)
+  return {
+    token: stringOr(pick(body, 'token'), ''),
+    status: stringOr(pick(body, 'status'), 'pending'),
+    fileCount: numberOr(pick(body, 'file_count', 'fileCount'), 0),
+    draftCount: numberOr(pick(body, 'draft_count', 'draftCount'), 0),
+    confirmedCount: numberOr(pick(body, 'confirmed_count', 'confirmedCount'), 0),
+    createdAt: stringOr(pick(body, 'created_at', 'createdAt'), ''),
+    drafts: asArray(body.drafts).map((row) => ({
+      token: stringOr(pick(row, 'token'), ''),
+      fileName: stringOr(pick(row, 'file_name', 'fileName'), '未命名文件'),
+      merchantNo: stringOr(pick(row, 'merchant_no', 'merchantNo'), ''),
+      orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
+      issueCount: numberOr(pick(row, 'issue_count', 'issueCount'), 0),
+      hasError: pick(row, 'has_error', 'hasError') === true,
+      version: numberOr(pick(row, 'version'), 1),
+      status: stringOr(pick(row, 'status'), 'pending'),
+    })),
+  }
+}
+
+export function normalizeImportReviewDraft(payload: unknown): ImportReviewDraft {
+  const body = unwrap(payload)
+  const draft = asRecord(body.payload ?? body.draft ?? {})
+  return {
+    jobToken: stringOr(pick(body, 'job_token', 'jobToken'), ''),
+    jobStatus: stringOr(pick(body, 'job_status', 'jobStatus'), 'pending'),
+    draftToken: stringOr(pick(body, 'draft_token', 'draftToken'), ''),
+    version: numberOr(pick(body, 'version'), 1),
+    fileName: stringOr(pick(body, 'file_name', 'fileName'), '未命名文件'),
+    payload: {
+      merchantNo: stringOr(pick(draft, 'merchant_no', 'merchantNo'), ''),
+      orderNo: stringOr(pick(draft, 'order_no', 'orderNo'), ''),
+      containerNo: stringOr(pick(draft, 'container_no', 'containerNo'), ''),
+      vehicleNo: stringOr(pick(draft, 'vehicle_no', 'vehicleNo'), ''),
+      market: stringOr(pick(draft, 'market'), ''),
+      arrivalDate: stringOr(pick(draft, 'arrival_date', 'arrivalDate'), ''),
+      arrivalQuantity: nullableNumber(pick(draft, 'arrival_quantity', 'arrivalQuantity')),
+      sales: asArray(draft.sales).map((row) => ({
+        sourceRow: nullableNumber(pick(row, 'source_row', 'sourceRow')),
+        saleDate: stringOr(pick(row, 'sale_date', 'saleDate'), ''),
+        variety: stringOr(pick(row, 'variety'), ''),
+        headCount: stringOr(pick(row, 'head_count', 'headCount'), ''),
+        specKg: stringOr(pick(row, 'spec_kg', 'specKg'), ''),
+        salesQuantity: numberOr(pick(row, 'sales_quantity', 'salesQuantity'), 0),
+        unitPrice: numberOr(pick(row, 'unit_price', 'unitPrice'), 0),
+        amount: numberOr(pick(row, 'amount'), 0),
+        remark: stringOr(pick(row, 'remark'), ''),
+      })),
+      afterSales: asArray(draft.after_sales).map((row) => ({
+        sourceRow: nullableNumber(pick(row, 'source_row', 'sourceRow')),
+        content: stringOr(pick(row, 'content'), ''),
+        summary: stringOr(pick(row, 'summary'), ''),
+        amount: numberOr(pick(row, 'amount'), 0),
+      })),
+      fees: asArray(draft.fees).map((row) => ({
+        sourceRow: nullableNumber(pick(row, 'source_row', 'sourceRow')),
+        name: stringOr(pick(row, 'name'), ''),
+        amount: numberOr(pick(row, 'amount'), 0),
+        isCustom: pick(row, 'is_custom', 'isCustom') === true,
+      })),
+      fileSummary: asRecord(draft.file_summary ?? draft.fileSummary) as Record<string, string>,
+      computedSummary: asRecord(draft.computed_summary ?? draft.computedSummary) as Record<string, string>,
+      issues: asArray(draft.issues).map((row) => ({
+        code: stringOr(pick(row, 'code'), 'data_issue'),
+        severity: (pick(row, 'severity') === 'error' ? 'error' : 'warning') as 'error' | 'warning',
+        message: stringOr(pick(row, 'message'), '发现数据问题'),
+        section: stringOr(pick(row, 'section'), ''),
+        row: nullableNumber(pick(row, 'row')),
+        field: stringOr(pick(row, 'field'), ''),
+        rawValue: stringOr(pick(row, 'raw_value', 'rawValue'), ''),
+      })),
+      overwrite: false,
+    },
+  }
+}
+
+export function normalizeImportConfirmResult(payload: unknown): ImportConfirmResult {
+  const body = unwrap(payload)
+  return {
+    jobToken: stringOr(pick(body, 'job_token', 'jobToken'), ''),
+    status: stringOr(pick(body, 'status'), 'confirmed'),
+    confirmed: asArray(body.confirmed).map((row) => ({
+      draftToken: stringOr(pick(row, 'draft_token', 'draftToken'), ''),
+      fileName: stringOr(pick(row, 'file_name', 'fileName'), '未命名文件'),
+      merchantNo: stringOr(pick(row, 'merchant_no', 'merchantNo'), ''),
+      batchId: idOrEmpty(pick(row, 'batch_id', 'batchId')),
+      status: stringOr(pick(row, 'status'), 'success'),
+      errorCount: numberOr(pick(row, 'error_count', 'errorCount'), 0),
+      warningCount: numberOr(pick(row, 'warning_count', 'warningCount'), 0),
+    })),
+  }
 }
 
 export function unwrap(value: unknown): JsonRecord {
@@ -361,6 +543,23 @@ export function normalizeSeriesAnalysis(payload: unknown): SeriesAnalysisResult 
   }
 }
 
+export function normalizeAskResult(payload: unknown): AskResult {
+  const body = unwrap(payload)
+  const steps = Array.isArray(body.steps) ? body.steps : []
+  return {
+    answer: stringOr(pick(body, 'answer'), ''),
+    model: stringOr(pick(body, 'model'), ''),
+    steps: steps.map((item) => {
+      const step = asRecord(item)
+      return {
+        tool: stringOr(pick(step, 'tool'), ''),
+        summary: stringOr(pick(step, 'summary'), ''),
+        args: asRecord(step.args),
+      }
+    }),
+  }
+}
+
 function normalizeSeriesAggregate(row: JsonRecord): SeriesAggregate {
   const overview = normalizeOverview(row)
   return {
@@ -423,6 +622,13 @@ function nullableNumber(value: unknown): number | null {
 
 function stringOr(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim() ? value : fallback
+}
+
+/** 规格字段是文本（区间写法），但兼容后端返回数字的旧响应。 */
+function specText(value: unknown): string {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  return ''
 }
 
 function stringArray(value: unknown): string[] {

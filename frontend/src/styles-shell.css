@@ -17,6 +17,7 @@
   z-index: 40;
   top: 0;
   display: flex;
+  min-width: 0;
   min-height: var(--app-header-height);
   align-items: center;
   justify-content: space-between;
@@ -32,9 +33,9 @@
   align-items: center;
   gap: .59rem;
 }
-/* 窄屏由品牌区吸收压缩，账号与退出登录保持完整可点。 */
+/* 窄屏由品牌区吸收压缩；账号区也允许收缩，避免长用户名把 header 撑高后盖住侧栏。 */
 .app-header-brand { flex: 0 1 auto; }
-.app-header-account { flex: 0 0 auto; }
+.app-header-account { flex: 0 1 auto; }
 .app-header-home,
 .sidebar-toggle {
   display: grid;
@@ -52,9 +53,22 @@
   color: var(--muted);
 }
 .sidebar-toggle:hover { border-color: var(--primary); color: var(--primary-dark); }
-.app-header-copy { display: grid; min-width: 0; gap: 1px; }
-.app-header-copy strong { font-size: 1rem; overflow-wrap: anywhere; }
-.app-header-copy span { color: var(--muted); font-size: .85rem; }
+.app-header-copy { display: grid; min-width: 0; gap: 1px; overflow: hidden; }
+.app-header-copy strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-header-copy span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: .85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .app-header-clock {
   display: inline-flex;
   min-height: 2.59rem;
@@ -317,7 +331,14 @@
   color: var(--primary-dark);
   font-weight: 700;
 }
-.account-name { min-width: 0; overflow-wrap: anywhere; font-weight: 700; }
+.account-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .app-body {
   display: grid;
@@ -357,6 +378,7 @@
 .sign-out-button {
   display: flex;
   min-height: 2.59rem;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   gap: .47rem;
@@ -394,23 +416,24 @@
   .app-shell.sidebar-collapsed .sidebar-foot { display: none; }
 }
 
-.app-workspace { min-width: 0; }
+.app-workspace { min-width: 0; display: flex; flex-direction: column; }
 .app-workspace > main {
-  width: min(100%, 1680px);
+  flex: 1 0 auto;
+  width: min(100%, 2400px);
   margin: 0 auto;
-  padding: 1.41rem 1.65rem 3.29rem;
+  padding: 1.41rem 1.18rem 3.29rem;
   scroll-margin-top: calc(var(--app-header-height) + var(--app-tabs-height));
 }
 .app-workspace > main:focus { outline: none; }
 .app-footer {
-  width: min(100%, 1680px);
+  width: min(100%, 2400px);
   margin: 0 auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: .71rem 1.18rem;
-  padding: .82rem 1.65rem 1.18rem;
+  padding: .82rem 1.18rem 1.18rem;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: .9rem;
@@ -431,6 +454,33 @@
   font-weight: 700;
 }
 .app-footer-actions button:hover { border-color: var(--primary); color: var(--primary-dark); }
+
+.wechat-qr-button { position: relative; overflow: visible; }
+.wechat-qr-popover {
+  position: absolute;
+  z-index: 45;
+  bottom: calc(100% + .71rem);
+  left: 50%;
+  width: 10rem;
+  height: 10rem;
+  padding: .4rem;
+  border: 1px solid var(--line);
+  border-radius: .75rem;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(17, 51, 34, .22);
+  object-fit: cover;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, .35rem);
+  transition: opacity .18s ease, transform .18s ease, visibility .18s ease;
+  pointer-events: none;
+}
+.wechat-qr-button:hover .wechat-qr-popover,
+.wechat-qr-button:focus-visible .wechat-qr-popover {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
 
 /* 一键回顶：桌面靠右下方，移动端抬高到底部导航之上，避免遮挡主操作。 */
 .back-to-top {

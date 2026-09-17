@@ -138,6 +138,7 @@ def test_settlement_item_exposes_sales_metrics(client):
         "grade_quantities": {
             "A": 6.0,
             "B": 2.0,
+            "AB": 0.0,
             "C": 0.0,
             "D": 0.0,
             "E": 0.0,
@@ -199,4 +200,4 @@ def test_settlement_records_endpoint(client):
 def test_empty_database_returns_no_default_range(client):
     body = client.get("/api/settlements").json()
 
-    assert body == {"date_range": None, "settlements": []}
+    assert body == {"date_range": None, "settlements": [], "pagination": None}

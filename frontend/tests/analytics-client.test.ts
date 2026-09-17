@@ -5,6 +5,7 @@ import {
   buildAnalyticsQuery,
   getImportIssues,
   gradeLabel,
+  normalizeGrade,
   normalizeGradeMetrics,
   normalizeImportIssues,
   normalizeOverview,
@@ -30,16 +31,18 @@ test('buildAnalyticsQuery sends only populated contract filters', () => {
   )
 })
 
-test('normalizeGradeMetrics 只保留实际出现过的等级并把 BC 归入 C', () => {
+test('normalizeGradeMetrics 只保留实际出现过的等级并保留 AB 独立', () => {
   const grades = normalizeGradeMetrics([
-    { grade: 'BC', sales_quantity: 4, sales_amount: 32, weighted_avg_price: 8, quantity_share: 0.4 },
+    { grade: 'AB', sales_quantity: 4, sales_amount: 32, weighted_avg_price: 8, quantity_share: 0.4 },
     { grade: 'A', sales_quantity: 6, sales_amount: 72, weighted_avg_price: 12, quantity_share: 0.6 },
   ])
 
-  assert.deepEqual(grades.map((item) => item.grade), ['A', 'C'])
+  assert.deepEqual(grades.map((item) => item.grade), ['A', 'AB'])
   assert.equal(grades[0].salesQuantity, 6)
   assert.equal(grades[1].salesQuantity, 4)
-  assert.equal(gradeLabel('C'), 'C果（含BC）')
+  assert.equal(gradeLabel('C'), 'C果')
+  assert.equal(gradeLabel('AB'), 'AB果')
+  assert.equal(normalizeGrade('BC'), 'OTHER')
 })
 
 test('normalizeOverview accepts wrapped payload and snake_case fields', () => {
@@ -105,7 +108,7 @@ test('normalizeSettlementList reads the default range and grade quantities', () 
   assert.equal(list.settlements[0].merchantNo, '640')
   assert.equal(list.settlements[0].orderNo, '宝贝L004')
   assert.deepEqual(list.settlements[0].gradeQuantities, {
-    A: 12, B: 6, C: 2, D: 0, E: 0, F: 0, OTHER: 0,
+    A: 12, B: 6, AB: 0, C: 2, D: 0, E: 0, F: 0, OTHER: 0,
   })
   assert.equal(list.settlements[0].averagePrice, 400)
   assert.equal(list.settlements[0].recordCount, 3)
@@ -115,6 +118,7 @@ test('normalizeSettlementList tolerates an empty payload', () => {
   assert.deepEqual(normalizeSettlementList({ date_range: null, settlements: [] }), {
     dateRange: null,
     settlements: [],
+    pagination: null,
   })
 })
 

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>录单入口整合 · 视觉伴侣</title>
+    <link rel="stylesheet" href="./import-entry-merge.css" />
+  </head>
+  <body>
+    <main class="preview-page">
+      <header class="preview-head">
+        <div>
+          <p class="eyebrow">视觉伴侣 · 53001</p>
+          <h1>「数据导入 + 手工录单」入口整合</h1>
+          <p>两种录入方式都保留，合并成菜单里的一项。下面三个方案可以点着对比，桌面与手机都能切。</p>
+        </div>
+        <div class="preview-toolbar" role="group" aria-label="方案">
+          <button type="button" data-plan="A" aria-pressed="true">方案 A · 单入口分段</button>
+          <button type="button" data-plan="B" aria-pressed="false">方案 B · 菜单二级</button>
+          <button type="button" data-plan="C" aria-pressed="false">方案 C · 方式选择页</button>
+        </div>
+      </header>
+
+      <div class="preview-subbar">
+        <div class="preview-toolbar" role="group" aria-label="预览宽度">
+          <button type="button" data-device="desktop" aria-pressed="true">桌面</button>
+          <button type="button" data-device="mobile" aria-pressed="false">手机</button>
+        </div>
+        <p class="preview-hint" id="planNote"></p>
+      </div>
+
+      <section class="stage" id="stage" data-plan="A" data-device="desktop"></section>
+
+      <section class="interaction-notes">
+        <h2>需要一起定的交互点</h2>
+        <ul>
+          <li><strong>URL 与刷新</strong>：切换方式用 <code>?mode=manual</code>，刷新 / 分享 / 浏览器后退都停在同一个方式上，页签栏也只占一个页签。</li>
+          <li><strong>未保存内容</strong>：手工录单填到一半切去看文件导入，<em>不</em>丢草稿；切换时顶部提示「手工录单有未保存内容」，切回来内容还在。</li>
+          <li><strong>权限差异</strong>：只有 <code>entry:view</code> 的人看得到「手工录单」，其他人进来就是普通的数据导入页，不出现空的切换按钮。</li>
+          <li><strong>从详情页改单</strong>：结算单详情的「修改」入口跳到 <code>/imports?mode=manual&amp;merchant_no=…</code>，老链接 <code>/entry?…</code> 保留 301 到新地址。</li>
+          <li><strong>导入后的引导</strong>：文件导入完成后，结果区给一个「也可以手工补录」的次级入口，避免两套流程各说各话。</li>
+          <li><strong>移动端</strong>：底部导航从「4 项 + 更多」变成「录单 / 导入」占一格，手工录单不再藏在「更多」里。</li>
+        </ul>
+      </section>
+    </main>
+    <script type="module" src="./import-entry-merge.js"></script>
+  </body>
+</html>

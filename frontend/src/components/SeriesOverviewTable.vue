@@ -10,6 +10,7 @@ import { displayOrderNo, rawOrderNo } from '../utils/orderNo'
 import { displayMerchantNo, rawMerchantNo } from '../utils/merchantNo'
 import { gradeOf, gradeRow } from '../utils/seriesComparison'
 import ChartTooltip from './ChartTooltip.vue'
+import DataTable, { type DataTableColumn } from './DataTable.vue'
 
 const props = defineProps<{
   items: SeriesComparisonItem[]
@@ -45,6 +46,59 @@ function shareWidth(value: number | null): string {
   return `${Math.max(Math.min(value, 1) * 100, 2)}%`
 }
 
+const rowKey = (item: SeriesComparisonItem) => item.merchantNo
+
+const SHARE_PREFIX = 'share-'
+const shareKey = (grade: Grade) => `${SHARE_PREFIX}${grade}`
+const isShareColumn = (column: DataTableColumn<SeriesComparisonItem>) => column.key.startsWith(SHARE_PREFIX)
+const gradeOfShareColumn = (key: string) => key.slice(SHARE_PREFIX.length) as Grade
+
+/** 列由等级动态生成：先身份列，再各等级件数、总计列，最后各等级占比。 */
+const columns = computed<DataTableColumn<SeriesComparisonItem>[]>(() => {
+  const quantityColumns: DataTableColumn<SeriesComparisonItem>[] = gradeOrder.value.map((grade) => ({
+    key: `grade-${grade}`,
+    label: `${gradeLabel(grade)}件数`,
+    numeric: true,
+    value: (item) => formatNumber(quantity(item, grade)),
+    foot: () => formatNumber(totalGrade(grade).salesQuantity),
+  }))
+  const shareColumns: DataTableColumn<SeriesComparisonItem>[] = gradeOrder.value.map((grade) => ({
+    key: shareKey(grade),
+    label: `${gradeLabel(grade)}占比`,
+    numeric: true,
+    value: (item) => formatPercent(quantityShare(item, grade)),
+    foot: () => formatPercent(totalGrade(grade).quantityShare),
+  }))
+  return [
+    { key: 'merchant', label: '商号', rowHeader: true, emphasis: true, value: (item) => displayMerchantNo(item) },
+    { key: 'series', label: '品牌', value: (item) => item.series, foot: () => `${props.items.length} 张结算单` },
+    { key: 'startDate', label: '到达日期', value: (item) => formatDate(item.startDate) },
+    ...quantityColumns,
+    {
+      key: 'totalQuantity',
+      label: '总件数',
+      numeric: true,
+      value: (item) => formatNumber(item.total.salesQuantity),
+      foot: () => formatNumber(props.total.total.salesQuantity),
+    },
+    {
+      key: 'totalAmount',
+      label: '总金额',
+      numeric: true,
+      value: (item) => formatCurrency(item.total.salesAmount),
+      foot: () => formatCurrency(props.total.total.salesAmount),
+    },
+    {
+      key: 'avgPrice',
+      label: '平均每公斤售价',
+      numeric: true,
+      value: (item) => formatPrice(item.total.weightedAvgPrice),
+      foot: () => formatPrice(props.total.total.weightedAvgPrice),
+    },
+    ...shareColumns,
+  ]
+})
+
 function showShareTooltip(event: MouseEvent, item: SeriesComparisonItem, grade: Grade) {
   const orderNo = displayOrderNo(item)
   showTooltip(event, {
@@ -73,65 +127,41 @@ function showShareTooltip(event: MouseEvent, item: SeriesComparisonItem, grade: 
       <span>请调整到达日期范围或勾选结算单。</span>
     </div>
     <div v-else class="series-overview-results">
-      <div class="table-wrap">
-        <table>
-          <caption class="sr-only">所选结算单（按商号识别）的各等级件数、金额与占比</caption>
-          <thead>
-            <tr>
-              <th scope="col">商号</th>
-              <th scope="col">品牌</th>
-              <th scope="col">到达日期</th>
-              <th v-for="grade in gradeOrder" :key="grade" scope="col">{{ gradeLabel(grade) }}件数</th>
-              <th scope="col">总件数</th>
-              <th scope="col">总金额</th>
-              <th scope="col">平均每公斤售价</th>
-              <th v-for="grade in gradeOrder" :key="`share-${grade}`" scope="col">{{ gradeLabel(grade) }}占比</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in items" :key="item.merchantNo">
-              <th scope="row" :title="rawTrace(item)">
-                <strong>{{ displayMerchantNo(item) }}</strong>
-                <small>{{ displayOrderNo(item) || '—' }}</small>
-              </th>
-              <td>{{ item.series }}</td>
-              <td>{{ formatDate(item.startDate) }}</td>
-              <td v-for="grade in gradeOrder" :key="grade">{{ formatNumber(quantity(item, grade)) }}</td>
-              <td>{{ formatNumber(item.total.salesQuantity) }}</td>
-              <td>{{ formatCurrency(item.total.salesAmount) }}</td>
-              <td>{{ formatPrice(item.total.weightedAvgPrice) }}</td>
-              <td v-for="grade in gradeOrder" :key="`share-${grade}`">
-                <span
-                  class="share-cell"
-                  @mouseenter="showShareTooltip($event, item, grade)"
-                  @mousemove="moveTooltip"
-                  @mouseleave="hideTooltip"
-                >
-                  <span class="share-track" aria-hidden="true">
-                    <i
-                      :style="{ width: shareWidth(quantityShare(item, grade)), backgroundColor: gradeColors[grade] }"
-                    />
-                  </span>
-                  <span>{{ formatPercent(quantityShare(item, grade)) }}</span>
-                </span>
-              </td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <th scope="row">合计</th>
-              <td colspan="2">{{ items.length }} 张结算单</td>
-              <td v-for="grade in gradeOrder" :key="grade">{{ formatNumber(totalGrade(grade).salesQuantity) }}</td>
-              <td>{{ formatNumber(props.total.total.salesQuantity) }}</td>
-              <td>{{ formatCurrency(props.total.total.salesAmount) }}</td>
-              <td>{{ formatPrice(props.total.total.weightedAvgPrice) }}</td>
-              <td v-for="grade in gradeOrder" :key="`total-share-${grade}`">
-                {{ formatPercent(totalGrade(grade).quantityShare) }}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      <DataTable
+        :columns="columns"
+        :rows="items"
+        :row-key="rowKey"
+        caption="所选结算单（按商号识别）的各等级件数、金额与占比"
+        min-width="900px"
+        foot-label="合计"
+      >
+        <template #cell-merchant="{ row }">
+          <span class="merchant-cell" :title="rawTrace(row)">
+            <strong>{{ displayMerchantNo(row) }}</strong>
+            <small>{{ displayOrderNo(row) || '—' }}</small>
+          </span>
+        </template>
+        <template #cell="{ row, column, value }">
+          <span
+            v-if="isShareColumn(column)"
+            class="share-cell"
+            @mouseenter="showShareTooltip($event, row, gradeOfShareColumn(column.key))"
+            @mousemove="moveTooltip"
+            @mouseleave="hideTooltip"
+          >
+            <span class="share-track" aria-hidden="true">
+              <i
+                :style="{
+                  width: shareWidth(quantityShare(row, gradeOfShareColumn(column.key))),
+                  backgroundColor: gradeColors[gradeOfShareColumn(column.key)],
+                }"
+              />
+            </span>
+            <span>{{ value }}</span>
+          </span>
+          <template v-else>{{ value }}</template>
+        </template>
+      </DataTable>
 
       <div class="mobile-series-cards">
         <article v-for="item in items" :key="item.merchantNo" class="mobile-series-card">
@@ -173,19 +203,10 @@ function showShareTooltip(event: MouseEvent, item: SeriesComparisonItem, grade: 
 
 <style scoped>
 .table-skeleton { min-height: 140px; }
-table { width: 100%; min-width: 900px; border-collapse: collapse; }
-th, td { padding: 9px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-size: 1rem; }
-thead th { color: var(--muted); font-weight: 500; }
-tbody th, tfoot th { text-align: left; }
-/* 「品牌」「到达日期」是文字列，和其余页面的到达日期一样左对齐，避免数字表里夹着右对齐的文字。 */
-tbody td:nth-child(2), tbody td:nth-child(3) { text-align: left; }
-tbody th strong { display: block; font-size: .88rem; }
-tbody th small { color: var(--muted); font-size: .85rem; }
-tfoot td, tfoot th { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 700; }
-tbody tr:hover { background: var(--surface-soft); }
-/* 13 列在宽屏上容易散成一片数字，用竖线把「身份 / 件数 / 金额 / 占比」分成四组。 */
-thead th:nth-child(4), thead th:nth-child(8), thead th:nth-child(10),
-tbody td:nth-child(4), tbody td:nth-child(8), tbody td:nth-child(10) { border-left: 1px solid var(--line); }
+/* 商号列：商号在上一行、单号在下，作为每行的阅读起点。 */
+.merchant-cell { display: block; }
+.merchant-cell strong { display: block; font-size: .88rem; }
+.merchant-cell small { color: var(--muted); font-size: .85rem; }
 /* 占比列：数字前面补一条占比条，把空出来的横向空间用起来。 */
 .share-cell { display: inline-flex; align-items: center; gap: 8px; }
 .share-track { width: 72px; height: 6px; flex: 0 0 auto; border-radius: 999px; background: var(--surface-soft); overflow: hidden; }
@@ -194,7 +215,7 @@ tbody td:nth-child(4), tbody td:nth-child(8), tbody td:nth-child(10) { border-le
 
 @media (max-width: 560px) {
   .series-overview-results { min-width: 0; }
-  .series-overview-results .table-wrap { display: none; }
+  .series-overview-results :deep(.data-table) { display: none; }
   .mobile-series-cards { display: grid; gap: 8px; }
   .mobile-series-card { display: grid; gap: 7px; min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
   .mobile-series-card header { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }

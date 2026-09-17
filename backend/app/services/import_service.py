@@ -16,6 +16,8 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from decimal import Decimal
+
 from ..models import (
     DataIssue,
     ImportBatch,
@@ -30,9 +32,11 @@ from ..parser.settlement_parser import (
 )
 from .order_no_naming import normalize_order_no
 from .merchant_no_naming import normalize_merchant_no
+from .field_conversion import convert_grade
 
 
 HASH_CHUNK_SIZE = 1024 * 1024
+RECONCILE_TOLERANCE = Decimal("0.01")
 
 
 @dataclass
@@ -140,6 +144,27 @@ def _sale_models(batch_id: int, source_id: int, records: list[dict[str, Any]]):
     ]
 
 
+def _apply_reconciliation(
+    summary_row: SettlementSummary, records: list[dict[str, Any]]
+) -> None:
+    """记录「系统按明细算的合计」并与文件写的合计对账，供二次确认页高亮。"""
+
+    computed_amount = sum((record["amount"] for record in records), Decimal("0"))
+    computed_quantity = sum((record["quantity"] for record in records), Decimal("0"))
+    summary_row.computed_sales_amount = computed_amount
+    summary_row.computed_quantity = computed_quantity
+
+    mismatches: list[str] = []
+    declared_amount = summary_row.sales_amount
+    if declared_amount is not None and abs(declared_amount - computed_amount) > RECONCILE_TOLERANCE:
+        mismatches.append(f"销售金额 文件{declared_amount} / 系统{computed_amount}")
+    declared_quantity = summary_row.sales_quantity
+    if declared_quantity is not None and abs(declared_quantity - computed_quantity) > RECONCILE_TOLERANCE:
+        mismatches.append(f"件数 文件{declared_quantity} / 系统{computed_quantity}")
+    summary_row.reconcile_status = "mismatch" if mismatches else "ok"
+    summary_row.reconcile_detail = "；".join(mismatches)[:255] or None
+
+
 def _prepare_import(
     db: Session,
     batch: ImportBatch,
@@ -149,10 +174,15 @@ def _prepare_import(
     summary: dict[str, Any] | None,
 ) -> None:
     db.flush()
+    for record in records:
+        record["grade"] = convert_grade(db, record.get("grade_raw"))
     db.add_all(_issue_models(batch.id, source.id, issues))
     db.add_all(_sale_models(batch.id, source.id, records))
     if summary:
-        db.add(SettlementSummary(import_batch_id=batch.id, **summary))
+        summary_row = SettlementSummary(import_batch_id=batch.id, **summary)
+        _apply_reconciliation(summary_row, records)
+        db.add(summary_row)
+    source.row_count = len(records)
     batch.success_count = len(records)
     batch.warning_count = sum(item.severity == "warning" for item in issues)
     batch.failure_count = sum(item.severity == "error" for item in issues)
@@ -174,6 +204,7 @@ def import_file(
     original_filename: str | None = None,
     source_type: str | None = None,
     overwrite: bool = False,
+    brand: str | None = None,
 ) -> ImportResult:
     """按商号导入；解析先于写入，写入异常回滚全部对象。
 
@@ -214,11 +245,15 @@ def import_file(
         order_no_normalized=normalize_order_no(meta.order_no),
         container_no=meta.container_no,
         vehicle_no=meta.vehicle_no,
+        # 品牌由导入时人工选择；老规则解析链路标记 parse_mode=rule。
+        brand=brand,
+        parse_mode="rule",
     )
     source = SourceFile(
         file_name=filename,
         file_hash=file_hash,
         storage_path=str(path),
+        brand=brand,
         import_batch=batch,
     )
     db.add(batch)

@@ -1,18 +1,44 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
-import { getImportIssues, getImports, issuesCsvUrl, uploadImports, type ImportBatch, type ImportIssue } from '../api/client'
+import { getImportIssues, getImports, issuesCsvUrl, previewImports, type ImportBatch, type ImportIssue } from '../api/client'
+import { currentUser } from '../auth'
+import { useRouter } from 'vue-router'
 import { formatDateTime } from '../utils/format'
-import { addSelectedFiles, isFileDrag } from '../utils/importFiles'
-import { summarizeImportResults } from '../utils/importStatus'
+import { isFileDrag } from '../utils/importFiles'
+import { clearEntryDraft, describeEntryDraft, draftTitle, readEntryDraft } from '../utils/entryDraft'
+import DataTable, { type DataTableColumn } from '../components/DataTable.vue'
 
 const batches = ref<ImportBatch[]>([])
+const router = useRouter()
+const canEnter = computed(() => Boolean(currentUser.value?.permissions.includes('entry:view')))
+const entryDraft = computed(() => {
+  try {
+    return readEntryDraft(window.localStorage, currentUser.value?.id)
+  } catch {
+    return null
+  }
+})
+const hasEntryDraft = computed(() => Boolean(entryDraft.value))
+// 问题明细列固定，行号 / 级别 / 类型 / 字段 / 说明 / 原始值由通用列表组件渲染。
+const issueRowKey = (issue: ImportIssue) => issue.id
+
+const issueColumns: DataTableColumn<ImportIssue>[] = [
+  { key: 'rowNumber', label: '行号', numeric: true, value: (issue) => issue.rowNumber ?? '—' },
+  { key: 'severity', label: '级别', value: (issue) => severityLabel(issue.severity) },
+  { key: 'issueType', label: '类型', value: (issue) => issueTypeLabel(issue.issueType) },
+  { key: 'fieldName', label: '字段', value: (issue) => fieldLabel(issue.fieldName) },
+  { key: 'message', label: '说明' },
+  { key: 'rawValue', label: '原始值', value: (issue) => issue.rawValue || '—' },
+]
+// 导入记录逐页展示，避免批次过多时把页面撑得很长。
+const batchPage = ref(1)
+const batchPageSize = 5
 const selectedFiles = ref<File[]>([])
 const loading = ref(true)
 const uploading = ref(false)
 const error = ref('')
 const notice = ref('')
-const conflictFiles = ref<File[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
 const expandedBatch = ref('')
 const loadingIssues = ref('')
@@ -26,17 +52,50 @@ const warningBatches = computed(() => batches.value.filter((batch) => batch.warn
 const failedBatches = computed(() => batches.value.filter((batch) => batch.failureCount > 0 || batch.status.toLowerCase() === 'failed').length)
 const totalIssues = computed(() => batches.value.reduce((total, batch) => total + batch.warningCount + batch.failureCount, 0))
 const latestBatch = computed(() => batches.value[0])
+const totalBatchPages = computed(() => Math.max(1, Math.ceil(batches.value.length / batchPageSize)))
+const pagedBatches = computed(() => {
+  const start = (batchPage.value - 1) * batchPageSize
+  return batches.value.slice(start, start + batchPageSize)
+})
 
-function selectFiles(files: File[], append = true) {
-  if (!files.length) return
-  const { files: merged, ignored } = addSelectedFiles(append ? selectedFiles.value : [], files)
-  selectedFiles.value = merged
-  error.value = ignored ? '已忽略不支持的文件格式，请选择表格文件。' : ''
+function goBatchPage(page: number) {
+  batchPage.value = Math.min(Math.max(1, page), totalBatchPages.value)
 }
 
-function onInput(event: Event) { selectFiles(Array.from((event.target as HTMLInputElement).files ?? [])) }
+// 批次增删后回到第一页，避免停留在越界页码上。
+watch(() => batches.value.length, () => { batchPage.value = 1 })
+
+function selectFiles(files: File[]) {
+  if (!files.length) return
+  const supported = files.filter((file) => /\.(csv|xlsx)$/i.test(file.name))
+  if (!supported.length) {
+    selectedFiles.value = []
+    error.value = '不支持的文件格式，请选择 CSV 或 XLSX 文件。'
+    return
+  }
+  selectedFiles.value = [supported[0]]
+  error.value = ''
+  notice.value = files.length > 1 ? '一次只能导入一个文件，已保留第一个文件。' : ''
+}
+
+function onInput(event: Event) {
+  selectFiles(Array.from((event.target as HTMLInputElement).files ?? []))
+  if (selectedFiles.value.length) void submit()
+}
 function openFilePicker() { fileInput.value?.click() }
 function clearFiles() { selectedFiles.value = []; if (fileInput.value) fileInput.value.value = '' }
+function goManualEntry() {
+  void router.push(hasEntryDraft.value ? '/entry?draft=1' : '/entry')
+}
+
+function startNewEntry() {
+  try {
+    clearEntryDraft(window.localStorage, currentUser.value?.id)
+  } catch {
+    // 存储不可用时仍允许打开空白录单。
+  }
+  void router.push('/entry')
+}
 
 function onDragEnter(event: DragEvent) {
   if (!isFileDrag(event.dataTransfer)) return
@@ -62,6 +121,7 @@ function onDrop(event: DragEvent) {
   dragDepth = 0
   dragging.value = false
   selectFiles(Array.from(event.dataTransfer?.files ?? []))
+  if (selectedFiles.value.length) void submit()
 }
 
 function preventBrowserFileOpen(event: DragEvent) {
@@ -76,36 +136,21 @@ async function loadBatches() {
   finally { loading.value = false }
 }
 
-async function submit(overwrite = false) {
+async function submit() {
   if (!selectedFiles.value.length) return
-  // 按钮绑定可能把点击事件当作参数传入，这里只认显式 true，避免误触发覆盖。
-  const forceOverwrite = overwrite === true
   const files = [...selectedFiles.value]
   uploading.value = true
   error.value = ''
   notice.value = ''
-  conflictFiles.value = []
   try {
-    const result = await uploadImports(files, { overwrite: forceOverwrite })
+    const result = await previewImports(files)
     selectedFiles.value = []
     if (fileInput.value) fileInput.value.value = ''
     await loadBatches()
-    const summary = summarizeImportResults(result)
-    if (!forceOverwrite) conflictFiles.value = files.filter(
-      (file) => result.some(
-        (item) => item.status.toLowerCase() === 'conflict' && item.fileName === file.name,
-      ),
-    )
-    if (result.some((item) => item.status.toLowerCase() === 'failed')) error.value = summary
-    else notice.value = summary
+    notice.value = `已生成 ${result.draftCount} 条待确认草稿，正在打开复核页`
+    await router.push({ path: '/import-review', query: { job: result.token } })
   } catch (caught) { error.value = caught instanceof Error ? caught.message : '文件上传失败' }
   finally { uploading.value = false }
-}
-
-async function overwriteConflicts() {
-  if (!conflictFiles.value.length) return
-  selectedFiles.value = [...conflictFiles.value]
-  await submit(true)
 }
 
 async function toggleIssues(batchId: string | number) {
@@ -195,42 +240,57 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page-stack import-page">
-    <header class="page-header compact-page-header">
-      <div><h1>数据导入</h1><p>上传结算单，查看导入结果和需要核对的问题。</p></div>
-    </header>
-
-    <section class="how-to" aria-label="导入方法">
-      <strong>怎么查看</strong>
-      <span>第一步：点击“选择结算单”选好文件，或把多个文件直接拖进下面的方框。第二步：点击“开始导入”，然后查看导入结果。</span>
-    </section>
-
-    <section class="upload-workbench upload-workbench--compact" :class="{ 'is-uploading': uploading }" aria-labelledby="upload-title" :aria-busy="uploading">
-      <div class="upload-copy"><h2 id="upload-title">选择结算单</h2><p>可以一次选择或拖入多个文件。系统会记录导入结果，方便以后核对。</p></div>
-      <div
-        class="file-picker-panel"
-        :class="{ 'is-dragging': dragging }"
-        @dragenter.prevent.stop="onDragEnter"
-        @dragover.prevent.stop="onDragOver"
-        @dragleave.prevent.stop="onDragLeave"
-        @drop.prevent.stop="onDrop"
-      >
-        <input id="settlement-files" ref="fileInput" class="sr-only" type="file" multiple accept=".csv,.xlsx" @click.stop @change="onInput">
-        <button class="primary-button" type="button" @click="openFilePicker">选择结算单</button>
-        <span>支持常见表格文件，单个文件不超过 20 兆字节；也可以把多个文件一起拖到这里</span>
-      </div>
-      <div v-if="selectedFiles.length" class="upload-queue" aria-live="polite">
-        <div><strong>已选择 {{ selectedFiles.length }} 个文件</strong><span>{{ formatFileSize(selectedFiles.reduce((total, file) => total + file.size, 0)) }}</span></div>
-        <ul><li v-for="file in selectedFiles" :key="`${file.name}-${file.size}`"><span>{{ file.name }}</span><small>{{ formatFileSize(file.size) }}</small></li></ul>
-        <div class="upload-queue-actions">
-          <button class="secondary-button" type="button" :disabled="uploading" @click="clearFiles">清空选择</button>
-          <button class="primary-button" type="button" :disabled="uploading" @click="submit()">{{ uploading ? '正在导入' : '开始导入' }}</button>
+    <section class="entry-modes" :class="{ 'is-uploading': uploading }" :aria-busy="uploading">
+      <article class="mode-card upload-mode">
+        <div class="mode-card-head">
+          <h2 id="upload-title">上传结算单</h2>
+          <span>支持常见表格文件</span>
         </div>
-      </div>
-      <p v-if="error" class="form-message error" role="alert">{{ error }}</p><p v-if="notice" class="form-message success" aria-live="polite">{{ notice }}</p>
-      <div v-if="conflictFiles.length" class="overwrite-prompt" role="status">
-        <span><strong>{{ conflictFiles.length }} 张结算单已存在</strong>继续导入会用新文件覆盖原有明细和结算信息。</span>
-        <button class="primary-button" type="button" :disabled="uploading" @click="overwriteConflicts">{{ uploading ? '正在覆盖' : '覆盖并重新导入' }}</button>
-      </div>
+        <p class="mode-desc">拖入文件会自动解析并生成待确认草稿，导入记录就在下方查看。</p>
+        <div
+          class="file-picker-panel"
+          :class="{ 'is-dragging': dragging }"
+          @dragenter.prevent.stop="onDragEnter"
+          @dragover.prevent.stop="onDragOver"
+          @dragleave.prevent.stop="onDragLeave"
+          @drop.prevent.stop="onDrop"
+        >
+          <input id="settlement-files" ref="fileInput" class="sr-only" type="file" accept=".csv,.xlsx" @click.stop @change="onInput">
+          <button class="primary-button" type="button" @click="openFilePicker">选择结算单</button>
+          <span>一次只拖入一个文件</span>
+        </div>
+        <div v-if="selectedFiles.length" class="upload-queue" aria-live="polite">
+          <div><strong>已选择 {{ selectedFiles.length }} 个文件</strong><span>{{ formatFileSize(selectedFiles.reduce((total, file) => total + file.size, 0)) }}</span></div>
+          <ul><li v-for="file in selectedFiles" :key="`${file.name}-${file.size}`"><span>{{ file.name }}</span><small>{{ formatFileSize(file.size) }}</small></li></ul>
+          <div class="upload-queue-actions">
+            <button class="secondary-button" type="button" :disabled="uploading" @click="clearFiles">清空选择</button>
+            <button class="primary-button" type="button" :disabled="uploading" @click="submit()">{{ uploading ? '正在导入' : '开始导入' }}</button>
+          </div>
+        </div>
+        <p v-if="error" class="form-message error" role="alert">{{ error }}</p><p v-if="notice" class="form-message success" aria-live="polite">{{ notice }}</p>
+      </article>
+
+      <article v-if="canEnter" class="mode-card manual-mode">
+        <div class="mode-card-head">
+          <h2>手工录单</h2>
+          <span>无表格或现场补录</span>
+        </div>
+        <p class="mode-desc">按结算单模板逐项填写，保存后生成结算单。</p>
+        <div v-if="entryDraft" class="draft-resume">
+          <span class="draft-badge">有未完成草稿</span>
+          <strong>{{ draftTitle(entryDraft) }}</strong>
+          <small>{{ describeEntryDraft(entryDraft) }}</small>
+          <div class="draft-actions">
+            <button class="primary-button" type="button" @click="goManualEntry">继续录单</button>
+            <button class="secondary-button" type="button" @click="startNewEntry">重新录单</button>
+          </div>
+        </div>
+        <div v-else class="manual-empty">
+          <span>还没有暂存的手工单</span>
+          <button class="secondary-button" type="button" @click="goManualEntry">手工录单</button>
+        </div>
+      </article>
+
       <div v-if="uploading" class="uploading-mask" role="status" aria-live="polite">
         <span class="uploading-spinner" aria-hidden="true"></span>
         <strong>正在导入，请稍候</strong>
@@ -242,7 +302,7 @@ onBeforeUnmount(() => {
       <div><span>累计批次</span><strong>{{ batches.length }}</strong><small>{{ latestBatch ? `最近 ${formatDateTime(latestBatch.importedAt)}` : '等待首次导入' }}</small></div>
       <div><span>需关注批次</span><strong :class="{ 'is-alert': warningBatches }">{{ warningBatches }}</strong><small>{{ totalIssues }} 条问题待处理</small></div>
       <div><span>失败批次</span><strong :class="{ 'is-alert': failedBatches }">{{ failedBatches }}</strong><small>{{ failedBatches ? '请先修复后重新导入' : '当前没有失败批次' }}</small></div>
-      <div><span>等级口径</span><strong>A果 / B果 / C果</strong><small>原始BC等级自动归入C果</small></div>
+      <div><span>等级口径</span><strong>按管理端转换规则</strong><small>统计等级动态生成，明细保留原文</small></div>
     </section>
 
     <button type="button" class="mobile-detail-toggle" :aria-expanded="detailOpen" aria-controls="import-mobile-history" @click="detailOpen = !detailOpen">{{ detailOpen ? '收起导入记录' : '查看导入记录' }}</button>
@@ -253,7 +313,7 @@ onBeforeUnmount(() => {
         <div v-if="loading" class="history-skeleton skeleton-block">正在加载导入记录</div>
         <div v-else-if="!batches.length" class="empty-state prominent"><strong>还没有导入记录</strong><span>完成首次文件导入后，批次与质量统计会显示在这里。</span></div>
         <div v-else class="batch-list">
-          <article v-for="batch in batches" :key="batch.id" class="batch-row">
+          <article v-for="batch in pagedBatches" :key="batch.id" class="batch-row">
             <div class="batch-file"><strong>{{ batchTitle(batch) }}</strong><small>{{ batchSubtitle(batch) }}</small></div>
             <span class="status-badge" :class="statusTone(batch.status)">{{ statusLabel(batch.status) }}</span>
             <dl class="batch-counts"><div><dt>成功</dt><dd>{{ batch.successCount }}</dd></div><div><dt>警告</dt><dd class="count-warning">{{ batch.warningCount }}</dd></div><div><dt>失败</dt><dd class="count-error">{{ batch.failureCount }}</dd></div></dl>
@@ -264,7 +324,18 @@ onBeforeUnmount(() => {
               <div v-else-if="issueErrors[String(batch.id)]" class="issue-load-error" role="alert"><span>{{ issueErrors[String(batch.id)] }}</span><button type="button" class="text-button" @click="toggleIssues(batch.id).then(() => toggleIssues(batch.id))">重试</button></div>
               <p v-else-if="!issuesByBatch[String(batch.id)]?.length" class="section-note">该批次没有问题明细。</p>
               <div v-else class="issue-results">
-                <div class="table-wrap"><table><thead><tr><th>行号</th><th>级别</th><th>类型</th><th>字段</th><th>说明</th><th>原始值</th></tr></thead><tbody><tr v-for="issue in issuesByBatch[String(batch.id)]" :key="issue.id"><td>{{ issue.rowNumber ?? '—' }}</td><td><span class="issue-severity" :class="severityTone(issue.severity)">{{ severityLabel(issue.severity) }}</span></td><td>{{ issueTypeLabel(issue.issueType) }}</td><td>{{ fieldLabel(issue.fieldName) }}</td><td>{{ issue.message }}</td><td>{{ issue.rawValue || '—' }}</td></tr></tbody></table></div>
+                <DataTable
+                  :columns="issueColumns"
+                  :rows="issuesByBatch[String(batch.id)] ?? []"
+                  :row-key="issueRowKey"
+                  caption="该批次的数据问题明细"
+                  min-width="680px"
+                  bordered
+                >
+                  <template #cell-severity="{ row }">
+                    <span class="issue-severity" :class="severityTone(row.severity)">{{ severityLabel(row.severity) }}</span>
+                  </template>
+                </DataTable>
                 <div class="mobile-issue-cards">
                   <article v-for="issue in issuesByBatch[String(batch.id)]" :key="issue.id" class="mobile-issue-card">
                     <header><span class="issue-severity" :class="severityTone(issue.severity)">{{ severityLabel(issue.severity) }}</span><strong>{{ issueTypeLabel(issue.issueType) }}</strong><small>行 {{ issue.rowNumber ?? '—' }} · {{ fieldLabel(issue.fieldName) }}</small></header>
@@ -276,6 +347,11 @@ onBeforeUnmount(() => {
             </div>
           </article>
         </div>
+        <nav v-if="totalBatchPages > 1" class="batch-pagination" aria-label="导入记录分页">
+          <span>共 {{ batches.length }} 批 · 第 {{ batchPage }} / {{ totalBatchPages }} 页</span>
+          <button type="button" :disabled="batchPage <= 1" @click="goBatchPage(batchPage - 1)">上一页</button>
+          <button type="button" :disabled="batchPage >= totalBatchPages" @click="goBatchPage(batchPage + 1)">下一页</button>
+        </nav>
       </section>
     </div>
   </div>
@@ -283,9 +359,24 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .import-page { gap: 18px; }
-.compact-page-header { padding-bottom: 18px; }
-.upload-workbench--compact { grid-template-columns: minmax(240px, .7fr) minmax(280px, 1.3fr); gap: 18px 24px; padding: 20px; }
-.upload-workbench--compact { position: relative; }
+.entry-modes { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.mode-card { min-width: 0; padding: 18px; border: 1px solid var(--line); border-top: 3px solid var(--primary); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow); }
+.mode-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mode-card-head h2 { margin: 0; font-size: 1.05rem; }
+.mode-card-head span { color: var(--muted); font-size: .78rem; white-space: nowrap; }
+.mode-desc { margin: 8px 0 14px; color: var(--muted); font-size: .86rem; line-height: 1.5; }
+.draft-resume,
+.manual-empty { display: grid; gap: 9px; min-height: 124px; align-content: center; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); }
+.draft-resume { justify-items: start; }
+.draft-badge { padding: 3px 8px; border-radius: 999px; background: #fff4dc; color: #8a5b00; font-size: .76rem; font-weight: 800; }
+.draft-resume strong { overflow-wrap: anywhere; font-size: .98rem; }
+.draft-resume small { color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.manual-empty { justify-items: start; }
+.manual-empty span { color: var(--muted); font-size: .88rem; }
+.draft-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.draft-resume .primary-button,
+.draft-resume .secondary-button,
+.manual-empty .secondary-button { min-height: 38px; padding: 0 14px; font-size: .92rem; }
 .uploading-mask {
   position: absolute;
   z-index: 10;
@@ -328,10 +419,32 @@ onBeforeUnmount(() => {
 .quality-summary strong.is-alert { color: var(--danger); }
 .batch-list { gap: 9px; }
 .batch-row { grid-template-columns: minmax(180px, 1fr) auto minmax(190px, .7fr) auto; gap: 12px; padding: 14px; }
+.batch-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .59rem;
+  margin-top: .71rem;
+  color: var(--muted);
+  font-size: .9rem;
+}
+.batch-pagination button {
+  min-height: 2.35rem;
+  padding: 0 .71rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+}
+.batch-pagination button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); }
+.batch-pagination button:disabled { cursor: not-allowed; opacity: .45; }
 .batch-counts dd.count-warning { color: var(--warning); }
 .batch-counts dd.count-error { color: var(--danger); }
 .batch-actions { gap: 8px; }
-.batch-issues { padding-top: 12px; }
+/* 问题明细可能几十行：限高后滚动留在表格内部，页面不被撑长。 */
+.batch-issues :deep(.data-table) { max-height: 22rem; }
 .mobile-issue-cards { display: none; }
 .mobile-detail-toggle { display: none; }
 .import-mobile-history { display: grid; gap: 18px; }
@@ -343,7 +456,7 @@ onBeforeUnmount(() => {
 .overwrite-prompt strong { display: block; color: var(--ink); font-size: .92rem; }
 
 @media (max-width: 820px) {
-  .upload-workbench--compact { grid-template-columns: 1fr; }
+  .entry-modes { grid-template-columns: 1fr; }
   .quality-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .quality-summary > div:nth-child(2) { border-right: 0; }
   .quality-summary > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
@@ -361,8 +474,8 @@ onBeforeUnmount(() => {
 @media (max-width: 560px) {
   .mobile-detail-toggle { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--primary-dark); font-size: .95rem; font-weight: 800; }
   .import-mobile-history { gap: 12px; }
-  .upload-workbench--compact { gap: 12px; padding: 12px; }
-  .upload-copy p { display: none; }
+  .entry-modes { gap: 12px; }
+  .mode-card { padding: 14px; }
   .file-picker-panel { min-height: 64px; padding: 12px; }
   .quality-summary > div { gap: 2px; padding: 8px; }
   .quality-summary small { display: none; }
@@ -371,7 +484,6 @@ onBeforeUnmount(() => {
   .batch-row { padding: 12px; }
   .batch-actions { flex-wrap: wrap; }
   .batch-actions .compact-button { flex: 1 1 130px; }
-  .batch-issues .table-wrap table { min-width: 680px; }
   .dashboard-section > .section-heading {
     position: sticky;
     z-index: 20;
@@ -382,7 +494,7 @@ onBeforeUnmount(() => {
     background: rgba(255, 255, 255, .95);
   }
   .issue-results { min-width: 0; }
-  .issue-results .table-wrap { display: none; }
+  .issue-results :deep(.data-table) { display: none; }
   .mobile-issue-cards { display: grid; gap: 8px; }
   .mobile-issue-card { display: grid; gap: 7px; padding: 11px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); }
   .mobile-issue-card header { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }

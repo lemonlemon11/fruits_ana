@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 
 const props = defineProps<{
   startDate?: string
@@ -12,6 +12,7 @@ const emit = defineEmits<{
 }>()
 
 const triggerId = `date-range-filter-${useId()}`
+const root = ref<HTMLElement | null>(null)
 const open = ref(false)
 const draftStart = ref('')
 const draftEnd = ref('')
@@ -49,10 +50,19 @@ function applyRange() {
   emit('update:endDate', draftEnd.value)
   open.value = false
 }
+
+function handleDocumentPointerDown(event: PointerEvent) {
+  if (open.value && root.value && !root.value.contains(event.target as Node)) {
+    open.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('pointerdown', handleDocumentPointerDown))
+onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocumentPointerDown))
 </script>
 
 <template>
-  <div class="date-range-filter">
+  <div ref="root" class="date-range-filter">
     <button
       :id="triggerId"
       type="button"

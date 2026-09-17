@@ -12,6 +12,10 @@ export function setCurrentUser(user: AuthUser | null): void {
   authReady.value = true
 }
 
+export function hasPermission(code: string): boolean {
+  return currentUser.value?.permissions.includes(code) === true
+}
+
 export function restoreSession(): Promise<AuthUser | null> {
   if (authReady.value) return Promise.resolve(currentUser.value)
   if (restorePromise) return restorePromise

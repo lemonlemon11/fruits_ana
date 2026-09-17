@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>顺仔 · 悬浮问答（53001）</title>
+    <link rel="stylesheet" href="./ask-mock-page.css" />
+    <link rel="stylesheet" href="./ask-widget.css" />
+  </head>
+  <body>
+    <header class="mock-header">
+      <div class="mock-brand">
+        <span class="mock-logo">SLD</span>
+        <span>
+          <strong>水果市场销售分析</strong>
+          <em>演示页 · 53001</em>
+        </span>
+      </div>
+      <div class="mock-account">
+        <span class="mock-clock">2026-09-15 周二 14:30</span>
+        <span class="mock-avatar">运</span>
+        <span>运营员</span>
+        <button type="button">退出登录</button>
+      </div>
+    </header>
+
+    <nav class="mock-tabs" aria-label="页签">
+      <span class="is-active">首页</span>
+      <span>结算单</span>
+      <span>系列对比</span>
+    </nav>
+
+    <main class="mock-main">
+      <section class="mock-intro">
+        <p class="eyebrow">交互稿 · 悬浮问答机器人</p>
+        <h1>顺仔：右下角悬浮机器人 + 悬浮对话窗</h1>
+        <p>
+          下面是系统页面的示意内容，用来检查悬浮元素的位置关系：右下角原本有「回顶部」，
+          机器人按钮和它上下错开，打开对话窗时「回顶部」自动让位，两者不会叠在一起。
+        </p>
+        <ul class="mock-tips">
+          <li>点右下角绿色机器人按钮：顺仔在<strong>左边</strong>，你的提问在<strong>右边</strong>（微信式气泡）</li>
+          <li>答案只给结论，不展示查询过程；输入框会随内容自动长高，不会出现滚动条</li>
+          <li>按 <kbd>Esc</kbd> 或点右上角 × 收起窗口；页面往下滚会出现「回顶部」</li>
+        </ul>
+      </section>
+
+      <section class="mock-grid">
+        <article class="mock-card"><h2>结算单</h2><strong>12</strong><span>张</span></article>
+        <article class="mock-card"><h2>销售明细</h2><strong>364</strong><span>条</span></article>
+        <article class="mock-card"><h2>品牌</h2><strong>3</strong><span>宝贝 / 香香 / 晴牌</span></article>
+        <article class="mock-card"><h2>加权均价</h2><strong>451.74</strong><span>元 / 件（宝贝-003）</span></article>
+      </section>
+
+      <section class="mock-block">
+        <h2>占位内容（往下滚动，观察两个悬浮按钮的叠放）</h2>
+        <p>
+          真实系统里这一块是看板、单柜诊断、货柜对比等业务内容。滚动超过约 320px 后，
+          右下角出现「回顶部」；机器人在它的正上方，中间留出安全间距，不会互相遮挡。
+        </p>
+        <p>
+          打开对话窗后，「回顶部」会暂时隐藏，把右下角整块让给对话窗；关闭对话窗后又恢复。
+          手机端上对话窗占满全屏，机器人按钮和「回顶部」都抬到底部导航栏上方。
+        </p>
+        <p>
+          对话窗内的数字全部由后端现算，和看板同一套口径；系统里没有的（采购成本、利润、销售地区）
+          顺仔会直接说明查不到，而不是编一个数。
+        </p>
+        <p>层级约定：回顶部 z-index 35 &lt; 机器人 40 &lt; 对话窗 45，三者互不覆盖。</p>
+        <p>
+          顺仔回答时只调用后端已封装的只读查询（结算单列表、总览、排名、单柜明细、货柜对比），
+          不会自己写 SQL，也不会脱离系统口径算数。
+        </p>
+        <p>
+          会话与业务页面共用：没登录时对话窗里会直接出现登录框，登录后沿用同一个 Cookie，
+          不需要在两处各登一次。
+        </p>
+      </section>
+
+      <section class="mock-block mock-block--list">
+        <h2>最近结算单（占位数据，用于撑高页面）</h2>
+        <ul class="mock-rows">
+          <li><span>晴牌-001</span><span>581,745 元</span><span>2026-08-28</span></li>
+          <li><span>香香-002</span><span>1,979 件</span><span>2026-08-29</span></li>
+          <li><span>宝贝-003</span><span>加权均价 451.74 元 / 件</span><span>2026-09-02</span></li>
+          <li><span>晴牌-004</span><span>2,143 件</span><span>2026-09-05</span></li>
+          <li><span>香香-005</span><span>673,120 元</span><span>2026-09-08</span></li>
+          <li><span>宝贝-006</span><span>1,588 件</span><span>2026-09-11</span></li>
+          <li><span>晴牌-007</span><span>742,380 元</span><span>2026-09-12</span></li>
+          <li><span>香香-008</span><span>1,204 件</span><span>2026-09-13</span></li>
+          <li><span>宝贝-009</span><span>536,915 元</span><span>2026-09-13</span></li>
+          <li><span>晴牌-010</span><span>1,876 件</span><span>2026-09-14</span></li>
+          <li><span>香香-011</span><span>428,660 元</span><span>2026-09-14</span></li>
+          <li><span>宝贝-012</span><span>912 件</span><span>2026-09-15</span></li>
+        </ul>
+      </section>
+
+      <section class="mock-block">
+        <h2>这一页在演示什么</h2>
+        <p>
+          1）位置：机器人按钮固定在右下角、位于「回顶部」正上方；对话窗从按钮上方展开，
+          宽度 460px、高度取视口高度减 140px 与 720px 的较小值，窗口内独立滚动，不会把整页顶长。
+        </p>
+        <p>
+          2）形态：微信式气泡，顺仔在左、你在右；底部只有输入区，不再罗列常见问题，
+          直接打字提问即可，输入框支持 Enter 直接发送、Shift + Enter 换行。
+        </p>
+        <p>
+          3）可达性：机器人按钮带 aria-expanded / aria-controls，对话窗是常驻浮动区域（不是遮罩弹窗），
+          Esc 收起、焦点回到按钮；手机端对话窗占满全屏，关闭后回到页面。
+        </p>
+      </section>
+    </main>
+
+    <footer class="mock-footer">SLD 水果市场销售分析 · 演示页（真实数据来自本机后端 8010）</footer>
+
+    <nav class="mock-tabbar" aria-label="底部导航">
+      <span class="is-active">首页</span>
+      <span>结算单</span>
+      <span>对比</span>
+      <span>更多</span>
+    </nav>
+
+    <button class="to-top" id="toTop" type="button" hidden aria-label="回到页面顶部">
+      <span aria-hidden="true">↑</span>
+      <span>回顶部</span>
+    </button>
+
+    <button
+      class="ask-fab"
+      id="askFab"
+      type="button"
+      aria-expanded="false"
+      aria-controls="askPanel"
+      aria-label="打开顺仔数据问答"
+    >
+      <span class="ask-fab__avatar" id="fabAvatar" aria-hidden="true">
+        <img class="ask-fab__avatar-img" src="/durian-mascot.svg" alt="" />
+        <span class="ask-fab__avatar-close">×</span>
+      </span>
+    </button>
+
+    <section class="ask-panel" id="askPanel" hidden aria-label="顺仔 · 数据问答">
+      <header class="ask-panel__head">
+        <span class="ask-panel__avatar" aria-hidden="true">顺</span>
+        <div class="ask-panel__meta">
+          <strong>顺仔</strong>
+          <span id="statusText">连接中…</span>
+        </div>
+        <button class="ask-panel__close" id="askClose" type="button" aria-label="收起对话窗口">×</button>
+      </header>
+
+      <div class="ask-panel__scroll" id="askBody" hidden>
+        <div class="chat-log" id="chatLog"></div>
+      </div>
+
+      <section class="login-gate" id="loginGate" hidden>
+        <h2>先用系统账号登录</h2>
+        <p>问答接口与业务页面共用同一套会话，登录后即可提问。</p>
+        <form class="login-form" id="loginForm">
+          <label><span>账号</span><input id="loginName" autocomplete="username" required /></label>
+          <label><span>密码</span><input id="loginPass" type="password" autocomplete="current-password" required /></label>
+          <button type="submit">登录</button>
+          <p class="login-error" id="loginError" role="alert" hidden></p>
+        </form>
+      </section>
+
+      <div class="ask-panel__foot" id="askFoot" hidden>
+        <form class="composer" id="askForm">
+          <textarea
+            id="askInput"
+            rows="1"
+            placeholder="例如：哪张单卖得最好？"
+            maxlength="500"
+            required
+          ></textarea>
+          <button type="submit" id="askSubmit">发送</button>
+        </form>
+      </div>
+    </section>
+
+    <script type="module" src="./ask-demo.js"></script>
+  </body>
+</html>

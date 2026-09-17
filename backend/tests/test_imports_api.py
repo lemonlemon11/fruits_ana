@@ -2,6 +2,7 @@ import asyncio
 import csv
 import io
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -30,7 +31,7 @@ def isolated_upload_dir(tmp_path, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def authenticated_business_api():
-    app.dependency_overrides[require_current_user] = lambda: object()
+    app.dependency_overrides[require_current_user] = lambda: SimpleNamespace(id=None)
     yield
     app.dependency_overrides.pop(require_current_user, None)
 
@@ -57,6 +58,50 @@ def test_upload_lists_batch_and_downloads_issues_csv():
     csv_response = client.get(f"/api/imports/{result['batch_id']}/issues.csv")
     assert csv_response.status_code == 200
     assert "amount_mismatch" in csv_response.content.decode("utf-8-sig")
+
+
+def test_preview_multi_file_creates_job_and_confirm_writes_batches():
+    client = TestClient(app)
+    attachments = Path(__file__).resolve().parents[2] / "attachments"
+    files = [
+        (
+            "files",
+            (
+                "结算单模板样式-测试数据 1.xlsx",
+                (attachments / "结算单模板样式-测试数据 1.xlsx").read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+        ),
+        (
+            "files",
+            (
+                "结算单模板样式-测试数据 2.xlsx",
+                (attachments / "结算单模板样式-测试数据 2.xlsx").read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+        ),
+    ]
+
+    preview = client.post("/api/imports/preview", files=files)
+
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body["draft_count"] == 2
+    assert body["token"]
+
+    job = client.get(f"/api/imports/jobs/{body['token']}")
+    assert job.status_code == 200
+    assert job.json()["drafts"] and len(job.json()["drafts"]) == 2
+
+    confirmed = client.post(
+        f"/api/imports/jobs/{body['token']}/confirm", json={"force": False}
+    )
+    assert confirmed.status_code == 200
+    assert len(confirmed.json()["confirmed"]) == 2
+
+    db = SessionLocal()
+    assert db.query(ImportBatch).count() == 2
+    db.close()
 
 
 def test_same_merchant_upload_conflicts_and_missing_batch_is_404():

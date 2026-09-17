@@ -1,4 +1,4 @@
-"""数据明细列表：按商号汇总结算单指标，并计算默认时间范围。"""
+"""数据明细列表：按商号汇总结算单指标，支持关键词模糊搜索与分页。"""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from ..models import ImportBatch, SaleRecord
@@ -15,6 +15,67 @@ from .analytics_core import GRADES, rounded
 from .merchant_no_naming import merchant_no_display
 from .order_no_naming import order_no_display
 from .series_analytics_service import series_name
+
+
+PAGE_SIZE_DEFAULT = 10
+PAGE_SIZE_MAX = 100
+LIKE_ESCAPE = "\\"
+# 模糊搜索覆盖「原始写法 + 适配后写法」，页面展示哪一列都能搜到。
+KEYWORD_COLUMNS = (
+    ImportBatch.merchant_no,
+    ImportBatch.merchant_no_normalized,
+    ImportBatch.order_no,
+    ImportBatch.order_no_normalized,
+    ImportBatch.container_no,
+    ImportBatch.vehicle_no,
+)
+
+
+def _keyword_pattern(keyword: str) -> str:
+    """把用户输入转成 LIKE 模式，并转义 %、_ 与反斜杠，避免被当通配符。"""
+
+    cleaned = (
+        keyword.strip()
+        .replace(LIKE_ESCAPE, LIKE_ESCAPE * 2)
+        .replace("%", f"{LIKE_ESCAPE}%")
+        .replace("_", f"{LIKE_ESCAPE}_")
+    )
+    return f"%{cleaned}%"
+
+
+def _apply_keyword(query, keyword: str):
+    """在商号 / 单号 / 柜号 / 车牌上做包含匹配，避免前端拉全量再过滤。"""
+
+    pattern = _keyword_pattern(keyword)
+    return query.filter(
+        or_(*(column.like(pattern, escape=LIKE_ESCAPE) for column in KEYWORD_COLUMNS))
+    )
+
+
+def _pagination_info(total: int, page: int | None, page_size: int | None) -> dict:
+    size = min(max(page_size or PAGE_SIZE_DEFAULT, 1), PAGE_SIZE_MAX)
+    pages = max(1, (total + size - 1) // size)
+    safe_page = min(max(page or 1, 1), pages)
+    return {"total": total, "page": safe_page, "page_size": size, "pages": pages}
+
+
+def _payload(
+    date_range: dict | None,
+    items: list[dict],
+    page: int | None,
+    page_size: int | None,
+) -> dict:
+    """不传分页参数时保持全量返回，传入时只回当页并附 ``pagination``。"""
+
+    if page is None and page_size is None:
+        return {"date_range": date_range, "settlements": items, "pagination": None}
+    info = _pagination_info(len(items), page, page_size)
+    start = (info["page"] - 1) * info["page_size"]
+    return {
+        "date_range": date_range,
+        "settlements": items[start : start + info["page_size"]],
+        "pagination": info,
+    }
 
 
 def one_month_before(value: date) -> date:
@@ -46,16 +107,20 @@ def list_settlements(
     start_date: date | None = None,
     end_date: date | None = None,
     merchant_no: str | None = None,
+    keyword: str | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> dict:
     """按结算单汇总指定日期范围内的销售明细。
 
     未传日期时使用 ``[最新销售日期 - 1 个月, 最新销售日期]``，含两端；
-    范围内没有明细的结算单不返回。
+    范围内没有明细的结算单不返回。``keyword`` 在商号 / 单号 / 柜号 / 车牌上做
+    模糊匹配；``page`` / ``page_size`` 只会切分返回的列表，不影响 ``date_range``。
     """
 
     latest = db.query(func.max(SaleRecord.sale_date)).scalar()
     if latest is None:
-        return {"date_range": None, "settlements": []}
+        return _payload(None, [], page, page_size)
     is_default = start_date is None and end_date is None
     start = start_date or one_month_before(latest)
     end = end_date or latest
@@ -67,6 +132,8 @@ def list_settlements(
     )
     if merchant_no:
         query = query.filter(ImportBatch.merchant_no == merchant_no)
+    if keyword and keyword.strip():
+        query = _apply_keyword(query, keyword)
     records = query.order_by(SaleRecord.sale_date, SaleRecord.id).all()
 
     batch_ids = {record.import_batch_id for record in records if record.import_batch_id}
@@ -117,14 +184,17 @@ def list_settlements(
             }
         )
     items.sort(key=lambda item: (item["sale_date_end"], item["merchant_no"]), reverse=True)
-    return {
-        "date_range": {
-            "start_date": start,
-            "end_date": end,
-            "is_default": is_default,
-        },
-        "settlements": items,
-    }
+    return _payload(
+        {"start_date": start, "end_date": end, "is_default": is_default},
+        items,
+        page,
+        page_size,
+    )
 
 
-__all__ = ["list_settlements", "one_month_before"]
+__all__ = [
+    "PAGE_SIZE_DEFAULT",
+    "PAGE_SIZE_MAX",
+    "list_settlements",
+    "one_month_before",
+]

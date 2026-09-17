@@ -1,9 +1,126 @@
 # TODO
 
 > 规则：只保留尚未完成的事项；完成后删除条目并在此留下简短留档。
-> 最后更新：2026-09-14
+> 最后更新：2026-09-18
+
+> 未完成盘点（2026-09-18）：
+> - P0：待用户执行清库重建/迁移并重新导入 `tickets/`；待客户回复异常数据 B/C 组；
+>   顺仔生产化收口、入口落点、市场命名、品牌对比 AI 小标题、`lhp` 角色恢复待确认。
+> - P1：果农版简化第二层、到达日期表头别名、系列对比后续能力、真实结算单浏览器回归。
+> - P2/Blocked：销售地区、利润测算、手写 `<table>` 迁移、测试覆盖率提升。
 
 ## P0 — 当前必须完成
+
+> 已完成（2026-09-17）：新模板导入二次确认的字段转换配置与留痕已落地。
+> 业务侧 `field_conversion.py` 动态生成 `grade`；`AB` 默认独立，若配置 `AB→A` 则统计动态按 A。
+> 新增多文件预览草稿闭环：`POST /api/imports/preview` → `import_job/import_draft` →
+> `/import-review` 二次确认 → `confirm_import_job`；`settlement_revision` 同时覆盖导入复核修改与手工单覆盖修改留痕。
+> 待运维执行：`backend/scripts/add_import_draft_schema.py --apply` 增列/建新表，
+> `backend/scripts/expand_grades.py --apply` 扩 `sale_record.grade` 约束含 `AB`；管理端种子由 `init_db()/seed_admin_data()` 完成。
+
+> 已完成（2026-09-17）：二次确认页切页签前自动保存当前草稿，避免多文件编辑丢失；
+> 销售行原始金额 `amount` 已回传并保留，导入复核不会误报金额不一致；
+> 基础信息补充到达日期/来货数量校验，销售日期与品种补充格式校验；
+> 前端“总件数”改为销售数量求和，并同步手工单 `SettlementSummary.sales_quantity`；
+> `settlement_revision` 现在同时记录基本信息修改，`manual_edit_count` 按草稿留痕统计；
+> 两个迁移脚本补充幂等索引，留痕大字段改为 `MEDIUMTEXT`。
+> 验证：前端 193 项测试、`typecheck`、`build` 通过；后端相关测试通过，全量仅 4 个
+> 缺少 `attachments/结算单模板样式.xlsx` 的导出用例失败（环境缺失，非本次改动）。
+
+> 待用户执行（2026-09-16）：开发库规格列改文本需要清库重建，然后重新导入 `tickets/`。
+> `cd backend && .venv/bin/python scripts/rebuild_dev_schema.py`（演练）→
+> `FRUIT_ANALYSIS_ALLOW_DESTRUCTIVE=1 .venv/bin/python scripts/rebuild_dev_schema.py --apply`。
+> 重建后核对：销售明细页规格显示 `3/4`、`9/10`，导出 xlsx 头数合计取区间上限。
+
+> 待客户回复（2026-09-16）：异常数据处理确认单 B 组（损耗/抽检/补果/硬包行是否进售后明细、
+> `霉果 100` 怎么处理）与 C 组（C2 商号以内容为准、C4 重复文件覆盖、C6 宝贝清关费），
+> 见 `docs/2026-09-16-导入异常数据处理确认单.md` 第六节。
+
+> 已完成（2026-09-17）：品牌文件 AI 解析 P1~P3 的导入预览与二次确认闭环已落地，
+> 计划见 `docs/superpowers/plans/2026-09-17-multi-file-import-confirm.md`；
+> 当前版本使用新模板解析器，模型/品牌解析器接入时复用同一草稿与确认链路。
+
+> 已完成（2026-09-16）：顺仔悬浮入口改为「默认收起 + 悬停弹出」。
+> 收起时只留一个缩小、半透明、贴边的图标（贴住屏幕右边缘并出血约三分之一：桌面可见 35px、移动 38px），不再压住列表最后一行的按钮；
+> 鼠标移入、`Tab` 聚焦、对话窗打开三处触发都会弹出「顺仔 / 收起」名字标签（桌面展开后 137px），
+> 数值统一由 `--ask-open` 插值，收回与展开共用一条 `cubic-bezier(.34, 1.42, .64, 1)` 弹性过渡；
+> 触屏无悬停，靠点击开关对话窗切换，`@media (hover: hover)` 只把悬停展开限定在鼠标设备。
+> 验证：前端 180 项测试通过，53001 实测收起 / 悬停 / 移开 / 打开四态数值与 `console error 0`。
+
+> 已完成（2026-09-16）：结算单列表按行导出（模板版式）+ 列表填满可视区。
+> 每行新增「导出」，命中 `GET /api/exports/settlements/{merchant_no}/template.xlsx`，
+> 用 `attachments/结算单模板样式.xlsx` 渲染：手工单直接读录单数据，导入件把
+> `SettlementSummary` + `SaleRecord` 映射成同一结构（售后取 `after_sale_amount` 绝对值、
+> 费用用 `parse_fee_detail` 拆 `fee_detail`、清关税费单列一行，件数/规格整列留空而不是写 0）；
+> 顺带修掉 openpyxl `cell(r, c, None)` 不清空模板示例值导致导入件残留「4 / 10」的问题。
+> 列表样式：桌面端去掉分页条下方留白（分页条回到 28px 高、贴面板底），表格行高放宽、
+> 操作列固定 8.5rem 不折行、移动端卡片「导出 / 查看明细」同排。验证：后端 286 项 pytest、
+> 前端 179 项测试 + `typecheck` 通过；53001 实测两端各 10 个导出入口、下载
+> `TEST-test-结算单.xlsx` 12,343 字节、overflow 0、console error 0。
+
+> 已完成（2026-09-15）：结算单列表导出补齐分类明细 + 列表分页与表格边框。
+> 导出 xlsx 由 1 张表扩为 5 张：`结算单列表`（汇总，追加「售后合计 / 费用合计 / 应付贵方总金额(RMB)」）
+> + `销售明细` + `售后明细` + `支出费用明细` + `说明`；导入件用 `parse_fee_detail` 拆 `fee_detail`
+> 文本、手工件直接读 `SettlementFeeItem` / `SettlementAfterSaleItem`，来源列区分「录单录入 / 录单自定义 /
+> 结算摘要 / 费用明细」。列表页新增分页（每页 10 / 20 / 50，`page`/`page_size` 走后端，
+> 切商号与点「查看结果」回到第 1 页）、`DataTable` 新增 `bordered` 属性给结算单列表打开单元格边框；
+> 顺带修掉桌面一屏高布局下「顺仔」悬浮按钮盖住分页按钮的问题（分页行预留 4.75rem 底部空间）。
+> 验证：后端 284 项 pytest、前端 175 项测试 + `typecheck` 全通过；53001 实测桌面 1440 / 移动 390
+> 分页 13 张（10 + 3）、每页 50 显示全量、导出下载正常、console error 0、横向溢出 0。
+
+> 已完成（2026-09-15，方案 C / ADR-025）：数据导入与手工录单合并为侧栏「录单 / 导入」一个入口，
+> `/entry-hub` 为「选择录入方式」页（文件导入 / 手工录单两张卡片 + 最近导入 3 条 + 未完成手工单
+> 「继续录单」）；`/entry-hub`、`/imports`、`/entry` 三个路径共享同一菜单高亮，后两者各自保留页签。
+> 手工单草稿存浏览器 `localStorage`（`fruit-entry-draft:v1:<userId>`，防抖 800ms 写入、保存后清除）；
+> 无 `entry:view` 的角色只看到文件导入。验证：后端 280 项 / 前端 162 项测试、`typecheck`、
+> `vite build` 通过，Playwright 桌面 1440 与移动 390 实测（横向溢出 0px、console error 0）通过。
+> 已完成（2026-09-15）：手工录单 + 录单字段配置代码与浏览器端到端验收。
+> 两后端重启后在 390×844 移动端实测：填单 → 保存 → 同商号冲突弹窗可操作 → 确认覆盖 →
+> 跳详情页 → `GET /api/entry/999001/export.xlsx` 200（12,376 字节 xlsx）；
+> 四项汇总占满一行、应付居右，`总件数 60 差异 +40 件` 红字提醒正常，页面横向溢出 0px。
+> 验收数据已清理（批次 12 / 手工单 0）。
+> 已完成（2026-09-15）：真实库 12 张被误删的表现在已用留存上传原件重建并校验（ADR-021）；
+> 表结构由 `init_db()` 建齐，`add_entry_schema.py --apply` 已无需补列。
+> 已完成（2026-09-15）：自然语言数据问答「顺仔」（ADR-023）——`/api/ask` + 5 个只读工具，
+> 已从 53001 预览页整合进正式外壳（`AskWidget.vue` 右下角悬浮按钮 + 对话窗，挂在 `AppShell.vue`，
+> 与「回顶部」按钮互斥避让）；权限收口为 `ask:view`（仅 `fruit_admin`，后端 401/403 + 前端不渲染
+按钮双层拦截）；后端 280 / 前端 162 项测试通过，53000 + Chromium 端到端验收通过。
+> 已完成（2026-09-15）：顺仔移动端遮挡修复——对话窗跟随 `visualViewport` 可视视口（软键盘弹出
+> 时整窗收缩、输入区不被盖住）、避让刘海与底部横条、消息区可收缩不再裁掉发送按钮、
+> 通知横幅在对话窗打开时不再压住窗口；遗留 `320×568` 极窄屏 39px 横向溢出（非顺仔组件）。
+> 已完成（2026-09-15）：顺仔悬浮入口视觉改版——去掉「顺仔」文字标签，头像换成自绘矢量
+> Q 版榴莲「果壳探头」吉祥物（`frontend/public/durian-mascot.svg`，透明底无水印，
+> 桌面 72px / 移动 62px，含探头呼吸动画）。
+
+> 已完成（2026-09-15）：非测试库 destructive 硬保护（ADR-024）。`Base` 改用
+> `GuardedMetaData.drop_all`，引擎挂 `before_cursor_execute` 拦截 `DROP TABLE / DROP DATABASE /
+> DROP SCHEMA / TRUNCATE`；逃生口仅 `FRUIT_ANALYSIS_ALLOW_DESTRUCTIVE=1`；判库口径为
+> SQLite 或库名含 `test`（fail-closed）。业务端与管理端 `backend/app/db.py` 同实现。
+> 验证：新增 `backend/tests/test_db_guard.py` 6 项，后端全量 278 项通过；
+> 两端 `compileall` 与 `import app.main` 通过；两端服务重启后 `/health` 均 200。
+
+> 已完成（2026-09-15）：两条 schema 漂移已收敛，只改模型映射、未动线上数据。
+> ① `fruits_ana_admin` 的只读映射 `sale_record.grade` 由 `varchar(1)` 改为 `varchar(5)`，
+> 与业务端枚举映射（含 `OTHER`）一致；② 两端 `import_batch.source_type` 增加
+> `server_default=text("'import'")`，让 `create_all` 与迁移脚本产出同一份
+> `VARCHAR(16) NOT NULL DEFAULT 'import'`。验证：MySQL/SQLite 方言 `CreateTable` 编译
+> 逐列核对通过，后端 278 项测试全通过，两端 `compileall` + `import app.main` 通过，
+> 两端服务重启后 `/health` 200、字段字典接口返回 `market 2 项 / variety A-F 6 项`。
+
+- [ ] **顺仔生产化收口**：权限已收口为 `ask:view`（仅 `fruit_admin` 持有，需要时可授权其他角色），
+      开放给客户前仍需补频控与调用审计（问题 / 工具 / 耗时留痕），并确认问答结果是否需要留档。
+- [ ] **入口页落点确认**：无 `entry:view` 的角色当前仍停在 `/entry-hub` 选择方式页
+      （只渲染「文件导入」卡片）；若业务希望直接进文件导入，再改为按权限重定向。
+- [ ] **市场字典命名确认**：`entry_field_option.market` 现有两项为「海吉星2 / 江南市场」，
+      「海吉星2」疑似早期验收改名的残留，需业务确认是否改回「海吉星」（改库前不动数据）。
+- [ ] **品牌对比页 AI 小标题口径确认**：同品牌经营分析已改为只列实际存在的等级（ADR-022），
+      品牌对比页仍是固定 9 个小标题，需业务确认是否同步。
+- [ ] **恢复遗留信息确认**：`lhp` 历史上有管理端操作日志，但 `admin_user_role` 重建后只有
+      `test → fruit_admin`，是否需要为 `lhp` 补角色需业务确认。
+
+> 已完成（2026-09-15）：数据导入页「导入记录和问题」改为每页 5 批翻页展示（末页 / 越界钳制、
+> 批次增删回到第 1 页），仅改 `ImportView.vue` 与其测试；前端 133 项测试、`typecheck`、
+> `vite build` 通过，Playwright 实测 12 批分页 5 / 5 / 2 与移动端 390px 无溢出。
 
 > 已完成（2026-09-11）：工作台外壳增加顶部 header（右侧当前用户名 + 退出登录）与页签栏。
 > 页签记录本次会话打开过的页面，首页固定不可关闭，其余可单个关闭 / 「关闭其他」，
@@ -166,6 +283,8 @@
 - [ ] 销售地区维度：`sales_region` 字段已预留，待源数据带上地区后回填并出报表
 - [ ] 利润测算（第二期）：依赖成本数据口径确认，见 ADR-003
 - [x] `analytics_service` 按职责拆分：`analytics_core` + `settlement_analytics_service`
+- [ ] 其余页面的手写 `<table>` 迁移到通用 `DataTable`（录单记录、导入记录、结算单详情
+      trace 表、系列对比等级表），统一表头字号、列对齐与空数据占位（结算单列表已迁移）
 - [ ] 提升测试覆盖率；为「中间态提交」补一次 bisect 友好的验证策略
 
 ## Blocked

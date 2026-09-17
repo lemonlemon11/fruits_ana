@@ -5,9 +5,9 @@ import BellRing from '@lucide/vue/dist/esm/icons/bell-ring.mjs'
 import BookOpen from '@lucide/vue/dist/esm/icons/book-open.mjs'
 import Boxes from '@lucide/vue/dist/esm/icons/boxes.mjs'
 import ChartColumn from '@lucide/vue/dist/esm/icons/chart-column.mjs'
+import ClipboardPen from '@lucide/vue/dist/esm/icons/clipboard-pen.mjs'
 import Clock3 from '@lucide/vue/dist/esm/icons/clock-3.mjs'
 import GitCompareArrows from '@lucide/vue/dist/esm/icons/git-compare-arrows.mjs'
-import Headphones from '@lucide/vue/dist/esm/icons/headphones.mjs'
 import LogOut from '@lucide/vue/dist/esm/icons/log-out.mjs'
 import Menu from '@lucide/vue/dist/esm/icons/menu.mjs'
 import MessageCircle from '@lucide/vue/dist/esm/icons/message-circle.mjs'
@@ -16,7 +16,6 @@ import PanelLeftClose from '@lucide/vue/dist/esm/icons/panel-left-close.mjs'
 import PanelLeftOpen from '@lucide/vue/dist/esm/icons/panel-left-open.mjs'
 import PanelRightClose from '@lucide/vue/dist/esm/icons/panel-right-close.mjs'
 import RefreshCw from '@lucide/vue/dist/esm/icons/refresh-cw.mjs'
-import ShieldCheck from '@lucide/vue/dist/esm/icons/shield-check.mjs'
 import SquareX from '@lucide/vue/dist/esm/icons/square-x.mjs'
 import Table2 from '@lucide/vue/dist/esm/icons/table-2.mjs'
 import Type from '@lucide/vue/dist/esm/icons/type.mjs'
@@ -33,6 +32,7 @@ import {
   type AppNotification,
 } from './api/client'
 import { currentUser, setCurrentUser } from './auth'
+import AskWidget from './components/AskWidget.vue'
 import BrandMark from './components/BrandMark.vue'
 import {
   FONT_SIZE_OPTIONS,
@@ -69,6 +69,7 @@ const notificationDetail = ref<AppNotification | null>(null)
 const sidebarCollapsed = ref(readStoredSidebarState())
 const clockNow = ref(new Date())
 const showBackToTop = ref(false)
+const askOpen = ref(false)
 const fontSize = ref(readStoredFontSize())
 const fontSizePanelOpen = ref(false)
 const fontSizePanel = ref<HTMLElement | null>(null)
@@ -83,20 +84,36 @@ const fontSizeIndex = computed<number>({
 })
 const route = useRoute()
 const router = useRouter()
-// 面向果农的主导航只保留三个大入口，其余功能收进「更多」，避免同名页面点错。
+
+interface ShellNavItem {
+  path: string
+  label: string
+  icon: unknown
+  /** 同一个菜单项下的其它页面前缀，用于侧栏 / 底部导航高亮。 */
+  matches?: string[]
+}
+
+// 面向果农的主导航只保留三个大入口，其余功能收进「更多」。
+// 「录单 / 导入」直接进入上传页；手工录单从页头进入，不再先选录入方式。
 const primaryNavItems = [
   { path: '/overview', label: '卖得怎么样', icon: ChartColumn },
   { path: '/settlements', label: '每一单', icon: Table2 },
-  { path: '/imports', label: '数据导入', icon: Upload },
-]
+  { path: '/imports', label: '录单 / 导入', icon: Upload, matches: ['/entry', '/import-review'] },
+] satisfies ShellNavItem[]
 const moreNavItems = [
   { path: '/settlement-detail', label: '结算单详情', icon: PackageSearch },
   { path: '/settlement-comparison', label: '结算单对比', icon: GitCompareArrows },
   { path: '/series-comparison', label: '品牌对比', icon: Boxes },
-]
-const navItems = [...primaryNavItems, ...moreNavItems]
-const sidebarNavItems = [primaryNavItems[0], primaryNavItems[1], ...moreNavItems, primaryNavItems[2]]
-const moreNavActive = computed(() => moreNavItems.some((item) => route.path.startsWith(item.path)))
+] satisfies ShellNavItem[]
+// 只用于页签命名，不进侧栏：手工录单保留一个独立页签。
+const tabNavItems = [
+  { path: '/entry', label: '手工录单', icon: ClipboardPen },
+] satisfies ShellNavItem[]
+const navItems = computed(() => [...primaryNavItems, ...moreNavItems, ...tabNavItems])
+const sidebarNavItems = computed(() => [...primaryNavItems, ...moreNavItems])
+const moreNavActive = computed(() => moreNavItems.some((item) => isNavActive(item, route.path)))
+// 顺仔（数据问答）只对拥有 ask:view 的业务角色开放，由管理端角色授权控制。
+const canAsk = computed(() => Boolean(currentUser.value?.permissions.includes('ask:view')))
 const authPage = computed(() => Boolean(route.meta.guestOnly || route.meta.publicPreview))
 const currentNav = computed(() => navItemFor(route.path))
 const activeTabPath = computed(() => currentNav.value.path)
@@ -142,7 +159,7 @@ watch(
     mobileNavOpen.value = false
     fontSizePanelOpen.value = false
     tabContextMenu.value = null
-    if (authPage.value) return
+    if (authPage.value || route.meta.modal) return
     openedTabs.value = openTab(openedTabs.value, activeTabPath.value, route.fullPath)
   },
   { immediate: true },
@@ -227,8 +244,14 @@ watch(
   { immediate: true },
 )
 
+/** 菜单项自身或它管辖的子页面都算命中，便于合并入口后保持高亮。 */
+function isNavActive(item: ShellNavItem, path: string): boolean {
+  return path.startsWith(item.path) || Boolean(item.matches?.some((prefix) => path.startsWith(prefix)))
+}
+
+/** 页签命名按路径精确归属：`/imports` 主导航优先于 `/entry`，因此主导航必须排在前面。 */
 function navItemFor(path: string) {
-  return navItems.find((item) => path.startsWith(item.path)) ?? navItems[0]
+  return navItems.value.find((item) => isNavActive(item, path)) ?? navItems.value[0]
 }
 
 /** 页签过多时把当前页签滚进可视区，避免激活项藏在横向滚动条外。 */
@@ -244,7 +267,7 @@ async function scrollActiveTabIntoView() {
 }
 
 function isKnownPath(path: string): boolean {
-  return navItems.some((item) => item.path === path)
+  return navItems.value.some((item) => item.path === path)
 }
 
 function readStoredTabs(): ShellTab[] {
@@ -531,7 +554,7 @@ function scrollToTop() {
           </button>
         </div>
       </header>
-      <div v-if="notificationBanner && !notificationPanelOpen" class="notification-banner" role="status">
+      <div v-if="notificationBanner && !notificationPanelOpen && !askOpen" class="notification-banner" role="status">
         <div class="notification-banner-head">
           <BellRing :size="18" aria-hidden="true" />
           <div class="notification-banner-copy">
@@ -564,12 +587,12 @@ function scrollToTop() {
       <div class="app-body">
         <aside class="app-sidebar" aria-label="主要导航">
           <nav id="primary-nav" aria-label="主要导航">
-            <RouterLink v-for="item in sidebarNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-label="sidebarCollapsed ? item.label : undefined" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+            <RouterLink v-for="item in sidebarNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-label="sidebarCollapsed ? item.label : undefined" :aria-current="isNavActive(item, route.path) ? 'page' : undefined">
               <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
               <span>{{ item.label }}</span>
             </RouterLink>
           </nav>
-          <p class="sidebar-foot"><strong>等级说明</strong><span>C果包含原始BC等级</span></p>
+          <p class="sidebar-foot"><strong>等级说明</strong><span>统计等级按管理端转换规则展示，明细保留原文</span></p>
         </aside>
         <div class="app-workspace">
           <nav class="app-tabs" aria-label="已打开的页面">
@@ -636,7 +659,7 @@ function scrollToTop() {
             </button>
           </div>
           <nav v-if="mobileNavOpen" id="mobile-nav" class="mobile-nav-panel" aria-label="更多页面">
-            <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+            <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined">
               <component :is="item.icon" class="nav-icon" :size="20" aria-hidden="true" />
               <span>{{ item.label }}</span>
             </RouterLink>
@@ -648,13 +671,15 @@ function scrollToTop() {
             <span class="app-footer-copy">SLD-水果市场销售分析系统©2026</span>
             <nav class="app-footer-actions" aria-label="系统服务">
               <button type="button"><BookOpen :size="16" :stroke-width="2" aria-hidden="true" />使用手册</button>
-              <button type="button"><MessageCircle :size="16" :stroke-width="2" aria-hidden="true" />微信公众号</button>
-              <button type="button"><ShieldCheck :size="16" :stroke-width="2" aria-hidden="true" />正版查询</button>
-              <button type="button"><Headphones :size="16" :stroke-width="2" aria-hidden="true" />联系人工客服</button>
+              <button type="button" class="wechat-qr-button">
+                <MessageCircle :size="16" :stroke-width="2" aria-hidden="true" />微信公众号
+                <img class="wechat-qr-popover" src="/gzh.jpg" alt="SLD-水果市场销售分析系统 微信公众号二维码" />
+              </button>
             </nav>
           </footer>
+          <AskWidget v-if="canAsk" @update:open="askOpen = $event" />
           <button
-            v-show="showBackToTop"
+            v-show="showBackToTop && !askOpen"
             class="back-to-top"
             type="button"
             aria-label="回到页面顶部"
@@ -664,7 +689,7 @@ function scrollToTop() {
             <span>回顶部</span>
           </button>
           <nav class="mobile-tabbar" aria-label="主要导航（移动端）">
-            <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :aria-current="route.path.startsWith(item.path) ? 'page' : undefined">
+            <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined">
               <component :is="item.icon" :size="28" :stroke-width="2" aria-hidden="true" />
               <span>{{ item.label }}</span>
             </RouterLink>

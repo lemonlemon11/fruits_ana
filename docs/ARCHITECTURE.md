@@ -1,7 +1,7 @@
 # Architecture
 
 > 维护约定：系统结构、模块职责、数据流发生变化时必须更新本文件。
-> 最后更新：2026-09-11
+> 最后更新：2026-09-17
 
 ## System Overview
 
@@ -17,13 +17,16 @@ FastAPI (:8000)  backend/app/main.py
         ├── api/auth.py      注册 / 登录 / 会话
         ├── api/imports.py   上传、批次列表、问题明细
         ├── api/analytics.py 总览 / 趋势 / 结算单对比 / 结算单详情 / 品牌对比 / 等级细分小结
+        ├── api/ask.py       自然语言数据问答「顺仔」（function calling 编排）
+        ├── api/entry.py    手工录单读取、保存、修改、字段选项与模板导出
         ├── api/settlements.py 数据明细列表 / 单张结算单全部明细
         └── api/exports.py   总览 CSV、结算单 xlsx、原始文件下载
         ▼
 services/  analytics_core / settlement_analytics_service / series_analytics_service
            grade_detail_service / grade_detail_analysis_service / ai_analysis_service
            overview_service / settlement_detail_service / settlement_list_service
-           import_service / issue_service
+           import_service / issue_service / entry_service / entry_export
+           ask_service / ask_tools / ask_payloads / ask_tool_schemas
         ▼
 parser/    settlement_parser / settlement_summary / decimal_values / grade_detail
         ▼
@@ -42,13 +45,14 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 主要路由：`POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me`、`POST /api/auth/logout`。
 - 前端：`frontend/src/auth.ts`（`.vue` 侧会话状态）、`frontend/src/views/LoginView.vue`、`RegisterView.vue`。
 
-### Import Pipeline（`backend/app/api/imports.py`、`services/import_service.py`、`parser/`）
+### Import Pipeline（`backend/app/api/imports.py`、`services/import_draft_service.py`、`parser/`）
 
-- 职责：接收 `.xlsx` / `.csv`，解析结算单版式，写入批次、源文件、销售记录、
-  结算摘要与数据问题。
+- 职责：接收 `.xlsx` / `.csv`，先解析成草稿并进入二次确认，用户确认后才写入批次、源文件、
+  销售记录、结算摘要与数据问题。
 - 身份：以商号（`import_batch.merchant_no`）作为结算单唯一业务键；柜号可为空且可重复。
 - 覆盖：同一商号再次上传返回 `conflict`，确认后以 `?overwrite=true` 在同一事务内替换旧结算单。
-- 等级映射：`A/A6 → A`、`B/B6 → B`、`C/C6/BC/BC6 → C`。
+- 等级映射：由 `fruits_ana_admin` 的字段转换规则动态生成；默认 `BC → C`，`AB` 默认独立。
+  `sale_record.grade_raw` 始终保留用户原始写法，`sale_record.grade` 保存转换后的统计等级。
 - 单号双写（ADR-015）：原始单号写入 `import_batch.order_no`，
   同时按 `services/order_no_naming.py` 的规则写入适配后的 `order_no_normalized`
   （`宝贝003 → 宝贝-003`）；页面只展示适配后单号，原始写法保留可追溯。
@@ -58,6 +62,26 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   仅页面 / 导出 / AI 数据包展示适配后商号，原始写法保留可追溯。
 - 缺失字段或未知等级的行不写入销售事实，其余有效行继续导入，并生成 `data_issue` 明细。
 - 原始文件保存在 `backend/data/uploads/`（不入库、不提交 Git）。
+- 新模板多文件闭环：`POST /api/imports/preview` 只创建 `import_job` / `import_draft`；
+  `GET/PUT /api/imports/jobs/{job}/drafts/{draft}` 回填并保存修改；
+  `POST /api/imports/jobs/{job}/confirm` 对全任务草稿做阻断/冲突校验后一次确认入库，
+  明细金额按 `数量×单价` 重算，文件合计保留在 `settlement_summary.file_*` 供对账。
+- 修改留痕：二次确认页的草稿修改写入 `settlement_revision`（关联 `import_draft_id`）；
+  手工录单覆盖保存时写入同一表（关联 `import_batch_id`），避免两类修改无审计轨迹。
+
+### Manual Entry（`backend/app/api/entry.py`、`services/entry_service.py`、`services/entry_export.py`）
+
+- 职责：不依赖 Excel 文件直接录入结算单，保存后以 `source_type='manual'` 进入原有分析链路；
+  支持读取、覆盖保存、按模板导出，并读取管理端维护的录单字段字典。
+- 路由：`GET /api/entry/field-options`、`POST /api/entry`、`GET/PUT /api/entry/{merchant_no}`、
+  `GET /api/entry/{merchant_no}/export.xlsx`。
+- 权限：对应 `entry:view` / `entry:create` / `entry:update` / `entry:export`，由管理端维护。
+- 冲突与覆盖：`merchant_no` 仍是唯一键；新录同商号默认 409，确认后 `overwrite=true` 覆盖；
+  `PUT` 只允许修改 `source_type='manual'` 的单据。
+- 汇总口径：销售金额 = 销售数量 × 单价；货款合计 = 销售金额 − 售后合计；
+  应付贵方总金额 = 货款合计 − 费用合计。金额计算后端统一用 `Decimal`。
+- 导出：`entry_export` 读取模板 `attachments/结算单模板样式.xlsx`，按动态行数插入行、
+  重建合并单元格，只写值不保留公式。
 
 ### Analytics（`backend/app/api/analytics.py`、`services/*`）
 
@@ -84,6 +108,26 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 - 职责：「数据明细」页列表与单张结算单全部明细。
 - 默认范围：最新销售日期往前一个自然月；可用 `start_date` / `end_date` / `merchant_no` 覆盖。
+
+### Ask（`backend/app/api/ask.py`、`services/ask_service.py`、`services/ask_tools.py`）
+
+- 职责：自然语言数据问答「顺仔」。`POST /api/ask` 接收 `question` / `history`，返回
+  `answer` / `steps` / `model`；`steps` 记录本次实际调用的工具与参数，前端用于展示溯源。
+- 方案：Text-to-API（ADR-023）。模型只做工具选择与措辞，数字来自 `ask_tools.py`
+  调用现有分析服务的精简结果；`ask_payloads.py` 只保留聚合字段，`ask_tool_schemas.py`
+  维护 5 个只读工具的 function-calling 声明。
+- 权限：整个路由要求 `ask:view`（管理端角色授权），当前只有 `fruit_admin` 持有；
+  前端 `AppShell.vue` 的 `canAsk` 依同一权限决定是否渲染悬浮入口，未授权用户看不到按钮也调不动接口。
+- 边界：不生成 SQL、不写库；工具失败以 `{"error": ...}` 交回模型改参数重试；
+  最多 3 轮工具调用，最后兜底要求直接回答；回答数字必须原样取自工具结果。
+- 入口：正式外壳右下角悬浮机器人「顺仔」（`components/AskWidget.vue` + `ask-widget.css`，
+  纯逻辑在 `utils/askWidget.ts`），点击展开微信式左右气泡对话窗；`AppShell.vue` 通过
+  `update:open` 让「回顶部」按钮在窗口打开时避让，二者不重叠。历史预览页
+  `frontend/dev-preview/ask-demo.html`（53001）保留作留档，不再作为入口。
+- 移动端：≤820px 对话窗改为整屏并跟随 `visualViewport`（`AskWidget.vue` 写入
+  `--ask-vv-height` / `--ask-vv-top`，取不到有效高度时回落 `100dvh`），软键盘弹出时整窗收缩，
+  输入区始终在键盘上方；顶部 / 底部按 `env(safe-area-inset-*)` 避让刘海与横条；站内通知横幅
+  在对话窗打开时让位（`AppShell.vue` 的 `!askOpen`）。
 
 ### Grade Detail（`backend/app/parser/grade_detail.py`、`services/grade_detail_service.py`）
 
@@ -157,16 +201,17 @@ LoginView
   → 前端 currentUser 更新 → 跳转 /overview
 ```
 
-### 数据导入
+### 数据导入（新模板）
 
 ```text
 ImportView
-  → POST /api/imports (multipart)
-  → import_service 计算内容哈希 → 去重判断
-  → parser 解析结算单（商号/单号/柜号/转运车号 + 明细）→ SaleRecord / SettlementSummary
-  → 校验异常 → DataIssue
-  → 返回批次统计；问题明细走 GET /api/imports/{id}/issues[.csv]
-  → 前端上传期间显示等待遮罩、标记 `aria-busy`，防止重复提交
+  → POST /api/imports/preview (multipart, 多文件)
+  → settlement_template 解析基本信息 / 销售 / 售后 / 费用 / 文件合计
+  → import_draft_service 创建 import_job + import_draft（不写正式事实）
+  → ImportReviewView 回填用户原值，展示系统金额/合计，问题行标红
+  → 用户修改并保存：PUT /api/imports/jobs/{job}/drafts/{draft}
+  → 确认提交：POST /api/imports/jobs/{job}/confirm（无错直接入库；有错/冲突先 409，二次确认后 force）
+  → import_draft_service 写 ImportBatch / SourceFile / SaleRecord / SettlementSummary / DataIssue
 ```
 
 ### 分析查询
@@ -179,6 +224,17 @@ OverviewView / SettlementView / SettlementComparisonView / SettlementListView
   → normalize.ts 归一化 → SVG 图表渲染
 ```
 
+### 数据问答
+
+```text
+顺仔 AskWidget（右下角悬浮按钮 → 对话窗）
+  → POST /api/ask {question, history}
+  → ask_service 注入系统提示词 + 当前结算单清单
+  → 大模型选择工具（list / overview / rank / detail / compare）
+  → ask_tools 调用现有分析服务并回填精简结果
+  → 最多 3 轮后返回 answer + steps + model
+```
+
 ## Data Model（`backend/app/models.py`）
 
 | 表 | 职责 |
@@ -186,17 +242,26 @@ OverviewView / SettlementView / SettlementComparisonView / SettlementListView
 | `user` | 登录账号（用户名唯一，Argon2 哈希） |
 | `user_session` | 服务端会话（token 哈希 + 过期时间） |
 | `import_batch` | 一张结算单：商号（唯一）、原始单号 + 适配后单号、柜号、转运车号与导入计数 |
+| `import_job` | 一次多文件导入任务；确认前只产生草稿 |
+| `import_draft` | 单文件解析草稿（版本化槽位 JSON、原文 JSON、问题清单、确认状态） |
 | `source_file` | 原始文件引用 + 内容哈希 |
 | `sale_record` | 销售事实行（含等级、数量、单价、金额） |
 | `settlement_summary` | 按结算单（`import_batch_id` 唯一）的汇总结算数据 |
+| `settlement_revision` | 导入复核修改与手工录单覆盖修改的留痕 |
 | `data_issue` | 导入过程中的问题明细 |
+| `settlement_after_sale_item` | 手工录单售后明细（内容、摘要、金额） |
+| `settlement_fee_item` | 手工录单支出明细（固定六项 + 自定义项） |
+| `entry_field_option` | 市场 / 品种下拉字典，业务端只读、管理端维护 |
+| `admin_field_conversion_rule` | 管理端字段转换规则（当前用于等级 `grade`，如 `BC→C`） |
+| `admin_role` / `admin_permission` / `admin_user_role` / `admin_role_permission` | 管理端维护的业务 RBAC，业务端只读 |
 
 ## Constraints
 
 - 必须保持：API 变更需同步前端 `api/types.ts` + `api/normalize.ts` + `api/client.ts`。
 - 已变更（2026-09-10）：柜号维度接口 `/api/analytics/containers*` 已被
   `/api/analytics/settlements*` 取代，前端旧路由 `/containers`、`/container-comparison` 保留重定向。
-- 必须保持：`BC` 归入 `C` 的等级口径；报表展示仍为「C 果（含 BC）」。
+- 必须保持：统计等级由 `fruits_ana_admin` 字段转换规则生成（ADR-029）；`sale_record.grade_raw`
+  保留用户原始写法，默认种子 `BC→C`、`AB` 默认独立。
 - 必须保持：日期筛选按销售日期计算，不按导入时间。
 - 必须保持：单号双写口径（`order_no` 原始 + `order_no_normalized` 适配后，ADR-015），
   页面统一展示适配后单号；迁移脚本 `backend/scripts/add_order_no_normalized.py` 幂等可重跑。

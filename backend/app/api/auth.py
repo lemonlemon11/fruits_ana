@@ -17,6 +17,7 @@ from ..auth import (
     hash_password,
     normalize_username,
     require_current_user,
+    get_permission_codes,
     revoke_session,
     set_session_cookie,
     verify_password,
@@ -45,8 +46,14 @@ def _find_user_by_name(db: Session, display_name: str) -> User | None:
     )
 
 
-def _user_payload(user: User) -> dict[str, UserRead]:
-    return {"user": UserRead(id=user.id, display_name=user.display_name)}
+def _user_payload(user: User, db: Session) -> dict[str, UserRead]:
+    return {
+        "user": UserRead(
+            id=user.id,
+            display_name=user.display_name,
+            permissions=sorted(get_permission_codes(db, user.id)),
+        )
+    }
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -73,7 +80,7 @@ def register(
         raise HTTPException(status_code=409, detail="用户名已被注册") from None
 
     set_session_cookie(response, raw_token)
-    return _user_payload(user)
+    return _user_payload(user, db)
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -95,12 +102,12 @@ def login(
     raw_token = create_session(db, user, session_days)
     db.commit()
     set_session_cookie(response, raw_token, session_days)
-    return _user_payload(user)
+    return _user_payload(user, db)
 
 
 @router.get("/me", response_model=AuthResponse)
-def me(current_user: User = Depends(require_current_user)):
-    return _user_payload(current_user)
+def me(current_user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    return _user_payload(current_user, db)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

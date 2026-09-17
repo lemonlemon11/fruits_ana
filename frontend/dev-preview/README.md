@@ -13,17 +13,33 @@ npm --prefix frontend run dev -- --port 53001 --strictPort --host 0.0.0.0
 
 打开 `http://127.0.0.1:53001/dev-preview/index.html` 是预览索引。
 
+「数据问答 Demo」需要走独立配置把 `/api` 代理到临时后端 8010（与上面命令不同）：
+
+```bash
+cd frontend && npx vite --config vite.demo.config.ts
+```
+
+后端为 `cd backend && ../.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8010`，
+两者都在 53001 / 8010 时，可打开 `http://127.0.0.1:53001/dev-preview/ask-demo.html`。
+
 ## 页面
 
 | 文件 | 用途 |
 | --- | --- |
 | `index.html` | 预览索引 |
+| `ask-demo.html` | 顺仔 · 悬浮问答机器人 Demo（右下角悬浮按钮 + 悬浮对话窗，`/api/ask`，53001 → 8010） |
 | `review-2026-09-11.html` | 本轮改动呈现（AI 结论醒目化 + 抽屉式选择器） |
 | `20260914-optimization-preview.html` | 2026-09-14 会议优化点展示稿（价格单位、等级扩展、日期全展示、取消价差/价比） |
 | `settlement-picker-redesign.html` | 结算单选择交互改造稿（先选品牌，再选同品牌结算单；桌面 / 手机可切换） |
 | `grade-preview.html` | 「系列对比」真实页面（真实组件 + 真实结算单数据） |
 | `grade-detail-design.html` | 等级细分视图的静态设计稿 |
 | `mobile-review/index.html` | 手机端 6 个业务页面现状预览（截图与横向溢出/滚动指标） |
+
+`ask-demo.html` 的样式拆成两份，方便整体移植到 `frontend/src`：
+
+- `ask-widget.css`：悬浮组件本身（悬浮按钮 `.ask-fab` + 对话窗 `.ask-panel`），含与系统
+  「回顶部」`.back-to-top` 的位置约定与层级约定；移植时整份拷过去即可
+- `ask-mock-page.css`：演示页的页面外壳（页头 / 页签 / 卡片 / 占位内容 / 底部导航），只服务这份演示稿
 
 ## 数据文件（已加入 `.gitignore`，必须本地保留才能打开预览）
 

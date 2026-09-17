@@ -216,7 +216,11 @@ def grade_detail_metrics(
     grouped: dict[BucketKey, list[Entry]] = defaultdict(list)
     unrecognized: list[SaleRecord] = []
     for record in records:
-        detail = parse_grade_detail(record.grade_raw, record.fruit_type)
+        detail = parse_grade_detail(
+            record.grade_raw,
+            record.fruit_type,
+            stat_grade=record.grade.value,
+        )
         if detail is None:
             unrecognized.append(record)
             continue

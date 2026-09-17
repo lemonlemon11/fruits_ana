@@ -5,6 +5,7 @@ export type { Grade }
 export interface AuthUser {
   id: number
   displayName: string
+  permissions: string[]
 }
 
 export interface AppNotification {
@@ -36,6 +37,12 @@ export interface AnalyticsFilters {
   endDate?: string
   merchantNo?: string
   includeAllSettlements?: boolean
+}
+
+/** 结算单列表支持分页；页码参数只对 `/settlements` 生效。 */
+export interface SettlementListFilters extends AnalyticsFilters {
+  page?: number
+  pageSize?: number
 }
 
 export interface MetricTotal {
@@ -82,6 +89,8 @@ export interface SettlementComparisonItem extends MetricTotal {
   orderNoNormalized: string
   containerNo: string
   vehicleNo: string
+  /** 品牌（单号中文前缀），后端 series_name 的同一口径。 */
+  series: string
   grades: GradeMetric[]
   startDate: string
   endDate: string
@@ -120,6 +129,10 @@ export interface SettlementDetail extends OverviewData {
   orderNoNormalized: string
   containerNo: string
   vehicleNo: string
+  sourceType: 'import' | 'manual'
+  market: string
+  arrivalDate: string
+  arrivalQuantity: number | null
   startDate: string
   endDate: string
   settlement: SettlementSummary
@@ -149,9 +162,17 @@ export interface SettlementDateRange {
   isDefault: boolean
 }
 
+export interface SettlementPagination {
+  total: number
+  page: number
+  pageSize: number
+  pages: number
+}
+
 export interface SettlementListData {
   dateRange: SettlementDateRange | null
   settlements: SettlementListItem[]
+  pagination: SettlementPagination | null
 }
 
 export interface SettlementRecordsData {
@@ -226,6 +247,75 @@ export interface SeriesAnalysisResult {
   cached: boolean
 }
 
+export interface AskHistoryMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AskStep {
+  tool: string
+  args: Record<string, unknown>
+  summary: string
+}
+
+export interface AskResult {
+  answer: string
+  steps: AskStep[]
+  model: string
+}
+
+export interface EntrySaleItem {
+  sourceRow?: number | null
+  saleDate: string
+  variety: string
+  /** 归一后的规格文本，支持区间写法（`3/4`、`9/10`）。 */
+  headCount: string
+  specKg: string
+  salesQuantity: number
+  unitPrice: number
+  /** 导入复核时保留文件原值；手工录单不填，由系统按数量×单价计算。 */
+  amount?: number
+  remark: string
+}
+
+export interface EntryAfterSaleItem {
+  sourceRow?: number | null
+  content: string
+  summary: string
+  amount: number
+}
+
+export interface EntryFeeItem {
+  sourceRow?: number | null
+  name: string
+  amount: number
+  isCustom: boolean
+}
+
+export interface EntryPayload {
+  merchantNo: string
+  orderNo: string
+  containerNo: string
+  vehicleNo: string
+  market: string
+  arrivalDate: string
+  arrivalQuantity: number | null
+  sales: EntrySaleItem[]
+  afterSales: EntryAfterSaleItem[]
+  fees: EntryFeeItem[]
+  overwrite?: boolean
+}
+
+export interface EntryRead extends Omit<EntryPayload, 'overwrite'> {
+  sourceType: 'import' | 'manual'
+}
+
+export interface EntryFieldOption {
+  field: 'market' | 'variety'
+  value: string
+  sortOrder: number
+}
+
 export interface ImportBatch {
   id: number | string
   fileName: string
@@ -249,4 +339,66 @@ export interface ImportIssue {
   fieldName: string
   message: string
   rawValue: string
+}
+
+export interface ImportDraftSummary {
+  token: string
+  fileName: string
+  merchantNo: string
+  orderNo: string
+  issueCount: number
+  hasError: boolean
+  version: number
+  status?: string
+}
+
+export interface ImportJob {
+  token: string
+  status: string
+  fileCount: number
+  draftCount: number
+  confirmedCount: number
+  createdAt: string
+  drafts: ImportDraftSummary[]
+}
+
+export interface ImportReviewIssue {
+  code: string
+  severity: 'error' | 'warning'
+  message: string
+  section?: string
+  row?: number | null
+  field?: string
+  rawValue?: string
+}
+
+export interface ImportReviewPayload extends EntryPayload {
+  fileSummary: Record<string, string>
+  computedSummary: Record<string, string>
+  issues: ImportReviewIssue[]
+}
+
+export interface ImportReviewDraft {
+  jobToken: string
+  jobStatus: string
+  draftToken: string
+  version: number
+  fileName: string
+  payload: ImportReviewPayload
+}
+
+export interface ImportConfirmItem {
+  draftToken: string
+  fileName: string
+  merchantNo: string
+  batchId: number | string
+  status: string
+  errorCount: number
+  warningCount: number
+}
+
+export interface ImportConfirmResult {
+  jobToken: string
+  status: string
+  confirmed: ImportConfirmItem[]
 }

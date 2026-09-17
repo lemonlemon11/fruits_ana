@@ -46,9 +46,10 @@ def test_every_real_value_is_recognized(raw: str) -> None:
         ("A5/6（熟）", "A", "5/6"),
         ("B6/7(19KG)", "B", "6/7"),
         ("B7/5(大裂）", "B", "7/5"),
-        ("BC5", "C", "5"),
-        ("BC5/7/8（17KG）", "C", "5/7/8"),
+        ("BC5", "BC", "5"),
+        ("BC5/7/8（17KG）", "BC", "5/7/8"),
         ("C8/9大裂", "C", "8/9"),
+        ("AB6", "AB", "6"),
     ],
 )
 def test_scheme_a_keeps_ranges_as_is(raw: str, grade: str, number: str) -> None:
@@ -83,13 +84,23 @@ def test_unrecognized_values_fall_back(raw: str | None) -> None:
     assert grade_detail_label(raw) == UNRECOGNIZED_LABEL
 
 
-@pytest.mark.parametrize("raw", ["A", "B", "C", "BC"])
+@pytest.mark.parametrize("raw", ["A", "B", "AB", "C", "BC"])
 def test_bare_grade_without_number_keeps_its_bucket(raw: str) -> None:
     """只写等级、没写号别时归入该等级桶，不丢进「其他」。"""
 
     detail = parse_grade_detail(raw)
     assert detail is not None
-    assert detail.label == ("C" if raw == "BC" else raw)
+    assert detail.label == raw
+
+
+@pytest.mark.parametrize("raw", ["BC5", "AB6"])
+def test_stat_grade_override_is_used_for_bucket(raw: str) -> None:
+    """明细桶保留原文号别，但大等级标签跟随调用方传入的统计等级。"""
+
+    detail = parse_grade_detail(raw, stat_grade="C" if raw.startswith("BC") else "A")
+    assert detail is not None
+    assert detail.grade == ("C" if raw.startswith("BC") else "A")
+    assert detail.label == f"{detail.grade}{detail.number}"
 
 
 def test_fruit_type_is_pluggable() -> None:

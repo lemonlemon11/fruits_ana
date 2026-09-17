@@ -31,6 +31,11 @@ def extract_settlement_summary(frame: pd.DataFrame) -> dict[str, Any] | None:
         field_name = _summary_field(label)
         if field_name and amount is not None:
             summary[field_name] = amount
+            if field_name == "sales_amount":
+                # 合计行里「销售金额」左边那一列就是文件写的件数合计（拿不到就留空）。
+                quantity = _left_decimal(row, marker_index=_label_index(row, "销售金额"))
+                if quantity is not None:
+                    summary["sales_quantity"] = quantity
     if fee_details:
         summary["fee_detail"] = "；".join(fee_details)
     return summary or None
@@ -58,6 +63,27 @@ def _summary_field(label: str) -> str | None:
         return "customs_tax"
     if "应付" in label and "总金额" in label:
         return "payable_amount"
+    return None
+
+
+def _label_index(row, marker: str) -> int | None:
+    for index, value in enumerate(row):
+        text = _text(value)
+        if text and marker in text:
+            return index
+    return None
+
+
+def _left_decimal(row, marker_index: int | None) -> Decimal | None:
+    """取标记单元格左侧最近的一个数字（即合计行里的件数列）。"""
+
+    if marker_index is None:
+        return None
+    values = list(row)[:marker_index]
+    for value in reversed(values):
+        parsed = _decimal(value)
+        if parsed is not None:
+            return parsed
     return None
 
 

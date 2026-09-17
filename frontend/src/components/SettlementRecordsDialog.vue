@@ -1,22 +1,93 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
-import { getSettlementRecords, gradeLabel } from '../api/client'
+import { getSettlementRecords, gradeLabel, type SettlementRecord, type SettlementRecordsData } from '../api/client'
 import { formatCurrency, formatNumber, formatPrice } from '../utils/format'
+import { displayMerchantNo, rawMerchantNo } from '../utils/merchantNo'
+import { displayOrderNo, rawOrderNo } from '../utils/orderNo'
+import DataTable, { type DataTableColumn } from './DataTable.vue'
 
 const props = defineProps<{ merchantNo: string; title: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const loading = ref(true)
 const error = ref('')
-const records = ref<Awaited<ReturnType<typeof getSettlementRecords>>['records']>([])
+const data = ref<SettlementRecordsData | null>(null)
+
+const records = computed<SettlementRecord[]>(() => data.value?.records ?? [])
+
+/** 明细列：与「结算单详情」同口径，等级原文以小字跟在等级后面，不单独占一列。 */
+const columns: DataTableColumn<SettlementRecord>[] = [
+  { key: 'saleDate', label: '到达日期' },
+  { key: 'fruitType', label: '品种', value: (record) => record.fruitType || '—' },
+  { key: 'grade', label: '等级' },
+  { key: 'specRaw', label: '规格', value: (record) => record.specRaw || '—' },
+  { key: 'quantity', label: '数量', numeric: true, value: (record) => formatNumber(record.quantity) },
+  { key: 'unitPrice', label: '单价', numeric: true, value: (record) => formatPrice(record.unitPrice) },
+  { key: 'amount', label: '金额', numeric: true, value: (record) => formatCurrency(record.amount) },
+  { key: 'salesRegion', label: '销售地区', value: (record) => record.salesRegion || '—' },
+  { key: 'remark', label: '备注', value: (record) => record.remark || '—' },
+]
+
+const totals = computed(() =>
+  records.value.reduce(
+    (sum, record) => ({
+      quantity: sum.quantity + (Number.isFinite(record.quantity) ? record.quantity : 0),
+      amount: sum.amount + (Number.isFinite(record.amount) ? record.amount : 0),
+    }),
+    { quantity: 0, amount: 0 },
+  ),
+)
+
+const salesPeriod = computed(() => {
+  const dates = records.value.map((record) => record.saleDate).filter(Boolean).sort()
+  if (!dates.length) return '—'
+  const start = dates[0]
+  const end = dates[dates.length - 1]
+  return start === end ? start : `${start} 至 ${end}`
+})
+
+const merchantLabel = computed(() =>
+  displayMerchantNo({
+    merchantNo: data.value?.merchantNo || props.merchantNo,
+    merchantNoNormalized: data.value?.merchantNoNormalized,
+  }),
+)
+const merchantRaw = computed(() =>
+  rawMerchantNo({ merchantNo: data.value?.merchantNo || props.merchantNo }),
+)
+const orderNoLabel = computed(() =>
+  displayOrderNo({ orderNo: data.value?.orderNo, orderNoNormalized: data.value?.orderNoNormalized }),
+)
+const orderNoRaw = computed(() => rawOrderNo({ orderNo: data.value?.orderNo }))
+
+/** 弹窗头部信息：接口已返回但旧版弹窗丢弃了的结算单身份字段。 */
+const metaItems = computed(() => [
+  {
+    key: 'merchantNo',
+    label: '商号',
+    value: merchantLabel.value || '—',
+    hint: merchantRaw.value && merchantRaw.value !== merchantLabel.value ? `原始商号：${merchantRaw.value}` : '',
+  },
+  {
+    key: 'orderNo',
+    label: '单号',
+    value: orderNoLabel.value || '—',
+    hint: orderNoRaw.value && orderNoRaw.value !== orderNoLabel.value ? `原始单号：${orderNoRaw.value}` : '',
+  },
+  { key: 'containerNo', label: '柜号', value: data.value?.containerNo || '—', hint: '' },
+  { key: 'vehicleNo', label: '车牌', value: data.value?.vehicleNo || '—', hint: '' },
+  { key: 'salesPeriod', label: '到达日期', value: salesPeriod.value, hint: '' },
+  { key: 'count', label: '明细条数', value: records.value.length ? `${records.value.length} 条` : '—', hint: '' },
+])
 
 async function loadRecords() {
   loading.value = true
   error.value = ''
   try {
-    records.value = (await getSettlementRecords(props.merchantNo)).records
+    data.value = await getSettlementRecords(props.merchantNo)
   } catch (caught) {
+    data.value = null
     error.value = caught instanceof Error ? caught.message : '明细加载失败'
   } finally {
     loading.value = false
@@ -44,67 +115,46 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
         </div>
         <button class="records-close" type="button" @click="emit('close')">关闭</button>
       </header>
-      <div v-if="error" class="error-banner" role="alert"><span><strong>明细加载失败</strong>{{ error }}</span><button type="button" @click="loadRecords">重新加载</button></div>
-      <div v-if="loading" class="skeleton-block">正在加载明细</div>
-      <div v-else-if="!records.length" class="empty-inline">该结算单没有销售明细</div>
-      <div v-else class="records-results">
-        <div class="records-grid" role="list">
-          <article v-for="(record, index) in records" :key="record.id" class="record-card" role="listitem">
-            <header class="record-card-head">
-              <div class="record-title">
-                <span class="record-index">#{{ index + 1 }}</span>
-                <strong>{{ record.saleDate }}</strong>
-              </div>
-              <span
-                class="record-grade"
-                :class="`grade-${(record.grade ?? 'unknown').toLowerCase()}`"
-              >
-                {{ record.grade ? gradeLabel(record.grade) : record.gradeRaw || '未知' }}
-              </span>
-            </header>
-            <div class="record-metrics" aria-label="销售核心指标">
-              <div>
-                <span>数量</span>
-                <strong>{{ formatNumber(record.quantity) }}</strong>
-              </div>
-              <div>
-                <span>单价</span>
-                <strong>{{ formatPrice(record.unitPrice) }}</strong>
-              </div>
-              <div>
-                <span>金额</span>
-                <strong>{{ formatCurrency(record.amount) }}</strong>
-              </div>
-            </div>
-            <dl class="record-fields">
-              <div>
-                <dt>品种</dt>
-                <dd>{{ record.fruitType || '—' }}</dd>
-              </div>
-              <div>
-                <dt>等级</dt>
-                <dd>{{ record.grade ? gradeLabel(record.grade) : record.gradeRaw || '未知' }}</dd>
-              </div>
-              <div>
-                <dt>等级原文</dt>
-                <dd>{{ record.gradeRaw || '—' }}</dd>
-              </div>
-              <div>
-                <dt>规格</dt>
-                <dd>{{ record.specRaw || '—' }}</dd>
-              </div>
-              <div>
-                <dt>销售地区</dt>
-                <dd>{{ record.salesRegion || '—' }}</dd>
-              </div>
-              <div class="record-remark">
-                <dt>备注</dt>
-                <dd>{{ record.remark || '—' }}</dd>
-              </div>
-            </dl>
-          </article>
+
+      <dl class="records-meta" aria-label="结算单信息">
+        <div v-for="item in metaItems" :key="item.key">
+          <dt>{{ item.label }}</dt>
+          <dd :title="item.hint">{{ item.value }}</dd>
         </div>
+      </dl>
+
+      <div v-if="error" class="error-banner" role="alert">
+        <span><strong>明细加载失败</strong>{{ error }}</span>
+        <button type="button" @click="loadRecords">重新加载</button>
       </div>
+      <div v-else-if="loading" class="skeleton-block">正在加载明细</div>
+      <div v-else-if="!records.length" class="empty-inline">该结算单没有销售明细</div>
+      <DataTable
+        v-else
+        class="records-table"
+        :columns="columns"
+        :rows="records"
+        :row-key="(record) => record.id"
+        caption="销售明细：每条记录的到达日期、品种、等级、规格、数量、单价、金额、销售地区与备注"
+        min-width="980px"
+        bordered
+        cards-on-narrow
+      >
+        <template #cell-grade="{ row }">
+          <span class="grade-cell">
+            <span class="grade-badge" :class="`grade-${(row.grade ?? 'unknown').toLowerCase()}`">
+              {{ row.grade ? gradeLabel(row.grade) : row.gradeRaw || '未知' }}
+            </span>
+            <small v-if="row.gradeRaw && row.gradeRaw !== gradeLabel(row.grade)">{{ row.gradeRaw }}</small>
+          </span>
+        </template>
+        <template #footer>
+          <div class="records-summary">
+            <span>数量合计 <b>{{ formatNumber(totals.quantity) }}</b></span>
+            <span>金额合计 <b>{{ formatCurrency(totals.amount) }}</b></span>
+          </div>
+        </template>
+      </DataTable>
     </section>
   </div>
 </template>
@@ -120,19 +170,24 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   background: rgb(20 28 24 / 55%);
 }
 
+/* 头部信息 + 明细表：表格区吃掉剩余高度，只有列表内部滚动，合计条常驻底部。 */
 .records-dialog {
   display: grid;
-  gap: 14px;
-  width: min(100%, 880px);
-  max-height: min(86vh, 720px);
-  padding: 20px;
-  overflow: auto;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  width: min(100%, 1180px);
+  max-height: min(92vh, 880px);
+  padding: 18px 20px;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-top: 3px solid var(--primary);
   border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--shadow);
 }
+
+.records-dialog > .skeleton-block,
+.records-dialog > .empty-inline { align-self: start; }
 
 .records-head {
   display: flex;
@@ -158,140 +213,102 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 }
 
 .records-close:hover { border-color: var(--primary); color: var(--primary-dark); }
-.records-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
 
-.record-card {
+.records-meta {
   display: grid;
-  gap: 10px;
-  min-width: 0;
-  padding: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 8px 14px;
+  margin: 0;
+  padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: var(--surface-soft);
 }
 
-.record-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
+.records-meta div { min-width: 0; }
+.records-meta dt { color: var(--muted); font-size: .75rem; }
+.records-meta dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: .88rem;
+  font-weight: 700;
 }
 
-.record-title {
+.records-table :deep(.data-table-foot) { padding: .45rem .8rem; }
+
+.records-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 20px;
+  color: var(--muted);
+  font-size: .85rem;
+}
+
+.records-summary b { color: var(--ink); font-size: .95rem; font-variant-numeric: tabular-nums; }
+
+.grade-cell {
   display: flex;
   align-items: baseline;
   gap: 8px;
   min-width: 0;
 }
 
-.record-title strong {
-  overflow-wrap: anywhere;
-  font-size: 1rem;
-}
-
-.record-index {
+.grade-badge {
   flex: 0 0 auto;
-  color: var(--muted);
-  font-size: .78rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.record-grade {
-  flex: 0 0 auto;
-  padding: 4px 9px;
+  padding: 3px 8px;
   border-radius: 999px;
-  background: var(--surface);
+  background: color-mix(in srgb, var(--primary-soft) 60%, var(--surface));
   color: var(--primary-dark);
   font-size: .78rem;
   font-weight: 800;
   white-space: nowrap;
 }
 
-.record-grade.grade-a { color: var(--grade-a); }
-.record-grade.grade-b { color: var(--grade-b); }
-.record-grade.grade-c { color: var(--grade-c); }
-.record-grade.grade-unknown { color: var(--muted); }
+.grade-badge.grade-a { color: var(--grade-a); }
+.grade-badge.grade-b { color: var(--grade-b); }
+.grade-badge.grade-c { color: var(--grade-c); }
+.grade-badge.grade-unknown { color: var(--muted); }
 
-.record-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.record-metrics div {
+.grade-cell small {
   min-width: 0;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface);
-}
-
-.record-metrics span {
-  display: block;
-  color: var(--muted);
-  font-size: .75rem;
-}
-
-.record-metrics strong {
-  display: block;
-  margin-top: 4px;
   overflow-wrap: anywhere;
-  font-size: .95rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.record-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0;
-}
-
-.record-fields div {
-  min-width: 0;
-}
-
-.record-fields dt {
   color: var(--muted);
-  font-size: .75rem;
-}
-
-.record-fields dd {
-  margin: 3px 0 0;
-  overflow-wrap: anywhere;
-  color: var(--ink);
-  font-size: .88rem;
-  line-height: 1.4;
-}
-
-.record-remark {
-  grid-column: 1 / -1;
-}
-
-.record-remark dd {
-  padding: 8px 9px;
-  border-left: 3px solid var(--line-strong);
-  background: var(--surface);
-  line-height: 1.5;
+  font-size: .82rem;
 }
 
 @media (max-width: 560px) {
   .records-overlay { padding: 0; place-items: end center; }
-  .records-dialog { width: 100%; max-height: calc(100vh - 18px); padding: 16px 14px calc(16px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; }
-  .records-results { min-width: 0; }
-  .records-grid { grid-template-columns: 1fr; gap: 10px; }
-  .record-card { padding: 10px; }
-  .record-metrics { gap: 6px; }
-  .record-metrics div { padding: 7px; }
-  .record-metrics span { font-size: .68rem; }
-  .record-metrics strong { font-size: .86rem; }
-  .record-fields { gap: 6px; }
-  .record-fields dt { font-size: .68rem; }
-  .record-fields dd { font-size: .82rem; }
+
+  /* 窄屏走卡片模式，行高不再受视口约束，改由弹窗整体滚动。 */
+  .records-dialog {
+    grid-template-rows: auto auto auto;
+    width: 100%;
+    max-height: calc(100dvh - 18px);
+    padding: 16px 14px calc(16px + env(safe-area-inset-bottom));
+    overflow: auto;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .records-table :deep(.data-table) {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  /* 卡片模式下列表很长，合计条吸在弹窗底部，不用滚到最后一条才看得到。 */
+  .records-table :deep(.data-table-foot) {
+    position: sticky;
+    z-index: 3;
+    bottom: 0;
+    border-top: 2px solid var(--line-strong);
+    background: color-mix(in srgb, var(--surface-soft) 75%, var(--surface));
+  }
+
+  .records-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; padding: 10px; }
+  .records-head h2 { font-size: 1rem; }
+  .records-close { min-height: 36px; padding: 0 12px; }
 }
 </style>

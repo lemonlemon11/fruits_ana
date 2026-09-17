@@ -14,10 +14,11 @@ from app.parser.settlement_parser import (
 from app.parser.settlement_summary import extract_settlement_summary
 
 
-def test_grade_normalization_includes_bc_in_c():
+def test_grade_normalization_recognizes_configured_like_ab_and_keeps_bc_for_rule_lookup():
     assert normalize_grade("A6") == StandardGrade.A
     assert normalize_grade("B6") == StandardGrade.B
-    assert normalize_grade("BC6") == StandardGrade.C
+    assert normalize_grade("AB6") == StandardGrade.AB
+    assert normalize_grade("BC6") == StandardGrade.OTHER
     assert normalize_grade("C6") == StandardGrade.C
 
 
@@ -128,7 +129,7 @@ def test_realistic_settlement_layout_reads_metadata_and_fills_date(tmp_path):
     assert parsed.records[1]["sale_date"] == parsed.records[0]["sale_date"]
     assert [record["grade"] for record in parsed.records] == [
         StandardGrade.A,
-        StandardGrade.C,
+        StandardGrade.OTHER,
     ]
 
 

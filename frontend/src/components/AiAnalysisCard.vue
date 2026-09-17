@@ -21,6 +21,9 @@ const props = withDefaults(defineProps<{
   run: (refresh: boolean) => Promise<SeriesAnalysisResult>
   generateText?: string
   loadingText?: string
+  /** 条件不满足时的空状态文案。 */
+  emptyTitle?: string
+  emptyHint?: string
   /** 只在卡片可见时自动加载；隐藏的 AI 卡片不请求。 */
   active?: boolean
   /** 条件满足后默认自动读取缓存，没有缓存才生成。 */
@@ -28,6 +31,8 @@ const props = withDefaults(defineProps<{
 }>(), {
   active: true,
   autoRun: true,
+  emptyTitle: '先勾选结算单',
+  emptyHint: '勾选两个及以上结算单后，就可以生成分析。',
 })
 
 const analysis = ref<SeriesAnalysisResult | null>(null)
@@ -102,8 +107,8 @@ async function generate(refresh = false) {
     </header>
 
     <div v-if="!canGenerate" class="empty-state compact">
-      <strong>先勾选结算单</strong>
-      <span>勾选两个及以上结算单后，就可以生成分析。</span>
+      <strong>{{ emptyTitle }}</strong>
+      <span>{{ emptyHint }}</span>
     </div>
 
     <div v-else-if="loading" class="ai-loading skeleton-block" aria-live="polite">

@@ -3,7 +3,9 @@ import '../src/styles-shell.css'
 import './showcase.css'
 
 const PAGES: Array<[string, string, string]> = [
+  ['顺仔 · 悬浮问答机器人（Demo）', 'ask-demo.html', '右下角悬浮机器人「顺仔」，点开是微信式悬浮对话窗；答案里的数字来自与看板同一批分析函数'],
   ['系统外壳设计（header + 页签）', 'shell-preview.html', '顶部 header 显示用户名与退出登录，页签记录已打开的页面'],
+  ['手工录单界面交互稿', 'entry-design.html', '基本信息、销售/售后/费用动态行、自动计算与冲突覆盖交互'],
   ['本轮改动呈现（推荐先看）', 'review-2026-09-11.html', 'AI 结论醒目化 + 抽屉式结算单选择器'],
   ['2026-09-14 优化预览', '20260914-optimization-preview.html', '平均每公斤售价、等级 A-F + 其他、日期全展示、取消价差/价比'],
   ['系列对比真实页面', 'grade-preview.html', '真实组件 + 真实结算单数据，含按系列 / 按等级号别两个视图'],

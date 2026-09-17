@@ -2,7 +2,8 @@
 
 口径见 ADR-013（含 2026-09-11 修订）：
 
-- 大等级沿用 ADR-002：``BC`` 归入 ``C``；
+- 大等级原样识别 ``A/B/AB/C/D/E/F``；统计归并由调用方用 ``stat_grade`` 显式传入，
+  不再在此处写死 ``BC`` 归入 ``C``；
 - 号别取字母后的数字，区间**原样保留**（``B6/7`` 就是 ``B6/7``），不拆分、不取最小值；
 - 品质后缀（熟 / 裂 / 黄皮）**只做标记**，不参与分桶；
 - 解析规则按果类可插拔：新水果可注册新规则，识别不出的一律归入「其他」并计数。
@@ -20,9 +21,8 @@ DEFAULT_FRUIT_TYPE = "榴莲"
 QUALITY_MARKS = ("熟", "裂", "黄皮")
 _QUALITY_ALIASES = {"大裂": "裂"}
 
-_PREFIX = re.compile(r"^(BC|A|B|C|D|E|F)", re.IGNORECASE)
+_PREFIX = re.compile(r"^(BC|AB|A|B|C|D|E|F)", re.IGNORECASE)
 _NUMBERS = re.compile(r"^(\d+(?:/\d+)*)")
-_GRADE_ALIASES = {"BC": "C"}
 
 
 @dataclass(frozen=True)
@@ -46,10 +46,9 @@ def _default_parser(grade_raw: str) -> tuple[str, str] | None:
     if not matched:
         return None
     raw_grade = matched.group(1).upper()
-    grade = _GRADE_ALIASES.get(raw_grade, raw_grade)
     numbers = _NUMBERS.match(grade_raw[matched.end() :])
     # 只写等级、没写号别（如 "A"）时归入「A」桶，不当作无法识别，避免丢信息。
-    return grade, numbers.group(1) if numbers else ""
+    return raw_grade, numbers.group(1) if numbers else ""
 
 
 # 果类 → 解析规则；「*」为兜底规则，未来出现新水果时用 register_fruit_grade_parser 注册。
@@ -74,9 +73,15 @@ def _quality_marks(grade_raw: str) -> tuple[str, ...]:
 
 
 def parse_grade_detail(
-    grade_raw: str | None, fruit_type: str | None = None
+    grade_raw: str | None,
+    fruit_type: str | None = None,
+    *,
+    stat_grade: str | None = None,
 ) -> GradeDetail | None:
-    """解析原始等级；无法识别时返回 ``None``（调用方归入「其他」）。"""
+    """解析原始等级；无法识别时返回 ``None``（调用方归入「其他」）。
+
+    ``stat_grade`` 用于把明细桶归入统计等级；未提供时沿用原始写法。
+    """
 
     if not grade_raw:
         return None
@@ -88,7 +93,8 @@ def parse_grade_detail(
     parsed = parser(text)
     if parsed is None:
         return None
-    grade, number = parsed
+    raw_grade, number = parsed
+    grade = (stat_grade or raw_grade).strip().upper() or raw_grade
     return GradeDetail(
         fruit_type=resolved_fruit,
         grade=grade,
@@ -99,11 +105,14 @@ def parse_grade_detail(
 
 
 def grade_detail_label(
-    grade_raw: str | None, fruit_type: str | None = None
+    grade_raw: str | None,
+    fruit_type: str | None = None,
+    *,
+    stat_grade: str | None = None,
 ) -> str:
     """返回分桶用的标签；识别不出时返回「其他」。"""
 
-    detail = parse_grade_detail(grade_raw, fruit_type)
+    detail = parse_grade_detail(grade_raw, fruit_type, stat_grade=stat_grade)
     return detail.label if detail else UNRECOGNIZED_LABEL
 
 

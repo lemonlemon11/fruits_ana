@@ -1,20 +1,24 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { generateSettlementAnalysis, getSettlementComparison, getSettlementDetail, getTrend, gradeLabel, recordSourceUrl, type Grade, type SettlementComparisonItem, type SettlementDetail, type TrendPoint } from '../api/client'
+import { useRoute, useRouter } from 'vue-router'
+import { entryExportUrl, generateSettlementAnalysis, getSettlementComparison, getSettlementDetail, getTrend, gradeLabel, recordSourceUrl, type Grade, type SettlementComparisonItem, type SettlementDetail, type SettlementRecord, type TrendPoint } from '../api/client'
 import DateRangeFilter from '../components/DateRangeFilter.vue'
 import GradeFilterBar from '../components/GradeFilterBar.vue'
 import GradeSummary from '../components/GradeSummary.vue'
 import SettlementGradeBreakdown from '../components/SettlementGradeBreakdown.vue'
 import TrendChart from '../components/TrendChart.vue'
+import DataTable, { type DataTableColumn } from '../components/DataTable.vue'
 import AiAnalysisCard from '../components/AiAnalysisCard.vue'
-import { buildOtherSettlementGradeBaseline, settlementOptionLabel, settlementSeries } from '../utils/settlementComparison'
+import SearchableSelect from '../components/SearchableSelect.vue'
+import { hasPermission } from '../auth'
+import { buildOtherSettlementGradeBaseline, countSameBrandPeers, settlementOptionLabel, settlementSeries } from '../utils/settlementComparison'
 import { activeGrades } from '../utils/grades'
 import { ANALYSIS_HEADINGS } from '../utils/seriesAnalysis'
 import { displayMerchantNo } from '../utils/merchantNo'
 import { formatAnomalyValue, formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
 
 const route = useRoute()
+const router = useRouter()
 const filters = reactive({
   startDate: queryText(route.query.start_date),
   endDate: queryText(route.query.end_date),
@@ -24,11 +28,32 @@ const filters = reactive({
 const activeMerchantNo = ref('')
 const options = ref<SettlementComparisonItem[]>([]); const detail = ref<SettlementDetail | null>(null); const trend = ref<TrendPoint[]>([]); const loading = ref(true); const error = ref(''); let requestVersion = 0
 const detailOpen = ref(false)
+
+/** 销售明细列定义：数量 / 金额右对齐，来源文件走链接单元格。 */
+const recordColumns: DataTableColumn<SettlementRecord>[] = [
+  { key: 'saleDate', label: '到达日期' },
+  { key: 'grade', label: '等级' },
+  { key: 'quantity', label: '数量', numeric: true, value: (record) => formatNumber(record.quantity) },
+  { key: 'amount', label: '金额', numeric: true, value: (record) => formatCurrency(record.amount) },
+  { key: 'source', label: '来源' },
+]
 const filteredOptions = computed(() => filters.series
   ? options.value.filter((item) => settlementSeries(item) === filters.series)
   : options.value)
 const brandOptions = computed(() => [...new Set(options.value.map((item) => settlementSeries(item)))].sort((left, right) => left.localeCompare(right, 'zh-Hans-CN')))
 const selectedOption = computed(() => filteredOptions.value.find((item) => item.merchantNo === activeMerchantNo.value))
+const brandSelectOptions = computed(() =>
+  [
+    { value: '', label: '全部品牌' },
+    ...brandOptions.value.map((brand) => ({ value: brand, label: brand })),
+  ],
+)
+const merchantSelectOptions = computed(() =>
+  filteredOptions.value.map((item) => ({
+    value: item.merchantNo,
+    label: settlementOptionLabel(item),
+  })),
+)
 /** 商号文案统一用适配后写法；选项未加载时回退原始商号。 */
 const activeMerchantLabel = computed(() =>
   selectedOption.value
@@ -45,7 +70,16 @@ const baselineRows = computed(() => detail.value?.grades.map((grade) => {
   return { ...grade, baselinePrice: reference?.weightedAvgPrice ?? null, delta }
 }) ?? [])
 const aiResetKey = computed(() => `${activeMerchantNo.value}|${filters.series}|${filters.startDate}|${filters.endDate}`)
-const canGenerateSettlementAi = computed(() => Boolean(activeMerchantNo.value && !loading.value))
+/** 后端要求「同品牌至少还有一张结算单」才可生成对比分析；不满足时不发请求。 */
+const sameBrandPeerCount = computed(() =>
+  countSameBrandPeers(options.value, activeMerchantNo.value),
+)
+const canGenerateSettlementAi = computed(() =>
+  Boolean(activeMerchantNo.value && !loading.value && sameBrandPeerCount.value > 0),
+)
+const isManualEntry = computed(() => detail.value?.sourceType === 'manual')
+const canEditManualEntry = computed(() => isManualEntry.value && hasPermission('entry:update'))
+const canExportManualEntry = computed(() => isManualEntry.value && hasPermission('entry:export'))
 const availableGradeOrder = computed(() => activeGrades([...(detail.value?.grades ?? []), ...(detail.value?.records ?? [])]))
 const visibleGradeOrder = ref<Grade[]>([])
 watch(availableGradeOrder, (grades) => {
@@ -54,6 +88,16 @@ watch(availableGradeOrder, (grades) => {
 
 function queryText(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+function editManualEntry() {
+  if (activeMerchantNo.value) {
+    void router.push({ path: '/entry', query: { merchant_no: activeMerchantNo.value } })
+  }
+}
+
+function exportManualEntry() {
+  if (activeMerchantNo.value) window.location.href = entryExportUrl(activeMerchantNo.value)
 }
 
 function runSettlementAi(refresh: boolean) {
@@ -118,21 +162,21 @@ onMounted(refresh)
 
 <template>
   <div class="settlement-dashboard">
-    <header class="dashboard-head"><div><h1>结算单详情</h1><p>选择一张结算单，查看销量、销售额和等级情况。</p></div></header>
-    <section class="how-to" aria-label="查看方法"><strong>怎么查看</strong><span>第一步：先按品牌和到达日期缩小范围，再选择商号；切换品牌或商号会立即刷新。第二步：点击“查看结果”后，页面只显示当前结算单的数据。</span></section>
     <form class="filter-bar" @submit.prevent="refresh">
-      <label>品牌
-        <select v-model="filters.series" @change="refresh">
-          <option value="">全部品牌</option>
-          <option v-for="brand in brandOptions" :key="brand" :value="brand">{{ brand }}</option>
-        </select>
-      </label>
-      <label>商号
-        <select v-model="filters.merchantNo" required @change="refresh">
-          <option value="" disabled>选择商号</option>
-          <option v-for="item in filteredOptions" :key="item.merchantNo" :value="item.merchantNo">{{ settlementOptionLabel(item) }}</option>
-        </select>
-      </label>
+      <SearchableSelect
+        v-model="filters.series"
+        :options="brandSelectOptions"
+        aria-label="品牌"
+        placeholder="全部品牌"
+        @change="refresh"
+      />
+      <SearchableSelect
+        v-model="filters.merchantNo"
+        :options="merchantSelectOptions"
+        aria-label="商号"
+        placeholder="选择商号"
+        @change="refresh"
+      />
       <DateRangeFilter
         v-model:start-date="filters.startDate"
         v-model:end-date="filters.endDate"
@@ -142,7 +186,16 @@ onMounted(refresh)
     <div v-if="error" class="error-banner" role="alert"><span><strong>结算单数据没有加载成功</strong>请检查网络后重新查询。{{ error }}</span><button type="button" @click="refresh">重新查询</button></div>
     <div v-if="!loading && !options.length" class="empty-state prominent"><strong>暂无结算单数据</strong><span>目前没有可查看的结算单。请从左侧菜单进入“数据导入”，先导入结算单。</span></div>
     <template v-else>
-      <section class="settlement-banner"><div class="settlement-identity"><strong>{{ selectedOption ? settlementOptionLabel(selectedOption) : activeMerchantNo }}</strong><small>商号 {{ activeMerchantLabel }} · {{ detail?.containerNo ? `柜号 ${detail.containerNo}` : '未登记柜号' }} · 到达日期：{{ periodLabel }}</small></div></section>
+      <section class="settlement-banner">
+        <div class="settlement-identity">
+          <strong>{{ selectedOption ? settlementOptionLabel(selectedOption) : activeMerchantNo }}</strong>
+          <small>商号 {{ activeMerchantLabel }} · {{ detail?.containerNo ? `柜号 ${detail.containerNo}` : '未登记柜号' }} · 到达日期：{{ periodLabel }}</small>
+        </div>
+        <div v-if="canEditManualEntry || canExportManualEntry" class="manual-entry-actions">
+          <button v-if="canEditManualEntry" class="ghost-button" type="button" @click="editManualEntry">修改录单</button>
+          <button v-if="canExportManualEntry" class="primary-button" type="button" @click="exportManualEntry">导出模板</button>
+        </div>
+      </section>
       <section class="kpi-grid" aria-label="销售核心指标"><article v-for="item in salesKpis" :key="item.label" class="kpi-card"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.note }}</small></article></section>
       <section class="panel grade-summary-panel">
         <GradeFilterBar
@@ -172,12 +225,26 @@ onMounted(refresh)
         :can-generate="canGenerateSettlementAi"
         :run="runSettlementAi"
         generate-text="生成同品牌分析"
+        empty-title="该品牌暂无其他结算单"
+        empty-hint="同品牌只有这一张结算单，暂无可对比数据；新增同品牌结算单后即可生成。"
       />
       <button type="button" class="mobile-detail-toggle" :aria-expanded="detailOpen" aria-controls="settlement-mobile-detail" @click="detailOpen = !detailOpen">{{ detailOpen ? '收起更多分析' : '查看趋势、对比与明细' }}</button>
       <div v-show="detailOpen" id="settlement-mobile-detail" class="settlement-mobile-detail">
         <section class="analysis-grid"><div class="panel trend-panel"><TrendChart :points="trend" :loading="loading" title="该结算单每日销量和平均每公斤售价" /></div><div class="panel baseline-panel"><header class="panel-head"><h2>和同期其他结算单平均每公斤售价对比</h2></header><div v-if="loading" class="skeleton-block">正在计算对比数据</div><div v-else class="baseline-list"><div v-for="row in baselineRows" :key="row.grade" class="baseline-row"><span class="grade-badge" :class="`grade-${row.grade.toLowerCase()}`">{{ row.grade }}</span><div><strong>{{ gradeLabel(row.grade) }}</strong><small>本单 {{ formatPrice(row.weightedAvgPrice) }} · 其他结算单 {{ formatPrice(row.baselinePrice) }}</small></div><span :class="['delta-pill', { negative: row.delta !== null && row.delta < 0 }]">{{ row.delta === null ? '暂无对比' : `${row.delta >= 0 ? '+' : ''}${formatPercent(row.delta)}` }}</span></div></div></div></section>
         <section class="compact-alerts panel"><header class="panel-head"><h2>需要关注</h2></header><div v-if="!detail?.operatingAnomalies.length" class="empty-inline">当前未发现经营异常</div><ul v-else class="alert-list inline-alerts"><li v-for="(item, index) in detail.operatingAnomalies" :key="index" class="alert-item danger"><span class="alert-code">提醒</span><div><strong>{{ item.reason }}</strong><p>当前 {{ formatAnomalyValue(item.type, item.metric) }} · 全部 {{ formatAnomalyValue(item.type, item.baseline) }}</p></div></li></ul></section>
-        <details class="secondary-drawer"><summary><span><b>查看结算和销售明细</b><small>需要核对原始数据时再展开</small></span><em>展开</em></summary><div class="drawer-grid"><section class="panel"><header class="panel-head"><h2>结算信息</h2></header><dl class="settlement-strip"><div><dt>售后金额</dt><dd>{{ detail?.settlement.afterSalesAmount == null ? '暂无数据' : formatCurrency(detail.settlement.afterSalesAmount) }}</dd></div><div><dt>费用合计</dt><dd>{{ detail?.settlement.feeAmount == null ? '暂无数据' : formatCurrency(detail.settlement.feeAmount) }}</dd></div><div><dt>清关税费</dt><dd>{{ detail?.settlement.customsTax == null ? '暂无数据' : formatCurrency(detail.settlement.customsTax) }}</dd></div><div><dt>应付结算</dt><dd>{{ detail?.settlement.payableAmount == null ? '暂无数据' : formatCurrency(detail.settlement.payableAmount) }}</dd></div></dl></section><section class="panel"><header class="panel-head"><h2>销售明细</h2><span>{{ detail?.records.length ?? 0 }} 条</span></header><div v-if="!detail?.records.length" class="empty-inline">当前范围没有销售明细</div><div v-else class="trace-results"><div class="table-wrap trace-table"><table><thead><tr><th>到达日期</th><th>等级</th><th>数量</th><th>金额</th><th>来源</th></tr></thead><tbody><tr v-for="record in detail.records" :key="record.id"><td>{{ record.saleDate }}</td><td>{{ record.grade ? gradeLabel(record.grade) : '未知' }}</td><td>{{ formatNumber(record.quantity) }}</td><td>{{ formatCurrency(record.amount) }}</td><td><a class="text-link" :href="recordSourceUrl(record.id)">#{{ record.sourceFileId ?? '—' }}</a></td></tr></tbody></table></div><div class="mobile-trace-cards"><article v-for="record in detail.records" :key="record.id" class="mobile-trace-card"><header><strong>{{ record.saleDate }}</strong><span>{{ record.grade ? gradeLabel(record.grade) : '未知' }}</span></header><dl><div><dt>数量</dt><dd>{{ formatNumber(record.quantity) }}</dd></div><div><dt>金额</dt><dd>{{ formatCurrency(record.amount) }}</dd></div><div><dt>来源</dt><dd><a class="text-link" :href="recordSourceUrl(record.id)">#{{ record.sourceFileId ?? '—' }}</a></dd></div></dl></article></div></div></section></div></details>
+        <details class="secondary-drawer"><summary><span><b>查看结算和销售明细</b><small>需要核对原始数据时再展开</small></span><em>展开</em></summary><div class="drawer-grid"><section class="panel"><header class="panel-head"><h2>结算信息</h2></header><dl class="settlement-strip"><div><dt>售后金额</dt><dd>{{ detail?.settlement.afterSalesAmount == null ? '暂无数据' : formatCurrency(detail.settlement.afterSalesAmount) }}</dd></div><div><dt>费用合计</dt><dd>{{ detail?.settlement.feeAmount == null ? '暂无数据' : formatCurrency(detail.settlement.feeAmount) }}</dd></div><div><dt>清关税费</dt><dd>{{ detail?.settlement.customsTax == null ? '暂无数据' : formatCurrency(detail.settlement.customsTax) }}</dd></div><div><dt>应付结算</dt><dd>{{ detail?.settlement.payableAmount == null ? '暂无数据' : formatCurrency(detail.settlement.payableAmount) }}</dd></div></dl></section><section class="panel"><header class="panel-head"><h2>销售明细</h2><span>{{ detail?.records.length ?? 0 }} 条</span></header><div v-if="!detail?.records.length" class="empty-inline">当前范围没有销售明细</div><div v-else class="trace-results"><DataTable
+            class="trace-table"
+            :columns="recordColumns"
+            :rows="detail.records"
+            :row-key="(record) => record.id"
+            caption="销售明细：每条记录的到达日期、等级、数量、金额与来源文件"
+            min-width="520px"
+          >
+            <template #cell-grade="{ row }">{{ row.grade ? gradeLabel(row.grade) : '未知' }}</template>
+            <template #cell-source="{ row }">
+              <a class="text-link" :href="recordSourceUrl(row.id)">#{{ row.sourceFileId ?? '—' }}</a>
+            </template>
+          </DataTable><div class="mobile-trace-cards"><article v-for="record in detail.records" :key="record.id" class="mobile-trace-card"><header><strong>{{ record.saleDate }}</strong><span>{{ record.grade ? gradeLabel(record.grade) : '未知' }}</span></header><dl><div><dt>数量</dt><dd>{{ formatNumber(record.quantity) }}</dd></div><div><dt>金额</dt><dd>{{ formatCurrency(record.amount) }}</dd></div><div><dt>来源</dt><dd><a class="text-link" :href="recordSourceUrl(record.id)">#{{ record.sourceFileId ?? '—' }}</a></dd></div></dl></article></div></div></section></div></details>
       </div>
     </template>
   </div>
@@ -185,17 +252,17 @@ onMounted(refresh)
 
 <style scoped>
 .settlement-dashboard { display: grid; gap: 18px; }
-.dashboard-head { padding-bottom: 18px; border-bottom: 1px solid var(--line-strong); }
-.dashboard-head h1 { margin-bottom: 6px; }
-.dashboard-head p { margin: 0; color: var(--muted); font-size: .95rem; }
 .settlement-banner,
 .panel,
 .kpi-grid,
 .secondary-drawer { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .settlement-banner { padding: 14px 16px; border-left: 4px solid var(--primary); }
+.settlement-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .settlement-identity { display: grid; gap: 5px; }
 .settlement-identity strong { overflow-wrap: anywhere; font-size: 1.05rem; }
 .settlement-identity small { color: var(--muted); font-size: .85rem; line-height: 1.5; }
+.manual-entry-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.manual-entry-actions button { min-height: 36px; padding: 0 12px; border-radius: 9px; font-weight: 800; }
 .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .kpi-card { display: grid; gap: 5px; min-width: 0; padding: 14px; border-right: 1px solid var(--line); }
 .kpi-card:last-child { border-right: 0; }
@@ -233,12 +300,9 @@ onMounted(refresh)
 .settlement-strip > div { padding: 10px; background: var(--surface-soft); }
 .settlement-strip dt { color: var(--muted); font-size: .85rem; }
 .settlement-strip dd { margin: 4px 0 0; font-size: .9rem; }
-.trace-table { max-height: 260px; overflow: auto; }
-.trace-table table { min-width: 520px; }
+/* 表格外观由 components/DataTable.vue 提供，这里只限高：超出时列表内部滚动、表头吸顶。 */
+.trace-table { max-height: 260px; }
 .mobile-trace-cards { display: none; }
-/* 等级与来源是文字列，左对齐更整齐。 */
-.trace-table th:nth-child(2), .trace-table td:nth-child(2),
-.trace-table th:nth-child(5), .trace-table td:nth-child(5) { text-align: left; }
 
 @media (max-width: 920px) {
   .analysis-grid,
@@ -256,7 +320,9 @@ onMounted(refresh)
   .settlement-dashboard { gap: 10px; }
   .mobile-detail-toggle { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--primary-dark); font-size: .95rem; font-weight: 800; }
   .settlement-mobile-detail { gap: 12px; }
-  .settlement-banner { padding: 8px 10px; border-left-width: 3px; }
+  .settlement-banner { padding: 8px 10px; border-left-width: 3px; align-items: flex-start; flex-direction: column; }
+  .manual-entry-actions { width: 100%; }
+  .manual-entry-actions button { flex: 1; }
   .settlement-identity { gap: 2px; }
   .settlement-identity strong { font-size: .92rem; line-height: 1.25; }
   .settlement-identity small { font-size: .7rem; line-height: 1.3; }

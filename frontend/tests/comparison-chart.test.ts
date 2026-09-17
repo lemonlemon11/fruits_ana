@@ -38,7 +38,10 @@ test('价格柱状图的柱区与左侧刻度等高，柱顶才对得上刻度�
 
 test('所选结算单总览以商号作为首列', () => {
   const table = fs.readFileSync(path.join(src, 'components', 'SeriesOverviewTable.vue'), 'utf8')
+  const columns = table.match(/return \[\n([\s\S]*?)\n  \]/)?.[1] ?? ''
 
-  assert.match(table, /<th scope="col">商号<\/th>/)
-  assert.doesNotMatch(table, /<th scope="col">单号<\/th>/)
+  // 首列是商号（行标题 + 加粗），单号并进同一单元格而不是单独占列。
+  assert.match(columns, /key: 'merchant', label: '商号', rowHeader: true, emphasis: true/)
+  assert.doesNotMatch(columns, /label: '单号'/)
+  assert.match(table, /displayOrderNo\(row\)/)
 })

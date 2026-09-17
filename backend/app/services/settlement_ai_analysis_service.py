@@ -26,8 +26,21 @@ from .ai_analysis_service import (
 from .settlement_analytics_service import get_settlement_comparison
 
 FEATURE = "settlement-detail"
-PROMPT_VERSION = "v1"
+# v2：小标题只列当前结算单实际有的等级，不再要求给空等级写「暂无数据」占位小节。
+PROMPT_VERSION = "v3"
 MAX_PEER_SETTLEMENTS = 6
+
+# 等级在结论里的小标题写法，顺序与平台等级顺序一致。
+GRADE_HEADINGS: tuple[tuple[str, str], ...] = (
+    ("A", "A果"),
+    ("B", "B果"),
+    ("AB", "AB果"),
+    ("C", "C果"),
+    ("D", "D果"),
+    ("E", "E果"),
+    ("F", "F果"),
+    ("OTHER", "其他"),
+)
 
 SYSTEM_PROMPT = """你是水果销售数据分析助手，服务对象是果农和档口老板，他们不看复杂报表。
 只依据用户给出的数字写结论，不许编造，不许自己另算，不许把数字改成别的数值。
@@ -45,16 +58,9 @@ SYSTEM_PROMPT = """你是水果销售数据分析助手，服务对象是果农�
    差多少，并结合件数占比给出经营判断。
 9. 「可以留意的地方」必须写 2 到 3 条能直接照做的事；每条都要带上数字，
    不要写「继续关注」这类空话。
-小标题固定为下面 9 个，顺序不要变；数据中没有的等级要写「暂无数据」：
-整体行情
-A果
-B果
-C果
-D果
-E果
-F果
-其他
-可以留意的地方"""
+小标题只写下面这些，顺序不要变，也不要自己加标题：
+{headings}
+当前结算单没有的等级不要写，也不要写「暂无数据」这类占位内容。"""
 
 
 def _grade_payload(row: dict) -> list[dict]:
@@ -122,10 +128,31 @@ def _build_payload(current: dict, peers: Sequence[dict]) -> dict:
     }
 
 
+def grade_headings(grades: Sequence[dict]) -> list[str]:
+    """只保留当前结算单实际出现过的等级，避免给空等级写占位小节。
+
+    兼容两种写法：对比接口的原始行用 ``grade``，数据包里的等级行用 ``等级``。
+    """
+
+    present = {
+        str(item.get("grade") or item.get("等级") or "").strip().upper()
+        for item in grades
+    }
+    return [label for code, label in GRADE_HEADINGS if code in present]
+
+
+def build_system_prompt(grades: Sequence[dict]) -> str:
+    """按当前结算单实际有的等级拼出小标题清单。"""
+
+    headings = ["整体行情", *grade_headings(grades), "可以留意的地方"]
+    return SYSTEM_PROMPT.format(headings="\n".join(headings))
+
+
 def build_messages(payload: dict) -> list[dict]:
     data = json.dumps(payload, ensure_ascii=False, indent=2)
+    current = payload.get("当前结算单") or {}
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": build_system_prompt(current.get("分等级") or [])},
         {
             "role": "user",
             "content": (
@@ -210,8 +237,11 @@ __all__ = [
     "AiCallFailed",
     "AiNotConfigured",
     "FEATURE",
+    "GRADE_HEADINGS",
     "PROMPT_VERSION",
     "SYSTEM_PROMPT",
     "analyze_settlement_detail",
     "build_messages",
+    "build_system_prompt",
+    "grade_headings",
 ]

@@ -14,6 +14,7 @@ import GradeSummary from '../components/GradeSummary.vue'
 import SettlementComparison from '../components/SettlementComparison.vue'
 import TrendChart from '../components/TrendChart.vue'
 import DateRangeFilter from '../components/DateRangeFilter.vue'
+import SearchableSelect from '../components/SearchableSelect.vue'
 import { formatAnomalyValue } from '../utils/format'
 import { displayMerchantNo } from '../utils/merchantNo'
 import { filterSettlementsByMerchant, settlementOptionLabel } from '../utils/settlementComparison'
@@ -39,6 +40,15 @@ const trendTitle = computed(() => (
     ? `每日销量和平均每公斤售价 · ${settlementOptionLabel(selectedSettlement.value)}`
     : '每日销量和平均每公斤售价'
 ))
+const merchantSelectOptions = computed(() =>
+  [
+    { value: '', label: '全部结算单' },
+    ...settlementOptions.value.map((item) => ({
+      value: item.merchantNo,
+      label: settlementOptionLabel(item),
+    })),
+  ],
+)
 const totalAlertPages = computed(() => Math.max(1, Math.ceil((overview.value?.operatingAnomalies.length ?? 0) / alertPageSize)))
 const pagedAnomalies = computed(() => {
   const anomalies = overview.value?.operatingAnomalies ?? []
@@ -83,29 +93,18 @@ onMounted(refresh)
 
 <template>
   <div class="page-stack">
-    <header class="page-header">
-      <div>
-        <h1>销售总览</h1>
-        <p>查看所有结算单卖了多少、卖了多少钱，以及各等级水果的销售情况。</p>
-      </div>
-    </header>
-
-    <section class="how-to" aria-label="查看方法">
-      <strong>怎么查看</strong>
-      <span>第一步：选择到达日期和商号，切换商号会立即刷新。第二步：改完到达日期后点击“查看结果”。不选择到达日期就是查看全部数据。</span>
-    </section>
-
     <form class="filter-bar overview-filter" @submit.prevent="refresh">
       <DateRangeFilter
         v-model:start-date="filters.startDate"
         v-model:end-date="filters.endDate"
       />
-      <label>商号
-        <select v-model="filters.merchantNo" @change="refresh">
-          <option value="">全部结算单</option>
-          <option v-for="item in settlementOptions" :key="item.merchantNo" :value="item.merchantNo">{{ settlementOptionLabel(item) }}</option>
-        </select>
-      </label>
+      <SearchableSelect
+        v-model="filters.merchantNo"
+        :options="merchantSelectOptions"
+        aria-label="商号"
+        placeholder="全部结算单"
+        @change="refresh"
+      />
       <button class="primary-button" type="submit" :disabled="loading">{{ loading ? '正在查询' : '查看结果' }}</button>
     </form>
 

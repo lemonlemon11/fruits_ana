@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { normalizeSettlementComparison } from '../src/api/normalize.ts'
 import * as comparisonUtils from '../src/utils/settlementComparison.ts'
 
 const { initialComparisonSelection, settlementOptionLabel, toggleComparisonSelection } = comparisonUtils
@@ -56,4 +57,42 @@ test('builds grade price baseline from other settlements only', () => {
 
   assert.equal(baseline.find((item: { grade: string }) => item.grade === 'A').weightedAvgPrice, 14)
   assert.equal(baseline.find((item: { grade: string }) => item.grade === 'B').weightedAvgPrice, 10)
+})
+
+test('统计同品牌其他结算单数量（后端同品牌分析的前置条件）', () => {
+  const countPeers = (comparisonUtils as Record<string, unknown>).countSameBrandPeers as (
+    items: unknown[],
+    merchantNo: string,
+  ) => number
+  assert.equal(typeof countPeers, 'function')
+
+  const items = [
+    { merchantNo: '637', series: '宝贝', orderNo: '宝贝-003' },
+    { merchantNo: '640', series: '宝贝', orderNo: '宝贝-004' },
+    { merchantNo: '626', series: '宝贝', orderNo: '宝贝-002' },
+    { merchantNo: '651', series: '金枕', orderNo: '金枕-001' },
+  ]
+  assert.equal(countPeers(items, '637'), 2)
+  assert.equal(countPeers(items, '651'), 0)
+  assert.equal(countPeers(items, '不存在'), 0)
+
+  // 接口没给 series 时回退到单号前缀，规则与后端 series_name 一致。
+  const withoutSeries = [
+    { merchantNo: '637', series: '', orderNo: '宝贝-003' },
+    { merchantNo: '640', series: '', orderNo: '宝贝L004' },
+    { merchantNo: '651', series: '', orderNo: '金枕001' },
+  ]
+  assert.equal(countPeers(withoutSeries, '637'), 1)
+  assert.equal(countPeers(withoutSeries, '651'), 0)
+})
+
+test('结算单对比数据保留后端返回的品牌字段', () => {
+  const items = normalizeSettlementComparison({
+    settlements: [
+      { merchant_no: '637', order_no: '宝贝-003', order_no_normalized: '宝贝-003', series: '宝贝' },
+      { merchant_no: '651', order_no: '金枕001' },
+    ],
+  })
+  assert.equal(items[0].series, '宝贝')
+  assert.equal(items[1].series, '')
 })

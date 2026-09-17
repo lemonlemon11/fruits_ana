@@ -105,3 +105,12 @@ test('AI 分析卡片使用果农能看懂的文案', () => {
   assert.match(series, /只作参考/)
   assert.doesNotMatch(series, /加权均价|贡献度|环比|同比/)
 })
+
+test('parseAnalysisSections 丢弃「暂无数据」占位行与空小节', () => {
+  const content = '整体行情\n- 三张单合计 913 件。\nD果\n- 暂无数据\n可以留意的地方\n- A 果可以试着提价。'
+  const sections = parseAnalysisSections(content)
+  assert.deepEqual(
+    sections.map((section) => section.title),
+    ['整体行情', '可以留意的地方'],
+  )
+})

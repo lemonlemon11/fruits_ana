@@ -34,13 +34,6 @@ onMounted(refresh)
 
 <template>
   <div class="page-stack comparison-page">
-    <header class="page-header comparison-page-header">
-      <div><h1>结算单对比</h1><p>按到达日期查看各结算单（按商号归集）的销量、销售额和平均每公斤售价。</p></div>
-    </header>
-    <section class="how-to" aria-label="查看方法">
-      <strong>怎么查看</strong>
-      <span>第一步：选择到达日期。第二步：点击“查看结果”。在结果上方可以更换排序方式。</span>
-    </section>
     <form class="filter-bar comparison-filter" @submit.prevent="refresh">
       <DateRangeFilter
         v-model:start-date="filters.startDate"

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .models import StandardGrade
+from .parser.spec_range import parse_spec_range
 
 
 class ORMModel(BaseModel):
@@ -19,6 +21,7 @@ class ORMModel(BaseModel):
 class UserRead(BaseModel):
     id: int
     display_name: str
+    permissions: list[str] = Field(default_factory=list)
 
 
 class RegisterRequest(BaseModel):
@@ -79,9 +82,17 @@ class SettlementDateRange(BaseModel):
     is_default: bool
 
 
+class SettlementPagination(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+
 class SettlementListResponse(BaseModel):
     date_range: SettlementDateRange | None
     settlements: list[SettlementListItem]
+    pagination: SettlementPagination | None = None
 
 
 class SettlementRecordRead(BaseModel):
@@ -233,9 +244,121 @@ class SeriesAnalysisResponse(BaseModel):
     cached: bool
 
 
+class EntrySaleItemCreate(BaseModel):
+    """销售明细行；头数与 KG 为文本（支持 ``3/4``、``9/10`` 区间写法）。"""
+
+    sale_date: date
+    variety: str = Field(pattern=r"^[A-Z]{1,3}$")
+    head_count: str = Field(min_length=1, max_length=32)
+    spec_kg: str = Field(min_length=1, max_length=32)
+    sales_quantity: Decimal = Field(gt=0)
+    unit_price: Decimal = Field(gt=0)
+    remark: str | None = None
+
+    @field_validator("head_count", "spec_kg")
+    @classmethod
+    def _check_range(cls, value: str, info) -> str:
+        parsed = parse_spec_range(value)
+        if parsed is None:
+            label = "规格（头数）" if info.field_name == "head_count" else "规格（KG）"
+            raise ValueError(f"{label}无法解析，请填写数字或区间（如 3/4、9/10、10）")
+        return parsed.canonical
+
+
+class EntryAfterSaleItemCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=255)
+    summary: str = Field(default="", max_length=255)
+    amount: Decimal = Field(ge=0)
+
+
+class EntryFeeItemCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    amount: Decimal = Field(ge=0)
+    is_custom: bool = False
+
+
+class EntryCreate(BaseModel):
+    merchant_no: str = Field(min_length=1, max_length=128)
+    order_no: str = Field(min_length=1, max_length=128)
+    container_no: str = Field(min_length=1, max_length=128)
+    vehicle_no: str = Field(min_length=1, max_length=128)
+    market: str = Field(min_length=1, max_length=128)
+    arrival_date: date
+    arrival_quantity: int = Field(ge=0)
+    sales: list[EntrySaleItemCreate] = Field(min_length=1)
+    after_sales: list[EntryAfterSaleItemCreate] = Field(default_factory=list)
+    fees: list[EntryFeeItemCreate] = Field(default_factory=list)
+    overwrite: bool = False
+
+
+class EntrySaleItemRead(BaseModel):
+    """读取用的销售明细行：只做展示，不跑写入侧的区间校验（历史数据不强求规范）。"""
+
+    sale_date: date
+    variety: str
+    head_count: str
+    spec_kg: str
+    sales_quantity: Decimal
+    unit_price: Decimal
+    remark: str | None = None
+
+
+class EntryRead(BaseModel):
+    merchant_no: str
+    order_no: str | None
+    container_no: str | None
+    vehicle_no: str | None
+    market: str | None
+    arrival_date: date | None
+    arrival_quantity: int | None
+    source_type: str
+    sales: list[EntrySaleItemRead]
+    after_sales: list[EntryAfterSaleItemCreate]
+    fees: list[EntryFeeItemCreate]
+
+
+class AskMessage(BaseModel):
+    """问答的历史消息，只保留文本，避免把结构化内容塞回提示词。"""
+
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class AskRequest(BaseModel):
+    """自然语言提问的请求体。"""
+
+    question: str = Field(min_length=1, max_length=500)
+    history: list[AskMessage] = Field(default_factory=list, max_length=10)
+
+
+class AskStep(BaseModel):
+    """一次工具调用，用于向用户展示「这个数是从哪来的」。"""
+
+    tool: str
+    args: dict
+    summary: str
+
+
+class AskResponse(BaseModel):
+    """问答结果：正文 + 数据来源。"""
+
+    answer: str
+    steps: list[AskStep] = Field(default_factory=list)
+    model: str
+
+
 __all__ = [
     "DataIssueCreate",
     "DataIssueRead",
+    "EntryAfterSaleItemCreate",
+    "EntryCreate",
+    "EntryFeeItemCreate",
+    "EntryRead",
+    "EntrySaleItemCreate",
+    "AskMessage",
+    "AskRequest",
+    "AskResponse",
+    "AskStep",
     "AuthResponse",
     "NotificationListResponse",
     "NotificationRead",
@@ -250,6 +373,7 @@ __all__ = [
     "SettlementDateRange",
     "SettlementListItem",
     "SettlementListResponse",
+    "SettlementPagination",
     "SeriesAnalysisRequest",
     "SeriesAnalysisResponse",
     "SettlementAnalysisRequest",

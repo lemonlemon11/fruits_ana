@@ -6,6 +6,7 @@ import hashlib
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Callable
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
@@ -13,7 +14,15 @@ from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from .db import get_db
-from .models import User, UserSession, utc_now
+from .models import (
+    AdminPermission,
+    AdminRole,
+    AdminRolePermission,
+    AdminUserRole,
+    User,
+    UserSession,
+    utc_now,
+)
 
 
 SESSION_COOKIE = "fruit_session"
@@ -105,6 +114,43 @@ def require_current_user(
     if user is None:
         raise HTTPException(status_code=401, detail=LOGIN_REQUIRED_DETAIL)
     return user
+
+
+def get_permission_codes(db: Session, user_id: int) -> set[str]:
+    """读取用户在管理端维护的业务 RBAC 权限码（只读）。"""
+
+    rows = (
+        db.query(AdminPermission.code)
+        .join(
+            AdminRolePermission,
+            AdminRolePermission.permission_id == AdminPermission.id,
+        )
+        .join(AdminRole, AdminRole.id == AdminRolePermission.role_id)
+        .join(AdminUserRole, AdminUserRole.role_id == AdminRole.id)
+        .filter(
+            AdminUserRole.user_id == user_id,
+            AdminRole.is_active.is_(True),
+            AdminPermission.is_active.is_(True),
+        )
+        .distinct()
+        .all()
+    )
+    return {row[0] for row in rows}
+
+
+def require_permission(permission_code: str) -> Callable:
+    """FastAPI 依赖：要求当前登录用户拥有指定业务权限。"""
+
+    def dependency(
+        request: Request,
+        db: Session = Depends(get_db),
+    ) -> User:
+        user = require_current_user(request, db)
+        if permission_code not in get_permission_codes(db, user.id):
+            raise HTTPException(status_code=403, detail="没有权限执行该操作")
+        return user
+
+    return dependency
 
 
 def revoke_session(db: Session, raw_token: str | None) -> None:

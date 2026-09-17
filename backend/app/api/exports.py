@@ -18,6 +18,12 @@ from ..models import ImportBatch, SaleRecord, SourceFile
 from ..services.analytics_service import get_grade_summary
 from ..services.order_no_naming import order_no_display
 from ..services.merchant_no_naming import merchant_no_display
+from ..services.entry_export import build_settlement_template_workbook
+from ..services.field_conversion import grade_mapping_note
+from ..services.settlement_list_export import (
+    build_settlements_workbook,
+    settlements_export_filename,
+)
 
 
 router = APIRouter(
@@ -55,7 +61,7 @@ def export_overview_csv(
     writer.writerow(["filter_end_date", end_date.isoformat() if end_date else "all"])
     writer.writerow(["filter_merchant_no", _spreadsheet_safe(merchant_no or "all")])
     writer.writerow(["generated_at_utc", datetime.now(timezone.utc).isoformat()])
-    writer.writerow(["grade_mapping", "BC -> C"])
+    writer.writerow(["grade_mapping", grade_mapping_note(db)])
     writer.writerow(
         ["grade", "sales_quantity", "sales_amount", "weighted_avg_price", "quantity_share"]
     )
@@ -64,6 +70,26 @@ def export_overview_csv(
     payload = BytesIO(output.getvalue().encode("utf-8-sig"))
     headers = {"Content-Disposition": 'attachment; filename="grade-overview.csv"'}
     return StreamingResponse(payload, media_type="text/csv", headers=headers)
+
+
+@router.get("/settlements.xlsx")
+def export_settlement_list_xlsx(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    merchant_no: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """导出「数据明细」里的结算单列表，口径与列表页当前筛选范围一致。"""
+
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(422, "start_date 不能晚于 end_date")
+    payload = build_settlements_workbook(
+        db, start_date=start_date, end_date=end_date, merchant_no=merchant_no
+    )
+    filename = settlements_export_filename(start_date, end_date, merchant_no)
+    return StreamingResponse(
+        BytesIO(payload), media_type=XLSX_MEDIA_TYPE, headers=_attachment(filename)
+    )
 
 
 @router.get("/settlements/{merchant_no}.xlsx")
@@ -77,7 +103,7 @@ def export_settlement_xlsx(
     records = _records(db, merchant_no, start_date, end_date)
     if not records:
         raise HTTPException(404, "筛选范围内没有该结算单销售数据")
-    payload = _settlement_workbook(batch, records, start_date, end_date)
+    payload = _settlement_workbook(db, batch, records, start_date, end_date)
     display = order_no_display(
         getattr(batch, "order_no", None),
         getattr(batch, "order_no_normalized", None),
@@ -89,6 +115,30 @@ def export_settlement_xlsx(
     parts = "-".join(part for part in (merchant, display) if part)
     headers = _attachment(f"settlement-{parts or merchant_no}.xlsx")
     return StreamingResponse(BytesIO(payload), media_type=XLSX_MEDIA_TYPE, headers=headers)
+
+
+@router.get("/settlements/{merchant_no}/template.xlsx")
+def export_settlement_template_xlsx(merchant_no: str, db: Session = Depends(get_db)):
+    """按结算单模板导出单张结算单，列表里任意一行都能导出同一版式。"""
+
+    try:
+        payload = build_settlement_template_workbook(db, merchant_no)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    batch = db.query(ImportBatch).filter_by(merchant_no=merchant_no).first()
+    display = order_no_display(
+        getattr(batch, "order_no", None), getattr(batch, "order_no_normalized", None)
+    )
+    merchant = merchant_no_display(
+        getattr(batch, "merchant_no", None) or merchant_no,
+        getattr(batch, "merchant_no_normalized", None),
+    )
+    parts = "-".join(part for part in (merchant, display) if part)
+    return StreamingResponse(
+        BytesIO(payload),
+        media_type=XLSX_MEDIA_TYPE,
+        headers=_attachment(f"{parts or merchant_no}-结算单.xlsx"),
+    )
 
 
 @router.get("/records/{record_id}/source")
@@ -117,7 +167,7 @@ def _records(db, merchant_no, start_date, end_date):
     return query.order_by(SaleRecord.sale_date, SaleRecord.id).all()
 
 
-def _settlement_workbook(batch, records, start_date, end_date):
+def _settlement_workbook(db, batch, records, start_date, end_date):
     detail = pd.DataFrame([_record_dict(record) for record in records])
     detail = detail.map(_spreadsheet_safe)
     summary = _group_metrics(detail, "grade")
@@ -158,7 +208,7 @@ def _settlement_workbook(batch, records, start_date, end_date):
             ["开始日期", start_date.isoformat() if start_date else "全部"],
             ["结束日期", end_date.isoformat() if end_date else "全部"],
             ["生成时间(UTC)", datetime.now(timezone.utc).isoformat()],
-            ["等级映射", "BC 统一计入 C，原始等级保留在 grade_raw"],
+            ["等级映射", f"{grade_mapping_note(db)}；明细等级原文保留在 grade_raw"],
         ],
         columns=["项目", "内容"],
     )

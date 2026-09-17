@@ -18,7 +18,10 @@ const router = createRouter({
     { path: '/series-comparison', component: () => import('./views/SeriesComparisonView.vue'), meta: { requiresAuth: true } },
     { path: '/container-comparison', redirect: '/settlement-comparison' },
     { path: '/containers', redirect: '/settlement-detail' },
+    { path: '/entry-hub', redirect: '/imports' },
     { path: '/imports', component: () => import('./views/ImportView.vue'), meta: { requiresAuth: true } },
+    { path: '/import-review', component: () => import('./views/ImportReviewView.vue'), meta: { requiresAuth: true, modal: true } },
+    { path: '/entry', component: () => import('./views/EntryView.vue'), meta: { requiresAuth: true, permission: 'entry:view' } },
   ],
 })
 
@@ -32,6 +35,9 @@ router.beforeEach(async (to) => {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
   if (to.meta.guestOnly && currentUser.value) return '/overview'
+  if (to.meta.permission && !currentUser.value?.permissions.includes(String(to.meta.permission))) {
+    return '/overview'
+  }
   return true
 })
 

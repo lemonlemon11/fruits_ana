@@ -6,7 +6,7 @@ export interface AnalysisSection {
 }
 
 /** 与后端提示词约定的小标题顺序保持一致。 */
-export const ANALYSIS_HEADINGS = ['整体行情', 'A果', 'B果', 'C果', 'D果', 'E果', 'F果', '其他', '可以留意的地方'] as const
+export const ANALYSIS_HEADINGS = ['整体行情', 'A果', 'B果', 'AB果', 'C果', 'D果', 'E果', 'F果', '其他', '可以留意的地方'] as const
 
 /** 「等级细分」AI 小结的小标题，与后端 grade_detail 提示词保持一致。 */
 export const GRADE_DETAIL_HEADINGS = [
@@ -18,6 +18,8 @@ export const GRADE_DETAIL_HEADINGS = [
 
 const FALLBACK_TITLE = '分析结论'
 const HAS_CHINESE = /[\u4e00-\u9fff]/
+/** 模型给空等级写占位行时整段丢弃，避免出现「D果 - 暂无数据」这种空小节。 */
+const PLACEHOLDER_POINT = /^暂无数据[。.]?$/
 
 export interface HighlightSegment {
   text: string
@@ -73,7 +75,7 @@ function stripBullet(line: string): string {
   return line.replace(/^[-*·—•]\s*/, '').trim()
 }
 
-/** 把结论文本切成「小标题 + 要点」结构；没有小标题时归入「分析结论」。 */
+/** 把结论文本切成「小标题 + 要点」结构；没有小标题时归入「分析结论」，「暂无数据」占位行会被忽略。 */
 export function parseAnalysisSections(
   content: string,
   headings: readonly string[] = ANALYSIS_HEADINGS,
@@ -101,7 +103,7 @@ export function parseAnalysisSections(
     }
 
     const point = stripBullet(line)
-    if (!point) continue
+    if (!point || PLACEHOLDER_POINT.test(point)) continue
     if (current === null) current = push(FALLBACK_TITLE)
     current.points.push(point)
   }

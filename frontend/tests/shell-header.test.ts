@@ -90,6 +90,15 @@ test('桌面收起为自适应图标栏且移动端不显示收起按钮', () =>
   assert.match(styles, /@media \(max-width: 820px\)[\s\S]*\.sidebar-toggle\s*\{\s*display:\s*none/)
 })
 
+test('header 文案与用户名单行截断，避免换行变高后盖住左侧菜单', () => {
+  assert.match(styles, /\.app-header\s*\{[^}]*min-width:\s*0/)
+  assert.match(styles, /\.app-header-account\s*\{\s*flex:\s*0 1 auto/)
+  assert.match(styles, /\.app-header-copy strong\s*\{[^}]*white-space:\s*nowrap/)
+  assert.match(styles, /\.app-header-copy strong\s*\{[^}]*text-overflow:\s*ellipsis/)
+  assert.match(styles, /\.account-name\s*\{[^}]*white-space:\s*nowrap/)
+  assert.match(styles, /\.account-name\s*\{[^}]*text-overflow:\s*ellipsis/)
+})
+
 test('页面提供右下角一键回顶按钮，移动端抬高到底部导航之上', () => {
   assert.match(shell, /class="back-to-top"/)
   assert.match(shell, /aria-label="回到页面顶部"/)

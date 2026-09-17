@@ -8,6 +8,7 @@ import { useChartTooltip } from '../utils/chartTooltip'
 import { formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
 import ChartLegend from './ChartLegend.vue'
 import ChartTooltip from './ChartTooltip.vue'
+import DataTable, { type DataTableColumn } from './DataTable.vue'
 
 const props = defineProps<{
   details: GradeDetailData
@@ -41,6 +42,17 @@ const barWidth = (row: GradeDetailBucket) =>
   `${Math.max(2, ((row.weightedAvgPrice ?? 0) / maxPrice.value) * 100).toFixed(1)}%`
 
 const hasUnrecognized = computed(() => props.details.unrecognized.recordCount > 0)
+
+const bucketRowKey = (row: GradeDetailBucket) => row.label
+
+const bucketColumns: DataTableColumn<GradeDetailBucket>[] = [
+  { key: 'label', label: '等级', rowHeader: true, emphasis: true },
+  { key: 'quantity', label: '件数', numeric: true, value: (row) => formatNumber(row.salesQuantity) },
+  { key: 'amount', label: '金额', numeric: true, value: (row) => formatCurrency(row.salesAmount) },
+  { key: 'price', label: '平均每公斤售价', numeric: true, value: (row) => formatPrice(row.weightedAvgPrice) },
+  { key: 'quantityShare', label: '件数占比', numeric: true, value: (row) => formatPercent(row.quantityShare) },
+  { key: 'amountShare', label: '金额占比', numeric: true, value: (row) => formatPercent(row.amountShare) },
+]
 
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
 const legendItems = computed(() => gradeOrder.value.map((grade) => ({
@@ -135,31 +147,14 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
 
       <details class="table-details">
         <summary>查看数据表</summary>
-        <div class="table-wrap">
-          <table>
-            <caption class="sr-only">各细分等级的件数、金额、平均每公斤售价与占比</caption>
-            <thead>
-              <tr>
-                <th scope="col">等级</th>
-                <th scope="col">件数</th>
-                <th scope="col">金额</th>
-                <th scope="col">平均每公斤售价</th>
-                <th scope="col">件数占比</th>
-                <th scope="col">金额占比</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in details.buckets" :key="row.label">
-                <th scope="row">{{ row.label }}</th>
-                <td>{{ formatNumber(row.salesQuantity) }}</td>
-                <td>{{ formatCurrency(row.salesAmount) }}</td>
-                <td>{{ formatPrice(row.weightedAvgPrice) }}</td>
-                <td>{{ formatPercent(row.quantityShare) }}</td>
-                <td>{{ formatPercent(row.amountShare) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          :columns="bucketColumns"
+          :rows="details.buckets"
+          :row-key="bucketRowKey"
+          caption="各细分等级的件数、金额、平均每公斤售价与占比"
+          min-width="480px"
+          cards-on-narrow
+        />
       </details>
     </template>
     <ChartTooltip :tooltip="tooltip" />

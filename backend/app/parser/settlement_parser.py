@@ -13,6 +13,7 @@ import pandas as pd
 
 from ..models import StandardGrade
 from .decimal_values import is_bounded_decimal, parse_bounded_decimal, quantize_decimal
+from .spec_range import split_spec_cell
 from .settlement_summary import extract_settlement_summary
 
 
@@ -102,11 +103,14 @@ def parse_settlement(file_path: str | Path, source_type: str | None = None) -> P
 def normalize_grade(raw: str | None) -> StandardGrade | None:
     if not raw:
         return None
-    match = re.search(r"(?i)(?<![a-z])(BC|A|B|C|D|E|F)(?![a-z])", raw.strip())
+    match = re.search(r"(?i)(?<![a-z])(BC|AB|A|B|C|D|E|F)(?![a-z])", raw.strip())
     if not match:
         return StandardGrade.OTHER
     value = match.group(1).upper()
-    return StandardGrade.C if value == "BC" else StandardGrade(value)
+    try:
+        return StandardGrade(value)
+    except ValueError:
+        return StandardGrade.OTHER
 
 
 def _normalized_header(value: Any) -> str:
@@ -336,20 +340,53 @@ def _parse_rows(frame: pd.DataFrame):
             continue
         if not _derive_money(values, row, row_number, issues):
             continue
-        records.append(_record(values, row))
+        records.append(_record(values, row, row_number))
     return records, issues
 
 
-def _record(values, row):
+def _spec_columns(spec_raw: str | None) -> dict[str, Any]:
+    """按统一归一入口从规格原文派生头数/KG 的规范文本与数值端点。"""
+
+    cell = split_spec_cell(spec_raw) if spec_raw else None
+    head = cell.head_count if cell else None
+    spec_kg = cell.spec_kg if cell else None
+    # A11：有等级有头数但整行没有 KG 的，留空并标红，等人工补全（不按品牌默认值自动补）。
+    missing_kg = bool(cell and cell.is_sales_row and spec_kg is None)
+    return {
+        "needs_review": missing_kg,
+        "review_note": "缺少规格（KG），需人工补全" if missing_kg else None,
+        "piece_count": head.canonical if head else None,
+        "piece_count_min": head.minimum if head else None,
+        "piece_count_max": head.maximum if head else None,
+        "spec_kg": spec_kg.canonical if spec_kg else None,
+        "spec_kg_min": spec_kg.minimum if spec_kg else None,
+        "spec_kg_max": spec_kg.maximum if spec_kg else None,
+        # A9 后缀（熟/裂/尾/硬包…）：单独存便于展示，不参与计算。
+        "suffix": (cell.suffix or None) if cell else None,
+    }
+
+
+def _row_text(row: Mapping[str, Any]) -> str | None:
+    """把整行非空单元格拼回文本，供二次确认页与原文件并排对照。"""
+
+    parts = [text for value in row.values() if (text := _text(value))]
+    return " | ".join(parts) or None
+
+
+def _record(values, row, row_number: int | None = None):
     customer, remark = _text(row.get("customer")), _text(row.get("remark"))
     if customer:
         remark = f"客户: {customer}" + (f"；{remark}" if remark else "")
+    spec_raw = _text(row.get("spec"))
     return {
         "sale_date": values["sale_date"],
+        "source_row": row_number,
+        "raw_row_text": _row_text(row),
         "fruit_type": _text(row.get("fruit_name")) or "榴莲",
         "grade_raw": values["grade_raw"],
         "grade": values["grade"],
-        "spec_raw": _text(row.get("spec")),
+        "spec_raw": spec_raw,
+        **_spec_columns(spec_raw),
         "quantity": quantize_decimal(values["quantity"]),
         "unit_price": quantize_decimal(values["unit_price"]),
         "amount": quantize_decimal(values["amount"]),

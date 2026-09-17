@@ -7,7 +7,7 @@ from sqlalchemy.engine import make_url
 
 from app.db import Base, DATABASE_URL, SessionLocal, engine
 from app.services.import_service import import_file
-from app.models import DataIssue, ImportBatch, SaleRecord, SettlementSummary, SourceFile
+from app.models import AdminFieldConversionRule, DataIssue, ImportBatch, SaleRecord, SettlementSummary, SourceFile
 
 
 @pytest.fixture(autouse=True)
@@ -109,6 +109,16 @@ def test_bc_grade_maps_to_c_and_preserves_raw_value(tmp_path):
         "C002,2026/08/02,Durian,BC6,2,20,40\n",
     )
     db = SessionLocal()
+    db.add(
+        AdminFieldConversionRule(
+            field_key="grade",
+            source_value="BC",
+            target_value="C",
+            sort_order=0,
+            is_active=True,
+        )
+    )
+    db.commit()
     import_file(db, path)
 
     record = db.query(SaleRecord).one()
@@ -277,6 +287,11 @@ def test_excel_import_persists_container_summary_without_importing_summary_rows(
     assert summary.customs_tax == Decimal("30.0000")
     assert summary.payable_amount == Decimal("940.0000")
     assert "代卖佣金" in (summary.fee_detail or "")
+    # 二次确认页对账：文件写的合计 + 系统按明细算的合计，两边一致才 ok。
+    assert summary.sales_quantity == Decimal("2.0000")
+    assert summary.computed_sales_amount == Decimal("1000.0000")
+    assert summary.computed_quantity == Decimal("2.0000")
+    assert summary.reconcile_status == "ok"
     db.close()
 
 
@@ -412,4 +427,43 @@ def test_data_issue_rows_keep_severity_field_and_raw_value(tmp_path):
         "amount_mismatch",
     }
     assert [issue.severity for issue in result.issues].count("warning") == 1
+    db.close()
+
+
+def test_spec_suffix_row_trace_and_reconciliation_are_persisted(tmp_path):
+    """后缀、原文件行号、整行原文与合计对账都要落库（二次确认页要用）。"""
+
+    path = tmp_path / "settlement.xlsx"
+    rows = [[None] * 6 for _ in range(6)]
+    rows[4][1:3] = ["商号：", "单629"]
+    rows.extend(
+        [
+            [None, "销售日期", "品种(规格)", "数量", "单价", "金额"],
+            [None, "2026-09-02", "B3/4(9KG)尾/微裂", 10, 12.5, 125],
+            [None, None, None, None, None, None],
+            [None, None, None, 10, "销售金额：", 125],
+        ]
+    )
+    pd.DataFrame(rows).to_excel(path, index=False, header=False)
+    db = SessionLocal()
+
+    result = import_file(db, path, brand="香香")
+    record = db.query(SaleRecord).one()
+    batch = db.query(ImportBatch).one()
+    summary = db.query(SettlementSummary).one()
+
+    assert result.status == "success"
+    assert batch.brand == "香香"
+    assert batch.parse_mode == "rule"
+    assert batch.confirmed_at is None
+    assert record.piece_count == "3/4"
+    assert record.spec_kg == "9"
+    assert record.suffix == "尾/微裂"
+    # 原文件行号按表头 +1 起算，整行原文保留规格单元格原文。
+    assert record.source_row == 8
+    assert "B3/4(9KG)尾/微裂" in (record.raw_row_text or "")
+    assert db.query(SourceFile).one().row_count == 1
+    assert summary.sales_quantity == Decimal("10.0000")
+    assert summary.computed_sales_amount == Decimal("125.0000")
+    assert summary.reconcile_status == "ok"
     db.close()
