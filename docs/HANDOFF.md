@@ -3,8 +3,8 @@
 Last updated：2026-09-18 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
-> 2026-09-18 文档收口：本轮只盘点未完成任务并同步 TODO/HANDOFF，未修改业务代码，
-> 也未新增验证结果；当前未完成事项以 `docs/TODO.md` 为准。
+> 2026-09-18 已提交：`fruits_ana` 提交 `de40eca` 到 `dev`；`fruits_ana_admin`
+> 已提交 `b5ea0a2` 并推送到 `origin/main`。当前仅 `fruits_ana/tickets/` 保持未跟踪，不入库。
 
 ## Current Goal
 
@@ -29,9 +29,8 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
 ## Current Status
 
-**文档收口（2026-09-18）**：工作区仍有 76 个已修改文件、75 个未跟踪文件，包含
-手工录单 / 字段配置 / 顺仔 / 新模板多文件导入等未提交功能与配套测试、设计文档；
-本轮只更新交接文档，没有对这些在途改动做代码级收尾或重跑测试。
+**提交收口（2026-09-18）**：工作区功能代码、测试与设计文档已提交到 `dev`；
+`tickets/` 为业务源文件，保持未跟踪，不随代码提交。
 
 状态：手工录单与字段配置已完成；真实库已恢复（ADR-021）且已补硬保护（ADR-024）；
 新模板多文件导入已代码落地并通过前端 typecheck/test/build 与后端定向 pytest；
@@ -596,9 +595,8 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 
 1. 只读复述当前状态并与用户确认，再决定做哪一项。
 2. 候选任务（优先级从高到低）：
-   a. **先拆分并提交工作区在途改动**：当前 76 个已修改文件、75 个未跟踪文件混在一起，
-      需按「手工录单 / 字段配置 / 顺仔 / 导入分页 / 新模板多文件导入 / 文档」拆主题 commit；
-      提交前先确认 `tickets/` 与设计稿/截图等文件是否入库，避免提交业务附件。
+   a. **确认 `tickets/` 是否入库或加入 `.gitignore`**：当前业务源文件保持未跟踪，
+      不应随代码提交；若后续需要版本化，需先与用户确认。
    b. 多文件导入收尾：确认 `backend/scripts/add_import_draft_schema.py` 与
       `backend/scripts/expand_grades.py` 的 `--apply` 执行窗口；在 `fruits_ana_admin`
       配置 `grade:BC→C` 默认规则并检查 `AB` 是否保持独立；真实浏览器验收
@@ -1281,6 +1279,7 @@ Branch：`dev`
 Latest commits：
 
 ```text
+de40eca feat(import): 收口多文件导入手工录单与顺仔问答
 4903399 feat(analytics): 等级动态展示并新增结算单同品牌AI分析
 2c7c5c8 feat(frontend): 完善侧栏分页与系统页脚
 d1dd57b chore(backend): 统一环境变量到 backend/.env
@@ -1290,15 +1289,11 @@ eeb6681 feat: 品牌化统一日期筛选并优化结算详情与移动端
 65e06d8 feat(frontend): 字号按钮点击后弹出滑杆并记忆偏好
 2cc4947 fix(frontend): 系列对比移动端表格改为纵向卡片消除横向滚动
 1cbcb49 feat(deploy): 切换 Nginx 生产托管并优化移动端展示
-20e80fc feat(auth-shell): 优化认证门户外壳导入交互与移动端展示
 ```
 
-Uncommitted changes（2026-09-18 实测）：
+Uncommitted changes（2026-09-18 提交后）：
 
-- `git diff --shortstat`：76 files changed, 4773 insertions(+), 827 deletions(-)。
-- 已修改：76 个文件，覆盖后端 API/模型/解析/服务、前端页面/组件/工具/样式、
-  前后端测试，以及 `README.md` / `docs/*` 与 `.gitignore`。
-- 未跟踪：75 个文件，含新功能源码与测试、`docs/superpowers/**`、`tickets/`、
-  前端 `dev-preview/**` 与公开静态资源；提交前需人工筛掉业务附件与设计稿。
+- `fruits_ana` 当前仅 `tickets/` 未跟踪；`git status` 为 `dev...origin/dev [ahead 2]`。
+- `fruits_ana_admin` 已合入 `main` 并推送到 `origin/main`，本地 `main`/`dev` 与远端同步。
 - 未改动 `.env`、`backend/.env`、MySQL 配置；`.superpowers/`、`.superpowersigeria/`、
   `attachments/`、`backend/data/` 仍被 `.gitignore` 忽略，不会提交。
