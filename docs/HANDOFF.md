@@ -3,8 +3,8 @@
 Last updated：2026-09-18 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 
-> 2026-09-18 已提交：`fruits_ana` 提交 `de40eca` 到 `dev`；`fruits_ana_admin`
-> 已提交 `b5ea0a2` 并推送到 `origin/main`。当前仅 `fruits_ana/tickets/` 保持未跟踪，不入库。
+> 2026-09-18 上线前清理：`fruits_ana` 删除旧 `EntryHubView.vue`、将 `tickets/` 加入
+> `.gitignore`、页签改为只保留当前会话不跨刷新缓存；`fruits_ana_admin` 已推送 `origin/main`。
 
 ## Current Goal
 
@@ -595,8 +595,7 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 
 1. 只读复述当前状态并与用户确认，再决定做哪一项。
 2. 候选任务（优先级从高到低）：
-   a. **确认 `tickets/` 是否入库或加入 `.gitignore`**：当前业务源文件保持未跟踪，
-      不应随代码提交；若后续需要版本化，需先与用户确认。
+   a. **上线前复核 `tickets/` 已忽略**：客户源文件只用于本地导入/回归，不随代码提交。
    b. 多文件导入收尾：确认 `backend/scripts/add_import_draft_schema.py` 与
       `backend/scripts/expand_grades.py` 的 `--apply` 执行窗口；在 `fruits_ana_admin`
       配置 `grade:BC→C` 默认规则并检查 `AB` 是否保持独立；真实浏览器验收

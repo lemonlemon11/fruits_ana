@@ -47,7 +47,6 @@ import {
 } from './utils/shellHeader'
 import {
   HOME_TAB_PATH,
-  TABS_STORAGE_KEY,
   closeOtherTabs,
   closeTab,
   isClosableTab,
@@ -117,8 +116,8 @@ const canAsk = computed(() => Boolean(currentUser.value?.permissions.includes('a
 const authPage = computed(() => Boolean(route.meta.guestOnly || route.meta.publicPreview))
 const currentNav = computed(() => navItemFor(route.path))
 const activeTabPath = computed(() => currentNav.value.path)
-// 页签栏记录本次会话打开过的页面，刷新后仍在（首页固定不可关闭）。
-const openedTabs = ref<ShellTab[]>(readStoredTabs())
+// 页签栏记录本次会话打开过的页面，登录/刷新后从首页开始，不缓存页签。
+const openedTabs = ref<ShellTab[]>(restoreTabs(null, isKnownPath))
 const openedTabItems = computed(() =>
   openedTabs.value.map((tab) => ({ tab, item: navItemFor(tab.path) })),
 )
@@ -233,7 +232,6 @@ function openNotification(notification: AppNotification) {
 function closeNotificationDetail() {
   notificationDetail.value = null
 }
-watch(openedTabs, persistTabs, { deep: true })
 watch(activeTabPath, () => void scrollActiveTabIntoView())
 watch(
   fontSize,
@@ -268,24 +266,6 @@ async function scrollActiveTabIntoView() {
 
 function isKnownPath(path: string): boolean {
   return navItems.value.some((item) => item.path === path)
-}
-
-function readStoredTabs(): ShellTab[] {
-  try {
-    const raw = window.sessionStorage.getItem(TABS_STORAGE_KEY)
-    return restoreTabs(raw ? JSON.parse(raw) : null, isKnownPath)
-  } catch {
-    // 存储被禁用或内容损坏时退回只有首页的默认状态。
-    return restoreTabs(null, isKnownPath)
-  }
-}
-
-function persistTabs() {
-  try {
-    window.sessionStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(openedTabs.value))
-  } catch {
-    // 隐私模式写入失败不影响页面使用。
-  }
 }
 
 function readStoredSidebarState(): boolean {
@@ -362,10 +342,6 @@ function handleCloseTab(path: string) {
   if (index < 0) return
   openedTabs.value = closeTab(openedTabs.value, path)
   if (activeTabPath.value === path) void router.push(nextActivePath(openedTabs.value, index))
-}
-
-function handleCloseOthers() {
-  openedTabs.value = closeOtherTabs(openedTabs.value, activeTabPath.value)
 }
 
 function openTabContextMenu(event: MouseEvent, path: string) {
@@ -625,7 +601,6 @@ function scrollToTop() {
                 </button>
               </span>
             </div>
-            <button v-if="openedTabs.length > 1" type="button" class="app-tabs-action" @click="handleCloseOthers">关闭其他</button>
           </nav>
           <div
             v-if="tabContextMenu"

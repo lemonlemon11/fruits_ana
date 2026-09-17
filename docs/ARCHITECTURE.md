@@ -181,8 +181,9 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 工作台外壳 `AppShell.vue`：顶部 header（品牌图标、当前页面、本地时间含秒、当前用户名与退出登录）、
   左侧导航与页签栏三部分；品牌图标返回 `/overview`，桌面侧栏可收起为自适应图标栏，状态存
   `localStorage`（键 `fruits-ana:sidebar-collapsed`）；页签记录本次会话打开过的页面，首页 `/overview` 固定不可关闭，
-  其余可单个关闭或「关闭其他」，关闭当前页签时优先激活右侧邻居；页签状态存 `sessionStorage`
-  （键 `fruits-ana:open-tabs`），纯逻辑在 `utils/shellTabs.ts`（`frontend/tests/shell-tabs.test.ts`）。
+  其余可单个关闭或「关闭其他」，关闭当前页签时优先激活右侧邻居；页签只保留当前会话，不写入
+  `sessionStorage`，登录或刷新后从首页重新开始；纯逻辑在 `utils/shellTabs.ts`
+  （`frontend/tests/shell-tabs.test.ts`）。
   业务页面滚动后右下角显示「回顶部」悬浮按钮；移动端（≤820px）隐藏左侧导航，改用顶部 header +
   底部大按钮导航，页签栏保持可见并可横向滚动，回顶按钮自动抬到底部导航上方。
 - 桌面端全局字号基线用 `clamp()` 随视口宽度平滑缩放（15px–17px），主要控件、外壳与卡片尺寸
