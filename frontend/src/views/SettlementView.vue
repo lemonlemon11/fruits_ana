@@ -199,6 +199,7 @@ onBeforeUnmount(() => {
       <SearchableSelect
         v-model="filters.series"
         :options="brandSelectOptions"
+        label="品牌"
         aria-label="品牌"
         placeholder="全部品牌"
         @change="refresh"
@@ -206,6 +207,7 @@ onBeforeUnmount(() => {
       <SearchableSelect
         v-model="filters.merchantNo"
         :options="merchantSelectOptions"
+        label="商号"
         aria-label="商号"
         placeholder="选择商号"
         @change="refresh"

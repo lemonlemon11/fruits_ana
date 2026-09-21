@@ -921,3 +921,35 @@
 - Consequences：1) 需在启动时由 `Base.metadata.create_all` 创建 `entry_draft`；
   2) 暂存请求会在用户输入时触发，后续若网络较差可把自动暂存改为仅按钮触发或增加请求合并；
   3) 历史 `localStorage` 中的旧草稿不再展示。
+
+## ADR-038 — 图表迁移 ECharts，高风险 UI 控件试点 Element Plus
+
+- Date：2026-09-21
+- Status：Accepted
+- Context：现有手写 SVG 图表在桌面与移动端存在兼容性差异，且后续每新增一种图表
+  都需要重复实现坐标轴、tooltip、图例和触控适配。同时商号下拉与日期筛选多次出现
+  移动端裁切、弹层定位等兼容问题。业务侧反馈需要优先提升图表与关键控件兼容性。
+- Decision：
+  1) 引入 `echarts`，通过 `frontend/src/components/BaseEChart.vue` 统一生命周期、
+     主题色、resize 与 Canvas 渲染。
+  2) 首批迁移四个真正的图表组件：`TrendChart.vue`、`GradePieChart.vue`、
+     `SeriesGradePriceChart.vue`、`SeriesGradeShareChart.vue`。
+  3) 业务图表组件对外 props 保持不变，页面与 API 契约不变。
+  4) 进度条、卡片、表格类组件继续使用自研实现，避免为了“组件库化”而牺牲现有移动端布局。
+  5) 引入 `element-plus` 仅用于高风险控件试点：`SearchableSelect` 改为
+     `ElSelect` + `ElOption`，`DateRangeFilter` 改为 `ElDatePicker` daterange，
+     对外组件名、props 与页面调用不变。
+  6) 其余表单、表格、弹层与移动端卡片仍保持自研，避免一次性大改破坏现有布局。
+- Why：ECharts 提供成熟的坐标轴、tooltip、图例、动画和移动端触控能力，迁移成本低于
+  持续修复手写 SVG；Element Plus 的选择与日期组件自带 Teleport 弹层、键盘操作与移动端
+  适配，能消除当前最容易出问题的下拉裁切和日历定位。
+- Alternatives：全量替换为 Element Plus（不采用：样式冲突与移动端适配风险高，收益不明确）；
+  继续修复手写图表与控件（不采用：兼容性问题和维护成本会持续累积）。
+- Consequences：
+  1) 前端新增依赖 `echarts`、`element-plus`，已同步 `frontend/package.json` 与 lockfile。
+  2) `TrendChart`、`GradePieChart`、`SeriesGradePriceChart`、`SeriesGradeShareChart`
+     不再使用 `ChartTooltip`；`frontend/tests/chart-tooltip.test.ts` 已改为分别校验
+     手写图表与 ECharts 图表。
+  3) `SearchableSelect` / `DateRangeFilter` 的内部交互由 Element Plus 接管，
+     `frontend/tests/date-range-filter.test.ts` 已同步改为校验 Element Plus 接入。
+  4) `docs/ARCHITECTURE.md` 与项目规则已同步更新。

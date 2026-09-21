@@ -58,24 +58,24 @@
 
   .filter-bar {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: end;
     gap: 6px;
     padding: 6px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
   }
-  .filter-bar::-webkit-scrollbar { display: none; }
   .filter-bar > * {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
     min-width: 0;
   }
-  .filter-bar .date-range-filter { min-width: 160px; }
-  .filter-bar .date-range-trigger { min-height: 34px; padding: .35rem .5rem; }
+  .filter-bar .date-range-filter {
+    order: -1;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .filter-bar .date-range-control .el-date-editor { min-height: 34px; }
   .filter-bar .date-range-label { font-size: .65rem; }
-  .filter-bar .date-range-value { font-size: .82rem; }
-  .filter-bar .searchable-select { min-width: 130px; }
+  .filter-bar .searchable-select { flex: 1 1 120px; min-width: 120px; max-width: calc(50% - 3px); }
+  .filter-bar .searchable-select .el-select__wrapper { min-height: 34px; }
   .filter-bar label,
   .compact-field { gap: 1px; font-size: .72rem; line-height: 1.15; white-space: nowrap; }
   .filter-bar input,
@@ -83,7 +83,12 @@
   .compact-field select {
     min-height: 34px;
     padding: 0 .4rem;
-    font-size: .85rem;
+    font-size: 16px;
+  }
+  .filter-bar .el-select__wrapper,
+  .filter-bar .el-select__input,
+  .filter-bar .el-range-input {
+    font-size: 16px;
   }
   .filter-bar .primary-button {
     flex: 0 0 auto;

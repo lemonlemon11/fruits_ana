@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import type { EChartsOption } from 'echarts'
 
 import type { TrendPoint } from '../api/client'
-import { useChartTooltip } from '../utils/chartTooltip'
 import { formatCurrency, formatDate, formatNumber, formatPrice } from '../utils/format'
+import { echartTheme } from '../utils/echartTheme'
+import BaseEChart from './BaseEChart.vue'
 import ChartLegend from './ChartLegend.vue'
-import ChartTooltip from './ChartTooltip.vue'
 import DataTable, { type DataTableColumn } from './DataTable.vue'
 
 const props = defineProps<{
@@ -14,23 +15,14 @@ const props = defineProps<{
   title?: string
 }>()
 
-const chart = { width: 760, height: 258, left: 42, right: 18, top: 20, bottom: 34 }
-const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
 const legendItems = [
   { label: '每日销量', color: 'var(--primary)', variant: 'line' as const },
   { label: '每件均价', color: 'var(--ink)', variant: 'dashed' as const },
 ]
+
 const tablePageSize = 8
 const tablePage = ref(1)
-const MAX_X_LABELS = 7
 
-const plotWidth = chart.width - chart.left - chart.right
-const plotHeight = chart.height - chart.top - chart.bottom
-const maxQuantity = computed(() => Math.max(...props.points.map((point) => point.salesQuantity), 1))
-const maxPrice = computed(() => Math.max(...props.points.map((point) => point.weightedAvgPrice ?? 0), 1))
-const isSinglePoint = computed(() => props.points.length === 1)
-const singlePoint = computed(() => props.points[0])
-/** 趋势数据表列固定；行取值都在这里格式化，和图表口径保持一致。 */
 const tableColumns: DataTableColumn<TrendPoint>[] = [
   { key: 'date', label: '销售日期', rowHeader: true, emphasis: true },
   { key: 'salesQuantity', label: '销量', numeric: true, value: (point) => formatNumber(point.salesQuantity) },
@@ -44,57 +36,87 @@ const pagedPoints = computed(() => {
   return props.points.slice(start, start + tablePageSize)
 })
 
-const xStep = computed(() => props.points.length > 1 ? plotWidth / (props.points.length - 1) : plotWidth)
-const yTicks = computed(() => [0, 0.25, 0.5, 0.75, 1])
-const xLabelIndexes = computed(() => {
-  const total = props.points.length
-  if (total <= MAX_X_LABELS) return props.points.map((_, index) => index)
-  const step = Math.ceil((total - 1) / (MAX_X_LABELS - 1))
-  const indexes: number[] = []
-  for (let index = 0; index < total; index += step) indexes.push(index)
-  if (indexes[indexes.length - 1] !== total - 1) indexes.push(total - 1)
-  return indexes
+const chartOption = computed<EChartsOption>(() => {
+  const dates = props.points.map((point) => formatDate(point.date))
+  const quantities = props.points.map((point) => point.salesQuantity)
+  const prices = props.points.map((point) => point.weightedAvgPrice ?? 0)
+
+  return {
+    aria: { enabled: true },
+    color: [echartTheme.primary, echartTheme.ink],
+    grid: { left: 52, right: 58, top: 30, bottom: 34 },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'line', lineStyle: { color: echartTheme.lineStrong } },
+      formatter: (params: unknown) => formatTrendTooltip(params),
+    },
+    legend: { show: false },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      boundaryGap: false,
+      axisLine: { lineStyle: { color: echartTheme.lineStrong } },
+      axisTick: { show: false },
+      axisLabel: { color: echartTheme.muted },
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '销量',
+        min: 0,
+        max: (value: { max: number }) => Math.ceil(value.max * 1.2) || 1,
+        axisLabel: { color: echartTheme.muted, formatter: (value: number) => formatNumber(value) },
+        splitLine: { lineStyle: { color: echartTheme.line, type: 'dashed' } },
+      },
+      {
+        type: 'value',
+        name: '均价',
+        min: 0,
+        max: (value: { max: number }) => Math.ceil(value.max * 1.2) || 1,
+        axisLabel: { color: echartTheme.muted, formatter: (value: number) => formatPrice(value) },
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: '每日销量',
+        type: 'line',
+        data: quantities,
+        symbol: 'circle',
+        symbolSize: props.points.length === 1 ? 8 : 6,
+        color: echartTheme.primary,
+        lineStyle: { color: echartTheme.primary, width: 2.5 },
+        itemStyle: { color: echartTheme.primary },
+      },
+      {
+        name: '每件均价',
+        type: 'line',
+        yAxisIndex: 1,
+        data: prices,
+        symbol: 'circle',
+        symbolSize: props.points.length === 1 ? 8 : 6,
+        color: echartTheme.ink,
+        lineStyle: { color: echartTheme.ink, width: 2, type: 'dashed' },
+        itemStyle: { color: echartTheme.ink },
+      },
+    ],
+  }
 })
-const xLabels = computed(() => xLabelIndexes.value.map((index) => ({ point: props.points[index], index })))
 
-function xPosition(index: number): number {
-  return props.points.length > 1 ? chart.left + index * xStep.value : chart.left + plotWidth / 2
-}
-
-function yPosition(value: number, max: number): number {
-  return chart.top + plotHeight - (Math.max(value, 0) / max) * plotHeight
-}
-
-function linePoints(): string {
-  return props.points.map((point, index) => `${xPosition(index)},${yPosition(point.salesQuantity, maxQuantity.value)}`).join(' ')
-}
-
-function priceLinePoints(): string {
-  return props.points.map((point, index) => `${xPosition(index)},${yPosition(point.weightedAvgPrice ?? 0, maxPrice.value)}`).join(' ')
-}
-
-function yTickLabel(ratio: number): string {
-  return formatNumber(maxQuantity.value * ratio)
-}
-
-function priceTickLabel(ratio: number): string {
-  return formatPrice(maxPrice.value * ratio)
+function formatTrendTooltip(params: unknown): string {
+  const rows = Array.isArray(params) ? params : [params]
+  const point = props.points[rows[0]?.dataIndex ?? 0]
+  if (!point) return ''
+  return [
+    `<strong>${formatDate(point.date)}</strong>`,
+    `<span>销量：${formatNumber(point.salesQuantity)} 件</span>`,
+    `<span>销售金额：${formatCurrency(point.salesAmount)}</span>`,
+    `<span>每件均价：${formatPrice(point.weightedAvgPrice)}</span>`,
+  ].join('<br/>')
 }
 
 function goTablePage(page: number) {
   tablePage.value = Math.min(Math.max(1, page), totalTablePages.value)
-}
-
-/** 销量点与均价点共用同一份悬浮内容，方便对着同一天两个值一起看。 */
-function showPointTooltip(event: MouseEvent, point: TrendPoint) {
-  showTooltip(event, {
-    title: formatDate(point.date),
-    rows: [
-      { label: '销量', value: `${formatNumber(point.salesQuantity)} 件`, color: 'var(--primary)' },
-      { label: '销售金额', value: formatCurrency(point.salesAmount) },
-      { label: '每件均价', value: formatPrice(point.weightedAvgPrice), color: 'var(--ink)' },
-    ],
-  })
 }
 
 watch(() => props.points.length, () => {
@@ -116,102 +138,15 @@ watch(() => props.points.length, () => {
     </div>
     <template v-else>
       <div class="trend-chart-shell">
-        <div class="chart-scale chart-scale-left" aria-hidden="true">
-          <span v-for="ratio in [...yTicks].reverse()" :key="`qty-${ratio}`">{{ yTickLabel(ratio) }}</span>
-        </div>
-        <svg
-          class="trend-chart"
-          :viewBox="`0 0 ${chart.width} ${chart.height}`"
-          role="img"
-          :aria-label="`${points.length} 天销量与每件均价折线图。最高日销量 ${formatNumber(maxQuantity)}`"
-        >
-          <g class="chart-grid" aria-hidden="true">
-            <line
-              v-for="ratio in yTicks"
-              :key="`grid-${ratio}`"
-              :x1="chart.left"
-              :x2="chart.width - chart.right"
-              :y1="yPosition(maxQuantity * ratio, maxQuantity)"
-              :y2="yPosition(maxQuantity * ratio, maxQuantity)"
-            />
-          </g>
-          <line class="chart-axis" :x1="chart.left" :x2="chart.left" :y1="chart.top" :y2="chart.height - chart.bottom" />
-          <line class="chart-axis" :x1="chart.left" :x2="chart.width - chart.right" :y1="chart.height - chart.bottom" :y2="chart.height - chart.bottom" />
-          <polyline
-            key="quantity-line"
-            class="trend-line"
-            :points="linePoints()"
-            stroke="var(--primary)"
-          />
-          <polyline class="trend-line line-price" :points="priceLinePoints()" />
-          <g v-if="isSinglePoint" class="single-point-guides" aria-hidden="true">
-            <line
-              class="guide-line guide-quantity"
-              :x1="chart.left"
-              :x2="chart.width - chart.right"
-              :y1="yPosition(singlePoint.salesQuantity, maxQuantity)"
-              :y2="yPosition(singlePoint.salesQuantity, maxQuantity)"
-            />
-            <line
-              class="guide-line guide-price"
-              :x1="chart.left"
-              :x2="chart.width - chart.right"
-              :y1="yPosition(singlePoint.weightedAvgPrice ?? 0, maxPrice)"
-              :y2="yPosition(singlePoint.weightedAvgPrice ?? 0, maxPrice)"
-            />
-          </g>
-          <g class="trend-dots">
-            <circle
-              v-for="(point, index) in points"
-              :key="`quantity-${point.date}`"
-              :cx="xPosition(index)"
-              :cy="yPosition(point.salesQuantity, maxQuantity)"
-              :r="isSinglePoint ? 5 : 3"
-              fill="var(--primary)"
-            />
-            <circle
-              v-for="(point, index) in points"
-              :key="`quantity-hit-${point.date}`"
-              class="trend-hit"
-              :cx="xPosition(index)"
-              :cy="yPosition(point.salesQuantity, maxQuantity)"
-              r="11"
-              @mouseenter="showPointTooltip($event, point)"
-              @mousemove="moveTooltip"
-              @mouseleave="hideTooltip"
-            />
-          </g>
-          <g class="price-dots">
-            <circle
-              v-for="(point, index) in points"
-              :key="`price-${point.date}`"
-              :cx="xPosition(index)"
-              :cy="yPosition(point.weightedAvgPrice ?? 0, maxPrice)"
-              :r="isSinglePoint ? 5 : 3"
-            />
-            <circle
-              v-for="(point, index) in points"
-              :key="`price-hit-${point.date}`"
-              class="trend-hit"
-              :cx="xPosition(index)"
-              :cy="yPosition(point.weightedAvgPrice ?? 0, maxPrice)"
-              r="11"
-              @mouseenter="showPointTooltip($event, point)"
-              @mousemove="moveTooltip"
-              @mouseleave="hideTooltip"
-            />
-          </g>
-          <g class="chart-x-labels" aria-hidden="true">
-            <text v-for="item in xLabels" :key="item.point.date" :x="xPosition(item.index)" :y="chart.height - 10" text-anchor="middle">{{ formatDate(item.point.date) }}</text>
-          </g>
-        </svg>
-        <div class="chart-scale chart-scale-right" aria-hidden="true">
-          <span v-for="ratio in [...yTicks].reverse()" :key="`price-${ratio}`">{{ priceTickLabel(ratio) }}</span>
-        </div>
+        <BaseEChart
+          :option="chartOption"
+          height="258px"
+          :aria-label="`${points.length} 天销量与每件均价折线图`"
+        />
       </div>
       <div class="scale-hint"><span>左轴：每日销量</span><span>右轴：每件均价</span></div>
-      <p v-if="isSinglePoint" class="single-point-hint">
-        所选范围内只有 {{ formatDate(singlePoint.date) }} 一天数据，图中以虚线标出当天水平。
+      <p v-if="points.length === 1" class="single-point-hint">
+        所选范围内只有 {{ formatDate(points[0].date) }} 一天数据。
       </p>
 
       <details class="data-details">
@@ -234,32 +169,16 @@ watch(() => props.points.length, () => {
         </DataTable>
       </details>
     </template>
-    <ChartTooltip :tooltip="tooltip" />
   </section>
 </template>
 
 <style scoped>
 .trend-section { min-width: 0; }
-.trend-hit { fill: transparent; pointer-events: all; }
-.trend-chart-shell { display: grid; grid-template-columns: 44px minmax(0, 1fr) 54px; align-items: stretch; min-height: 260px; margin-top: 5px; }
-.trend-chart { width: 100%; min-width: 0; height: 258px; overflow: visible; }
-.chart-scale { display: flex; flex-direction: column; justify-content: space-between; padding: 17px 0 34px; color: var(--muted); font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .85rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.chart-scale-left { align-items: flex-start; }.chart-scale-right { align-items: flex-end; }
-.chart-grid line { stroke: var(--line); stroke-dasharray: 2 4; stroke-width: 1; }
-.chart-axis { stroke: var(--line-strong); stroke-width: 1; }
-.trend-line { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
-.line-price { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 4; }
-.trend-dots circle, .price-dots circle { vector-effect: non-scaling-stroke; stroke: white; stroke-width: 1.5; }
-.price-dots circle { fill: var(--ink); }
-.guide-line { stroke-width: 1.5; stroke-dasharray: 6 5; opacity: .45; vector-effect: non-scaling-stroke; }
-.guide-quantity { stroke: var(--primary); }
-.guide-price { stroke: var(--ink); }
+.trend-chart-shell { min-height: 258px; margin-top: 5px; }
 .single-point-hint { margin: 10px 0 0; color: var(--muted); font-size: .95rem; }
-.chart-x-labels text { fill: var(--muted); font-size: 15px; }
-.scale-hint { display: flex; justify-content: space-between; margin: -4px 44px 0; color: var(--muted); font-size: .85rem; }
+.scale-hint { display: flex; justify-content: space-between; margin: -2px 0 0; color: var(--muted); font-size: .85rem; }
 .trend-skeleton { min-height: 258px; }
 .data-details { margin-top: 13px; }
-/* 分页条放在表格底栏里，贴齐底边不再自带上间距。 */
 .trend-table-pagination {
   display: flex;
   flex-wrap: wrap;
@@ -282,10 +201,6 @@ watch(() => props.points.length, () => {
 .trend-table-pagination button:disabled { cursor: not-allowed; opacity: .45; }
 
 @media (max-width: 560px) {
-  .trend-chart-shell { grid-template-columns: 35px minmax(0, 1fr) 44px; min-height: 220px; }
-  .trend-chart { height: 220px; }
-  .chart-scale { padding-bottom: 34px; font-size: .85rem; }
-  .chart-x-labels text { font-size: 14px; }
-  .scale-hint { margin-inline: 35px 44px; font-size: .85rem; }
+  .trend-chart-shell { min-height: 220px; }
 }
 </style>

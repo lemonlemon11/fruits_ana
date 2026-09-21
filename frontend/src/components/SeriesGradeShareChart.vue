@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { EChartsOption } from 'echarts'
 
 import { gradeLabel } from '../api/client'
 import type { Grade, SeriesComparisonItem } from '../api/types'
 import { activeGrades, gradeColors } from '../utils/grades'
-import { useChartTooltip } from '../utils/chartTooltip'
+import { echartTheme } from '../utils/echartTheme'
 import { formatNumber, formatPercent } from '../utils/format'
 import { gradeOf, shortLabel } from '../utils/seriesComparison'
+import BaseEChart from './BaseEChart.vue'
 import ChartLegend from './ChartLegend.vue'
-import ChartTooltip from './ChartTooltip.vue'
 
 const props = defineProps<{ items: SeriesComparisonItem[]; loading?: boolean }>()
 
 const gradeOrder = computed(() => activeGrades(props.items.flatMap((item) => item.grades)))
 
-const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
 const legendItems = computed(() => gradeOrder.value.map((grade) => ({
   label: gradeLabel(grade),
   color: gradeColors[grade],
@@ -34,7 +34,6 @@ const rows = computed(() =>
         const quantity = gradeOf(item, grade)?.salesQuantity ?? 0
         return {
           grade,
-          color: gradeColors[grade],
           quantity,
           share: total ? quantity / total : 0,
         }
@@ -43,19 +42,59 @@ const rows = computed(() =>
   }),
 )
 
-type ShareRow = (typeof rows.value)[number]
-type ShareSegment = ShareRow['segments'][number]
-
-function showSegmentTooltip(event: MouseEvent, row: ShareRow, segment: ShareSegment) {
-  showTooltip(event, {
-    title: row.label,
-    rows: [
-      { label: gradeLabel(segment.grade), value: formatPercent(segment.share), color: segment.color },
-      { label: '件数', value: `${formatNumber(segment.quantity)} 件` },
-    ],
-    note: `${row.series} · 占比 = 该等级件数 ÷ 该结算单总件数`,
-  })
-}
+const chartOption = computed<EChartsOption>(() => ({
+  aria: { enabled: true },
+  grid: { left: 84, right: 16, top: 30, bottom: 24, containLabel: true },
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: { type: 'shadow' },
+    formatter: (params: unknown) => {
+      const parts = (Array.isArray(params) ? params : [params]) as Array<{
+        dataIndex: number
+        seriesName: string
+        value: number
+      }>
+      if (!parts.length) return ''
+      const row = rows.value[parts[0].dataIndex]
+      if (!row) return ''
+      const lines = parts.map((part) => {
+        const grade = gradeOrder.value.find((item) => gradeLabel(item) === part.seriesName)
+        const segment = grade ? row.segments.find((item) => item.grade === grade) : undefined
+        return `<span>${part.seriesName}：${formatPercent(part.value / 100)} · ${formatNumber(segment?.quantity ?? 0)} 件</span>`
+      })
+      return [`<strong>${row.label}</strong>`, `<span>${row.series}</span>`, ...lines].join('<br/>')
+    },
+  },
+  legend: { show: false },
+  xAxis: {
+    type: 'value',
+    min: 0,
+    max: 100,
+    axisLabel: { color: echartTheme.muted, formatter: '{value}%' },
+    splitLine: { lineStyle: { color: echartTheme.line, type: 'dashed' } },
+  },
+  yAxis: {
+    type: 'category',
+    data: rows.value.map((row) => row.label),
+    axisTick: { show: false },
+    axisLine: { lineStyle: { color: echartTheme.lineStrong } },
+    axisLabel: { color: echartTheme.ink, width: 78, overflow: 'truncate' },
+  },
+  series: gradeOrder.value.map((grade) => ({
+    name: gradeLabel(grade),
+    type: 'bar',
+    stack: 'share',
+    color: gradeColors[grade],
+    barMaxWidth: 20,
+    data: rows.value.map((row) => {
+      const segment = row.segments.find((item) => item.grade === grade)
+      return {
+        value: Number(((segment?.share ?? 0) * 100).toFixed(2)),
+      }
+    }),
+    emphasis: { focus: 'series' },
+  })),
+}))
 </script>
 
 <template>
@@ -74,48 +113,16 @@ function showSegmentTooltip(event: MouseEvent, row: ShareRow, segment: ShareSegm
       <span>勾选结算单后即可查看等级结构。</span>
     </div>
     <div v-else class="share-chart">
-      <div v-for="row in rows" :key="row.label" class="share-row">
-        <span class="share-label">
-          <strong>{{ row.label }}</strong>
-          <small>{{ row.series }}</small>
-        </span>
-        <span class="share-track">
-          <span
-            v-for="segment in row.segments"
-            :key="segment.grade"
-            class="share-segment"
-            :style="{ width: `${segment.share * 100}%`, backgroundColor: segment.color }"
-            @mouseenter="showSegmentTooltip($event, row, segment)"
-            @mousemove="moveTooltip"
-            @mouseleave="hideTooltip"
-          />
-        </span>
-        <span class="share-legend">
-          <span v-for="segment in row.segments" :key="segment.grade">
-            <i :style="{ backgroundColor: segment.color }" aria-hidden="true" />{{ gradeLabel(segment.grade) }}
-            {{ formatPercent(segment.share) }}
-          </span>
-        </span>
-      </div>
+      <BaseEChart
+        :option="chartOption"
+        :height="`${Math.max(items.length * 46 + 84, 172)}px`"
+        :aria-label="`${items.length} 张结算单等级件数占比堆叠图`"
+      />
     </div>
-    <ChartTooltip :tooltip="tooltip" />
   </section>
 </template>
 
 <style scoped>
-.share-chart { display: grid; gap: 14px; }
-.share-row { display: grid; grid-template-columns: minmax(120px, .8fr) minmax(160px, 1.4fr) minmax(180px, 1.4fr); align-items: center; gap: 14px; min-width: 0; }
-.share-label { display: grid; gap: 2px; min-width: 0; }
-.share-label strong { overflow-wrap: anywhere; font-size: .92rem; }
-.share-label small { color: var(--muted); font-size: .85rem; }
-.share-track { display: flex; height: 16px; border-radius: 999px; background: var(--surface-soft); overflow: hidden; }
-.share-segment { height: 100%; transition: width 240ms ease; }
-.share-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; font-size: .85rem; }
-.share-legend span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
-.share-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.share-chart { min-width: 0; }
 .chart-skeleton { min-height: 172px; }
-
-@media (max-width: 720px) {
-  .share-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-}
 </style>

@@ -9,11 +9,7 @@ const read = (file: string) => fs.readFileSync(path.join(src, file), 'utf8')
 
 /** 所有需要「鼠标悬浮出提示」的图表组件与页面。 */
 const chartFiles = [
-  'components/TrendChart.vue',
-  'components/GradePieChart.vue',
   'components/GradeSummary.vue',
-  'components/SeriesGradePriceChart.vue',
-  'components/SeriesGradeShareChart.vue',
   'components/SeriesGradeDetail.vue',
   'components/SeriesOverviewTable.vue',
   'views/PublicPreviewView.vue',
@@ -21,10 +17,7 @@ const chartFiles = [
 
 /** 有颜色/形状编码的图表必须给出图例；卡片和表格自带表头说明，不在此列。 */
 const chartsWithLegend = [
-  'components/TrendChart.vue',
   'components/GradePieChart.vue',
-  'components/SeriesGradePriceChart.vue',
-  'components/SeriesGradeShareChart.vue',
   'components/SeriesGradeDetail.vue',
   'views/PublicPreviewView.vue',
 ]
@@ -45,6 +38,26 @@ test('每个图表都有图例', () => {
   for (const file of chartsWithLegend) {
     assert.match(read(file), /ChartLegend|pie-legend|share-legend/, `${file} 缺少图例`)
   }
+})
+
+test('ECharts 图表通过统一封装接入并包含图例', () => {
+  const base = read('components/BaseEChart.vue')
+
+  const echartsCharts = [
+    'components/TrendChart.vue',
+    'components/GradePieChart.vue',
+    'components/SeriesGradePriceChart.vue',
+    'components/SeriesGradeShareChart.vue',
+  ]
+
+  for (const file of echartsCharts) {
+    const source = read(file)
+    assert.match(source, /import BaseEChart from/, `${file} 未接入统一 ECharts 封装`)
+    assert.match(source, /legend: \{|pie-legend/, `${file} 未配置图例`)
+  }
+
+  assert.match(base, /echarts\/core/, 'BaseEChart 未使用 ECharts 核心包')
+  assert.match(base, /CanvasRenderer/, 'BaseEChart 未启用 Canvas 渲染')
 })
 
 test('图表不再依赖浏览器原生 title 作为提示', () => {

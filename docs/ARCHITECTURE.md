@@ -177,8 +177,10 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 等级细分组件：`SeriesGradeDetail.vue`（号别阶梯与数据表）、`GradeDetailAiAnalysis.vue`（号别小结）。
   AI 结论的渲染与状态机抽到通用组件 `AiAnalysisCard.vue`，两个页面的封装只负责接口与小标题；
   卡片默认可见并自动以 `refresh=false` 先读缓存，命中缓存直接展示 `cached` 标记。
-- 下拉框：展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
-- 日期范围：五个业务页统一使用 `DateRangeFilter.vue` 组件，在一个面板内选择开始 / 结束日期。
+- 下拉框：`SearchableSelect.vue` 对业务保持原有 props，内部使用 Element Plus
+  `ElSelect` / `ElOption`；展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
+- 日期范围：五个业务页继续使用 `DateRangeFilter.vue`，内部使用 Element Plus
+  `ElDatePicker` 的 daterange 与中文语言包。
 - 品牌对比选择器：`SettlementPicker.vue` 按「品类 → 品牌 → 同品牌结算单」三步选择；
   品类来自 `SettlementListItem.fruitType`，品牌仍沿用单号中文前缀口径。
 - 单号展示口径（ADR-015）：统一用适配后单号 `orderNoNormalized`，
@@ -188,10 +190,13 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   经 `utils/merchantNo.ts` 的 `displayMerchantNo` 取值（缺失时回退原始 `merchantNo`）；
   原始商号用 `rawMerchantNo` 放在 tooltip 里，新增展示位不得直接渲染 `merchantNo`；
   注意下拉取值、接口参数与 `?selected=` 仍必须用原始 `merchantNo`。
-- 图表为手写 SVG 组件，不引入图表库。
-- 图表图例与悬浮提示统一复用 `components/ChartLegend.vue` + `components/ChartTooltip.vue`
-  与 `utils/chartTooltip.ts`：图例负责色标 / 形状说明，提示用 Teleport 跟随鼠标并做视口避让，
-  由 `frontend/tests/chart-tooltip.test.ts` 保证每个图表都接入，新增图表必须一并接入。
+- 图表已迁移到 ECharts（ADR-038）：`components/BaseEChart.vue` 统一初始化、主题色、
+  resize 与 Canvas 渲染；`TrendChart` / `GradePieChart` / `SeriesGradePriceChart` /
+  `SeriesGradeShareChart` 使用 ECharts。
+- 业务图表组件对外 props 保持不变；页面与 API 契约不变。
+- 手写进度条、卡片、表格继续使用自研组件；`ChartLegend.vue` + `ChartTooltip.vue` 与
+  `utils/chartTooltip.ts` 仍用于未迁移的手写可视化组件，`frontend/tests/chart-tooltip.test.ts`
+  分别校验手写图表与 ECharts 图表。
 - API 契约集中在 `api/types.ts` + `api/normalize.ts` + `api/client.ts`，后端字段变更必须同步这三处。
 - 路由守卫在 `main.ts`：`requiresAuth` 保护业务页，`guestOnly` 让已登录用户跳过登录/注册页；
   `/` 重定向到 `/login`（已登录时经 `guestOnly` 再跳 `/overview`），`/preview` 保留为公开演示页但不再作为默认入口。
@@ -256,7 +261,7 @@ OverviewView / SettlementView / SettlementComparisonView / SettlementListView
   → GET /api/analytics/overview | /trend | /settlements/{merchant_no} | /settlement-comparison
   → GET /api/settlements | /api/settlements/{merchant_no}/records | /api/settlements/{merchant_no}/review
   → 分析服务聚合（按日期与商号筛选，按销售日期而非导入时间）
-  → normalize.ts 归一化 → SVG 图表渲染
+  → normalize.ts 归一化 → ECharts 图表渲染
 ```
 
 ### 数据问答
@@ -307,4 +312,6 @@ OverviewView / SettlementView / SettlementComparisonView / SettlementListView
   迁移脚本 `backend/scripts/add_merchant_no_normalized.py`（基于 `column_backfill.py`）幂等可重跑。
 - 必须保持：MySQL schema 变更需提供可重复执行的迁移脚本（参考 `backend/scripts/`）。
 - 不得提交：`backend/data/`、`.env`、`backend/.env`、真实结算单与业务附件。
-- 暂不引入：状态管理库、UI 组件库、图表库、容器化与 CI（如引入需先记录 ADR）。
+- 暂不引入：状态管理库、完整 UI 组件库、容器化与 CI（如引入需先记录 ADR）；
+  图表已按 ADR-038 引入 ECharts，`SearchableSelect` / `DateRangeFilter` 已试点 Element Plus，
+  其余表单、表格、弹层与移动端卡片仍保持自研。

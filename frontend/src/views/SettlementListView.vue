@@ -265,6 +265,7 @@ onBeforeUnmount(() => {
       <SearchableSelect
         v-model="filters.merchantNo"
         :options="merchantSelectOptions"
+        label="商号"
         aria-label="商号"
         placeholder="全部结算单"
         @change="refresh({ resetPage: true })"

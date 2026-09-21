@@ -21,8 +21,9 @@ test('手工录单与导入二次确认共用同一套手机端长表单样式',
   assert.match(mobile, /\.mobile-form-page \.review-table tbody tr \{/)
 })
 
-test('筛选栏聚焦时放开 overflow，避免商号下拉被横向滚动容器裁掉', () => {
-  assert.match(mobile, /\.filter-bar:focus-within \{\s*overflow: visible !important;/)
+test('筛选栏手机端改为自然换行，日期占满一行，避免新日期组件被裁切', () => {
+  assert.match(mobile, /\.filter-bar \.date-range-filter \{[\s\S]*?order: -1 !important;/)
+  assert.match(mobile, /\.filter-bar \.date-range-filter \{[\s\S]*?flex: 1 1 100% !important;/)
 })
 
 test('明细表手机端按列 key 定位，不依赖会随页面变化的列序号', () => {

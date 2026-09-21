@@ -1,22 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { EChartsOption } from 'echarts'
 
 import type { Grade, GradeMetric } from '../api/client'
 import { gradeLabel } from '../api/client'
 import { activeGrades, gradeColors } from '../utils/grades'
-import { useChartTooltip } from '../utils/chartTooltip'
+import { echartTheme } from '../utils/echartTheme'
 import { formatNumber, formatPercent } from '../utils/format'
-import ChartTooltip from './ChartTooltip.vue'
+import BaseEChart from './BaseEChart.vue'
 
 const props = defineProps<{
   grades: GradeMetric[]
   loading?: boolean
   gradeOrder?: Grade[]
 }>()
-
-const radius = 48
-const circumference = 2 * Math.PI * radius
-const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
 
 const visibleGrades = computed(() => props.gradeOrder ?? activeGrades(props.grades))
 
@@ -37,25 +34,47 @@ function shareValue(row: (typeof rows.value)[number]): number {
   return totalQuantity.value ? row.quantity / totalQuantity.value : 0
 }
 
-function dashArray(share: number): string {
-  return `${Math.max(share, 0) * circumference} ${circumference}`
-}
-
-function dashOffset(index: number): number {
-  const preceding = rows.value.slice(0, index).reduce((total, row) => total + shareValue(row), 0)
-  return -preceding * circumference
-}
-
-function showSegmentTooltip(event: MouseEvent, row: (typeof rows.value)[number]) {
-  showTooltip(event, {
-    title: gradeLabel(row.grade),
-    rows: [
-      { label: '件数占比', value: formatPercent(shareValue(row)), color: gradeColors[row.grade] },
-      { label: '件数', value: `${formatNumber(row.quantity)} 件` },
-    ],
-    note: '占比 = 该等级件数 ÷ 总件数',
-  })
-}
+const chartOption = computed<EChartsOption>(() => ({
+  aria: { enabled: true },
+  tooltip: {
+    trigger: 'item',
+    formatter: (params: unknown) => {
+      const row = params as { data?: { grade: Grade; quantity: number; share: number } }
+      const data = row.data
+      if (!data) return ''
+      return [
+        `<strong>${gradeLabel(data.grade)}</strong>`,
+        `<span>件数占比：${formatPercent(shareValue(data))}</span>`,
+        `<span>件数：${formatNumber(data.quantity)} 件</span>`,
+      ].join('<br/>')
+    },
+  },
+  title: {
+    text: formatNumber(totalQuantity.value),
+    subtext: '总件数',
+    left: 'center',
+    top: '40%',
+    textStyle: { color: echartTheme.ink, fontSize: 18, fontWeight: 800 },
+    subtextStyle: { color: echartTheme.muted, fontSize: 12 },
+  },
+  series: [
+    {
+      type: 'pie',
+      radius: ['58%', '78%'],
+      center: ['50%', '50%'],
+      data: rows.value.map((row) => ({
+        name: gradeLabel(row.grade),
+        value: row.quantity,
+        grade: row.grade,
+        quantity: row.quantity,
+        share: shareValue(row),
+        itemStyle: { color: gradeColors[row.grade] },
+      })),
+      label: { show: false },
+      emphasis: { scaleSize: 4 },
+    },
+  ],
+}))
 </script>
 
 <template>
@@ -74,25 +93,11 @@ function showSegmentTooltip(event: MouseEvent, row: (typeof rows.value)[number])
     </div>
     <div v-else class="pie-layout">
       <div class="pie-graphic">
-        <svg class="pie-chart" viewBox="0 0 136 136" role="img" :aria-label="`${visibleGrades.map(gradeLabel).join('、')} 等级件数占比环形图，环形面积按各等级件数占比绘制`">
-          <circle class="pie-track" cx="68" cy="68" :r="radius" />
-          <circle
-            v-for="(row, index) in rows"
-            :key="row.grade"
-            class="pie-segment"
-            cx="68"
-            cy="68"
-            :r="radius"
-            :stroke="gradeColors[row.grade]"
-            :stroke-dasharray="dashArray(shareValue(row))"
-            :stroke-dashoffset="dashOffset(index)"
-            @mouseenter="showSegmentTooltip($event, row)"
-            @mousemove="moveTooltip"
-            @mouseleave="hideTooltip"
-          />
-          <text class="pie-total" x="68" y="64" text-anchor="middle">{{ formatNumber(totalQuantity) }}</text>
-          <text class="pie-caption" x="68" y="79" text-anchor="middle">总件数</text>
-        </svg>
+        <BaseEChart
+          :option="chartOption"
+          height="116px"
+          :aria-label="`${visibleGrades.map(gradeLabel).join('、')} 等级件数占比环形图`"
+        />
       </div>
       <ul class="pie-legend" aria-label="等级销量明细">
         <li v-for="row in rows" :key="row.grade">
@@ -103,37 +108,27 @@ function showSegmentTooltip(event: MouseEvent, row: (typeof rows.value)[number])
         </li>
       </ul>
     </div>
-    <ChartTooltip :tooltip="tooltip" />
   </section>
 </template>
 
 <style scoped>
 .grade-pie-section { min-width: 0; }
 .pie-layout { display: grid; grid-template-columns: minmax(96px, .8fr) minmax(150px, 1.2fr); align-items: center; gap: 10px; min-height: 116px; }
-.pie-graphic { display: grid; place-items: center; }
-.pie-chart { width: min(100%, 116px); height: auto; overflow: visible; transform: rotate(-90deg); }
-.pie-chart text { transform: rotate(90deg); transform-origin: 68px 68px; }
-.pie-track, .pie-segment { fill: none; stroke-width: 15; }
-.pie-track { stroke: var(--surface-soft); }
-.pie-segment { stroke-linecap: butt; transition: stroke-dasharray 260ms ease, stroke-dashoffset 260ms ease; }
-.pie-total { fill: var(--ink); font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: 15px; font-weight: 800; }
-.pie-caption { fill: var(--muted); font-size: 8px; }
+.pie-graphic { display: grid; place-items: center; min-width: 0; }
 .pie-legend { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
-.pie-legend li { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 7px; min-width: 0; }
-.pie-dot { width: 8px; height: 8px; border-radius: 50%; }
-.pie-grade { color: var(--ink); font-size: .84rem; }
-.pie-legend strong { font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .84rem; font-variant-numeric: tabular-nums; }
+.pie-legend li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+.pie-dot { width: 10px; height: 10px; border-radius: 50%; }
+.pie-grade { font-weight: 700; }
+.pie-legend strong { text-align: right; font-variant-numeric: tabular-nums; }
 .pie-legend small { grid-column: 2 / 4; margin-top: -4px; color: var(--muted); font-size: .76rem; }
 .pie-skeleton { min-height: 116px; }
 
 @media (max-width: 560px) {
   .pie-layout { grid-template-columns: 100px minmax(0, 1fr); gap: 8px; }
-  .pie-chart { width: 100px; }
 }
 
 @media (max-width: 380px) {
   .pie-layout { grid-template-columns: 1fr; gap: 8px; }
-  .pie-chart { width: 100px; }
   .pie-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
 }
 </style>

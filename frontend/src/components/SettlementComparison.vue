@@ -90,6 +90,7 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
         <SearchableSelect
           v-model="sortBy"
           :options="sortSelectOptions"
+          label="排序"
           aria-label="排序"
           placeholder="选择排序"
         />
@@ -133,7 +134,7 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
 .comparison-heading { align-items: flex-end; }
 .comparison-heading h2 { margin-bottom: 4px; }
 .comparison-sort { width: min(220px, 100%); }
-.comparison-sort :deep(input) {
+.comparison-sort :deep(.el-select__wrapper) {
   min-height: 3.06rem;
   padding: 0 2rem 0 .65rem;
   border: 1px solid var(--line-strong);
@@ -141,8 +142,15 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
   background: var(--surface);
   color: var(--ink);
   font-size: 1.05rem;
+  box-shadow: none;
 }
-.comparison-sort :deep(input:focus) {
+.comparison-sort :deep(.el-select__input) {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.comparison-sort :deep(.el-select__wrapper:focus),
+.comparison-sort :deep(.el-select__wrapper.is-focused) {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-soft);
   outline: none;
@@ -181,7 +189,7 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
 @media (max-width: 660px) {
   .comparison-heading { align-items: stretch; }
   .comparison-sort { width: 100%; }
-  .comparison-sort :deep(input) {
+  .comparison-sort :deep(.el-select__wrapper) {
     min-height: 38px;
     padding: 0 1.75rem 0 .45rem;
     font-size: .95rem;

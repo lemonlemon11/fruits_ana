@@ -3,6 +3,19 @@
 > 规则：只保留尚未完成的事项；完成后删除条目并在此留下简短留档。
 > 最后更新：2026-09-21
 
+> 已完成（2026-09-21，ADR-038）：引入 ECharts，并完成 `TrendChart`、
+> `GradePieChart`、`SeriesGradePriceChart`、`SeriesGradeShareChart` 四个图表组件迁移；
+> 新增 `components/BaseEChart.vue` 与 `utils/echartTheme.ts`；`SearchableSelect` 与
+> `DateRangeFilter` 内部试点 Element Plus，页面与 API 契约不变。
+> 验证：前端 211 项 test、`typecheck`、`build` 通过。
+
+> 待评估：是否继续用 Element Plus 替换更多表单控件；ECharts 大分片是否需动态拆分；
+> 移动端真实浏览器回归与视觉验收。
+
+> 待确认（报价与交付文档）：腾讯会议沟通与演示的计费方式（按次 / 按小时 / 打包 / 并入
+> 人日）；阿里云 ECS、RDS、域名、安全服务 3,299.28 元是否需单列；预留测试服务器 4C8G
+> 的最终规格、期限与实际报价。报价单 V0.3 及系统架构图已产出，见 `docs/HANDOFF.md`。
+
 > 已完成（2026-09-21）：修复用户端与管理端菜单点击偶发无响应。根因是懒加载路由旧哈希
 > 分片在部署后可能失效，nginx `/assets/` 缓存 30 天 `immutable` 时 Vue Router 报
 > `Failed to fetch dynamically imported module` 且无兜底。两端 `frontend/src/main.ts`
