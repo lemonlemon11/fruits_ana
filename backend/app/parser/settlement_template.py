@@ -181,20 +181,10 @@ def _sales_rows(
             )
 
         variety = _text(values.get("variety"))
-        if not variety:
-            issues.append(
-                TemplateIssue(
-                    "missing_field",
-                    "error",
-                    row_index + 1,
-                    "variety",
-                    "缺少品种，且无法用于等级统计",
-                )
-            )
 
         head_raw = _text(values.get("head_count"))
         head = parse_spec_range(head_raw)
-        if head_raw is None or head is None:
+        if head_raw and head is None:
             issues.append(
                 TemplateIssue(
                     "invalid_spec",
@@ -208,7 +198,7 @@ def _sales_rows(
 
         spec_kg_raw = _text(values.get("spec_kg"))
         spec_kg = parse_spec_range(spec_kg_raw)
-        if spec_kg_raw is None or spec_kg is None:
+        if spec_kg_raw and spec_kg is None:
             issues.append(
                 TemplateIssue(
                     "invalid_spec",
@@ -242,7 +232,7 @@ def _sales_rows(
                 "sale_date": sale_date.isoformat() if sale_date else None,
                 "source_row": row_index + 1,
                 "raw_row_text": row_text,
-                "variety": variety,
+                "variety": variety or "",
                 "head_count": head.canonical if head else (head_raw or ""),
                 "spec_kg": spec_kg.canonical if spec_kg else (spec_kg_raw or ""),
                 "remark": _text(values.get("remark")) or "",
@@ -276,19 +266,30 @@ def _parse_after_sales(
             if content_col is None or amount_col is None:
                 return []
             items: list[dict[str, Any]] = []
+            previous_content = ""
             for item_index in range(index + 1, len(raw)):
                 item_row = raw.iloc[item_index]
                 row_text = _row_text(item_row)
                 if any(marker in row_text for marker in ("售后合计", "货款合计", "支出费用")):
                     break
                 content = _text(item_row.iloc[content_col])
-                if not content:
+                summary = (
+                    _text(item_row.iloc[summary_col])
+                    if summary_col is not None
+                    else ""
+                )
+                amount_raw = _text(item_row.iloc[amount_col])
+                if not any((content, summary, amount_raw)):
                     continue
+                if content:
+                    previous_content = content
+                else:
+                    content = previous_content
                 amount = _decimal(item_row.iloc[amount_col]) or Decimal("0")
                 items.append(
                     {
                         "content": content,
-                        "summary": _text(item_row.iloc[summary_col]) if summary_col is not None else "",
+                        "summary": summary or "",
                         "amount": str(amount),
                         "source_row": item_index + 1,
                         "raw_row_text": row_text,
@@ -437,7 +438,10 @@ def _reconcile_issues(
 
 def parse_settlement_template(file_path: str | Path) -> SettlementTemplate:
     path = Path(file_path)
-    raw = pd.read_excel(path, header=None, dtype=object, keep_default_na=False)
+    if path.suffix.lower() == ".csv":
+        raw = pd.read_csv(path, header=None, dtype=object, keep_default_na=False)
+    else:
+        raw = pd.read_excel(path, header=None, dtype=object, keep_default_na=False)
     issues: list[TemplateIssue] = []
     header_index, columns = _header_columns(raw)
     if header_index < 0:

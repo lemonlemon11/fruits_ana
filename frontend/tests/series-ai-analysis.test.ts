@@ -38,9 +38,9 @@ test('parseAnalysisSections 按小标题切分并去掉列表符号', () => {
   const sections = parseAnalysisSections(
     [
       '整体行情',
-      '- 三张单合计 2 847 件（平均每件 460.00 元）。',
+      '- 三张单合计 2 847 件（每件均价 460.00 元）。',
       'A果',
-      '- A 果 913 件，平均每件 514.52 元。',
+      '- A 果 913 件，每件均价 514.52 元。',
       '- A 果最贵。',
       '可以留意的地方',
       '- C 果件数占比上升。',
@@ -50,7 +50,7 @@ test('parseAnalysisSections 按小标题切分并去掉列表符号', () => {
     sections.map((section) => section.title),
     ['整体行情', 'A果', '可以留意的地方'],
   )
-  assert.deepEqual(sections[1].points, ['A 果 913 件，平均每件 514.52 元。', 'A 果最贵。'])
+  assert.deepEqual(sections[1].points, ['A 果 913 件，每件均价 514.52 元。', 'A 果最贵。'])
 })
 
 test('parseAnalysisSections 兼容加粗标题、冒号与没有小标题的输出', () => {
@@ -71,7 +71,7 @@ test('friendlyErrorMessage 把英文报错换成中文提示', () => {
 })
 
 test('highlightNumbers 只高亮指标数字，不动号别里的数字', () => {
-  const segments = highlightNumbers('A6 共 913 件、平均每件 514.52 元（42.7%），B6/7 区间')
+  const segments = highlightNumbers('A6 共 913 件、每件均价 514.52 元（42.7%），B6/7 区间')
   const strong = segments.filter((segment) => segment.strong).map((segment) => segment.text)
 
   assert.deepEqual(strong, ['913', '514.52', '42.7%'])

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { entryExportUrl, generateSettlementAnalysis, getSettlementComparison, getSettlementDetail, getTrend, gradeLabel, recordSourceUrl, type Grade, type SettlementComparisonItem, type SettlementDetail, type SettlementRecord, type TrendPoint } from '../api/client'
 import DateRangeFilter from '../components/DateRangeFilter.vue'
@@ -16,6 +16,7 @@ import { activeGrades } from '../utils/grades'
 import { ANALYSIS_HEADINGS } from '../utils/seriesAnalysis'
 import { displayMerchantNo } from '../utils/merchantNo'
 import { formatAnomalyValue, formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
+import { getCachedSettlementComparison } from '../utils/settlementCandidateCache'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,10 +29,11 @@ const filters = reactive({
 const activeMerchantNo = ref('')
 const options = ref<SettlementComparisonItem[]>([]); const detail = ref<SettlementDetail | null>(null); const trend = ref<TrendPoint[]>([]); const loading = ref(true); const error = ref(''); let requestVersion = 0
 const detailOpen = ref(false)
+let activeController: AbortController | null = null
 
 /** 销售明细列定义：数量 / 金额右对齐，来源文件走链接单元格。 */
 const recordColumns: DataTableColumn<SettlementRecord>[] = [
-  { key: 'saleDate', label: '到达日期' },
+  { key: 'saleDate', label: '销售日期' },
   { key: 'grade', label: '等级' },
   { key: 'quantity', label: '数量', numeric: true, value: (record) => formatNumber(record.quantity) },
   { key: 'amount', label: '金额', numeric: true, value: (record) => formatCurrency(record.amount) },
@@ -61,7 +63,7 @@ const activeMerchantLabel = computed(() =>
     : displayMerchantNo({ merchantNo: activeMerchantNo.value }),
 )
 const baseline = computed(() => buildOtherSettlementGradeBaseline(filteredOptions.value, activeMerchantNo.value))
-const periodLabel = computed(() => detail.value?.startDate && detail.value?.endDate ? `${detail.value.startDate} 至 ${detail.value.endDate}` : '当前筛选范围暂无到达日期')
+const periodLabel = computed(() => detail.value?.startDate && detail.value?.endDate ? `${detail.value.startDate} 至 ${detail.value.endDate}` : '当前筛选范围暂无销售日期')
 const baselineRows = computed(() => detail.value?.grades.map((grade) => {
   const reference = baseline.value.find((item) => item.grade === grade.grade)
   const delta = grade.weightedAvgPrice !== null && reference?.weightedAvgPrice != null
@@ -108,14 +110,37 @@ function runSettlementAi(refresh: boolean) {
   )
 }
 
-const salesKpis = computed(() => [
-  { label: '销量', value: detail.value ? formatNumber(detail.value.total.salesQuantity) : '—', note: `占全部 ${formatPercent(selectedOption.value?.salesQuantityShare)}` },
-  { label: '销售额', value: detail.value ? formatCurrency(detail.value.total.salesAmount) : '—', note: `占全部 ${formatPercent(selectedOption.value?.salesAmountShare)}` },
-  { label: '平均每公斤售价', value: detail.value ? formatPrice(detail.value.total.weightedAvgPrice) : '—', note: '销售额 ÷ 销量（千克）' },
-  { label: '销售额排名', value: selectedOption.value?.rank?.salesAmount ? `第 ${selectedOption.value.rank.salesAmount} 名` : '—', note: `共 ${filteredOptions.value.length || '—'} 个结算单` },
-])
-async function loadOptions() {
-  options.value = await getSettlementComparison({ startDate: filters.startDate, endDate: filters.endDate })
+const settlementFacts = computed(() => {
+  const current = detail.value
+  if (!current) return []
+  const salePeriod = current.startDate && current.endDate ? `${current.startDate} 至 ${current.endDate}` : '暂无'
+  const afterSalesAmount = current.settlement.afterSalesAmount
+  const afterSalesRatio = afterSalesAmount != null && current.total.salesAmount
+    ? `${(afterSalesAmount / current.total.salesAmount * 100).toFixed(2)}%`
+    : '—'
+  const afterSalesCombined = afterSalesAmount == null
+    ? '暂无'
+    : `${formatCurrency(afterSalesAmount)} / ${afterSalesRatio}`
+  return [
+    { label: '市场', value: current.market || '未登记' },
+    { label: '单号', value: current.orderNoNormalized || current.orderNo || '未登记' },
+    { label: '到达市场日期', value: current.arrivalDate || '暂无' },
+    { label: '销售日期', value: salePeriod },
+    { label: '柜号', value: current.containerNo || '未登记' },
+    { label: '转运公司', value: current.vehicleNo || '未登记' },
+    { label: '来货数量（件）', value: current.arrivalQuantity == null ? '暂无' : formatNumber(current.arrivalQuantity) },
+    { label: '销量', value: `${formatNumber(current.total.salesQuantity)} 件` },
+    { label: '销售金额', value: formatCurrency(current.total.salesAmount) },
+    { label: '售后金额/售后比', value: afterSalesCombined },
+    { label: '市场费用', value: current.settlement.feeAmount == null ? '暂无' : formatCurrency(current.settlement.feeAmount) },
+    { label: '应付贵方金额', value: current.settlement.payableAmount == null ? '暂无' : formatCurrency(current.settlement.payableAmount) },
+  ]
+})
+async function loadOptions(signal?: AbortSignal) {
+  options.value = await getCachedSettlementComparison(
+    { startDate: filters.startDate, endDate: filters.endDate },
+    { signal },
+  )
   if (filters.series && !brandOptions.value.includes(filters.series)) {
     filters.series = ''
   }
@@ -127,14 +152,17 @@ async function loadOptions() {
 
 async function refresh() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
-    error.value = '到达日期起不能晚于到达日期止'
+    error.value = '销售日期起不能晚于销售日期止'
     return
   }
   const version = ++requestVersion
+  activeController?.abort()
+  const controller = new AbortController()
+  activeController = controller
   loading.value = true
   error.value = ''
   try {
-    await loadOptions()
+    await loadOptions(controller.signal)
     if (!filters.merchantNo) {
       activeMerchantNo.value = ''
       detail.value = null
@@ -144,20 +172,25 @@ async function refresh() {
     const requestedMerchantNo = filters.merchantNo
     const dateFilters = { startDate: filters.startDate, endDate: filters.endDate }
     const [nextDetail, nextTrend] = await Promise.all([
-      getSettlementDetail(requestedMerchantNo, dateFilters),
-      getTrend({ ...dateFilters, merchantNo: requestedMerchantNo }),
+      getSettlementDetail(requestedMerchantNo, dateFilters, { signal: controller.signal }),
+      getTrend({ ...dateFilters, merchantNo: requestedMerchantNo }, { signal: controller.signal }),
     ])
     if (version !== requestVersion) return
     activeMerchantNo.value = requestedMerchantNo
     detail.value = nextDetail
     trend.value = nextTrend
   } catch (caught) {
+    if (controller.signal.aborted) return
     if (version === requestVersion) error.value = caught instanceof Error ? caught.message : '结算单数据加载失败'
   } finally {
     if (version === requestVersion) loading.value = false
   }
 }
 onMounted(refresh)
+onBeforeUnmount(() => {
+  requestVersion += 1
+  activeController?.abort()
+})
 </script>
 
 <template>
@@ -189,14 +222,19 @@ onMounted(refresh)
       <section class="settlement-banner">
         <div class="settlement-identity">
           <strong>{{ selectedOption ? settlementOptionLabel(selectedOption) : activeMerchantNo }}</strong>
-          <small>商号 {{ activeMerchantLabel }} · {{ detail?.containerNo ? `柜号 ${detail.containerNo}` : '未登记柜号' }} · 到达日期：{{ periodLabel }}</small>
+          <small>商号 {{ activeMerchantLabel }} · {{ detail?.containerNo ? `柜号 ${detail.containerNo}` : '未登记柜号' }} · 销售日期：{{ periodLabel }}</small>
         </div>
         <div v-if="canEditManualEntry || canExportManualEntry" class="manual-entry-actions">
           <button v-if="canEditManualEntry" class="ghost-button" type="button" @click="editManualEntry">修改录单</button>
           <button v-if="canExportManualEntry" class="primary-button" type="button" @click="exportManualEntry">导出模板</button>
         </div>
       </section>
-      <section class="kpi-grid" aria-label="销售核心指标"><article v-for="item in salesKpis" :key="item.label" class="kpi-card"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.note }}</small></article></section>
+      <section class="settlement-fact-grid" aria-label="结算单基础信息">
+        <article v-for="item in settlementFacts" :key="item.label" class="settlement-fact">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+        </article>
+      </section>
       <section class="panel grade-summary-panel">
         <GradeFilterBar
           v-if="availableGradeOrder.length"
@@ -230,14 +268,14 @@ onMounted(refresh)
       />
       <button type="button" class="mobile-detail-toggle" :aria-expanded="detailOpen" aria-controls="settlement-mobile-detail" @click="detailOpen = !detailOpen">{{ detailOpen ? '收起更多分析' : '查看趋势、对比与明细' }}</button>
       <div v-show="detailOpen" id="settlement-mobile-detail" class="settlement-mobile-detail">
-        <section class="analysis-grid"><div class="panel trend-panel"><TrendChart :points="trend" :loading="loading" title="该结算单每日销量和平均每公斤售价" /></div><div class="panel baseline-panel"><header class="panel-head"><h2>和同期其他结算单平均每公斤售价对比</h2></header><div v-if="loading" class="skeleton-block">正在计算对比数据</div><div v-else class="baseline-list"><div v-for="row in baselineRows" :key="row.grade" class="baseline-row"><span class="grade-badge" :class="`grade-${row.grade.toLowerCase()}`">{{ row.grade }}</span><div><strong>{{ gradeLabel(row.grade) }}</strong><small>本单 {{ formatPrice(row.weightedAvgPrice) }} · 其他结算单 {{ formatPrice(row.baselinePrice) }}</small></div><span :class="['delta-pill', { negative: row.delta !== null && row.delta < 0 }]">{{ row.delta === null ? '暂无对比' : `${row.delta >= 0 ? '+' : ''}${formatPercent(row.delta)}` }}</span></div></div></div></section>
+        <section class="analysis-grid"><div class="panel trend-panel"><TrendChart :points="trend" :loading="loading" title="本单销量与均价" /></div><div class="panel baseline-panel"><header class="panel-head"><h2>同期均价对比</h2></header><div v-if="loading" class="skeleton-block">正在计算对比数据</div><div v-else class="baseline-list"><div v-for="row in baselineRows" :key="row.grade" class="baseline-row"><span class="grade-badge" :class="`grade-${row.grade.toLowerCase()}`">{{ row.grade }}</span><div><strong>{{ gradeLabel(row.grade) }}</strong><small>本单 {{ formatPrice(row.weightedAvgPrice) }} · 其他结算单 {{ formatPrice(row.baselinePrice) }}</small></div><span :class="['delta-pill', { negative: row.delta !== null && row.delta < 0 }]">{{ row.delta === null ? '暂无对比' : `${row.delta >= 0 ? '+' : ''}${formatPercent(row.delta)}` }}</span></div></div></div></section>
         <section class="compact-alerts panel"><header class="panel-head"><h2>需要关注</h2></header><div v-if="!detail?.operatingAnomalies.length" class="empty-inline">当前未发现经营异常</div><ul v-else class="alert-list inline-alerts"><li v-for="(item, index) in detail.operatingAnomalies" :key="index" class="alert-item danger"><span class="alert-code">提醒</span><div><strong>{{ item.reason }}</strong><p>当前 {{ formatAnomalyValue(item.type, item.metric) }} · 全部 {{ formatAnomalyValue(item.type, item.baseline) }}</p></div></li></ul></section>
-        <details class="secondary-drawer"><summary><span><b>查看结算和销售明细</b><small>需要核对原始数据时再展开</small></span><em>展开</em></summary><div class="drawer-grid"><section class="panel"><header class="panel-head"><h2>结算信息</h2></header><dl class="settlement-strip"><div><dt>售后金额</dt><dd>{{ detail?.settlement.afterSalesAmount == null ? '暂无数据' : formatCurrency(detail.settlement.afterSalesAmount) }}</dd></div><div><dt>费用合计</dt><dd>{{ detail?.settlement.feeAmount == null ? '暂无数据' : formatCurrency(detail.settlement.feeAmount) }}</dd></div><div><dt>清关税费</dt><dd>{{ detail?.settlement.customsTax == null ? '暂无数据' : formatCurrency(detail.settlement.customsTax) }}</dd></div><div><dt>应付结算</dt><dd>{{ detail?.settlement.payableAmount == null ? '暂无数据' : formatCurrency(detail.settlement.payableAmount) }}</dd></div></dl></section><section class="panel"><header class="panel-head"><h2>销售明细</h2><span>{{ detail?.records.length ?? 0 }} 条</span></header><div v-if="!detail?.records.length" class="empty-inline">当前范围没有销售明细</div><div v-else class="trace-results"><DataTable
+        <details class="secondary-drawer"><summary><span><b>查看结算与明细</b><small>需要核对原始数据时再展开</small></span><em>展开</em></summary><div class="drawer-grid"><section class="panel"><header class="panel-head"><h2>结算信息</h2></header><dl class="settlement-strip"><div><dt>售后金额</dt><dd>{{ detail?.settlement.afterSalesAmount == null ? '暂无数据' : formatCurrency(detail.settlement.afterSalesAmount) }}</dd></div><div><dt>费用合计</dt><dd>{{ detail?.settlement.feeAmount == null ? '暂无数据' : formatCurrency(detail.settlement.feeAmount) }}</dd></div><div><dt>清关税费</dt><dd>{{ detail?.settlement.customsTax == null ? '暂无数据' : formatCurrency(detail.settlement.customsTax) }}</dd></div><div><dt>应付结算</dt><dd>{{ detail?.settlement.payableAmount == null ? '暂无数据' : formatCurrency(detail.settlement.payableAmount) }}</dd></div></dl></section><section class="panel"><header class="panel-head"><h2>销售明细</h2><span>{{ detail?.records.length ?? 0 }} 条</span></header><div v-if="!detail?.records.length" class="empty-inline">当前范围没有销售明细</div><div v-else class="trace-results"><DataTable
             class="trace-table"
             :columns="recordColumns"
             :rows="detail.records"
             :row-key="(record) => record.id"
-            caption="销售明细：每条记录的到达日期、等级、数量、金额与来源文件"
+            caption="销售明细：每条记录的销售日期、等级、数量、金额与来源文件"
             min-width="520px"
           >
             <template #cell-grade="{ row }">{{ row.grade ? gradeLabel(row.grade) : '未知' }}</template>
@@ -254,7 +292,7 @@ onMounted(refresh)
 .settlement-dashboard { display: grid; gap: 18px; }
 .settlement-banner,
 .panel,
-.kpi-grid,
+.settlement-fact-grid,
 .secondary-drawer { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .settlement-banner { padding: 14px 16px; border-left: 4px solid var(--primary); }
 .settlement-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -263,12 +301,10 @@ onMounted(refresh)
 .settlement-identity small { color: var(--muted); font-size: .85rem; line-height: 1.5; }
 .manual-entry-actions { display: flex; gap: 8px; flex: 0 0 auto; }
 .manual-entry-actions button { min-height: 36px; padding: 0 12px; border-radius: 9px; font-weight: 800; }
-.kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.kpi-card { display: grid; gap: 5px; min-width: 0; padding: 14px; border-right: 1px solid var(--line); }
-.kpi-card:last-child { border-right: 0; }
-.kpi-card span,
-.kpi-card small { color: var(--muted); font-size: .85rem; }
-.kpi-card strong { overflow-wrap: anywhere; font-size: 1.08rem; font-variant-numeric: tabular-nums; }
+.settlement-fact-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.settlement-fact { display: grid; gap: 5px; min-width: 0; padding: 12px 14px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.settlement-fact span { color: var(--muted); font-size: .78rem; }
+.settlement-fact strong { overflow-wrap: anywhere; font-size: .92rem; font-variant-numeric: tabular-nums; }
 .panel { min-width: 0; padding: 16px; }
 .grade-summary-panel :deep(.dashboard-section),
 .trend-panel :deep(.dashboard-section) { padding-top: 0; border-top: 0; }
@@ -307,9 +343,7 @@ onMounted(refresh)
 @media (max-width: 920px) {
   .analysis-grid,
   .drawer-grid { grid-template-columns: 1fr; }
-  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kpi-card:nth-child(2) { border-right: 0; }
-  .kpi-card:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .settlement-fact-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (min-width: 561px) {
@@ -317,23 +351,19 @@ onMounted(refresh)
 }
 
 @media (max-width: 560px) {
-  .settlement-dashboard { gap: 10px; }
-  .mobile-detail-toggle { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--primary-dark); font-size: .95rem; font-weight: 800; }
-  .settlement-mobile-detail { gap: 12px; }
-  .settlement-banner { padding: 8px 10px; border-left-width: 3px; align-items: flex-start; flex-direction: column; }
+  .settlement-dashboard { gap: 6px; }
+  .mobile-detail-toggle { display: flex; width: 100%; min-height: 36px; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--primary-dark); font-size: .85rem; font-weight: 800; }
+  .settlement-mobile-detail { gap: 6px; }
+  .settlement-banner { padding: 6px 8px; border-left-width: 3px; align-items: flex-start; flex-direction: column; }
   .manual-entry-actions { width: 100%; }
   .manual-entry-actions button { flex: 1; }
   .settlement-identity { gap: 2px; }
   .settlement-identity strong { font-size: .92rem; line-height: 1.25; }
   .settlement-identity small { font-size: .7rem; line-height: 1.3; }
-  .kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .kpi-card { gap: 2px; padding: 7px 5px; border-right: 1px solid var(--line); border-bottom: 0; }
-  .kpi-card:nth-child(2) { border-right: 1px solid var(--line); }
-  .kpi-card:last-child { border-right: 0; }
-  .kpi-card:nth-child(-n+2) { border-bottom: 0; }
-  .kpi-card span,
-  .kpi-card small { font-size: .68rem; line-height: 1.2; }
-  .kpi-card strong { font-size: .95rem; line-height: 1.2; }
+  .settlement-fact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .settlement-fact { gap: 3px; padding: 9px 8px; }
+  .settlement-fact span { font-size: .7rem; line-height: 1.2; }
+  .settlement-fact strong { font-size: .86rem; line-height: 1.25; }
   .panel { padding: 10px; }
   .secondary-drawer summary { min-height: 56px; padding-inline: 12px; }
   .drawer-grid { padding: 8px; }

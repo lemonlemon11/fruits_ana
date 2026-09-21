@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { getSeriesComparison, getSettlements } from '../api/client'
+import { getSeriesComparison } from '../api/client'
 import { emptyGradeRecord } from '../utils/grades'
 import type {
   GradeDetailData,
@@ -26,6 +26,7 @@ import {
   parseSelectedParam,
   serializeSelectedParam,
 } from '../utils/settlementPicker'
+import { getCachedSettlements } from '../utils/settlementCandidateCache'
 
 const DEFAULT_SELECTION = 3
 
@@ -47,6 +48,9 @@ const loadingComparison = ref(false)
 const error = ref('')
 const notice = ref('')
 let requestVersion = 0
+let optionsRequestVersion = 0
+let activeController: AbortController | null = null
+let comparisonController: AbortController | null = null
 
 const selectedCount = computed(() => selected.value.length)
 const canCompare = computed(() => selectedCount.value >= 2)
@@ -71,8 +75,12 @@ function emptyAggregate(): SeriesAggregate {
   }
 }
 
-async function loadComparison() {
+async function loadComparison(signal?: AbortSignal) {
   const version = ++requestVersion
+  comparisonController?.abort()
+  const controller = signal ? null : new AbortController()
+  if (controller) comparisonController = controller
+  const activeSignal = signal ?? controller?.signal
   if (!canCompare.value) {
     result.value = emptyComparison()
     notice.value = '请至少勾选两个结算单再对比；只能在同一个品牌内选择。'
@@ -82,9 +90,10 @@ async function loadComparison() {
   error.value = ''
   notice.value = ''
   try {
-    const next = await getSeriesComparison(selected.value, { ...filters })
+    const next = await getSeriesComparison(selected.value, { ...filters }, { signal: activeSignal })
     if (version === requestVersion) result.value = next
   } catch (caught) {
+    if (activeSignal?.aborted) return
     if (version === requestVersion) {
       error.value = friendlyErrorMessage(
         caught instanceof Error ? caught.message : '',
@@ -98,13 +107,20 @@ async function loadComparison() {
 
 async function loadOptions() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
-    error.value = '到达日期起不能晚于到达日期止'
+    error.value = '销售日期起不能晚于销售日期止'
+    loadingOptions.value = false
     return
   }
+  const version = ++optionsRequestVersion
   loadingOptions.value = true
   error.value = ''
+  activeController?.abort()
+  comparisonController?.abort()
+  const controller = new AbortController()
+  activeController = controller
   try {
-    const data = await getSettlements({ ...filters })
+    const data = await getCachedSettlements({ ...filters }, { signal: controller.signal })
+    if (version !== optionsRequestVersion || controller.signal.aborted) return
     options.value = data.settlements
     selected.value = normalizeSameSeriesSelection(
       options.value,
@@ -112,14 +128,18 @@ async function loadOptions() {
       DEFAULT_SELECTION,
     )
     syncSelectedQuery()
-    await loadComparison()
   } catch (caught) {
+    if (controller.signal.aborted) return
+    if (version !== optionsRequestVersion) return
     error.value = friendlyErrorMessage(
       caught instanceof Error ? caught.message : '',
       '结算单列表加载失败，请稍后重试',
     )
   } finally {
-    loadingOptions.value = false
+    if (version === optionsRequestVersion) loadingOptions.value = false
+  }
+  if (version === optionsRequestVersion && !controller.signal.aborted) {
+    await loadComparison(controller.signal)
   }
 }
 
@@ -142,6 +162,12 @@ function syncSelectedQuery() {
 }
 
 onMounted(loadOptions)
+onBeforeUnmount(() => {
+  optionsRequestVersion += 1
+  requestVersion += 1
+  activeController?.abort()
+  comparisonController?.abort()
+})
 </script>
 
 <template>

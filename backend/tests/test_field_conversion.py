@@ -51,6 +51,14 @@ def test_inactive_rule_keeps_original_value():
     assert convert_grade(db, "AB") == StandardGrade.AB
 
 
+def test_invalid_rule_target_raises_instead_of_silently_mapping_to_other():
+    db = SessionLocal()
+    add_rule(db, "X", "Z")
+
+    with pytest.raises(ValueError, match="不是合法等级"):
+        convert_grade(db, "X")
+
+
 def test_match_market_uses_contains_match():
     db = SessionLocal()
     db.add_all(

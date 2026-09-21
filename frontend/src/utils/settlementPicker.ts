@@ -8,6 +8,26 @@
 import type { SettlementListItem } from '../api/types'
 import { groupBySeries } from './seriesComparison.ts'
 
+/** 品类缺失或为空时归入「未识别品类」，避免整组结算单从选择器中消失。 */
+export const UNKNOWN_CATEGORY = '未识别品类'
+
+export interface CategoryGroup<T> {
+  category: string
+  items: T[]
+}
+
+/** 按品类分组；当前品类为销售明细中的 ``fruit_type``（默认榴莲）。 */
+export function groupByCategory<T extends { fruitType: string }>(items: T[]): CategoryGroup<T>[] {
+  const groups = new Map<string, T[]>()
+  items.forEach((item) => {
+    const key = item.fruitType?.trim() || UNKNOWN_CATEGORY
+    groups.set(key, [...(groups.get(key) ?? []), item])
+  })
+  return [...groups.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, 'zh-Hans-CN'))
+    .map(([category, grouped]) => ({ category, items: grouped }))
+}
+
 /** 按商号、单号、品牌或柜号匹配；关键词为空时返回全部。 */
 export function filterSettlementOptions(
   items: SettlementListItem[],
@@ -68,7 +88,7 @@ export function isWholeSeriesSelected(draft: string[], seriesMerchantNos: string
   )
 }
 
-/** 按到达日期从近到远排列，同一天的按商号排，保证顺序稳定。 */
+/** 按销售日期从近到远排列，同一天的按商号排，保证顺序稳定。 */
 export function sortByRecentArrival(items: SettlementListItem[]): SettlementListItem[] {
   return [...items].sort((left, right) => {
     const byDate = (right.saleDateStart ?? '').localeCompare(left.saleDateStart ?? '')

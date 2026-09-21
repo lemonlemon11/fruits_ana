@@ -26,6 +26,7 @@ from .analytics_core import (
 )
 from .order_no_naming import order_no_display, series_name
 from .merchant_no_naming import merchant_no_display
+from .settlement_detail_service import record_payload
 
 
 def _records(db: Session, **filters) -> list[SaleRecord]:
@@ -43,6 +44,26 @@ def get_grade_summary(
         db, start_date=start_date, end_date=end_date, merchant_no=merchant_no
     )
     return {"total": metrics(filtered), "grades": grade_metrics(filtered)}
+
+
+def get_grade_breakdown(
+    db: Session,
+    *,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    merchant_no: str | None = None,
+) -> dict:
+    """返回等级图表所需的三块数据：等级汇总与销售明细。"""
+
+    filtered = _records(
+        db, start_date=start_date, end_date=end_date, merchant_no=merchant_no
+    )
+    return {
+        "grades": grade_metrics(filtered),
+        "records": [
+            record_payload(record, include_piece_count=True) for record in filtered
+        ],
+    }
 
 
 def get_overview(db: Session, **filters) -> dict:
@@ -238,6 +259,7 @@ __all__ = [
     "DEFAULT_THRESHOLDS",
     "AnomalyThresholds",
     "get_daily_trend",
+    "get_grade_breakdown",
     "get_grade_summary",
     "get_issue_counts",
     "get_operating_anomalies",

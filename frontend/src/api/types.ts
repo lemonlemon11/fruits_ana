@@ -2,10 +2,22 @@ import type { Grade } from '../utils/grades'
 
 export type { Grade }
 
+/** 侧边导航条目：名称与图标由管理端「菜单管理」维护。 */
+export interface AuthMenu {
+  routePath: string
+  name: string
+  icon: string | null
+  permissionCode: string | null
+  sortOrder: number
+  isActive: boolean
+}
+
 export interface AuthUser {
   id: number
   displayName: string
+  email?: string
   permissions: string[]
+  menus: AuthMenu[]
 }
 
 export interface AppNotification {
@@ -30,7 +42,10 @@ export interface LoginPayload {
   rememberMe?: boolean
 }
 
-export type RegisterPayload = LoginPayload
+export interface RegisterPayload extends LoginPayload {
+  email: string
+  verificationCode: string
+}
 
 export interface AnalyticsFilters {
   startDate?: string
@@ -82,6 +97,11 @@ export interface OverviewData {
   operatingAnomalies: OperatingAnomaly[]
 }
 
+export interface GradeBreakdownData {
+  grades: GradeMetric[]
+  records: SettlementRecord[]
+}
+
 export interface SettlementComparisonItem extends MetricTotal {
   merchantNo: string
   merchantNoNormalized: string
@@ -102,6 +122,7 @@ export interface SettlementComparisonItem extends MetricTotal {
 
 export interface SettlementSummary {
   afterSalesAmount: number | null
+  goodsAmount: number | null
   feeAmount: number | null
   customsTax: number | null
   payableAmount: number | null
@@ -115,6 +136,7 @@ export interface SettlementRecord {
   gradeRaw: string
   grade: Grade | null
   specRaw: string
+  headCount: string
   quantity: number
   unitPrice: number
   amount: number
@@ -144,9 +166,11 @@ export interface SettlementListItem {
   merchantNoNormalized: string
   orderNo: string
   orderNoNormalized: string
+  fruitType: string
   series: string
   containerNo: string
   vehicleNo: string
+  arrivalDate: string
   saleDateStart: string
   saleDateEnd: string
   salesAmount: number
@@ -173,16 +197,6 @@ export interface SettlementListData {
   dateRange: SettlementDateRange | null
   settlements: SettlementListItem[]
   pagination: SettlementPagination | null
-}
-
-export interface SettlementRecordsData {
-  merchantNo: string
-  merchantNoNormalized: string
-  orderNo: string
-  orderNoNormalized: string
-  containerNo: string
-  vehicleNo: string
-  records: SettlementRecord[]
 }
 
 export interface SeriesAggregate {
@@ -310,6 +324,15 @@ export interface EntryRead extends Omit<EntryPayload, 'overwrite'> {
   sourceType: 'import' | 'manual'
 }
 
+export interface EntryDraft {
+  updatedAt: string
+  editing: boolean
+  merchantNo: string
+  orderNo: string
+  salesCount: number
+  payload: EntryPayload
+}
+
 export interface EntryFieldOption {
   field: 'market' | 'variety'
   value: string
@@ -339,6 +362,8 @@ export interface ImportIssue {
   fieldName: string
   message: string
   rawValue: string
+  resolved?: boolean
+  resolvedAt?: string | null
 }
 
 export interface ImportDraftSummary {
@@ -352,6 +377,11 @@ export interface ImportDraftSummary {
   status?: string
 }
 
+export interface ImportPreviewFailure {
+  fileName: string
+  error: string
+}
+
 export interface ImportJob {
   token: string
   status: string
@@ -360,6 +390,7 @@ export interface ImportJob {
   confirmedCount: number
   createdAt: string
   drafts: ImportDraftSummary[]
+  failures: ImportPreviewFailure[]
 }
 
 export interface ImportReviewIssue {
@@ -385,6 +416,7 @@ export interface ImportReviewDraft {
   version: number
   fileName: string
   payload: ImportReviewPayload
+  originalPayload: ImportReviewPayload
 }
 
 export interface ImportConfirmItem {

@@ -34,7 +34,7 @@ def _totals(total: dict) -> dict:
     return {
         "件数": _count(total["sales_quantity"]),
         "金额": _count(total["sales_amount"]),
-        "平均每公斤售价": _price(total["weighted_avg_price"]),
+        "每件均价": _price(total["weighted_avg_price"]),
     }
 
 
@@ -44,7 +44,7 @@ def _grade_rows(grades: Any) -> list[dict]:
             "等级": row["grade"],
             "件数": _count(row["sales_quantity"]),
             "金额": _count(row["sales_amount"]),
-            "平均每公斤售价": _price(row["weighted_avg_price"]),
+            "每件均价": _price(row["weighted_avg_price"]),
             "件数占比": _share(row["quantity_share"]),
         }
         for row in grades
@@ -65,7 +65,7 @@ def _trend_rows(trend: Any) -> list[dict]:
             "日期": row["sale_date"],
             "件数": _count(row["sales_quantity"]),
             "金额": _count(row["sales_amount"]),
-            "平均每公斤售价": _price(row["weighted_avg_price"]),
+            "每件均价": _price(row["weighted_avg_price"]),
         }
         for row in list(trend)[:MAX_TREND_POINTS]
     ]
@@ -104,7 +104,7 @@ def compact_settlement_list(result: dict) -> dict:
                 "销售日期": f"{row['sale_date_start']}~{row['sale_date_end']}",
                 "件数": _count(row["total_quantity"]),
                 "金额": _count(row["sales_amount"]),
-                "平均每公斤售价": _price(row["average_price"]),
+                "每件均价": _price(row["average_price"]),
                 "各等级件数": {
                     key: _count(value)
                     for key, value in row["grade_quantities"].items()
@@ -135,7 +135,7 @@ def compact_ranking(rows: Any) -> list[dict]:
             "排名": {
                 "按件数": row["rank"]["sales_quantity"],
                 "按金额": row["rank"]["sales_amount"],
-                "按平均每公斤售价": row["rank"]["weighted_avg_price"],
+                "按每件均价": row["rank"]["weighted_avg_price"],
             },
             "件数占比": _share(row["sales_quantity_share"]),
             "金额占比": _share(row["sales_amount_share"]),

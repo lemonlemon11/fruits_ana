@@ -8,15 +8,17 @@ import { settlementOptionLabel } from '../utils/settlementComparison'
 import {
   addWholeSeries,
   filterSettlementOptions,
+  groupByCategory,
   isWholeSeriesSelected,
   normalizeSameSeriesSelection,
   paginateSettlementOptions,
   sortByRecentArrival,
   toggleDraftSelection,
+  UNKNOWN_CATEGORY,
 } from '../utils/settlementPicker'
 
 /**
- * 结算单选择器：先选品牌，再选同品牌结算单。
+ * 结算单选择器：先选品类，再选品牌，最后选同品牌结算单。
  * 品牌内支持搜索与分页，确认时只返回同一品牌的商号。
  */
 import './SettlementPicker.css'
@@ -31,14 +33,17 @@ const props = defineProps<{
 const emit = defineEmits<{ apply: [merchantNos: string[]] }>()
 
 const open = ref(false)
-const step = ref<'brand' | 'settlement'>('brand')
+const step = ref<'category' | 'brand' | 'settlement'>('category')
+const activeCategory = ref('')
 const activeSeries = ref('')
 const draft = ref<string[]>([])
+const categoryKeyword = ref('')
 const brandKeyword = ref('')
 const keyword = ref('')
 const limitHit = ref(false)
 const page = ref(1)
 const pageSize = 6
+const categorySearchInput = ref<HTMLInputElement | null>(null)
 const brandSearchInput = ref<HTMLInputElement | null>(null)
 const settlementSearchInput = ref<HTMLInputElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
@@ -51,15 +56,26 @@ const selectedItems = computed(() =>
 )
 const atLimit = computed(() => draft.value.length >= maxSelect.value)
 
+const categoryGroups = computed(() => {
+  const groups = groupByCategory(props.options)
+  const needle = categoryKeyword.value.trim().toLowerCase()
+  if (!needle) return groups
+  return groups.filter((group) => group.category.toLowerCase().includes(needle))
+})
+
+const activeCategoryItems = computed(() =>
+  props.options.filter((item) => itemCategory(item) === activeCategory.value),
+)
+
 const brandGroups = computed(() => {
-  const groups = groupBySeries(props.options)
+  const groups = groupBySeries(activeCategoryItems.value)
   const needle = brandKeyword.value.trim().toLowerCase()
   if (!needle) return groups
   return groups.filter((group) => group.series.toLowerCase().includes(needle))
 })
 
 const activeBrandItems = computed(() =>
-  props.options.filter((item) => item.series === activeSeries.value),
+  activeCategoryItems.value.filter((item) => item.series === activeSeries.value),
 )
 const filteredActiveItems = computed(() =>
   sortByRecentArrival(filterSettlementOptions(activeBrandItems.value, keyword.value)),
@@ -72,6 +88,10 @@ function groupMerchantNos(items: SettlementListItem[]): string[] {
   return items.map((item) => item.merchantNo)
 }
 
+function itemCategory(item: SettlementListItem): string {
+  return item.fruitType?.trim() || UNKNOWN_CATEGORY
+}
+
 function lockScroll(locked: boolean) {
   document.body.style.overflow = locked ? 'hidden' : ''
 }
@@ -80,15 +100,17 @@ function openPicker() {
   draft.value = props.selected.length
     ? normalizeSameSeriesSelection(props.options, props.selected, maxSelect.value)
     : []
+  categoryKeyword.value = ''
   brandKeyword.value = ''
   keyword.value = ''
   limitHit.value = false
   page.value = 1
+  activeCategory.value = ''
   activeSeries.value = ''
-  step.value = 'brand'
+  step.value = 'category'
   open.value = true
   lockScroll(true)
-  void nextTick(() => brandSearchInput.value?.focus())
+  void nextTick(() => categorySearchInput.value?.focus())
 }
 
 function closePicker() {
@@ -96,8 +118,22 @@ function closePicker() {
   lockScroll(false)
 }
 
+function chooseCategory(category: string) {
+  const items = props.options.filter((item) => itemCategory(item) === category)
+  const merchantNos = new Set(groupMerchantNos(items))
+  draft.value = draft.value.filter((merchantNo) => merchantNos.has(merchantNo))
+  activeCategory.value = category
+  activeSeries.value = ''
+  brandKeyword.value = ''
+  keyword.value = ''
+  page.value = 1
+  limitHit.value = false
+  step.value = 'brand'
+  void nextTick(() => brandSearchInput.value?.focus())
+}
+
 function chooseSeries(series: string) {
-  const items = props.options.filter((item) => item.series === series)
+  const items = activeCategoryItems.value.filter((item) => item.series === series)
   const merchantNos = new Set(groupMerchantNos(items))
   draft.value = draft.value.filter((merchantNo) => merchantNos.has(merchantNo))
   activeSeries.value = series
@@ -106,6 +142,16 @@ function chooseSeries(series: string) {
   limitHit.value = false
   step.value = 'settlement'
   void nextTick(() => settlementSearchInput.value?.focus())
+}
+
+function backToCategories() {
+  activeCategory.value = ''
+  activeSeries.value = ''
+  brandKeyword.value = ''
+  keyword.value = ''
+  page.value = 1
+  step.value = 'category'
+  void nextTick(() => categorySearchInput.value?.focus())
 }
 
 function backToBrands() {
@@ -201,9 +247,9 @@ onBeforeUnmount(() => {
   <section class="dashboard-section" aria-labelledby="settlement-picker-title">
     <header class="section-heading">
       <div>
-        <h2 id="settlement-picker-title">选择要对比的结算单</h2>
+        <h2 id="settlement-picker-title">选择结算单</h2>
         <p class="section-note">
-          已选 {{ selected.length }} / {{ maxSelect }}，先选品牌，再选同品牌结算单
+          已选 {{ selected.length }} / {{ maxSelect }}，先选品类，再选品牌，最后挑同品牌结算单
         </p>
       </div>
       <div class="picker-trigger-actions">
@@ -236,7 +282,7 @@ onBeforeUnmount(() => {
     </ul>
     <div v-else class="empty-state compact">
       <strong>还没有选择结算单</strong>
-      <span>点右上角「选择结算单」，先选品牌，再挑两张及以上。</span>
+      <span>点右上角「选择结算单」，先选品类，再挑两张及以上。</span>
     </div>
 
     <Teleport to="body">
@@ -250,9 +296,15 @@ onBeforeUnmount(() => {
         >
           <header class="picker-head">
             <div>
-              <h2 id="settlement-picker-dialog-title">选择要对比的结算单</h2>
+              <h2 id="settlement-picker-dialog-title">选择结算单</h2>
               <p class="section-note">
-                {{ step === 'brand' ? '第一步：先选品牌。' : '第二步：在当前品牌内挑单。' }}
+                {{
+                  step === 'category'
+                    ? '第一步：先选品类。'
+                    : step === 'brand'
+                      ? '第二步：再选品牌。'
+                      : '第三步：在当前品牌内挑单。'
+                }}
                 对比只允许同一品牌，最多选 {{ maxSelect }} 张
               </p>
             </div>
@@ -265,13 +317,60 @@ onBeforeUnmount(() => {
             <span v-else-if="step === 'settlement'" class="section-note">
               当前品牌 {{ filteredActiveItems.length }} 张
             </span>
+            <span v-else-if="step === 'brand'" class="section-note">
+              当前品类 {{ activeCategory }} · {{ brandGroups.length }} 个品牌
+            </span>
             <span v-else class="section-note">共 {{ options.length }} 张</span>
           </div>
 
           <div class="picker-body">
             <div v-if="loading" class="picker-skeleton skeleton-block">正在加载结算单</div>
 
+            <template v-else-if="step === 'category'">
+              <label class="picker-search">
+                <span class="sr-only">搜索品类</span>
+                <input
+                  ref="categorySearchInput"
+                  v-model="categoryKeyword"
+                  type="search"
+                  placeholder="搜品类"
+                  autocomplete="off"
+                >
+              </label>
+              <div v-if="!categoryGroups.length" class="empty-state compact">
+                <strong>没有匹配品类</strong>
+                <span>换个品类名再搜，或调整销售日期范围。</span>
+              </div>
+              <div v-else class="brand-list">
+                <button
+                  v-for="group in categoryGroups"
+                  :key="group.category"
+                  type="button"
+                  class="brand-option"
+                  @click="chooseCategory(group.category)"
+                >
+                  <strong>{{ group.category }}</strong>
+                  <span>{{ group.items.length }} 张</span>
+                  <small>
+                    {{ group.items.slice(0, 2).map((item) => item.series).join('、') }}
+                    {{ group.items.length > 2 ? '…' : '' }}
+                  </small>
+                </button>
+              </div>
+            </template>
+
             <template v-else-if="step === 'brand'">
+              <button type="button" class="picker-back" @click="backToCategories">
+                ← 返回品类列表
+              </button>
+              <div class="active-brand">
+                <div>
+                  <span>当前品类</span>
+                  <strong>{{ activeCategory }}</strong>
+                </div>
+                <span>共 {{ activeCategoryItems.length }} 张</span>
+              </div>
+
               <label class="picker-search">
                 <span class="sr-only">搜索品牌</span>
                 <input
@@ -284,7 +383,7 @@ onBeforeUnmount(() => {
               </label>
               <div v-if="!brandGroups.length" class="empty-state compact">
                 <strong>没有匹配品牌</strong>
-                <span>换个品牌名再搜，或调整到达日期范围。</span>
+                <span>换个品牌名再搜，或返回品类列表重新选择。</span>
               </div>
               <div v-else class="brand-list">
                 <button

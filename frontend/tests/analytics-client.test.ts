@@ -6,6 +6,7 @@ import {
   getImportIssues,
   gradeLabel,
   normalizeGrade,
+  normalizeGradeBreakdown,
   normalizeGradeMetrics,
   normalizeImportIssues,
   normalizeOverview,
@@ -59,13 +60,29 @@ test('normalizeOverview accepts wrapped payload and snake_case fields', () => {
   assert.deepEqual(overview.issueCounts, { total: 2, amount_mismatch: 2 })
 })
 
+test('normalizeGradeBreakdown exposes grades and spec records', () => {
+  const breakdown = normalizeGradeBreakdown({
+    grades: [
+      { grade: 'A', sales_quantity: 2, sales_amount: 20, weighted_avg_price: 10, quantity_share: 1 },
+    ],
+    records: [{
+      id: 8, sale_date: '2026-01-02', grade: 'A', grade_raw: 'A',
+      piece_count: '3/4头', quantity: 2, unit_price: 10, amount: 20,
+    }],
+  })
+
+  assert.equal(breakdown.grades[0].salesQuantity, 2)
+  assert.equal(breakdown.records[0].id, 8)
+  assert.equal(breakdown.records[0].headCount, '3/4头')
+})
+
 test('normalizeSettlementDetail exposes settlement and traceable records', () => {
   const detail = normalizeSettlementDetail({
     merchant_no: '640',
     order_no: '宝贝L004',
     container_no: 'CBHU2970762',
     vehicle_no: '桂ABF330',
-    settlement: { after_sales_amount: 10, fee_amount: 20, customs_tax: 30, payable_amount: 940 },
+    settlement: { after_sales_amount: 10, goods_amount: 980, fee_amount: 20, customs_tax: 30, payable_amount: 940 },
     records: [{
       id: 7, source_file_id: 2, sale_date: '2026-01-02', grade_raw: 'BC6', grade: 'C',
       fruit_type: '榴莲', quantity: 4, unit_price: 8, amount: 32,
@@ -79,6 +96,7 @@ test('normalizeSettlementDetail exposes settlement and traceable records', () =>
   assert.equal(detail.vehicleNo, '桂ABF330')
   assert.equal(detail.settlement.feeAmount, 20)
   assert.equal(detail.settlement.afterSalesAmount, 10)
+  assert.equal(detail.settlement.goodsAmount, 980)
   assert.equal(detail.settlement.customsTax, 30)
   assert.equal(detail.settlement.payableAmount, 940)
   assert.equal(detail.records[0].id, 7)
@@ -98,7 +116,7 @@ test('normalizeSettlementList reads the default range and grade quantities', () 
     date_range: { start_date: '2026-08-09', end_date: '2026-09-09', is_default: true },
     settlements: [{
       merchant_no: '640', order_no: '宝贝L004', container_no: 'CBHU2970762',
-      vehicle_no: '桂ABF330', sale_date_start: '2026-09-09', sale_date_end: '2026-09-09',
+      vehicle_no: '桂ABF330', arrival_date: '2026-09-08', sale_date_start: '2026-09-09', sale_date_end: '2026-09-09',
       sales_amount: 8000, total_quantity: 20, average_price: 400,
       grade_quantities: { A: 12, B: 6, C: 2 }, record_count: 3,
     }],
@@ -107,6 +125,7 @@ test('normalizeSettlementList reads the default range and grade quantities', () 
   assert.deepEqual(list.dateRange, { startDate: '2026-08-09', endDate: '2026-09-09', isDefault: true })
   assert.equal(list.settlements[0].merchantNo, '640')
   assert.equal(list.settlements[0].orderNo, '宝贝L004')
+  assert.equal(list.settlements[0].arrivalDate, '2026-09-08')
   assert.deepEqual(list.settlements[0].gradeQuantities, {
     A: 12, B: 6, AB: 0, C: 2, D: 0, E: 0, F: 0, OTHER: 0,
   })
@@ -131,6 +150,8 @@ test('normalizeImportIssues accepts issue_type and nullable fields', () => {
   assert.deepEqual(issues[0], {
     id: 9, rowNumber: 11, issueType: 'amount_mismatch', severity: 'warning',
     fieldName: 'amount', message: '金额不一致', rawValue: '',
+    resolved: false,
+    resolvedAt: null,
   })
 })
 

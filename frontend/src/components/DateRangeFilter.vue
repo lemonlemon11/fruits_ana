@@ -11,12 +11,14 @@ const emit = defineEmits<{
   'update:endDate': [value: string]
 }>()
 
+const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
 const triggerId = `date-range-filter-${useId()}`
 const root = ref<HTMLElement | null>(null)
 const open = ref(false)
 const draftStart = ref('')
 const draftEnd = ref('')
 const error = ref('')
+const visibleMonth = ref(new Date())
 
 const label = computed(() => {
   if (props.startDate && props.endDate) return `${props.startDate} 至 ${props.endDate}`
@@ -25,10 +27,49 @@ const label = computed(() => {
   return '全部时间'
 })
 
+const visibleYear = computed(() => visibleMonth.value.getFullYear())
+const visibleMonthIndex = computed(() => visibleMonth.value.getMonth())
+const monthTitle = computed(() => `${visibleYear.value}年${visibleMonthIndex.value + 1}月`)
+const draftLabel = computed(() => {
+  if (draftStart.value && draftEnd.value) return `${draftStart.value} 至 ${draftEnd.value}`
+  if (draftStart.value) return `已选开始日期 ${draftStart.value}，请选择结束日期`
+  return '请选择开始日期'
+})
+
+const days = computed(() => {
+  const firstDay = new Date(visibleYear.value, visibleMonthIndex.value, 1)
+  const mondayOffset = (firstDay.getDay() + 6) % 7
+  const daysInMonth = new Date(visibleYear.value, visibleMonthIndex.value + 1, 0).getDate()
+  const cells: Array<Date | null> = []
+  for (let index = 0; index < mondayOffset; index += 1) cells.push(null)
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    cells.push(new Date(visibleYear.value, visibleMonthIndex.value, day))
+  }
+  while (cells.length % 7 !== 0) cells.push(null)
+  return cells
+})
+
+function toDateOnly(value: string): Date | null {
+  if (!value) return null
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return null
+  const date = new Date(year, month - 1, day)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function toDateValue(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function openPicker() {
   draftStart.value = props.startDate ?? ''
   draftEnd.value = props.endDate ?? ''
   error.value = ''
+  const base = toDateOnly(draftStart.value || draftEnd.value) ?? new Date()
+  visibleMonth.value = new Date(base.getFullYear(), base.getMonth(), 1)
   open.value = !open.value
 }
 
@@ -51,6 +92,43 @@ function applyRange() {
   open.value = false
 }
 
+function changeMonth(offset: number) {
+  visibleMonth.value = new Date(visibleYear.value, visibleMonthIndex.value + offset, 1)
+}
+
+function selectDate(date: Date) {
+  const value = toDateValue(date)
+  if (!draftStart.value || (draftStart.value && draftEnd.value)) {
+    draftStart.value = value
+    draftEnd.value = ''
+    return
+  }
+  if (value < draftStart.value) {
+    draftEnd.value = draftStart.value
+    draftStart.value = value
+  } else {
+    draftEnd.value = value
+  }
+}
+
+function isStart(date: Date) {
+  return draftStart.value === toDateValue(date)
+}
+
+function isEnd(date: Date) {
+  return draftEnd.value === toDateValue(date)
+}
+
+function isInRange(date: Date) {
+  if (!draftStart.value || !draftEnd.value) return false
+  const value = toDateValue(date)
+  return value > draftStart.value && value < draftEnd.value
+}
+
+function isToday(date: Date) {
+  return toDateValue(new Date()) === toDateValue(date)
+}
+
 function handleDocumentPointerDown(event: PointerEvent) {
   if (open.value && root.value && !root.value.contains(event.target as Node)) {
     open.value = false
@@ -71,19 +149,46 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
       aria-haspopup="dialog"
       @click="openPicker"
     >
-      <span class="date-range-label">到达日期</span>
+      <span class="date-range-label">销售日期</span>
       <span class="date-range-value">{{ label }}</span>
     </button>
 
-    <div v-if="open" class="date-range-popover" role="dialog" :aria-labelledby="triggerId">
-      <label>
-        开始日期
-        <input v-model="draftStart" type="date" @keydown.esc="open = false">
-      </label>
-      <label>
-        结束日期
-        <input v-model="draftEnd" type="date" @keydown.esc="open = false">
-      </label>
+    <div v-if="open" class="date-range-popover" role="dialog" :aria-labelledby="triggerId" @keydown.esc="open = false">
+      <div class="calendar-panel">
+        <header class="calendar-header">
+          <button type="button" class="calendar-nav" aria-label="上个月" @click="changeMonth(-1)">‹</button>
+          <strong class="calendar-title">{{ monthTitle }}</strong>
+          <button type="button" class="calendar-nav" aria-label="下个月" @click="changeMonth(1)">›</button>
+        </header>
+
+        <div class="calendar-weekdays" aria-hidden="true">
+          <span v-for="weekday in WEEKDAYS" :key="weekday">{{ weekday }}</span>
+        </div>
+
+        <div class="calendar-grid">
+          <template v-for="(date, index) in days" :key="`${monthTitle}-${index}`">
+            <span v-if="!date" class="calendar-day is-empty" aria-hidden="true"></span>
+            <button
+              v-else
+              type="button"
+              class="calendar-day"
+              :class="{
+                'is-today': isToday(date),
+                'is-start': isStart(date),
+                'is-end': isEnd(date),
+                'is-in-range': isInRange(date),
+              }"
+              :aria-pressed="isStart(date) || isEnd(date)"
+              :aria-label="toDateValue(date)"
+              @click="selectDate(date)"
+            >
+              {{ date.getDate() }}
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <p class="date-range-draft" aria-live="polite">{{ draftLabel }}</p>
       <p v-if="error" class="date-range-error" role="alert">{{ error }}</p>
       <div class="date-range-actions">
         <button type="button" class="date-range-clear" @click="clearRange">清空</button>
@@ -149,23 +254,101 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
   box-shadow: 0 14px 34px rgba(16, 42, 31, .18);
 }
 
-.date-range-popover label {
+.calendar-panel {
   display: grid;
-  gap: 5px;
-  color: var(--ink);
-  font-size: .82rem;
-  font-weight: 800;
+  gap: 9px;
 }
 
-.date-range-popover input {
-  width: 100%;
-  min-height: 42px;
-  padding: 0 .6rem;
+.calendar-header {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-title {
+  color: var(--ink);
+  font-size: .95rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.calendar-nav {
+  min-height: 32px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);
+  color: var(--primary-dark);
+  cursor: pointer;
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.calendar-nav:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.calendar-weekdays span {
+  color: var(--muted);
+  font-size: .75rem;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.calendar-day {
+  min-height: 34px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   color: var(--ink);
-  font-size: .95rem;
+  cursor: pointer;
+  font-size: .88rem;
+  font-weight: 700;
+}
+
+.calendar-day:hover {
+  border-color: var(--primary);
+}
+
+.calendar-day.is-empty {
+  background: transparent;
+  pointer-events: none;
+}
+
+.calendar-day.is-today {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.calendar-day.is-in-range {
+  border-radius: 0;
+  background: var(--primary-soft);
+}
+
+.calendar-day.is-start,
+.calendar-day.is-end {
+  border-color: var(--primary-dark);
+  background: var(--primary);
+  color: white;
+}
+
+.date-range-draft {
+  margin: 0;
+  color: var(--muted);
+  font-size: .82rem;
+  line-height: 1.4;
 }
 
 .date-range-error {

@@ -137,6 +137,7 @@ def test_trend_comparison_and_settlement_detail_routes(client):
     assert detail.json()["grades"][0]["sales_quantity"] == 2.0
     assert detail.json()["settlement"] == {
         "after_sales_amount": None,
+        "goods_amount": None,
         "fee_amount": None,
         "customs_tax": None,
         "payable_amount": None,
@@ -150,12 +151,32 @@ def test_trend_comparison_and_settlement_detail_routes(client):
             "grade": "A",
             "grade_raw": "A",
             "spec_raw": None,
+            "piece_count": None,
             "quantity": 2.0,
             "unit_price": 10.0,
             "amount": 20.0,
             "remark": None,
             "sales_region": None,
         }
+
+
+def test_grade_breakdown_aggregates_all_and_scopes_by_merchant(client):
+    with SessionLocal() as db:
+        add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M2", date(2026, 1, 2), StandardGrade.B, 3, 5)
+        db.commit()
+
+    all_response = client.get("/api/analytics/grade-breakdown")
+    scoped_response = client.get(
+        "/api/analytics/grade-breakdown", params={"merchant_no": "M1"}
+    )
+
+    assert all_response.status_code == scoped_response.status_code == 200
+    assert [item["grade"] for item in all_response.json()["grades"]] == ["A", "B"]
+    assert len(all_response.json()["records"]) == 2
+    assert [item["grade"] for item in scoped_response.json()["grades"]] == ["A"]
+    assert len(scoped_response.json()["records"]) == 1
+    assert scoped_response.json()["records"][0]["grade"] == "A"
 
 
 def test_settlement_detail_reads_its_batch_summary(client):

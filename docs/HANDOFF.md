@@ -1,14 +1,188 @@
 # HANDOFF
 
-Last updated：2026-09-18 (CST)
+Last updated：2026-09-21 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
+
+> 2026-09-21 文档产出（未提交）：更新《功能说明书》与《用户操作手册》至 V1.6
+> （口径同步为仅支持 XLSX、导入二次确认、手工录单、忘记密码、删除结算单、站内通知、
+> 顺仔问答、品牌对比与「每件均价（元/件）」），并新增报价单草稿
+> `docs/2026-09-21-SLD水果市场销售分析系统报价单.{md,docx}`。三份文档均同时产出 Markdown
+> 源稿与 Word 交付版；报价单金额与云资源/微信生态费用保留待客户补充的占位符。
+
+> 2026-09-21 手机端商号下拉修复（未提交）：结算单详情页手机端点「商号」不见下拉，
+> 根因是手机端 `.filter-bar` 为横向滚动容器（`overflow-x: auto; overflow-y: hidden`），
+> `SearchableSelect` 的下拉列表绝对定位在输入框下方，被该容器垂直裁掉。修复为在
+> `frontend/src/styles-mobile.css` 增加 `.filter-bar:focus-within { overflow: visible }`，
+> 聚焦时临时放开裁切，失焦后恢复横向滚动。验证：前端 test / typecheck / build 通过，
+> 新增 `mobile-form-layout.test.mjs` 回归断言 1 项。
+
+> 2026-09-21 菜单点击偶发无响应修复（未提交）：用户端与管理端偶现点击菜单无反应，
+> 根因是部署新版本后，旧页面仍引用旧哈希懒加载分片；nginx 对 `/assets/` 配置了 30 天
+> `public, immutable`，旧分片在网络/缓存丢失时 Vue Router 抛
+> `Failed to fetch dynamically imported module`，URL 留在原页且无提示。修复为在
+> `frontend/src/main.ts` 增加 `router.onError`：识别该错误后写入 `sessionStorage`
+> 防重入标记，并用 `_route_reload` 时间戳强制整页重载到本次导航目标；`router.afterEach`
+> 成功导航后清除标记，避免真实缺资源时无限重载。用户端与管理端均已应用并验证：
+> 两端 `typecheck` / `build` 通过，用户端前端 test 全量通过；真实 Chromium 分别对
+> `/settlement-detail` 与 `/admin/roles` 首次拦截并 abort 目标分片，均重载到目标路由后
+> 正常进入；持续 abort 场景只重载一次、无循环。临时测试会话已删除。
+
+> 2026-09-21 日志模块（未提交）：用户端与管理端补齐运行时日志。用户端新增
+> `backend/app/logging_config.py` + `frontend/src/utils/logger.ts`，HTTP 中间件记录
+> `method / path / status / duration_ms / request_id`，未捕获异常写 `exception`；
+> 注册 / 登录成败、导入确认、结算单删除补关键日志，前端敏感字段自动脱敏。
+> 管理端同样新增后端日志配置与前端 logger，并给登录与 API client 补运行时日志。
+> 验证：用户端后端日志单测 2 项、`test_auth_api` + `test_settlements_api` 25 项通过；
+> 用户端前端 204 项 test、typecheck、build 通过；管理端 typecheck / build /
+> compileall / app 导入通过。
+
+> 2026-09-20 本轮体验优化（未提交）：登录页隐藏底部三项说明；全站可见文案
+> 「平均每件售价」改为「每件均价」，导出表头与 AI 提示词/数据包同步调整并提升
+> `PROMPT_VERSION`；用户端与管理端禁用账号登录提示改为「该用户已被禁用」；
+> 日期范围弹层改为单行起止日期输入。验证：后端全量 pytest 通过，前端 test /
+> typecheck / build 通过。
+
+> 2026-09-20 管理端权限模型收口（未提交）：`fruits_ana_admin` 改为唯一内置
+> 管理端账号 `admin / 12345678`，管理端登录后全量可见；删除管理端「权限管理」页与
+> `admin:*` 权限点，角色授权只管理用户端业务权限；`fruit_admin` 显示名改为
+> 「业务主管理员」；管理端新增登录后修改密码，并提供 `app.bootstrap --reset-password`
+> 服务器重置兜底。验证：admin 前端 typecheck/build 通过，Python compileall / app 导入通过。
+
+> 2026-09-20 侧边导航菜单驱动（ADR-036）：`fruits_ana_admin` 种子改为按权限码 / 路由
+> 匹配菜单，改菜单名后重启不再补建重复项（此前出现两条 `/overview`）；`fruits_ana`
+> 新增只读 `admin_menu` / `admin_role_menu` 模型，`GET /api/auth/me` 增加 `menus`，
+> 业务端侧栏名称与图标改由管理端菜单覆盖，停用菜单整项隐藏。
+> 验证：前端 206 项 test、typecheck、build 通过；后端全量 pytest 2/3 次通过
+> （该套件存在既有 flaky：无本次改动时基线亦失败 1/2 次，详见 Test Status）；
+> Playwright + Chromium 真实浏览器（53000 + 真实 MySQL）实测侧栏显示「卖的怎么样」。
+>
+> 2026-09-20 会话隔离修复：`fruits_ana_admin` 的 `FRUIT_ADMIN_SESSION_COOKIE` 由
+> `fruit_session` 改为 `fruit_admin_session`。两个系统共用同一 Cookie 名（浏览器不按端口
+> 隔离 Cookie），管理端登录会覆盖业务端登录态。
+> 根因补记：实际运行环境 `fruits-ana-admin.service` 仍显式注入
+> `FRUIT_ADMIN_SESSION_COOKIE=fruit_session`，覆盖了 `backend/.env`；本次已同步 systemd
+> unit、加入代码兜底并重启管理端后端，实测 `SESSION_COOKIE=fruit_admin_session`。
+
+> 2026-09-20 手工录单暂存落库（ADR-037）：原 `localStorage` 暂存改为 `entry_draft`
+> 数据库表，`/entry` 普通刷新自动恢复；新增 `GET/PUT/DELETE /api/entry/draft`。
+> 新增 `backend/scripts/add_entry_draft_schema.py`（默认 dry-run，`--apply` 建表）。
+> 前端相关 test、typecheck、build 与后端 `test_entry_api.py` /
+> `test_entry_service.py` / `test_models.py` 定向验证通过。
 
 > 2026-09-18 上线前清理：`fruits_ana` 删除旧 `EntryHubView.vue`、将 `tickets/` 加入
 > `.gitignore`、页签改为只保留当前会话不跨刷新缓存；`fruits_ana_admin` 已推送 `origin/main`。
+>
+> 2026-09-18 专业测试团队全量测试与统一修复：测试方案见
+> `docs/testing/2026-09-18-专业测试团队方案.md`，问题汇总见
+> `docs/testing/2026-09-18-测试问题汇总.md`，修复计划见
+> `docs/superpowers/plans/2026-09-18-统一修复.md`。本轮修复尚未提交 Git。
+>
+> 2026-09-19 结算单详情与基础口径收口（ADR-033）：销售金额文案统一、日期描述修正、
+> 结算单详情新增基础信息条并移除销售金额排名、规格图新增占比/总件数/平均每件售价。
+>
+> 2026-09-19 结算单列表「查看明细」改为复用导入二次确认页的只读模式：
+> 新增 `GET /api/settlements/{merchant_no}/review`，前端跳转
+> `/import-review?merchant_no=...&readonly=1`，仅查看不修改。
+
+## 手机版改版（2026-09-20，未提交）
+
+用户反馈「手机上显示不清晰、内容太挤」，对全站手机端版式与交互做了一轮重新设计：
+
+- **外壳瘦身**：手机端隐藏「已打开页签」栏（底部导航已覆盖同批入口）；顶栏 60px → 48px；
+  底部导航 92px → 80px；内容区左右留白统一 10px；页脚底部留白抬高，躲开「回顶部」悬浮按钮。
+- **筛选栏单行化**：筛选控件从「两列换行」改为单行横向滚动，控件高度 44px → 38px，
+  查询按钮回到行内（见 `styles-mobile.css` 第 3 节、`styles-responsive.css`）。
+- **规格表两行式**：`SettlementGradeBreakdown.vue` 原来的手机端 `min-width: 520px`
+  会造成右侧列溢出，改为两行式布局（等级规格 + 占例 / 进度条 / 件数 + 均价），
+  并在 820px 断点生效。
+- **结算单列表卡片四段式**：`SettlementListView.vue` 手机卡片改为
+  标题 → 三项指标（销售金额 / 销量 / 平均每件售价）→ 等级件数胶囊 → 操作按钮行；
+  导出文案精简为 Excel / PDF。
+- **等级卡片纵向堆叠**：`GradeSummary` 的 `.grade-grid` 手机端由横向滚动改为纵向堆叠，
+  指标三列对齐。
+- 新增文件：`frontend/src/styles-mobile.css`（在 `AppShell.vue` 中于 `styles-responsive.css`
+  之后加载，保证优先级），`frontend/src/main.ts` 不再重复导入。
+
+### 第二轮（同日，未提交）
+
+- **手工录单紧凑化**（`EntryView.vue` + `styles-mobile.css` 第 10b 节）：
+  基本信息 7 个字段由单列改两列；支出费用行由「摘要 / 金额 / 操作」三行大卡片压成一行
+  （摘要 · ¥ 输入框 · 删除），5 行费用从约 800px 压到约 270px；销售行改成三行网格
+  （日期品种规格 / 数量单价 KG 金额 / 备注删除），不再横向滚动；售后行两行式；
+  锚点改横向胶囊单行不换行。
+- **长表单分区折叠**：手工录单五个 `section.block` 手机端可点击折叠，默认只展开「基本信息」，
+  其余折成一行 44px；折叠头带小计（行数 / 费用合计 / 应付金额）；点锚点自动展开分区；
+  校验不通过时自动展开全部分区。
+- **长文折叠**（`AiAnalysisCard.vue`）：手机端 AI 结论默认只露 17rem 并做底部渐隐，
+  点「展开全部结论」看全文；结论更新后自动重新收起。结算单详情页高度 4174px → 2896px。
+- **筛选栏查询按钮常驻**：`.filter-bar > .primary-button:last-child` 在手机端 sticky 到右侧，
+  筛选栏横滑时仍一眼可见。
+- **「回到顶部」复核**：实测 390×844 下按钮 49px、距底部导航 6px，与顺仔悬浮入口
+  垂直间隔 19px，互不遮挡；页脚留白同步抬高避免「微信公众号」被盖住。
+- 用 `data-label` 的通用卡片模式改为在 `styles-mobile.css` 内用 `!important` 覆盖，
+  不改变 `DataTable.vue` 的 560px 卡片断点（`series-grade-tables-mobile.test.ts` 依赖它）。
+
+验证：前端 198 项 test 通过、`typecheck` 通过、`build` 通过；
+用 Playwright 在 390×844 视口实测 7 个业务页面均无页面级横向溢出
+（结算单详情筛选栏与手工录单锚点为设计内横向滚动）；53000 生产构建已更新。
+视觉稿：`frontend/dev-preview/mobile-20260920/index.html`（含手工录单折叠 / 展开两张截图）。
+
+### 第三轮（同日，未提交）
+
+补齐了 `/import-review`（导入二次确认 + 结算单只读查看）——它不在前两轮的 8 页清单里，
+但「结算单列表 → 查看明细」直接落到这里，手机端用得很多。
+
+- **弹窗整屏化**：`.review-modal` 手机端去掉 24px 外边距与居中（`padding: 0` +
+  `place-items: stretch`），`.review-dialog` 撑满视口，左右各回收 24px。
+- **去掉重复提示**：只读状态下头部胶囊、文件条、提示条、底部说明四处说的是同一件事，
+  手机端隐藏 `.status-panel--readonly`，只留底部那条；弹窗头部收成一行。
+- **共用长表单样式**：`.mobile-form-page` 同时挂在 `EntryView` 根节点与 `review-dialog` 上，
+  第二轮写的字段两列 / 明细卡片 / 锚点胶囊全部复用（`styles-mobile.css` 第 10b 节）。
+- **明细表按列名定位**：`DataTable` 单元格新增 `data-col`，手机端排版从 `nth-child`
+  改为 `[data-col='saleDate']` 这类选择器。原因是二次确认页的表比手工录单多一列「文件行」，
+  用序号定位会整列错位（金额会跟「文件行」抢同一格）。
+- **「文件行」徽标**：多出来的这一列在卡片里渲染成一枚小胶囊，和备注同排，不额外占一行；
+  只读状态没有「操作」列时，最后一个输入项自动补到卡片右边缘。
+- **修掉一个 grid 布局坑**：`.review-body` 是定高 grid，锚点栏（`overflow-x: auto` 的滚动容器）
+  作为 grid item 时 auto 行高会退化成最小尺寸，把胶囊压成 9px。改为
+  `grid-auto-rows: max-content`（`.mobile-form-page` 与 `.review-body` 同步设置）。
+
+验证：前端 202 项 test（新增 `tests/mobile-form-layout.test.mjs` 4 项）、`typecheck`、`build` 通过；
+390×844 实测 8 个登录态页面 + 4 个免登录页面（登录 / 注册 / 忘记密码 / 公开演示）
+文档宽均等于视口宽，无页面级横向溢出。`/preview` 的对比表仍是设计内的横向滚动表格。
+
+**待办**：手机端「按等级筛选」入口（优先级最低）。
+
+### 第四轮（2026-09-21，未提交）
+
+接着 `/imports` 上传区做「能力与文案一致」的收尾——手机没有拖拽能力，但页面一直写着
+「拖入文件会自动解析」，属于承诺了做不到的交互。
+
+- **手机端文案跟能力走**（`ImportView.vue`）：`matchMedia('(max-width: 820px)')` +
+  `isNarrow`，手机端显示「选择文件上传后会自动解析并生成待确认草稿…」，桌面端文案不变；
+  沿用 `EntryView` / `ImportReviewView` / `AiAnalysisCard` 已有的监听范式。
+- **整块上传区可点**：`.file-picker-panel` 加 `@click="openFilePicker"`（按钮上加 `.stop`），
+  手机上点面板任意位置都能唤起选文件，不再是 92px 高区域只有按钮一小块能点；
+  按钮手机端铺满一行、44px 高。
+- **多文件队列摘要**：原来只渲染 `selectedFiles[0]`，选 5 个文件只看到 1 个文件名，
+  容易以为漏选。新增 `uploadQueueSummary`，多选时显示「已选 N 个文件」+
+  「首个文件名 等 · 共 X 兆字节」。
+- **队列摘要排版**：`.upload-queue > div` 原先是「文件名 ↔ 大小」两端对齐，长文件名会
+  折行错位。手机端改上下两行、详情行单行省略号截断。
+  （踩坑留档：这条一开始写成 `.upload-queue > div`，把 `.upload-queue-actions` 也一起
+  改成纵向，导致两个按钮竖排；已改为只命中 `.upload-queue-summary`。）
+
+验证：前端 206 项 test（`tests/mobile-form-layout.test.mjs` 新增 2 项）、`typecheck`、`build` 通过；
+390×844 实测 8 个登录态页面 + 4 个免登录页面文档宽等于视口宽，无页面级横向溢出；
+53000 生产构建已更新（`index-Bq8ZpAB2.js`）。
 
 ## Current Goal
 
-本轮（2026-09-17）收口新结算单模板多文件导入与二次确认：
+本轮（2026-09-18）先完成全量功能/性能/业务一致性测试，再统一修复测试团队汇总的
+P0/P1 问题；核心范围包括 `fruits_ana` 导入/导出/确认链路、`fruits_ana_admin`
+权限/配置/审计/通知、跨系统业务口径与查询性能。
+
+历史收口（2026-09-17）新结算单模板多文件导入与二次确认：
 1) 多文件预览草稿闭环：`POST /api/imports/preview` → `import_job/import_draft` →
    `/import-review` → `confirm_import_job`；确认前不写正式事实；
 2) 字段转换与统计口径：`field_conversion.convert_grade()` 按管理端规则生成 `sale_record.grade`，
@@ -32,9 +206,92 @@ Written by：Codex（内容由当前工作区实测生成，非对话记忆）
 **提交收口（2026-09-18）**：工作区功能代码、测试与设计文档已提交到 `dev`；
 `tickets/` 为业务源文件，保持未跟踪，不随代码提交。
 
+**结算单详情与基础口径收口（2026-09-19，未提交）**：
+已按 ADR-033 完成结算单详情基础信息条、移除销售金额排名、规格级均价/占比/总件数
+（占比标在横向柱顶，总件数与均价左对齐）、
+取消等级表现顶部整单均价，并统一“销售金额 / 销售日期 / 到达市场日期”文案。
+详情事实区新增“售后比 = 售后金额 ÷ 销售金额 × 100%”，并将“货款合计”替换为
+“市场费用 = 支出费用总和”（暂只调整结算单详情展示）。
+基础信息前六项调整为“市场、单号、到达市场日期、销售日期、柜号、转运公司”，
+售后金额与售后比合并展示为“售后金额/售后比 = 金额 / 百分比”。
+等级图表第三块更名“各等级各规格件数/均价”，桌面三列压缩“等级件数结构”与
+“各等级平均每件售价”空间，规格表完整展示且不横向移位；预览页与截图已同步更新。
+后端 `settlement` 详情新增 `goods_amount`。验证：后端全量 pytest、前端 199 项 test、
+`typecheck`、`build` 均通过；53001 视觉伴侣预览已生成：
+`http://127.0.0.1:53001/dev-preview/settlement-detail-facts.html`，
+桌面/移动截图位于 `frontend/dev-preview/.preview-20260919/`。
+
+**卖得怎么样页面精简（2026-09-19，未提交）**：`OverviewView.vue` 移除
+“结算单销售情况 / 每日销量和平均每件售价 / 需要关注”三个板块，保留筛选栏与等级汇总；
+停止 `getTrend` 请求，`getSettlementComparison` 继续用于商号下拉候选。前端测试、
+`typecheck`、`build` 均通过。
+
+**卖得怎么样等级图表复用（2026-09-19，未提交，ADR-034）**：新增
+`GET /api/analytics/grade-breakdown`，返回筛选范围内的 `grades` 与 `records`；
+`OverviewView.vue` 复用 `SettlementGradeBreakdown` 展示三个等级图表，全部结算单与单商号
+共用同一接口。53001 预览：`/dev-preview/overview-grade-breakdown.html`，截图位于
+`frontend/dev-preview/.preview-20260919/overview-grade-breakdown-*.png`。
+后端全量 pytest、前端 200 项 test、`typecheck`、`build` 均通过。
+
+**等级图表紧凑版落地（2026-09-19，未提交）**：`SettlementGradeBreakdown.vue`
+从三列改为两行紧凑布局——“等级件数结构”与“各等级平均每件售价”同排（饼图缩小、
+均价改横向条），“各等级各规格件数/均价”全宽展开并新增“占比”列，行高收紧；
+`GradePieChart.vue` 同步缩小饼图与图例。53001 视觉稿：
+`/dev-preview/grade-breakdown-compact.html`。前端 200 项 test、`typecheck`、`build` 均通过。
+
+**结算单列表增加到达市场日期（2026-09-19，未提交）**：`GET /api/settlements`
+的 `SettlementListItem` 增加 `arrival_date`，列表页桌面表与移动卡片在柜号后展示
+“到达市场日期”，缺失时显示“—”。前端 200 项 test、`typecheck`、`build` 均通过；
+`backend/tests/test_settlements_api.py` 通过。
+
+**文件导入售后内容向上填充（2026-09-19，未提交，ADR-035）**：`_parse_after_sales`
+维护最近一条非空内容；当前行内容为空但摘要/金额非空时继承上一行，整行空白跳过；
+金额、摘要、汇总与入库绝对值逻辑不变。后端全量 pytest 通过。
+
+**SearchableSelect 选择后失焦（2026-09-19，未提交）**：`selectOption` 选择完成后
+调用 `inputRef.blur()`，解决下拉框选中后仍保持输入焦点、拦截后续键盘操作的问题。
+前端 200 项 test、`typecheck`、`build` 均通过。
+
+**结算单列表查看明细复用导入复核页（2026-09-19，未提交）**：`SettlementListView.vue`
+的「查看明细」由弹窗改为跳转 `/import-review?merchant_no=...&readonly=1`；
+`ImportReviewView.vue` 新增只读模式（禁用输入、隐藏新增/删除/还原/提交），
+后端新增 `GET /api/settlements/{merchant_no}/review` 返回相同槽位结构。
+验证：后端全量 pytest、前端 200 项 test、`typecheck`、`build` 均通过。
+
+**专业测试团队统一修复（2026-09-18，未提交）**：已修复用户端导入/导出/确认链路、
+用户端通知与总览口径、管理端 RBAC/种子/配置/审计/通知、跨系统字段转换与金额口径、
+以及用户端和管理端主要列表查询性能问题。可执行验证均通过；剩余为运维迁移与真实环境验收。
+
+**导入复核与导入记录 7 项 UI 修复（2026-09-18，进行中，未提交）**：
+已完成 1~6 项：二次确认页操作栏固定、增加「还原修改」、提交确认弹窗改为修改前后列表对比、
+售后/费用输入失焦修复、导入记录排版优化、新增「确认无误」弹窗与问题处理接口
+（`POST /api/imports/{batch_id}/issues/{issue_id}/resolve`，`DataIssue.resolved` 落库）。
+确认处理后再刷新仍显示旧警告数的问题已修复：批次列表的 `warning_count` 改为按未处理
+警告动态计算，确认成功后前端同步扣减；重启后端并重新构建前端后生效。
+第 7 项「删除支出费用行后提交 500」本地 SQLite 未复现，等待现场后端日志定位。
+
+**手工录单与文件导入区分 + 销售明细可选字段（2026-09-18，进行中，未提交）**：
+文件导入二次确认页移除「保存当前修改」，仅保留「还原修改 / 确认提交」，切换文件与
+确认提交前仍自动保存草稿；手工录单页继续保留「暂存 / 确认保存」。销售明细允许只填
+销售日期、备注和数量，`variety` / `head_count` / `spec_kg` / `unit_price` 可留空；
+空品种统计为 `OTHER`，空规格落库为空，空单价按 0。非空但无效的品种或规格仍阻断。
+验证：后端全量 pytest 通过，前端 199 项 test、`typecheck`、`build` 通过；8000 后端已重启。
+
+**全站均价文案恢复为「平均每件售价」（2026-09-18，进行中，未提交）**：
+用户确认将「平均每公斤售价 / 元/公斤 / 销量（千克）」统一改回
+「平均每件售价 / 元/件 / 销量（件）」。已同步前端组件/页面、后端 AI 提示词与数据包、
+问答工具描述、导出表头和说明，并提升 AI 缓存版本。计算字段和公式不变。
+验证：后端全量 pytest、前端 199 项 test、`typecheck`、`build` 通过；8000 后端已重启。
+
 状态：手工录单与字段配置已完成；真实库已恢复（ADR-021）且已补硬保护（ADR-024）；
 新模板多文件导入已代码落地并通过前端 typecheck/test/build 与后端定向 pytest；
 仍需用户在运维窗口执行新表/列迁移并配置管理端 `BC→C` 规则。
+
+**结算单删除能力（2026-09-18，未提交）**：「每一单」菜单下的结算单列表每行新增
+「删除」按钮，确认后调用 `DELETE /api/settlements/{merchant_no}`；后端新增
+`services/settlement_delete_service.py`，级联删除销售明细、售后/费用、汇总与留痕，
+并在原始文件不再被引用时清理上传文件。验证：后端 `test_settlements_api.py` 通过，
+前端 194 项测试、`typecheck`、`build` 通过；后端全量仍受当前在途修复的既有失败影响。
 
 **新模板多文件导入与二次确认（2026-09-17，ADR-030，未提交）**：
 
@@ -594,7 +851,11 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 下一模型应该按以下顺序继续（不要跳步）：
 
 1. 只读复述当前状态并与用户确认，再决定做哪一项。
-2. 候选任务（优先级从高到低）：
+2. **本轮测试修复收尾**：已执行管理端通知大字段迁移
+   `fruits_ana_admin/backend/scripts/expand_notification_content.py --apply`；
+   复核 `docs/testing/2026-09-18-测试问题汇总.md` 第九节“仍需人工/运维处理”；
+   完成真实浏览器 E2E 与真实 MySQL 数据流验收后再提交本轮修复。
+3. 候选任务（优先级从高到低）：
    a. **上线前复核 `tickets/` 已忽略**：客户源文件只用于本地导入/回归，不随代码提交。
    b. 多文件导入收尾：确认 `backend/scripts/add_import_draft_schema.py` 与
       `backend/scripts/expand_grades.py` 的 `--apply` 执行窗口；在 `fruits_ana_admin`
@@ -608,7 +869,7 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
    h. 真实业绩数据到位后的整体回归验收（目前线上只有 4 张示例结算单）。
    i. **文档同步（长期约定）**：界面功能、操作流程或指标口径新增/调整时，必须同步更新
       `docs/SLD-水果市场销售分析-功能说明书.docx` 与 `docs/SLD-水果市场销售分析-用户操作手册.docx`。
-3. 改完后端记得重启 `./start.sh`（Known Issues 4）；每次改动后运行基线验证，再按功能提交。
+4. 改完后端记得重启 `./start.sh`（Known Issues 4）；每次改动后运行基线验证，再按功能提交。
 
 ## Known Issues
 
@@ -720,6 +981,7 @@ Chromium 实测 9 处图表悬浮提示均按预期出现（见 `frontend/tests/
 
 ```text
 backend/app/main.py                      # FastAPI 入口与路由注册
+backend/app/logging_config.py            # 统一日志配置与请求 ID（2026-09-21）
 backend/app/auth.py                      # 密码哈希、会话、认证依赖
 backend/app/api/auth.py                  # 注册/登录/me/logout
 backend/app/db.py                        # MySQL 连接与环境变量读取
@@ -733,6 +995,7 @@ backend/app/api/entry.py                        # 手工录单；覆盖修改写
 frontend/src/views/ImportReviewView.vue        # 多文件二次确认页
 frontend/src/views/EntryView.vue               # 手工录单；默认支持 AB/BC 原文
 frontend/src/main.ts                     # 路由与守卫（默认入口 /login）
+frontend/src/utils/logger.ts             # 前端统一 logger（敏感字段脱敏，2026-09-21）
 frontend/src/auth.ts                     # 前端会话状态与 safeRedirect
 frontend/src/components/AuthPortal.vue   # 登录/注册共用骨架
 frontend/src/api/types.ts                # API 契约
@@ -800,6 +1063,82 @@ npm --prefix frontend run typecheck
 ```
 
 ## Test Status
+
+### 手机版第四轮 / 导入上传区（2026-09-21）
+
+- 用户端前端：`npm --prefix frontend run test` **206/206 通过**（`mobile-form-layout.test.mjs`
+  新增 2 项：导入页手机端文案与整块可点、多文件队列摘要）；`typecheck` 通过；`build` 通过
+  （`dist/assets/index-Bq8ZpAB2.js`，已 `curl http://127.0.0.1:53000/` 核对线上引用同一哈希）。
+- Playwright（Chromium headless，真实 MySQL，390×844，账号 `test`）：
+  8 个登录态页面 + 4 个免登录页面文档宽均 = 390，无页面级横向溢出；
+  `/preview` 的对比表仍是设计内横向滚动（表格元素宽 480 > 视口，但文档宽未溢出，符合预期）。
+- 上传队列实测：`setInputFiles` 选 3 个文件后队列文案为
+  「已选 3 个文件 | 809-01-35结算单.xlsx 等 · 共 3.79兆字节」，按钮同排不换行；
+  截图 `frontend/dev-preview/mobile-20260920/imports-queue.png`。
+- 未验证：真机触屏（iOS Safari / Android Chrome）上的点击唤起选文件行为，仅 Chromium 模拟确认。
+
+### 日志模块（2026-09-21）
+
+- 用户端后端：`.venv/bin/python -m pytest backend/tests/test_logging_config.py -q
+  --basetemp=backend/.pytest-tmp` 通过（2 项）。
+- 用户端后端回归：`.venv/bin/python -m pytest backend/tests/test_auth_api.py
+  backend/tests/test_settlements_api.py -q --basetemp=backend/.pytest-tmp` 通过（25 项）。
+- 用户端前端：`npm --prefix frontend run test` 204/204 通过；`typecheck`、`build` 通过。
+- 管理端：`npm --prefix frontend run typecheck`、`build` 通过；
+  `PYTHONPATH=backend .venv/bin/python -m compileall -q backend/app backend/scripts` 通过；
+  `app.main:app` 导入通过。管理端仍无 pytest 与前端 test 脚本。
+- 未验证：真实服务重启后日志文件落盘与 `X-Request-ID` 端到端串行排查。
+
+### 手工录单暂存落库（2026-09-20）
+
+- 后端定向：`.venv/bin/python -m pytest backend/tests/test_entry_api.py
+  backend/tests/test_entry_service.py backend/tests/test_models.py -q
+  --basetemp=backend/.pytest-tmp` 通过（21 项）。
+- 前端定向：`node --experimental-strip-types --test tests/entry-form.test.ts
+  tests/entry-draft.test.ts` 通过（11 项）。
+- 前端 `typecheck`、`build` 通过。
+- 未验证：真实 MySQL 上 `Base.metadata.create_all` 创建 `entry_draft` 后的浏览器刷新
+  端到端回归；建议在业务环境重启后点击「暂存」→ 刷新 `/entry` 验证恢复。
+
+### 全量测试（2026-09-20）
+
+- 汇总见 `docs/testing/2026-09-20-全量测试汇总.md`。
+- 用户端前端：`npm --prefix frontend run test` 200/200 通过；`typecheck` 通过；`build` 通过。
+- 用户端后端定向：`.venv/bin/python -m pytest backend/tests/test_entry_service.py
+  backend/tests/test_exports.py -q --basetemp=backend/.pytest-tmp` 退出码 0（18 项）。
+- 用户端后端全量：`.venv/bin/python -m pytest backend/tests -q --basetemp=backend/.pytest-tmp`
+  **375 项通过，退出码 0**（18:19–18:21，无并发；`--junitxml` 复核 failure/error 均为 0）。
+- 注意：本轮中途出现过大量假失败，原因是**多会话共用同一个 sqlite 测试库**
+  （另一会话 18:15 起在同一 basetemp 跑 3 轮全量），`drop_all/create_all` 互相打断，
+  报 `no such table: admin_notification_recipient`、`table user already exists` 等，失败项随运行漂移。
+  已复核：并发期为假失败（基线同样随机失败），确认无并发后重跑通过。
+
+### ADR-036 侧边导航菜单驱动（2026-09-20 晚）
+
+- 用户端后端全量：`.venv/bin/python -m pytest backend/tests -q --basetemp=backend/.pytest-tmp`
+  **375 项通过，退出码 0**（已确认当前无其它会话并发跑 pytest；输出无 FAILED / ERROR）。
+- 用户端前端：`npm --prefix frontend run test` **206 项通过**（新增 `tests/shell-menu.test.ts` 6 项）；
+  `typecheck` 通过；`build` 通过（`index-1O-h9kDZ.js`）。
+- 接口实测：临时会话 `GET /api/auth/me` 返回 200，`menus` 含 `/overview → 卖的怎么样`（管理端配置值）。
+- 真实浏览器（Playwright + Chromium headless，53000 + 真实 MySQL）：侧栏导航项实测为
+  `["卖的怎么样", "每一单", "录单 / 导入", "结算单详情", "结算单对比", "品牌对比"]`，
+  页签为 `["卖的怎么样"]`；临时会话已删除。
+  独立临时库上 `create_all`/`drop_all` 正常（25 张表），已排除表结构损坏。建议改用唯一 `--basetemp`。
+- 本轮修复：`ImportView.vue` 补回 `multiple`；`entry_export.render_entry_workbook` 修复自定义费用行重复
+  与合计行行号；两个导出用例改为按表头定位；`test_entry_service.py` 空行密度还原。
+- 管理端：前端 `typecheck` / `build` 通过；后端 `compileall` 与模型/序列化器导入通过；
+  管理端仍无 pytest 环境与前端 `test` 脚本，自动化回归无法执行。
+
+### 专业测试团队统一修复（2026-09-18 修复后）
+
+- 用户端后端：`.venv/bin/python -m pytest backend/tests -q --basetemp=backend/.pytest-tmp-final3` 通过，退出码 0。
+- 用户端前端：`npm --prefix frontend run test` 194/194 通过；`typecheck` 通过；`build` 通过。
+- 用户端前端构建仍有 2 条 `__VITE_PUBLIC_ASSET__` 解析 warning，不影响产物。
+- 管理端前端：`npm --prefix frontend run typecheck` 通过；`npm --prefix frontend run build` 通过。
+- 管理端后端：`PYTHONPATH=backend .venv/bin/python -m compileall -q backend/app backend/scripts` 通过；
+  `app.models`/`app.serializers` 导入通过；环境未安装 pytest，无法运行管理端后端自动化测试。
+- 隔离 SQLite E2E smoke 通过：用户注册/登录、管理端超级管理员登录、RBAC 权限、通知创建、通知 2MB 内容限制、手工录单、总览/结算列表、手工单导出均通过。
+- 真实浏览器 E2E 通过：Playwright + Chromium 覆盖用户端登录/总览/结算列表，管理端登录/工作台/用户列表/通知列表；临时账号已清理。
 
 当前测试：定向 PASS / 全量有 4 个已知环境用例失败（2026-09-17 实测）：
 - 前端 `npm --prefix frontend run test` 189 项通过、`typecheck` 通过、`build` 成功。
@@ -1289,9 +1628,11 @@ b740af4 feat(frontend): 页签右键菜单支持刷新与关闭操作
 eeb6681 feat: 品牌化统一日期筛选并优化结算详情与移动端
 ```
 
-Uncommitted changes（2026-09-18 上线前清理后）：
+Uncommitted changes（2026-09-19）：
 
-- `fruits_ana` 工作区干净；`git status` 为 `dev...origin/dev [ahead 1]`，`tickets/` 已忽略。
+- 含本轮 ADR-033 结算单详情/术语收口改动，以及此前的专业测试修复、导入复核、
+  手工录单区分、均价文案、结算单删除等未提交改动。
+- `tickets/`、`backend/data/`、`.env`、`backend/.env` 未提交。
 - `fruits_ana_admin` 已合入 `main` 并推送到 `origin/main`，本地 `main`/`dev` 与远端同步。
 - 未改动 `.env`、`backend/.env`、MySQL 配置；`.superpowers/`、`.superpowersigeria/`、
   `attachments/`、`backend/data/` 仍被 `.gitignore` 忽略，不会提交。

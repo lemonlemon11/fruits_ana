@@ -44,7 +44,7 @@ function columnsFor(grade: Grade): DataTableColumn<SeriesComparisonItem>[] {
     },
     {
       key: 'price',
-      label: '平均每公斤售价',
+      label: '每件均价',
       numeric: true,
       value: (item) => formatPrice(gradeOf(item, grade)?.weightedAvgPrice ?? null),
       foot: () => formatPrice(gradeTotal.weightedAvgPrice),
@@ -65,7 +65,7 @@ function columnsFor(grade: Grade): DataTableColumn<SeriesComparisonItem>[] {
     <header class="section-heading">
       <div>
         <h2 id="series-grade-title">等级独立对比</h2>
-        <p class="section-note">每个等级单独核算件数、金额、平均每公斤售价与金额占比</p>
+        <p class="section-note">各等级独立核算</p>
       </div>
     </header>
 
@@ -76,7 +76,7 @@ function columnsFor(grade: Grade): DataTableColumn<SeriesComparisonItem>[] {
           :columns="columnsFor(grade)"
           :rows="items"
           :row-key="rowKey"
-          :caption="`${gradeLabel(grade)}在各结算单的件数、金额、平均每公斤售价与金额占比`"
+          :caption="`${gradeLabel(grade)}在各结算单的件数、金额、每件均价与金额占比`"
           min-width="320px"
           foot-label="合计"
           cards-on-narrow
@@ -88,7 +88,7 @@ function columnsFor(grade: Grade): DataTableColumn<SeriesComparisonItem>[] {
 </template>
 
 <style scoped>
-/* 卡片要放得下 5 列（单号/件数/金额/平均每公斤售价/金额占比），否则最后一列会被挤出去。 */
+/* 卡片要放得下 5 列（单号/件数/金额/每件均价/金额占比），否则最后一列会被挤出去。 */
 .grade-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 14px; }
 .grade-table-card { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .grade-table-card h3 { margin: 0 0 8px; font-size: .92rem; }

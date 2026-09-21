@@ -2,17 +2,20 @@ import type {
   AnalyticsFilters,
   AskResult,
   EntryAfterSaleItem,
+  EntryDraft,
   EntryFeeItem,
   EntryFieldOption,
   EntryRead,
   EntrySaleItem,
   GradeDetailData,
   GradeMetric,
+  GradeBreakdownData,
   ImportBatch,
   ImportConfirmResult,
   ImportIssue,
   ImportJob,
   ImportReviewDraft,
+  ImportReviewPayload,
   IssueCounts,
   MetricTotal,
   OperatingAnomaly,
@@ -27,7 +30,6 @@ import type {
   SettlementListItem,
   SettlementPagination,
   SettlementRecord,
-  SettlementRecordsData,
   TrendPoint,
 } from './types.ts'
 import { emptyGradeRecord, gradeLabel, normalizeGrade, GRADES, type Grade } from '../utils/grades.ts'
@@ -101,6 +103,14 @@ export function normalizeOverview(payload: unknown): OverviewData {
     })),
     issueCounts: normalizeIssueCounts(body.issue_counts ?? body.issueCounts),
     operatingAnomalies: asArray(body.operating_anomalies ?? body.operatingAnomalies).map(normalizeAnomaly),
+  }
+}
+
+export function normalizeGradeBreakdown(payload: unknown): GradeBreakdownData {
+  const body = unwrap(payload)
+  return {
+    grades: normalizeGradeMetrics(body.grades ?? body.grade_summary),
+    records: normalizeSettlementRecords(body.records ?? body.sale_records),
   }
 }
 
@@ -192,6 +202,7 @@ export function normalizeSettlementDetail(payload: unknown, merchantNo: string):
     endDate: stringOr(pick(period, 'end_date', 'endDate'), ''),
     settlement: {
       afterSalesAmount: nullableNumber(pick(settlement, 'after_sales_amount', 'after_sale_amount', 'afterSalesAmount')),
+      goodsAmount: nullableNumber(pick(settlement, 'goods_amount', 'goodsAmount')),
       feeAmount: nullableNumber(pick(settlement, 'fee_amount', 'feeAmount', 'expense_amount', 'expenseAmount', 'total_expense')),
       customsTax: nullableNumber(pick(settlement, 'customs_tax', 'customsTax', 'customs_amount')),
       payableAmount: nullableNumber(pick(settlement, 'payable_amount', 'payableAmount', 'settlement_amount', 'settlementAmount')),
@@ -245,6 +256,34 @@ export function normalizeEntryRead(payload: unknown): EntryRead {
   }
 }
 
+export function normalizeEntryDraft(payload: unknown): EntryDraft | null {
+  const body = unwrap(payload)
+  const row = unwrap(body.draft ?? body)
+  const draftPayload = unwrap(row.payload)
+  if (!draftPayload || Object.keys(draftPayload).length === 0) return null
+
+  const entry = normalizeEntryRead({ ...draftPayload, source_type: 'manual' })
+  return {
+    updatedAt: stringOr(pick(row, 'updated_at', 'updatedAt'), ''),
+    editing: pick(row, 'editing') === true,
+    merchantNo: stringOr(pick(row, 'merchant_no', 'merchantNo'), ''),
+    orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
+    salesCount: numberOr(pick(row, 'sales_count', 'salesCount'), 0),
+    payload: {
+      merchantNo: entry.merchantNo,
+      orderNo: entry.orderNo,
+      containerNo: entry.containerNo,
+      vehicleNo: entry.vehicleNo,
+      market: entry.market,
+      arrivalDate: entry.arrivalDate,
+      arrivalQuantity: entry.arrivalQuantity,
+      sales: entry.sales,
+      afterSales: entry.afterSales,
+      fees: entry.fees,
+    },
+  }
+}
+
 export function normalizeEntryFieldOptions(payload: unknown): EntryFieldOption[] {
   const body = unwrap(payload)
   return asArray(Array.isArray(body) ? body : body.options ?? body.items).map((row) => ({
@@ -263,6 +302,7 @@ export function normalizeSettlementRecords(input: unknown): SettlementRecord[] {
     gradeRaw: stringOr(pick(row, 'grade_raw', 'gradeRaw'), ''),
     grade: normalizeGrade(row.grade),
     specRaw: stringOr(pick(row, 'spec_raw', 'specRaw'), ''),
+    headCount: stringOr(pick(row, 'head_count', 'piece_count', 'headCount', 'pieceCount'), ''),
     quantity: numberOr(row.quantity, 0),
     unitPrice: numberOr(pick(row, 'unit_price', 'unitPrice'), 0),
     amount: numberOr(row.amount, 0),
@@ -303,19 +343,6 @@ function normalizeSettlementPagination(input: unknown): SettlementPagination | n
   }
 }
 
-export function normalizeSettlementRecordsData(payload: unknown): SettlementRecordsData {
-  const body = unwrap(payload)
-  return {
-    merchantNo: stringOr(pick(body, 'merchant_no', 'merchantNo'), ''),
-    merchantNoNormalized: stringOr(pick(body, 'merchant_no_normalized', 'merchantNoNormalized'), ''),
-    orderNo: stringOr(pick(body, 'order_no', 'orderNo'), ''),
-    orderNoNormalized: stringOr(pick(body, 'order_no_normalized', 'orderNoNormalized'), ''),
-    containerNo: stringOr(pick(body, 'container_no', 'containerNo'), ''),
-    vehicleNo: stringOr(pick(body, 'vehicle_no', 'vehicleNo'), ''),
-    records: normalizeSettlementRecords(body.records ?? body.sale_records),
-  }
-}
-
 function normalizeSettlementListItem(row: JsonRecord): SettlementListItem {
   const quantities = asRecord(row.grade_quantities ?? row.gradeQuantities)
   return {
@@ -323,9 +350,11 @@ function normalizeSettlementListItem(row: JsonRecord): SettlementListItem {
     merchantNoNormalized: stringOr(pick(row, 'merchant_no_normalized', 'merchantNoNormalized'), ''),
     orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
     orderNoNormalized: stringOr(pick(row, 'order_no_normalized', 'orderNoNormalized'), ''),
+    fruitType: stringOr(pick(row, 'fruit_type', 'fruitType'), '榴莲'),
     series: stringOr(pick(row, 'series'), UNKNOWN_SERIES),
     containerNo: stringOr(pick(row, 'container_no', 'containerNo'), ''),
     vehicleNo: stringOr(pick(row, 'vehicle_no', 'vehicleNo'), ''),
+    arrivalDate: stringOr(pick(row, 'arrival_date', 'arrivalDate'), ''),
     saleDateStart: stringOr(pick(row, 'sale_date_start', 'saleDateStart'), ''),
     saleDateEnd: stringOr(pick(row, 'sale_date_end', 'saleDateEnd'), ''),
     salesAmount: numberOr(pick(row, 'sales_amount', 'salesAmount'), 0),
@@ -366,6 +395,8 @@ export function normalizeImportIssues(payload: unknown): ImportIssue[] {
     fieldName: stringOr(pick(row, 'field_name', 'fieldName'), ''),
     message: stringOr(row.message, '发现数据问题'),
     rawValue: stringOr(pick(row, 'raw_value', 'rawValue'), ''),
+    resolved: pick(row, 'resolved') === true,
+    resolvedAt: nullableString(pick(row, 'resolved_at', 'resolvedAt')),
   }))
 }
 
@@ -388,62 +419,72 @@ export function normalizeImportJob(payload: unknown): ImportJob {
       version: numberOr(pick(row, 'version'), 1),
       status: stringOr(pick(row, 'status'), 'pending'),
     })),
+    failures: asArray(body.failures).map((row) => ({
+      fileName: stringOr(pick(row, 'file_name', 'fileName'), '未命名文件'),
+      error: stringOr(pick(row, 'error'), '解析失败'),
+    })),
+  }
+}
+
+function normalizeImportReviewPayload(draft: JsonRecord): ImportReviewPayload {
+  return {
+    merchantNo: stringOr(pick(draft, 'merchant_no', 'merchantNo'), ''),
+    orderNo: stringOr(pick(draft, 'order_no', 'orderNo'), ''),
+    containerNo: stringOr(pick(draft, 'container_no', 'containerNo'), ''),
+    vehicleNo: stringOr(pick(draft, 'vehicle_no', 'vehicleNo'), ''),
+    market: stringOr(pick(draft, 'market'), ''),
+    arrivalDate: stringOr(pick(draft, 'arrival_date', 'arrivalDate'), ''),
+    arrivalQuantity: nullableNumber(pick(draft, 'arrival_quantity', 'arrivalQuantity')),
+    sales: asArray(draft.sales).map((row) => ({
+      sourceRow: nullableNumber(pick(row, 'source_row', 'sourceRow')),
+      saleDate: stringOr(pick(row, 'sale_date', 'saleDate'), ''),
+      variety: stringOr(pick(row, 'variety'), ''),
+      headCount: stringOr(pick(row, 'head_count', 'headCount'), ''),
+      specKg: stringOr(pick(row, 'spec_kg', 'specKg'), ''),
+      salesQuantity: numberOr(pick(row, 'sales_quantity', 'salesQuantity'), 0),
+      unitPrice: numberOr(pick(row, 'unit_price', 'unitPrice'), 0),
+      amount: numberOr(pick(row, 'amount'), 0),
+      remark: stringOr(pick(row, 'remark'), ''),
+    })),
+    afterSales: asArray(draft.after_sales).map((row) => ({
+      sourceRow: nullableNumber(pick(row, 'source_row', 'sourceRow')),
+      content: stringOr(pick(row, 'content'), ''),
+      summary: stringOr(pick(row, 'summary'), ''),
+      amount: numberOr(pick(row, 'amount'), 0),
+    })),
+    fees: asArray(draft.fees).map((row) => ({
+      sourceRow: nullableNumber(pick(row, 'source_row', 'sourceRow')),
+      name: stringOr(pick(row, 'name'), ''),
+      amount: numberOr(pick(row, 'amount'), 0),
+      isCustom: pick(row, 'is_custom', 'isCustom') === true,
+    })),
+    fileSummary: asRecord(draft.file_summary ?? draft.fileSummary) as Record<string, string>,
+    computedSummary: asRecord(draft.computed_summary ?? draft.computedSummary) as Record<string, string>,
+    issues: asArray(draft.issues).map((row) => ({
+      code: stringOr(pick(row, 'code'), 'data_issue'),
+      severity: (pick(row, 'severity') === 'error' ? 'error' : 'warning') as 'error' | 'warning',
+      message: stringOr(pick(row, 'message'), '发现数据问题'),
+      section: stringOr(pick(row, 'section'), ''),
+      row: nullableNumber(pick(row, 'row')),
+      field: stringOr(pick(row, 'field'), ''),
+      rawValue: stringOr(pick(row, 'raw_value', 'rawValue'), ''),
+    })),
+    overwrite: false,
   }
 }
 
 export function normalizeImportReviewDraft(payload: unknown): ImportReviewDraft {
   const body = unwrap(payload)
   const draft = asRecord(body.payload ?? body.draft ?? {})
+  const original = asRecord(body.original_payload ?? body.originalPayload ?? draft)
   return {
     jobToken: stringOr(pick(body, 'job_token', 'jobToken'), ''),
     jobStatus: stringOr(pick(body, 'job_status', 'jobStatus'), 'pending'),
     draftToken: stringOr(pick(body, 'draft_token', 'draftToken'), ''),
     version: numberOr(pick(body, 'version'), 1),
     fileName: stringOr(pick(body, 'file_name', 'fileName'), '未命名文件'),
-    payload: {
-      merchantNo: stringOr(pick(draft, 'merchant_no', 'merchantNo'), ''),
-      orderNo: stringOr(pick(draft, 'order_no', 'orderNo'), ''),
-      containerNo: stringOr(pick(draft, 'container_no', 'containerNo'), ''),
-      vehicleNo: stringOr(pick(draft, 'vehicle_no', 'vehicleNo'), ''),
-      market: stringOr(pick(draft, 'market'), ''),
-      arrivalDate: stringOr(pick(draft, 'arrival_date', 'arrivalDate'), ''),
-      arrivalQuantity: nullableNumber(pick(draft, 'arrival_quantity', 'arrivalQuantity')),
-      sales: asArray(draft.sales).map((row) => ({
-        sourceRow: nullableNumber(pick(row, 'source_row', 'sourceRow')),
-        saleDate: stringOr(pick(row, 'sale_date', 'saleDate'), ''),
-        variety: stringOr(pick(row, 'variety'), ''),
-        headCount: stringOr(pick(row, 'head_count', 'headCount'), ''),
-        specKg: stringOr(pick(row, 'spec_kg', 'specKg'), ''),
-        salesQuantity: numberOr(pick(row, 'sales_quantity', 'salesQuantity'), 0),
-        unitPrice: numberOr(pick(row, 'unit_price', 'unitPrice'), 0),
-        amount: numberOr(pick(row, 'amount'), 0),
-        remark: stringOr(pick(row, 'remark'), ''),
-      })),
-      afterSales: asArray(draft.after_sales).map((row) => ({
-        sourceRow: nullableNumber(pick(row, 'source_row', 'sourceRow')),
-        content: stringOr(pick(row, 'content'), ''),
-        summary: stringOr(pick(row, 'summary'), ''),
-        amount: numberOr(pick(row, 'amount'), 0),
-      })),
-      fees: asArray(draft.fees).map((row) => ({
-        sourceRow: nullableNumber(pick(row, 'source_row', 'sourceRow')),
-        name: stringOr(pick(row, 'name'), ''),
-        amount: numberOr(pick(row, 'amount'), 0),
-        isCustom: pick(row, 'is_custom', 'isCustom') === true,
-      })),
-      fileSummary: asRecord(draft.file_summary ?? draft.fileSummary) as Record<string, string>,
-      computedSummary: asRecord(draft.computed_summary ?? draft.computedSummary) as Record<string, string>,
-      issues: asArray(draft.issues).map((row) => ({
-        code: stringOr(pick(row, 'code'), 'data_issue'),
-        severity: (pick(row, 'severity') === 'error' ? 'error' : 'warning') as 'error' | 'warning',
-        message: stringOr(pick(row, 'message'), '发现数据问题'),
-        section: stringOr(pick(row, 'section'), ''),
-        row: nullableNumber(pick(row, 'row')),
-        field: stringOr(pick(row, 'field'), ''),
-        rawValue: stringOr(pick(row, 'raw_value', 'rawValue'), ''),
-      })),
-      overwrite: false,
-    },
+    payload: normalizeImportReviewPayload(draft),
+    originalPayload: normalizeImportReviewPayload(original),
   }
 }
 
@@ -618,6 +659,10 @@ function numberOr(value: unknown, fallback: number): number {
 
 function nullableNumber(value: unknown): number | null {
   return value === null || value === undefined || value === '' ? null : numberOr(value, 0)
+}
+
+function nullableString(value: unknown): string | null {
+  return value === null || value === undefined || value === '' ? null : stringOr(value, '')
 }
 
 function stringOr(value: unknown, fallback: string): string {

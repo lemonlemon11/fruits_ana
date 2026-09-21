@@ -212,6 +212,63 @@ def test_overwrite_replaces_previous_batch(tmp_path):
     db.close()
 
 
+def test_import_refuses_to_overwrite_manual_batch(tmp_path):
+    db = SessionLocal()
+    db.add(
+        ImportBatch(
+            merchant_no="单624",
+            merchant_no_normalized="624",
+            source_type="manual",
+            status="success",
+            success_count=1,
+            warning_count=0,
+            failure_count=0,
+        )
+    )
+    db.commit()
+    path = write_csv(
+        tmp_path,
+        "container_no,sale_date,grade,quantity,unit_price,amount\n"
+        "C005,2026-08-05,A,1,2,2\n",
+    )
+
+    result = import_file(db, path, overwrite=True)
+
+    assert result.status == "conflict"
+    assert "手工录单占用" in (result.error_summary or "")
+    assert db.query(ImportBatch).filter_by(merchant_no="单624").one().source_type == "manual"
+    db.close()
+
+
+def test_import_rejects_different_raw_merchant_with_same_normalized_value(tmp_path):
+    db = SessionLocal()
+    db.add(
+        ImportBatch(
+            merchant_no="单624",
+            merchant_no_normalized="624",
+            source_type="import",
+            status="success",
+            success_count=1,
+            warning_count=0,
+            failure_count=0,
+        )
+    )
+    db.commit()
+    path = tmp_path / "normalized-conflict.csv"
+    path.write_text(
+        "商号,container_no,sale_date,grade,quantity,unit_price,amount\n"
+        "624,C005,2026-08-05,A,1,2,2\n",
+        encoding="utf-8-sig",
+    )
+
+    result = import_file(db, path, overwrite=True)
+
+    assert result.status == "conflict"
+    assert "归一化后与已有商号 单624 相同" in (result.error_summary or "")
+    assert db.query(ImportBatch).filter_by(merchant_no="624").count() == 0
+    db.close()
+
+
 def test_missing_merchant_no_fails_with_file_level_error(tmp_path):
     path = tmp_path / "no-merchant.csv"
     path.write_text(
@@ -281,7 +338,7 @@ def test_excel_import_persists_container_summary_without_importing_summary_rows(
     assert db.query(SaleRecord).count() == 1
     summary = db.query(SettlementSummary).one()
     assert summary.sales_amount == Decimal("1000.0000")
-    assert summary.after_sale_amount == Decimal("-20.0000")
+    assert summary.after_sale_amount == Decimal("20.0000")
     assert summary.goods_amount == Decimal("980.0000")
     assert summary.fee_amount == Decimal("10.0000")
     assert summary.customs_tax == Decimal("30.0000")

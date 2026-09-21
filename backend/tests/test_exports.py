@@ -151,12 +151,12 @@ def test_settlement_list_xlsx_matches_list_columns_and_metrics():
         "商号",
         "单号",
         "柜号",
-        "到达日期起",
-        "到达日期止",
+        "销售日期起",
+        "销售日期止",
         "总件数",
         "C果件数",
-        "销售额",
-        "平均每公斤售价",
+        "销售金额",
+        "每件均价",
         "售后合计",
         "费用合计",
         "应付贵方总金额(RMB)",
@@ -353,7 +353,7 @@ def test_settlement_list_xlsx_exports_sales_after_sale_and_fee_details():
         row for row in summary.iter_rows(min_row=2, values_only=True) if row[0] == "624"
     )
     assert [float(value) for value in manual_row[10:13]] == [10.0, 8.0, 122.0]
-    assert [float(value) for value in imported_row[10:13]] == [-2420.0, 10300.0, 65848.0]
+    assert [float(value) for value in imported_row[10:13]] == [2420.0, 10300.0, 65848.0]
 
     sales = workbook["销售明细"]
     assert sales.max_row == 4
@@ -370,7 +370,7 @@ def test_settlement_list_xlsx_exports_sales_after_sale_and_fee_details():
     imported_after = [row for row in after_sale.iter_rows(min_row=2, values_only=True) if row[0] == "624"]
     assert manual_after == [("637", "宝贝-001", "C001", "坏果", "扣款", Decimal("10.00"), "录单录入")]
     assert imported_after == [
-        ("624", "宝贝-001", "MWCU1823691", "结算摘要售后合计", "导入结算摘要原值", Decimal("-2420.00"), "结算摘要")
+        ("624", "宝贝-001", "MWCU1823691", "结算摘要售后合计", "导入结算摘要原值", Decimal("2420.00"), "结算摘要")
     ]
 
     fees = workbook["支出费用明细"]
@@ -420,6 +420,26 @@ def test_settlement_list_xlsx_respects_filters_and_rejects_bad_range():
     assert bad_range.status_code == 422
 
 
+def _row_containing(sheet, text):
+    """按任意单元格文字定位行号，避免把导出布局的行号写死在断言里。"""
+
+    for row in range(1, sheet.max_row + 1):
+        for cell in sheet[row]:
+            if isinstance(cell.value, str) and text in cell.value:
+                return row
+    raise AssertionError(f"结算单导出结果中没有包含「{text}」的行")
+
+
+def _number(value):
+    """兼容数值单元格与千分位文本单元格。"""
+
+    if value is None:
+        return None
+    if isinstance(value, int | float | Decimal):
+        return float(value)
+    return float(str(value).replace(",", ""))
+
+
 def test_settlement_template_xlsx_exports_manual_and_imported_rows():
     seed_manual_settlement()
     seed_imported_settlement_summary()
@@ -432,27 +452,55 @@ def test_settlement_template_xlsx_exports_manual_and_imported_rows():
     assert imported.status_code == 200
 
     manual_sheet = openpyxl.load_workbook(BytesIO(manual.content), data_only=False)["结算单"]
-    assert manual_sheet["B2"].value == "结 算 单"
-    assert manual_sheet["C5"].value == "637"
-    assert manual_sheet["B14"].value.date() == date(2026, 9, 13)
-    assert [manual_sheet.cell(14, column).value for column in (3, 4, 5, 6)] == ["A", "4", "10", "早市"]
-    # 头数合计取区间上限：4 + (3/4 → 4) = 8
-    assert manual_sheet["D16"].value == 8
-    assert manual_sheet["G16"].value == 50.0
-    assert manual_sheet["I16"].value == 140.0
+    assert manual_sheet["A1"].value == "结 算 单"
+    manual_info = manual_sheet["A3"].value
+    assert "商号：637" in manual_info
+    assert "单号：宝贝-001" in manual_info
+    assert "柜号：C001" in manual_info
+
+    header_row = _row_containing(manual_sheet, "销售日期")
+    headers = {str(cell.value): cell.column for cell in manual_sheet[header_row] if cell.value}
+    first_sale = manual_sheet[header_row + 1]
+    assert first_sale[headers["销售日期"] - 1].value == "2026-09-13"
+    assert first_sale[headers["品种"] - 1].value == "A"
+    assert first_sale[headers["规格(头数)"] - 1].value == "4"
+    assert first_sale[headers["规格(KG)"] - 1].value == "10"
+    assert first_sale[headers["备注"] - 1].value == "早市"
+    assert _number(first_sale[headers["数量(件)"] - 1].value) == 20.0
+    assert _number(first_sale[headers["单价(元)"] - 1].value) == 2.5
+    assert _number(first_sale[headers["金额(元)"] - 1].value) == 50.0
+
+    manual_total = _row_containing(manual_sheet, "总件数")
+    assert _number(manual_sheet.cell(manual_total, 6).value) == 50.0
+    assert _number(manual_sheet.cell(manual_total, 8).value) == 140.0
+    manual_after = _row_containing(manual_sheet, "售后合计")
+    assert _number(manual_sheet.cell(manual_after, 7).value) == 10.0
+    manual_fee_total = _row_containing(manual_sheet, "费用合计")
+    assert _number(manual_sheet.cell(manual_fee_total, 7).value) == 8.0
+    manual_payable = _row_containing(manual_sheet, "应付贵方总金额")
+    assert _number(manual_sheet.cell(manual_payable, 7).value) == 122.0
 
     imported_sheet = openpyxl.load_workbook(BytesIO(imported.content), data_only=False)["结算单"]
-    assert imported_sheet["C5"].value == "624"
-    assert imported_sheet["C7"].value == "宝贝-001"
-    assert imported_sheet["B14"].value.date() == date(2026, 9, 6)
-    # 导入件没有件数与规格，模板示例值必须被清空而不是残留。
-    assert imported_sheet.cell(14, 4).value is None
-    assert imported_sheet.cell(14, 5).value is None
-    assert imported_sheet.cell(14, 6).value == "A6（19.5KG）"
-    assert imported_sheet.cell(14, 7).value == 129.0
-    assert imported_sheet["D16"].value is None
-    assert imported_sheet["G16"].value == 129.0
-    assert imported_sheet["I16"].value == 70950.0
+    imported_info = imported_sheet["A3"].value
+    assert "商号：624" in imported_info
+    assert "单号：宝贝-001" in imported_info
+
+    imported_header = _row_containing(imported_sheet, "销售日期")
+    imported_headers = {
+        str(cell.value): cell.column for cell in imported_sheet[imported_header] if cell.value
+    }
+    imported_sale = imported_sheet[imported_header + 1]
+    # 导入件没有头数与 KG，必须留空而不是残留模板示例值。
+    assert imported_sale[imported_headers["规格(头数)"] - 1].value in (None, "")
+    assert imported_sale[imported_headers["规格(KG)"] - 1].value in (None, "")
+    assert _number(imported_sale[imported_headers["数量(件)"] - 1].value) == 129.0
+    assert _number(imported_sale[imported_headers["金额(元)"] - 1].value) == 70950.0
+
+    imported_total = _row_containing(imported_sheet, "总件数")
+    assert _number(imported_sheet.cell(imported_total, 6).value) == 129.0
+    assert _number(imported_sheet.cell(imported_total, 8).value) == 70950.0
+    imported_fee_total = _row_containing(imported_sheet, "费用合计")
+    assert _number(imported_sheet.cell(imported_fee_total, 7).value) == 10300.0
 
 
 def test_settlement_template_xlsx_missing_merchant_returns_404():

@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.auth import create_session, hash_password
 from app.db import Base, SessionLocal, engine
 from app.main import app
-from app.models import AdminPermission, AdminRole, AdminRolePermission, AdminUserRole, User
+from app.models import AdminPermission, AdminRole, AdminRolePermission, AdminUserRole, EntryDraft, User
 
 
 @pytest.fixture(autouse=True)
@@ -77,6 +77,8 @@ def _payload(overwrite=False):
 def test_entry_api_requires_authentication(client):
     assert client.get("/api/entry/field-options?field=market").status_code == 401
     assert client.get("/api/entry/637").status_code == 401
+    assert client.get("/api/entry/draft").status_code == 401
+    assert client.put("/api/entry/draft", json={"payload": {}}).status_code == 401
 
 
 def test_entry_api_requires_create_permission_for_create(client):
@@ -87,6 +89,79 @@ def test_entry_api_requires_create_permission_for_create(client):
 
     assert get_options.status_code == 200
     assert create.status_code == 403
+
+
+def _draft_body():
+    return {
+        "editing": False,
+        "merchant_no": "638",
+        "order_no": "宝贝-002",
+        "payload": {
+            "merchant_no": "638",
+            "order_no": "宝贝-002",
+            "container_no": "C002",
+            "vehicle_no": "桂A0002",
+            "market": "江南市场",
+            "arrival_date": "",
+            "arrival_quantity": None,
+            "sales": [
+                {
+                    "sale_date": "2026-09-13",
+                    "variety": "A",
+                    "head_count": "",
+                    "spec_kg": "",
+                    "sales_quantity": 0,
+                    "unit_price": 0,
+                    "remark": "还在填",
+                }
+            ],
+            "after_sales": [],
+            "fees": [],
+        },
+    }
+
+
+def test_entry_draft_roundtrip_without_required_fields(client):
+    """暂存草稿允许缺必填项，刷新页面前能按用户读回。"""
+
+    _login(client, ["entry:view"])
+
+    missing_payload = client.put("/api/entry/draft", json={"merchant_no": "638"})
+    saved = client.put("/api/entry/draft", json=_draft_body())
+    loaded = client.get("/api/entry/draft")
+
+    assert missing_payload.status_code == 422
+    assert saved.status_code == 200
+    assert saved.json()["draft"]["merchant_no"] == "638"
+    assert saved.json()["draft"]["order_no"] == "宝贝-002"
+    assert saved.json()["draft"]["sales_count"] == 1
+    assert loaded.status_code == 200
+    assert loaded.json()["draft"]["payload"]["merchant_no"] == "638"
+    assert loaded.json()["draft"]["payload"]["sales"][0]["remark"] == "还在填"
+
+
+def test_entry_draft_can_be_cleared_and_keeps_one_record_per_user(client):
+    """删除暂存后读不到；同一用户重复暂存是更新而不是新增。"""
+
+    user_id = _login(client, ["entry:view"])
+    first = client.put("/api/entry/draft", json=_draft_body())
+    body = _draft_body()
+    body["payload"]["sales"][0]["remark"] = "改过一次"
+    second = client.put("/api/entry/draft", json=body)
+
+    db = SessionLocal()
+    draft_count = db.query(EntryDraft).filter_by(user_id=user_id).count()
+    db.close()
+
+    cleared = client.delete("/api/entry/draft")
+    loaded = client.get("/api/entry/draft")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["draft"]["payload"]["sales"][0]["remark"] == "改过一次"
+    assert draft_count == 1
+    assert cleared.status_code == 204
+    assert loaded.json()["draft"] is None
 
 
 def test_entry_api_create_conflict_overwrite_read_and_export(client):
@@ -140,8 +215,8 @@ def test_entry_api_normalizes_range_spec_when_saving(client):
     assert created.json()["sales"][0]["spec_kg"] == "9/10"
 
 
-def test_entry_api_rejects_missing_or_unparsable_spec(client):
-    """A11：没有 KG / 解析不出来时必须标红阻断保存，不能猜数。"""
+def test_entry_api_allows_empty_spec_but_rejects_unparsable_spec(client):
+    """规格可留空；一旦填写且解析不出来时必须标红阻断保存，不能猜数。"""
 
     _login(client, ["entry:view", "entry:create"])
     payload = _payload()
@@ -150,5 +225,6 @@ def test_entry_api_rejects_missing_or_unparsable_spec(client):
     payload["sales"][0]["spec_kg"] = "硬包"
     unparsable = client.post("/api/entry", json=payload)
 
-    assert empty.status_code == 422
+    assert empty.status_code == 201
+    assert empty.json()["sales"][0]["spec_kg"] == ""
     assert unparsable.status_code == 422

@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import calendar
-from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, or_
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session
 
 from ..models import ImportBatch, SaleRecord
-from .analytics_core import GRADES, rounded
+from .analytics_core import GRADES, one_month_before, rounded
 from .merchant_no_naming import merchant_no_display
 from .order_no_naming import order_no_display
 from .series_analytics_service import series_name
@@ -64,40 +62,117 @@ def _payload(
     items: list[dict],
     page: int | None,
     page_size: int | None,
+    total: int | None = None,
 ) -> dict:
-    """不传分页参数时保持全量返回，传入时只回当页并附 ``pagination``。"""
+    """不传分页参数时保持全量返回；传入时返回已切好的当页并附 ``pagination``。"""
 
     if page is None and page_size is None:
         return {"date_range": date_range, "settlements": items, "pagination": None}
-    info = _pagination_info(len(items), page, page_size)
-    start = (info["page"] - 1) * info["page_size"]
+    info = _pagination_info(len(items) if total is None else total, page, page_size)
+    if total is None:
+        start = (info["page"] - 1) * info["page_size"]
+        items = items[start : start + info["page_size"]]
     return {
         "date_range": date_range,
-        "settlements": items[start : start + info["page_size"]],
+        "settlements": items,
         "pagination": info,
     }
 
 
-def one_month_before(value: date) -> date:
-    """返回往前一个自然月；日序号溢出时取目标月最后一天。"""
+def _grade_quantity_sum(grade):
+    """按等级生成条件求和列，避免为每张结算单拉回全部销售明细。"""
 
-    if value.month == 1:
-        year, month = value.year - 1, 12
-    else:
-        year, month = value.year, value.month - 1
-    last_day = calendar.monthrange(year, month)[1]
-    return date(year, month, min(value.day, last_day))
-
-
-def _grade_quantities(records: list[SaleRecord]) -> dict[str, float]:
-    return {
-        grade.value: rounded(
-            sum(
-                (record.quantity for record in records if record.grade == grade),
-                Decimal("0"),
+    return func.coalesce(
+        func.sum(
+            case(
+                (SaleRecord.grade == grade.value, SaleRecord.quantity),
+                else_=0,
             )
+        ),
+        0,
+    ).label(f"grade_{grade.value.lower()}")
+
+
+def _decimal(value) -> Decimal:
+    return Decimal(str(value)) if value is not None else Decimal("0")
+
+
+def _aggregate_query(
+    db: Session,
+    start: date,
+    end: date,
+    merchant_no: str | None,
+    keyword: str | None,
+):
+    """在数据库内按结算单聚合，只返回页面需要的指标。"""
+
+    aggregated = (
+        db.query(
+            SaleRecord.import_batch_id.label("batch_id"),
+            func.min(SaleRecord.sale_date).label("sale_date_start"),
+            func.max(SaleRecord.sale_date).label("sale_date_end"),
+            func.max(SaleRecord.fruit_type).label("fruit_type"),
+            func.coalesce(func.sum(SaleRecord.amount), 0).label("sales_amount"),
+            func.coalesce(func.sum(SaleRecord.quantity), 0).label("total_quantity"),
+            func.count(SaleRecord.id).label("record_count"),
+            *[_grade_quantity_sum(grade) for grade in GRADES],
         )
-        for grade in GRADES
+        .filter(SaleRecord.sale_date >= start, SaleRecord.sale_date <= end)
+        .group_by(SaleRecord.import_batch_id)
+        .subquery()
+    )
+    query = db.query(aggregated).join(
+        ImportBatch, ImportBatch.id == aggregated.c.batch_id
+    )
+    if merchant_no:
+        query = query.filter(ImportBatch.merchant_no == merchant_no)
+    if keyword and keyword.strip():
+        query = _apply_keyword(query, keyword)
+    return query, aggregated
+
+
+def _settlement_items(db: Session, rows) -> list[dict]:
+    batch_ids = {row.batch_id for row in rows if row.batch_id}
+    batches = {
+        batch.id: batch
+        for batch in db.query(ImportBatch).filter(ImportBatch.id.in_(batch_ids)).all()
+    } if batch_ids else {}
+    return [
+        _settlement_item(row, batches[row.batch_id])
+        for row in rows
+        if row.batch_id in batches
+    ]
+
+
+def _settlement_item(agg, batch: ImportBatch) -> dict:
+    amount = _decimal(agg.sales_amount)
+    quantity = _decimal(agg.total_quantity)
+    return {
+        "merchant_no": batch.merchant_no,
+        "merchant_no_normalized": merchant_no_display(
+            batch.merchant_no, batch.merchant_no_normalized
+        ),
+        "order_no": batch.order_no,
+        "order_no_normalized": order_no_display(
+            batch.order_no, batch.order_no_normalized
+        ),
+        "fruit_type": agg.fruit_type or "榴莲",
+        "series": series_name(
+            batch.order_no_normalized or batch.order_no
+        ),
+        "container_no": batch.container_no,
+        "vehicle_no": batch.vehicle_no,
+        "arrival_date": batch.arrival_date,
+        "sale_date_start": agg.sale_date_start,
+        "sale_date_end": agg.sale_date_end,
+        "sales_amount": rounded(amount),
+        "total_quantity": rounded(quantity),
+        "average_price": rounded(amount / quantity) if quantity else None,
+        "grade_quantities": {
+            grade.value: rounded(_decimal(getattr(agg, f"grade_{grade.value.lower()}")))
+            for grade in GRADES
+        },
+        "record_count": int(agg.record_count or 0),
     }
 
 
@@ -125,70 +200,39 @@ def list_settlements(
     start = start_date or one_month_before(latest)
     end = end_date or latest
 
-    query = (
-        db.query(SaleRecord)
-        .join(ImportBatch, SaleRecord.import_batch_id == ImportBatch.id)
-        .filter(SaleRecord.sale_date >= start, SaleRecord.sale_date <= end)
+    query, aggregated = _aggregate_query(
+        db,
+        start=start,
+        end=end,
+        merchant_no=merchant_no,
+        keyword=keyword,
     )
-    if merchant_no:
-        query = query.filter(ImportBatch.merchant_no == merchant_no)
-    if keyword and keyword.strip():
-        query = _apply_keyword(query, keyword)
-    records = query.order_by(SaleRecord.sale_date, SaleRecord.id).all()
-
-    batch_ids = {record.import_batch_id for record in records if record.import_batch_id}
-    batches = (
-        {
-            batch.id: batch
-            for batch in db.query(ImportBatch)
-            .filter(ImportBatch.id.in_(batch_ids))
-            .all()
-        }
-        if batch_ids
-        else {}
+    query = query.order_by(
+        aggregated.c.sale_date_end.desc(), ImportBatch.merchant_no.asc()
     )
-    grouped: dict[int, list[SaleRecord]] = defaultdict(list)
-    for record in records:
-        grouped[record.import_batch_id].append(record)
-
-    items = []
-    for batch_id, current in grouped.items():
-        batch = batches.get(batch_id)
-        if batch is None:
-            continue
-        amount = sum((record.amount for record in current), Decimal("0"))
-        quantity = sum((record.quantity for record in current), Decimal("0"))
-        dates = [record.sale_date for record in current]
-        items.append(
-            {
-                "merchant_no": batch.merchant_no,
-                "merchant_no_normalized": merchant_no_display(
-                    batch.merchant_no, batch.merchant_no_normalized
-                ),
-                "order_no": batch.order_no,
-                "order_no_normalized": order_no_display(
-                    batch.order_no, batch.order_no_normalized
-                ),
-                "series": series_name(
-                    batch.order_no_normalized or batch.order_no
-                ),
-                "container_no": batch.container_no,
-                "vehicle_no": batch.vehicle_no,
-                "sale_date_start": min(dates),
-                "sale_date_end": max(dates),
-                "sales_amount": rounded(amount),
-                "total_quantity": rounded(quantity),
-                "average_price": rounded(amount / quantity) if quantity else None,
-                "grade_quantities": _grade_quantities(current),
-                "record_count": len(current),
-            }
+    if page is None and page_size is None:
+        items = _settlement_items(db, query.all())
+        return _payload(
+            {"start_date": start, "end_date": end, "is_default": is_default},
+            items,
+            page,
+            page_size,
         )
-    items.sort(key=lambda item: (item["sale_date_end"], item["merchant_no"]), reverse=True)
+
+    total = query.count()
+    info = _pagination_info(total, page, page_size)
+    items = _settlement_items(
+        db,
+        query.offset(
+            (info["page"] - 1) * info["page_size"]
+        ).limit(info["page_size"]).all(),
+    )
     return _payload(
         {"start_date": start, "end_date": end, "is_default": is_default},
         items,
         page,
         page_size,
+        total=total,
     )
 
 

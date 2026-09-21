@@ -12,7 +12,7 @@ const register = read('views', 'RegisterView.vue')
 const portal = read('components', 'AuthPortal.vue')
 
 test('登录和注册共用同一个 Portal 骨架', () => {
-  assert.match(login, /<AuthPortal>/)
+  assert.match(login, /<AuthPortal[^>]*>/)
   assert.match(register, /<AuthPortal>/)
   assert.match(portal, /portal-visual/)
   assert.match(portal, /portal-panel/)

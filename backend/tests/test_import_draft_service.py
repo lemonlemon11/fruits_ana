@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ from app.services.import_draft_service import (
     get_import_draft,
     get_import_job,
     update_import_draft,
+    validate_draft_payload,
 )
 
 
@@ -72,6 +74,41 @@ def test_update_draft_increments_version_and_revalidates():
     )
     assert updated["version"] == 2
     assert any(issue["code"] == "amount_mismatch" for issue in updated["payload"]["issues"])
+
+
+def test_validate_draft_allows_remark_and_quantity_only_sale_row():
+    payload = {
+        "merchant_no": "637",
+        "order_no": "宝贝-001",
+        "container_no": "C001",
+        "vehicle_no": "桂A0001",
+        "market": "南宁海吉星",
+        "arrival_date": "2026-09-10",
+        "arrival_quantity": "20",
+        "sales": [
+            {
+                "sale_date": "2026-09-13",
+                "variety": "",
+                "head_count": "",
+                "spec_kg": "",
+                "remark": "只填备注和数量",
+                "sales_quantity": "5",
+                "unit_price": "",
+                "amount": "0",
+            }
+        ],
+        "after_sales": [],
+        "fees": [],
+    }
+
+    issues, computed = validate_draft_payload(payload)
+
+    assert not any(
+        issue["field"] in {"variety", "head_count", "spec_kg", "unit_price"}
+        for issue in issues
+    )
+    assert Decimal(computed["sales_quantity"]) == Decimal("5.00")
+    assert Decimal(computed["sales_amount"]) == Decimal("0.00")
 
 
 def test_confirm_without_force_is_blocked_by_error_draft():

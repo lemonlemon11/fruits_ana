@@ -6,6 +6,7 @@ import csv
 import hashlib
 import io
 import json
+import logging
 import os
 from pathlib import Path
 from uuid import uuid4
@@ -13,6 +14,7 @@ from zipfile import BadZipFile
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -28,6 +30,7 @@ from ..services.import_draft_service import (
     discard_import_job as discard_import_job_service,
     get_import_draft,
     get_import_job,
+    resolve_import_issue,
     update_import_draft as update_import_draft_service,
 )
 from ..services.import_service import import_file
@@ -38,6 +41,7 @@ router = APIRouter(
     tags=["imports"],
     dependencies=[Depends(require_current_user)],
 )
+logger = logging.getLogger("fruits_ana")
 UPLOAD_DIR = BACKEND_DIR / "data" / "uploads"
 MAX_UPLOAD_SIZE = 20 * 1024 * 1024
 UPLOAD_CHUNK_SIZE = 1024 * 1024
@@ -59,7 +63,18 @@ async def upload_imports(
 @router.get("")
 def list_imports(db: Session = Depends(get_db)):
     batches = db.query(ImportBatch).order_by(ImportBatch.imported_at.desc()).all()
-    return {"imports": [_batch_dict(batch) for batch in batches]}
+    unresolved_warning_counts = dict(
+        db.query(DataIssue.import_batch_id, func.count(DataIssue.id))
+        .filter(DataIssue.severity == "warning", DataIssue.resolved.is_(False))
+        .group_by(DataIssue.import_batch_id)
+        .all()
+    )
+    return {
+        "imports": [
+            _batch_dict(batch, unresolved_warning_counts.get(batch.id, 0))
+            for batch in batches
+        ]
+    }
 
 
 @router.get("/{batch_id}/issues")
@@ -67,6 +82,23 @@ def list_issues(batch_id: int, db: Session = Depends(get_db)):
     _require_batch(db, batch_id)
     issues = _issues_query(db, batch_id).all()
     return {"issues": [_issue_dict(issue) for issue in issues]}
+
+
+@router.post("/{batch_id}/issues/{issue_id}/resolve")
+def resolve_issue(
+    batch_id: int,
+    issue_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_current_user),
+):
+    _require_batch(db, batch_id)
+    issue = _issues_query(db, batch_id).filter(DataIssue.id == issue_id).first()
+    if issue is None:
+        raise HTTPException(404, "导入问题不存在")
+    try:
+        return resolve_import_issue(db, issue_id, user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{batch_id}/issues.csv")
@@ -102,7 +134,7 @@ async def preview_imports(
     parsed_files: list[tuple[object, str, str, str]] = []
     failures: list[dict] = []
     for upload in files:
-        filename = upload.filename or "upload.csv"
+        filename = upload.filename or "upload.xlsx"
         try:
             path, created = await _store_upload(upload)
         except UploadProblem as exc:
@@ -165,6 +197,12 @@ def update_import_draft(
     db: Session = Depends(get_db),
     user: User = Depends(require_current_user),
 ):
+    logger.info(
+        "update_import_draft start job=%s draft=%s fees=%s",
+        job_token,
+        draft_token,
+        [(row.get("name"), row.get("amount")) for row in (payload.get("fees") or [])],
+    )
     try:
         return update_import_draft_service(db, job_token, draft_token, payload, user.id)
     except ValueError as exc:
@@ -179,8 +217,15 @@ def confirm_import_job(
     user: User = Depends(require_current_user),
 ):
     force = body.get("force") is True
+    logger.info("confirm_import_job start job=%s force=%s", job_token, force)
     try:
-        return confirm_import_job_service(db, job_token, force=force, user_id=user.id)
+        result = confirm_import_job_service(db, job_token, force=force, user_id=user.id)
+        logger.info(
+            "confirm_import_job success job=%s confirmed=%s",
+            job_token,
+            len(result.get("confirmed") or []),
+        )
+        return result
     except ImportConfirmBlocked as exc:
         raise HTTPException(status_code=409, detail=json.loads(str(exc))) from exc
     except ValueError as exc:
@@ -200,10 +245,10 @@ def discard_import_job(
 
 
 async def _store_upload(upload: UploadFile) -> tuple[Path, bool]:
-    filename = upload.filename or "upload.csv"
+    filename = upload.filename or "upload.xlsx"
     suffix = Path(filename).suffix.lower()
-    if suffix not in {".csv", ".xlsx"}:
-        raise UploadProblem("仅支持 CSV 或 XLSX 文件")
+    if suffix != ".xlsx":
+        raise UploadProblem("仅支持 XLSX 文件")
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     temp_path = UPLOAD_DIR / f".{uuid4().hex}.upload"
     digest, total = hashlib.sha256(), 0
@@ -229,7 +274,7 @@ async def _store_upload(upload: UploadFile) -> tuple[Path, bool]:
 
 
 async def _process_upload(upload: UploadFile, overwrite: bool = False) -> dict:
-    filename = upload.filename or "upload.csv"
+    filename = upload.filename or "upload.xlsx"
     try:
         path, created = await _store_upload(upload)
     except UploadProblem as exc:
@@ -325,7 +370,7 @@ def _require_batch(db, batch_id):
         raise HTTPException(404, "导入批次不存在")
 
 
-def _batch_dict(batch):
+def _batch_dict(batch, warning_count: int):
     fields = (
         "id",
         "file_name",
@@ -338,11 +383,12 @@ def _batch_dict(batch):
         "imported_at",
         "status",
         "success_count",
-        "warning_count",
         "failure_count",
         "error_summary",
     )
-    return {name: getattr(batch, name) for name in fields}
+    result = {name: getattr(batch, name) for name in fields}
+    result["warning_count"] = warning_count
+    return result
 
 
 def _issue_dict(issue):
@@ -354,5 +400,7 @@ def _issue_dict(issue):
         "field_name",
         "message",
         "raw_value",
+        "resolved",
+        "resolved_at",
     )
     return {name: getattr(issue, name) for name in fields}

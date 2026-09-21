@@ -1,17 +1,10 @@
-import type { EntryPayload } from '../api/types'
+import type { EntryDraft, EntryPayload } from '../api/types'
 
-/** 手工录单的本地草稿：填一半切走时留在浏览器里，回来可以接着填。 */
+/** 手工录单草稿的内容判断与列表展示；实际读写已迁移到后端数据库。 */
 
 export const ENTRY_DRAFT_KEY_PREFIX = 'fruit-entry-draft:v1'
 
-export interface EntryDraft {
-  updatedAt: string
-  editing: boolean
-  merchantNo: string
-  orderNo: string
-  salesCount: number
-  payload: EntryPayload
-}
+export type { EntryDraft }
 
 export interface DraftStorage {
   getItem(key: string): string | null

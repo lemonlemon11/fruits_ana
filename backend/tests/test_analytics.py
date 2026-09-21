@@ -136,6 +136,7 @@ def test_settlement_comparison_and_detail_reuse_the_same_metrics():
     }
     assert detail["settlement"] == {
         "after_sales_amount": None,
+        "goods_amount": None,
         "fee_amount": None,
         "customs_tax": None,
         "payable_amount": None,
@@ -159,7 +160,8 @@ def test_settlement_detail_reads_its_settlement_summary():
         detail = get_settlement_detail(db, "M1")
 
     assert detail["settlement"] == {
-        "after_sales_amount": -20.0,
+        "after_sales_amount": 20.0,
+        "goods_amount": None,
         "fee_amount": None,
         "customs_tax": 30.0,
         "payable_amount": 940.0,
@@ -199,6 +201,7 @@ def test_settlement_detail_records_follow_date_filter_and_include_source_ids():
             "grade": "B",
             "grade_raw": "B级",
             "spec_raw": "B6",
+            "piece_count": None,
             "quantity": 2.0,
             "unit_price": 15.0,
             "amount": 30.0,
@@ -219,7 +222,7 @@ def test_settlement_detail_explains_low_price_anomaly_with_record_ids():
     assert detail["operating_anomalies"] == [
         {
             "type": "low_weighted_avg_price",
-            "reason": "结算单平均每公斤售价低于同期整体平均每公斤售价阈值",
+            "reason": "结算单每件均价低于同期整体每件均价阈值",
             "metric": 5.0,
             "baseline": 14.0,
             "threshold": 0.8,

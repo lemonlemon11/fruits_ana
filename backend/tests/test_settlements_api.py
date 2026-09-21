@@ -127,9 +127,11 @@ def test_settlement_item_exposes_sales_metrics(client):
         "merchant_no_normalized": "640",
         "order_no": "宝贝L004",
         "order_no_normalized": "宝贝-004",
+        "fruit_type": "榴莲",
         "series": "宝贝",
         "container_no": "CBHU2970762",
         "vehicle_no": "桂ABF330",
+        "arrival_date": None,
         "sale_date_start": "2026-09-09",
         "sale_date_end": "2026-09-09",
         "sales_amount": 160.0,
@@ -195,6 +197,41 @@ def test_settlement_records_endpoint(client):
     assert [record["grade"] for record in body["records"]] == ["A", "B"]
     assert body["records"][0]["amount"] == 120.0
     assert client.get("/api/settlements/未知/records").status_code == 404
+
+
+def test_settlement_review_endpoint_returns_readonly_import_payload(client):
+    with SessionLocal() as db:
+        seed_batches(db)
+
+    body = client.get("/api/settlements/640/review").json()
+
+    assert body["job_status"] == "readonly"
+    assert body["file_name"] == "640.xlsx"
+    assert body["payload"]["merchant_no"] == "640"
+    assert body["payload"]["issues"] == []
+    assert [row["variety"] for row in body["payload"]["sales"]] == ["A", "B"]
+    assert body["payload"]["sales"][0]["amount"] == 120.0
+    assert body["payload"]["file_summary"]["sales_amount"] == "160"
+    assert body["payload"]["computed_summary"]["after_sale_amount"] == "0"
+    assert client.get("/api/settlements/未知/review").status_code == 404
+
+
+def test_delete_settlement_removes_batch_and_sales(client):
+    with SessionLocal() as db:
+        seed_batches(db)
+        batch = db.query(ImportBatch).filter_by(merchant_no="单637").first()
+        batch_id = batch.id
+
+    response = client.delete("/api/settlements/单637")
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted": True, "merchant_no": "单637"}
+    with SessionLocal() as db:
+        assert db.query(ImportBatch).filter_by(merchant_no="单637").first() is None
+        assert db.query(SaleRecord).filter_by(import_batch_id=batch_id).count() == 0
+    body = client.get("/api/settlements").json()
+    assert "单637" not in [row["merchant_no"] for row in body["settlements"]]
+    assert client.delete("/api/settlements/单637").status_code == 404
 
 
 def test_empty_database_returns_no_default_range(client):

@@ -62,7 +62,7 @@ function showSegmentTooltip(event: MouseEvent, row: ShareRow, segment: ShareSegm
   <section class="dashboard-section" aria-labelledby="series-share-title">
     <header class="section-heading">
       <div>
-        <h2 id="series-share-title">各结算单等级件数占比</h2>
+        <h2 id="series-share-title">等级件数占比</h2>
         <p class="section-note">条越长代表该等级件数越多；每行按等级顺序堆叠</p>
       </div>
       <ChartLegend :items="legendItems" />

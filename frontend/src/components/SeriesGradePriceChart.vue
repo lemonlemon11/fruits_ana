@@ -121,8 +121,8 @@ function showBarTooltip(event: MouseEvent, group: { merchantNo: string; orderNo:
   <section class="dashboard-section" aria-labelledby="series-price-title">
     <header class="section-heading">
       <div>
-        <h2 id="series-price-title">各等级平均每公斤售价对比</h2>
-        <p class="section-note">每张结算单一组，柱内按等级排列，同一颜色的柱子可跨结算单比较；单位：元/公斤，深色数字为该等级最高价</p>
+        <h2 id="series-price-title">等级均价对比</h2>
+        <p class="section-note">每张结算单一组，柱内按等级排列，同一颜色的柱子可跨结算单比较；单位：元/件，深色数字为该等级最高价</p>
       </div>
       <ChartLegend :items="legendItems" />
     </header>

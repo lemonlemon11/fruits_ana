@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import calendar
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -13,6 +14,7 @@ from datetime import date
 from decimal import Decimal
 from statistics import median
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models import ImportBatch, SaleRecord, StandardGrade
@@ -35,6 +37,36 @@ class AnomalyThresholds:
 DEFAULT_THRESHOLDS = AnomalyThresholds()
 
 
+def one_month_before(value: date) -> date:
+    """返回往前一个自然月；日序号溢出时取目标月最后一天。"""
+
+    if value.month == 1:
+        year, month = value.year - 1, 12
+    else:
+        year, month = value.year, value.month - 1
+    last_day = calendar.monthrange(year, month)[1]
+    return date(year, month, min(value.day, last_day))
+
+
+def resolve_date_window(
+    db: Session,
+    start_date: date | None,
+    end_date: date | None,
+) -> tuple[date | None, date | None, bool]:
+    """未传日期时收敛到「最新销售日期往前一个月」的有限窗口。
+
+    仅当 ``start_date`` 与 ``end_date`` 同时为空时才应用默认窗口；传了任意一端
+    则保持调用方原有日期筛选行为不变。
+    """
+
+    if start_date is not None or end_date is not None:
+        return start_date, end_date, False
+    latest = db.query(func.max(SaleRecord.sale_date)).scalar()
+    if latest is None:
+        return None, None, True
+    return one_month_before(latest), latest, True
+
+
 def records(
     db: Session,
     *,
@@ -45,6 +77,7 @@ def records(
 ) -> list[SaleRecord]:
     """按日期与商号筛选销售记录；``merchant_nos`` 用于一次筛选多张结算单。"""
 
+    start_date, end_date, _ = resolve_date_window(db, start_date, end_date)
     query = db.query(SaleRecord)
     wanted = [item for item in (merchant_nos or []) if item]
     if merchant_no is not None:
@@ -230,7 +263,7 @@ def settlement_anomalies(
     batches: dict[int, ImportBatch],
     thresholds: AnomalyThresholds = DEFAULT_THRESHOLDS,
 ) -> list[dict]:
-    """对比同期其他结算单，返回平均每公斤售价与等级占比异常。"""
+    """对比同期其他结算单，返回每件均价与等级占比异常。"""
 
     settlement_count = len(
         {
@@ -252,7 +285,7 @@ def settlement_anomalies(
         anomalies.append(
             {
                 "type": "low_weighted_avg_price",
-                "reason": "结算单平均每公斤售价低于同期整体平均每公斤售价阈值",
+                "reason": "结算单每件均价低于同期整体每件均价阈值",
                 "metric": rounded(metric),
                 "baseline": rounded(baseline),
                 "threshold": rounded(thresholds.low_price_ratio),
@@ -290,10 +323,12 @@ __all__ = [
     "grade_shares",
     "group_by_merchant",
     "metrics",
+    "one_month_before",
     "rank_values",
     "raw_average",
     "raw_metrics",
     "records",
+    "resolve_date_window",
     "rounded",
     "settlement_anomalies",
     "settlement_map",

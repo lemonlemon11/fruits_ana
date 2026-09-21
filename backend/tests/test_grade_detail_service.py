@@ -128,7 +128,7 @@ def test_insights_compare_across_settlements_and_quality_marks() -> None:
             "号别数量": 2,
             "件数": 40.0,
             "金额": 18000.0,
-            "平均每公斤售价": 450.0,
+            "每件均价": 450.0,
             "件数占比": 1.0,
             "金额占比": 1.0,
             "金额占比减件数占比": 0.0,
@@ -147,15 +147,15 @@ def test_insights_compare_across_settlements_and_quality_marks() -> None:
     cross = insights["同号别跨结算单价格差"]
     assert cross[0]["号别"] == "A6"
     assert cross[0]["最高价商号"] == "M1"
-    assert cross[0]["最高平均每公斤售价"] == 600.0
+    assert cross[0]["最高每件均价"] == 600.0
     assert cross[0]["最低价商号"] == "M2"
-    assert cross[0]["最低平均每公斤售价"] == 350.0
+    assert cross[0]["最低每件均价"] == 350.0
     assert cross[0]["相差"] == 250.0
 
     marks = insights["品质标记对比"]
     a6 = next(row for row in marks if row["号别"] == "A6")
     assert a6["带标记件数"] == 10.0
-    assert a6["带标记平均每公斤售价"] == 300.0
+    assert a6["带标记每件均价"] == 300.0
     assert a6["无标记件数"] == 20.0
-    assert a6["无标记平均每公斤售价"] == 500.0
+    assert a6["无标记每件均价"] == 500.0
     assert a6["相差"] == -200.0

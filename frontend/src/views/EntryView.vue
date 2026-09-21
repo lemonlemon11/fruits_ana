@@ -1,24 +1,22 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ApiError,
+  deleteEntryDraft,
   getEntry,
+  getEntryDraft,
   getEntryFieldOptions,
   saveEntry,
+  saveEntryDraft,
   updateEntry,
+  type EntryAfterSaleItem,
+  type EntryDraft,
   type EntryFeeItem,
   type EntryPayload,
   type EntrySaleItem,
 } from '../api/client'
-import { currentUser } from '../auth'
-import {
-  clearEntryDraft,
-  hasEntryDraftContent,
-  readEntryDraft,
-  saveEntryDraft,
-  type EntryDraft,
-} from '../utils/entryDraft'
+import { hasEntryDraftContent } from '../utils/entryDraft'
 import DataTable, { type DataTableColumn } from '../components/DataTable.vue'
 import { FIXED_FEES, computeEntryTotals, createEmptyAfterSale, createEmptySale, createCustomFee, money } from '../utils/entryForm'
 import { parseSpecRange } from '../utils/specRange'
@@ -33,6 +31,23 @@ const error = ref('')
 const toast = ref('')
 const restoredDraft = ref(false)
 const conflictOpen = ref(false)
+/** 手机端分区折叠：窄屏默认只展开「基本信息」，其余按需展开，减少长表单滚动。 */
+const narrowQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  ? window.matchMedia('(max-width: 820px)')
+  : null
+const isNarrow = ref(narrowQuery?.matches ?? false)
+const collapsedBlocks = reactive<Record<string, boolean>>({})
+const BLOCK_IDS = ['basic', 'sales', 'after', 'fees', 'summary'] as const
+type BlockId = (typeof BLOCK_IDS)[number]
+function isCollapsed(id: BlockId) { return isNarrow.value && (collapsedBlocks[id] ?? id !== 'basic') }
+function toggleBlock(id: BlockId) { collapsedBlocks[id] = !isCollapsed(id) }
+function expandAllBlocks() { for (const id of BLOCK_IDS) collapsedBlocks[id] = false }
+async function jumpToBlock(id: BlockId) {
+  collapsedBlocks[id] = false
+  await nextTick()
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+function onNarrowChange(event: MediaQueryListEvent) { isNarrow.value = event.matches }
 const conflictMessage = ref('')
 const marketOptions = ref<string[]>([])
 const varietyOptions = ref<string[]>(['A', 'B', 'AB', 'BC', 'C', 'D', 'E', 'F'])
@@ -81,7 +96,7 @@ const totals = computed(() => computeEntryTotals(form.sales, form.afterSales, fo
 
 const piecesDiff = computed(() => form.arrivalQuantity === null ? null : form.arrivalQuantity - totals.value.totalPieces)
 
-/** 草稿写本地，防抖避免每次按键都写；保存成功后彻底清掉。 */
+/** 草稿写到后端数据库；防抖避免每次按键都请求，保存成功后彻底清掉。 */
 const DRAFT_DEBOUNCE_MS = 800
 let draftTimer: number | undefined
 let draftEnabled = false
@@ -101,26 +116,17 @@ function draftPayload(): EntryPayload {
   }
 }
 
-function flushDraft() {
+async function flushDraft() {
   if (!draftEnabled) return
+  const payload = draftPayload()
   try {
-    const payload = draftPayload()
-    const userKey = currentUser.value?.id
     if (!hasEntryDraftContent(payload)) {
-      clearEntryDraft(window.localStorage, userKey)
+      await deleteEntryDraft()
       return
     }
-    const draft: EntryDraft = {
-      updatedAt: new Date().toISOString(),
-      editing: Boolean(editingMerchantNo.value),
-      merchantNo: payload.merchantNo,
-      orderNo: payload.orderNo,
-      salesCount: payload.sales.filter((row) => row.saleDate.trim() || Number(row.salesQuantity) > 0).length,
-      payload,
-    }
-    saveEntryDraft(window.localStorage, userKey, draft)
+    await saveEntryDraft(payload, Boolean(editingMerchantNo.value))
   } catch {
-    // 隐私模式或存储不可用时仍可正常录单，只是没有草稿。
+    // 暂存接口失败时仍可正常录单，只影响“刷新后继续填”。
   }
 }
 
@@ -129,26 +135,26 @@ function scheduleDraftSave() {
   if (draftTimer) window.clearTimeout(draftTimer)
   draftTimer = window.setTimeout(() => {
     draftTimer = undefined
-    flushDraft()
+    void flushDraft()
   }, DRAFT_DEBOUNCE_MS)
 }
 
-function saveDraftNow() {
-  flushDraft()
+async function saveDraftNow() {
+  await flushDraft()
   showToast('已暂存，可稍后继续录单')
 }
 
-function clearDraft() {
+async function clearDraft() {
   try {
-    clearEntryDraft(window.localStorage, currentUser.value?.id)
+    await deleteEntryDraft()
   } catch {
     // 清不掉也不影响保存结果。
   }
 }
 
-function readStoredDraft(): EntryDraft | null {
+async function readStoredDraft(): Promise<EntryDraft | null> {
   try {
-    return readEntryDraft(window.localStorage, currentUser.value?.id)
+    return await getEntryDraft()
   } catch {
     return null
   }
@@ -177,8 +183,9 @@ function applyDraft(draft: EntryDraft) {
 watch(form, () => scheduleDraftSave(), { deep: true })
 
 onBeforeUnmount(() => {
+  narrowQuery?.removeEventListener('change', onNarrowChange)
   if (draftTimer) window.clearTimeout(draftTimer)
-  flushDraft()
+  void flushDraft()
 })
 
 function showToast(message: string) {
@@ -220,14 +227,36 @@ function saleAmount(row: EntrySaleItem) {
   return money(Number(row.salesQuantity || 0) * Number(row.unitPrice || 0))
 }
 
+function invalidVariety(value: string): boolean {
+  const text = value.trim()
+  return text !== '' && !/^[A-Z]{1,3}$/.test(text)
+}
+
+function invalidSpec(value: string): boolean {
+  const text = value.trim()
+  return text !== '' && !parseSpecRange(text)
+}
+
 function validate() {
   if (!form.merchantNo || !form.containerNo || !form.orderNo || !form.vehicleNo || !form.market || !form.arrivalDate || form.arrivalQuantity === null) {
     return '请完整填写基本信息必填项'
   }
   if (!form.sales.length) return '请至少添加一条销售明细'
   for (const row of form.sales) {
-    if (!row.saleDate || !row.variety || !parseSpecRange(row.headCount) || !parseSpecRange(row.specKg) || Number(row.salesQuantity) <= 0 || Number(row.unitPrice) <= 0) {
-      return '请完整填写销售日期、品种、规格（头数）、规格（KG）、数量（件）和单价（规格支持 3/4、9/10 这类写法）'
+    if (!row.saleDate || Number(row.salesQuantity) <= 0) {
+      return '请填写销售日期和数量（件）'
+    }
+    if (invalidVariety(row.variety)) {
+      return '品种填写时需为 1~3 个大写字母，如 A、AB、BC；不填时按其他等级统计'
+    }
+    if (invalidSpec(row.headCount)) {
+      return '规格（头数）填写时需为数字或区间（如 3/4、9/10、10）；不填可留空'
+    }
+    if (invalidSpec(row.specKg)) {
+      return '规格（KG）填写时需为数字或区间（如 10、9/10）；不填可留空'
+    }
+    if (Number(row.unitPrice) < 0) {
+      return '单价不能为负数；不填按 0 计算'
     }
   }
   return ''
@@ -236,6 +265,7 @@ function validate() {
 async function submit(overwrite = false) {
   const validation = validate()
   if (validation) {
+    expandAllBlocks()
     showToast(validation)
     return
   }
@@ -256,7 +286,7 @@ async function submit(overwrite = false) {
       : await saveEntry(payload, { overwrite })
     conflictOpen.value = false
     draftEnabled = false
-    clearDraft()
+    void clearDraft()
     restoredDraft.value = false
     showToast('已保存，正在打开结算单详情')
     window.setTimeout(() => {
@@ -290,9 +320,11 @@ async function loadEntry() {
   draftEnabled = false
   try {
     await loadOptions()
-    const wantsDraft = route.query.draft === '1'
-    const stored = wantsDraft ? readStoredDraft() : null
-    if (stored) {
+    const stored = await readStoredDraft()
+    const editingDraftMatches = Boolean(editingMerchantNo.value)
+      && stored?.editing === true
+      && stored.merchantNo === editingMerchantNo.value
+    if (stored && (!editingMerchantNo.value || editingDraftMatches)) {
       applyDraft(stored)
       restoredDraft.value = true
     } else if (editingMerchantNo.value) {
@@ -320,12 +352,15 @@ async function loadEntry() {
   }
 }
 
-onMounted(loadEntry)
+onMounted(() => {
+  narrowQuery?.addEventListener('change', onNarrowChange)
+  void loadEntry()
+})
 </script>
 
 
 <template>
-  <section class="entry-page review-entry-page">
+  <section class="entry-page review-entry-page mobile-form-page">
     <header class="entry-head">
       <div>
         <p class="eyebrow">结算单录入</p>
@@ -349,15 +384,16 @@ onMounted(loadEntry)
       </div>
 
       <nav class="jump-nav" aria-label="表单分区">
-        <a href="#basic">基本信息</a>
-        <a href="#sales">销售明细</a>
-        <a href="#after">售后明细</a>
-        <a href="#fees">支出费用</a>
-        <a href="#summary">结算核对</a>
+        <a href="#basic" @click.prevent="jumpToBlock('basic')">基本信息</a>
+        <a href="#sales" @click.prevent="jumpToBlock('sales')">销售明细</a>
+        <a href="#after" @click.prevent="jumpToBlock('after')">售后明细</a>
+        <a href="#fees" @click.prevent="jumpToBlock('fees')">支出费用</a>
+        <a href="#summary" @click.prevent="jumpToBlock('summary')">结算核对</a>
       </nav>
 
-      <section class="block" id="basic">
-        <div class="block-title"><h2>基本信息</h2><span>来源：手工录入</span></div>
+      <section class="block" :class="{ 'is-collapsed': isCollapsed('basic') }" id="basic">
+        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('basic') : undefined" @click="toggleBlock('basic')"><h2>基本信息</h2><span>来源：手工录入</span></div>
+        <div v-show="!isCollapsed('basic')" class="block-body">
         <div class="basic-grid">
           <label class="field">
             <span>商号 *</span>
@@ -392,16 +428,19 @@ onMounted(loadEntry)
             <input v-model.number="form.arrivalQuantity" type="number" min="0" step="1" aria-label="来货数量（件）" />
           </label>
         </div>
+        </div>
       </section>
 
-      <section class="block" id="sales">
-        <div class="block-title"><h2>销售明细 <small>· {{ form.sales.length }} 行</small></h2><button class="outline" type="button" @click="addSale">添加销售行</button></div>
+      <section class="block" :class="{ 'is-collapsed': isCollapsed('sales') }" id="sales">
+        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('sales') : undefined" @click="toggleBlock('sales')"><h2>销售明细 <small>· {{ form.sales.length }} 行</small></h2><button class="outline" type="button" @click.stop="addSale">添加销售行</button></div>
+        <div v-show="!isCollapsed('sales')" class="block-body">
         <DataTable
           class="review-table sale-table"
           :columns="saleColumns"
           :rows="form.sales"
           :row-key="saleRowKey"
           bordered
+          cards-on-narrow
           caption="销售明细录入"
           min-width="1080px"
           empty-text="还没有销售行，点「添加销售行」开始录入"
@@ -410,13 +449,13 @@ onMounted(loadEntry)
             <input v-model="row.saleDate" type="date" aria-label="销售日期" />
           </template>
           <template #cell-variety="{ row }">
-            <input v-model="row.variety" aria-label="品种" placeholder="如 A、B、AB、BC" />
+            <input v-model="row.variety" :class="{ 'spec-invalid': invalidVariety(row.variety) }" aria-label="品种" placeholder="可选，如 A、B、AB、BC" />
           </template>
           <template #cell-headCount="{ row }">
-            <input v-model="row.headCount" :class="{ 'spec-invalid': !parseSpecRange(row.headCount) }" placeholder="如 3/4" aria-label="规格（头数）" />
+            <input v-model="row.headCount" :class="{ 'spec-invalid': invalidSpec(row.headCount) }" placeholder="可选，如 3/4" aria-label="规格（头数）" />
           </template>
           <template #cell-specKg="{ row }">
-            <input v-model="row.specKg" :class="{ 'spec-invalid': !parseSpecRange(row.specKg) }" placeholder="如 10 或 9/10" aria-label="规格（KG）" />
+            <input v-model="row.specKg" :class="{ 'spec-invalid': invalidSpec(row.specKg) }" placeholder="可选，如 10 或 9/10" aria-label="规格（KG）" />
           </template>
           <template #cell-remark="{ row }">
             <input v-model="row.remark" aria-label="备注" />
@@ -438,16 +477,19 @@ onMounted(loadEntry)
           <span>总件数 <strong>{{ totals.totalPieces }}</strong> 件</span>
           <span>销售金额 <strong>{{ money(totals.salesAmount) }}</strong> 元</span>
         </div>
+        </div>
       </section>
 
-      <section class="block" id="after">
-        <div class="block-title"><h2>售后明细</h2><button class="outline" type="button" @click="addAfterSale">添加售后行</button></div>
+      <section class="block" :class="{ 'is-collapsed': isCollapsed('after') }" id="after">
+        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('after') : undefined" @click="toggleBlock('after')"><h2>售后明细 <small v-if="form.afterSales.length">· {{ form.afterSales.length }} 行</small></h2><button class="outline" type="button" @click.stop="addAfterSale">添加售后行</button></div>
+        <div v-show="!isCollapsed('after')" class="block-body">
         <DataTable
-          class="review-table smaller"
+          class="review-table smaller after-sale-table"
           :columns="afterSaleColumns"
           :rows="form.afterSales"
           :row-key="afterSaleRowKey"
           bordered
+          cards-on-narrow
           caption="售后明细录入"
           min-width="540px"
           empty-text="还没有售后行，点「添加售后行」开始录入"
@@ -466,16 +508,19 @@ onMounted(loadEntry)
           </template>
         </DataTable>
         <div class="section-foot">售后合计 <strong>{{ money(totals.afterAmount) }}</strong> 元</div>
+        </div>
       </section>
 
-      <section class="block" id="fees">
-        <div class="block-title"><h2>支出费用</h2><button class="outline" type="button" @click="addCustomFee">添加费用行</button></div>
+      <section class="block" :class="{ 'is-collapsed': isCollapsed('fees') }" id="fees">
+        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('fees') : undefined" @click="toggleBlock('fees')"><h2>支出费用 <small>· 合计 {{ money(totals.feeAmount) }} 元</small></h2><button class="outline" type="button" @click.stop="addCustomFee">添加费用行</button></div>
+        <div v-show="!isCollapsed('fees')" class="block-body">
         <DataTable
-          class="review-table smaller"
+          class="review-table smaller fee-table"
           :columns="feeColumns"
           :rows="form.fees"
           :row-key="feeRowKey"
           bordered
+          cards-on-narrow
           caption="支出费用录入"
           min-width="540px"
         >
@@ -491,10 +536,12 @@ onMounted(loadEntry)
           </template>
         </DataTable>
         <div class="section-foot">费用合计 <strong>{{ money(totals.feeAmount) }}</strong> 元</div>
+        </div>
       </section>
 
-      <section class="block" id="summary">
-        <div class="block-title"><h2>结算核对</h2></div>
+      <section class="block" :class="{ 'is-collapsed': isCollapsed('summary') }" id="summary">
+        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('summary') : undefined" @click="toggleBlock('summary')"><h2>结算核对 <small>· 应付 {{ money(totals.payable) }} 元</small></h2></div>
+        <div v-show="!isCollapsed('summary')" class="block-body">
         <div class="summary-table manual-summary">
           <div class="summary-head"><span>核对项目</span><span>系统计算</span></div>
           <div class="summary-line"><span>总件数</span><span><strong>{{ totals.totalPieces }}</strong></span></div>
@@ -505,6 +552,7 @@ onMounted(loadEntry)
           <div class="summary-line total"><span>应付贵方总金额(RMB)</span><span><strong>{{ money(totals.payable) }}</strong></span></div>
         </div>
         <p class="summary-note">保存后以系统计算值写入结算单。</p>
+        </div>
       </section>
 
       <div class="actions">

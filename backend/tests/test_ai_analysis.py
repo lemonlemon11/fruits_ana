@@ -28,13 +28,13 @@ from app.services.ai_analysis_service import (
 )
 
 ANALYSIS_TEXT = """整体行情
-- 三张结算单合计 2 847 件，平均每件 460.00 元。
+- 三张结算单合计 2 847 件，每件均价 460.00 元。
 A果
-- A 果 913 件，平均每件 514.52 元。
+- A 果 913 件，每件均价 514.52 元。
 B果
-- B 果 1 316 件，平均每件 431.93 元。
+- B 果 1 316 件，每件均价 431.93 元。
 C果
-- C 果 618 件，平均每件 344.55 元。
+- C 果 618 件，每件均价 344.55 元。
 可以留意的地方
 - C 果件数占比上升，可核对小箱货比例。"""
 
@@ -187,8 +187,8 @@ def test_payload_adds_sample_size_and_comparison_insights():
     insights = payload["对比结论"]
     rankings = insights["结算单均价排名"]
     assert len(rankings) == 2
-    assert rankings[0]["平均每公斤售价"] >= rankings[1]["平均每公斤售价"]
-    assert insights["最高比最低每公斤贵"] is not None
+    assert rankings[0]["每件均价"] >= rankings[1]["每件均价"]
+    assert insights["最高比最低每件贵"] is not None
     signals = {row["等级"]: row for row in insights["等级结构信号"]}
     assert signals["A"]["金额占比减件数占比"] == pytest.approx(0.625 - 15 / 40)
 

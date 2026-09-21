@@ -4,6 +4,7 @@ import io
 from pathlib import Path
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
@@ -36,15 +37,23 @@ def authenticated_business_api():
     app.dependency_overrides.pop(require_current_user, None)
 
 
+def xlsx_bytes(csv_text: str) -> bytes:
+    rows = [line.split(",") for line in csv_text.strip().splitlines()]
+    output = io.BytesIO()
+    pd.DataFrame(rows).to_excel(output, index=False, header=False)
+    return output.getvalue()
+
+
 def test_upload_lists_batch_and_downloads_issues_csv():
-    payload = (
+    payload = xlsx_bytes(
         "商号,柜号,日期,等级,数量,单价,金额\n"
         "单C1,C1,2026-01-01,A6,2,5,11\n"
-    ).encode("utf-8-sig")
+    )
     client = TestClient(app)
 
     uploaded = client.post(
-        "/api/imports", files=[("files", ("sales.csv", payload, "text/csv"))]
+        "/api/imports",
+        files=[("files", ("sales.xlsx", payload, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))],
     )
 
     assert uploaded.status_code == 200
@@ -104,18 +113,102 @@ def test_preview_multi_file_creates_job_and_confirm_writes_batches():
     db.close()
 
 
-def test_same_merchant_upload_conflicts_and_missing_batch_is_404():
+def test_preview_draft_exposes_original_payload_after_update():
+    client = TestClient(app)
+    attachments = Path(__file__).resolve().parents[2] / "attachments"
+    file_path = attachments / "结算单模板样式-测试数据 1.xlsx"
+
+    preview = client.post(
+        "/api/imports/preview",
+        files=[
+            (
+                "files",
+                (
+                    file_path.name,
+                    file_path.read_bytes(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ),
+            )
+        ],
+    )
+
+    assert preview.status_code == 200
+    body = preview.json()
+    job = client.get(f"/api/imports/jobs/{body['token']}").json()
+    draft_token = job["drafts"][0]["token"]
+    draft = client.get(
+        f"/api/imports/jobs/{body['token']}/drafts/{draft_token}"
+    ).json()
+
+    assert draft["payload"]["merchant_no"] == draft["original_payload"]["merchant_no"]
+
+    payload = draft["payload"]
+    payload["merchant_no"] = "单 67322-改"
+    updated = client.put(
+        f"/api/imports/jobs/{body['token']}/drafts/{draft_token}",
+        json=payload,
+    )
+
+    assert updated.status_code == 200
+    assert updated.json()["payload"]["merchant_no"] == "单 67322-改"
+    assert updated.json()["original_payload"]["merchant_no"] != "单 67322-改"
+
+
+def test_resolve_issue_endpoint_marks_resolved():
+    payload = xlsx_bytes(
+        "商号,柜号,日期,等级,数量,单价,金额\n"
+        "单C6,C6,2026-01-06,A6,2,5,11\n"
+    )
+    client = TestClient(app)
+    uploaded = client.post(
+        "/api/imports",
+        files=[("files", ("sales.xlsx", payload, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))],
+    )
+
+    assert uploaded.status_code == 200
+    batch_id = uploaded.json()["imports"][0]["batch_id"]
+    issue = client.get(f"/api/imports/{batch_id}/issues").json()["issues"][0]
+
+    response = client.post(f"/api/imports/{batch_id}/issues/{issue['id']}/resolve")
+
+    assert response.status_code == 200
+    refreshed = client.get(f"/api/imports/{batch_id}/issues").json()["issues"][0]
+    assert refreshed["resolved"] is True
+    listed = client.get("/api/imports").json()["imports"][0]
+    assert listed["warning_count"] == 0
+
+
+def test_preview_rejects_csv_before_parsing():
+    client = TestClient(app)
     payload = (
         "商号,柜号,日期,等级,数量,单价,金额\n"
-        "单C2,C2,2026-01-02,BC6,2,5,10\n"
+        "单C1,C1,2026-01-01,A6,2,5,10\n"
     ).encode("utf-8-sig")
+
+    response = client.post(
+        "/api/imports/preview",
+        files=[("files", ("sales.csv", payload, "text/csv"))],
+    )
+
+    assert response.status_code == 422
+    failures = response.json()["detail"]["failures"]
+    assert failures[0]["error"] == "仅支持 XLSX 文件"
+
+
+def test_same_merchant_upload_conflicts_and_missing_batch_is_404():
+    payload = xlsx_bytes(
+        "商号,柜号,日期,等级,数量,单价,金额\n"
+        "单C2,C2,2026-01-02,BC6,2,5,10\n"
+    )
     client = TestClient(app)
 
     first = client.post(
-        "/api/imports", files=[("files", ("sales.csv", payload, "text/csv"))]
+        "/api/imports",
+        files=[("files", ("sales.xlsx", payload, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))],
     ).json()["imports"][0]
     second = client.post(
-        "/api/imports", files=[("files", ("renamed.csv", payload, "text/csv"))]
+        "/api/imports",
+        files=[("files", ("renamed.xlsx", payload, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))],
     ).json()["imports"][0]
 
     assert first["status"] == "success"
@@ -133,6 +226,7 @@ def test_same_merchant_upload_conflicts_and_missing_batch_is_404():
     ("filename", "payload"),
     [
         ("legacy.xls", b"not-an-xls-file"),
+        ("legacy.csv", b"not-a-csv-file"),
         ("broken.xlsx", b"not-an-xlsx-file"),
     ],
 )
@@ -145,21 +239,24 @@ def test_upload_rejects_unreadable_or_unsupported_excel(filename, payload):
     )
 
     assert response.status_code == 200
-    assert response.json()["imports"][0]["status"] == "failed"
+    result = response.json()["imports"][0]
+    assert result["status"] == "failed"
+    if filename.endswith(".csv"):
+        assert result["error"] == "仅支持 XLSX 文件"
     assert not list(imports_api.UPLOAD_DIR.iterdir())
 
 
 def test_multi_file_upload_keeps_success_when_another_file_fails():
-    valid = (
+    valid = xlsx_bytes(
         "商号,柜号,日期,等级,数量,单价,金额\n"
         "单C3,C3,2026-01-03,A6,2,5,10\n"
-    ).encode("utf-8-sig")
+    )
     client = TestClient(app, raise_server_exceptions=False)
 
     response = client.post(
         "/api/imports",
         files=[
-            ("files", ("valid.csv", valid, "text/csv")),
+            ("files", ("valid.xlsx", valid, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")),
             ("files", ("broken.xlsx", b"broken", "application/octet-stream")),
         ],
     )
@@ -174,12 +271,13 @@ def test_multi_file_upload_keeps_success_when_another_file_fails():
 
 
 def test_cleanup_does_not_remove_storage_referenced_by_a_batch():
-    payload = (
+    payload = xlsx_bytes(
         "商号,柜号,日期,等级,数量,单价,金额\n"
         "单C5,C5,2026-01-05,A6,2,5,10\n"
-    ).encode("utf-8-sig")
+    )
     response = TestClient(app).post(
-        "/api/imports", files=[("files", ("same.csv", payload, "text/csv"))]
+        "/api/imports",
+        files=[("files", ("same.xlsx", payload, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))],
     )
     result = response.json()["imports"][0]
     db = SessionLocal()
@@ -198,7 +296,7 @@ def test_upload_over_20_mib_returns_failed_result_and_cleans_temp_file():
 
     response = client.post(
         "/api/imports",
-        files=[("files", ("too-large.csv", payload, "text/csv"))],
+        files=[("files", ("too-large.xlsx", payload, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))],
     )
 
     assert response.status_code == 200
@@ -210,7 +308,7 @@ def test_upload_over_20_mib_returns_failed_result_and_cleans_temp_file():
 
 def test_upload_reads_in_bounded_chunks():
     class ChunkedUpload:
-        filename = "chunked.csv"
+        filename = "chunked.xlsx"
 
         def __init__(self):
             self.read_sizes = []
@@ -240,13 +338,14 @@ def test_import_work_is_offloaded_from_async_endpoint(monkeypatch):
         return await real_run_in_threadpool(function, *args, **kwargs)
 
     monkeypatch.setattr(imports_api, "run_in_threadpool", tracking_run_in_threadpool)
-    payload = (
+    payload = xlsx_bytes(
         "商号,柜号,日期,等级,数量,单价,金额\n"
         "单C4,C4,2026-01-04,A6,2,5,10\n"
-    ).encode("utf-8-sig")
+    )
 
     response = TestClient(app).post(
-        "/api/imports", files=[("files", ("sales.csv", payload, "text/csv"))]
+        "/api/imports",
+        files=[("files", ("sales.xlsx", payload, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))],
     )
 
     assert response.status_code == 200

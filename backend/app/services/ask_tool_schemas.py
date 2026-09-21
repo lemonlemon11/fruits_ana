@@ -41,7 +41,7 @@ TOOL_SCHEMAS: list[dict] = [
         "function": {
             "name": "get_overview",
             "description": (
-                "总量、总金额、平均每公斤售价与各等级表现。"
+                "总量、总金额、每件均价与各等级表现。"
                 "问「卖了多少」「平均价多少」时用。"
             ),
             "parameters": {

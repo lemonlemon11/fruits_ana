@@ -59,13 +59,13 @@ test('分页条内嵌在表格底栏，与表格是一个整体', () => {
   assert.match(viewSource, /\.settlement-list-results \{ display: grid; grid-template-rows: minmax\(0, 1fr\); min-height: 0; \}/)
 })
 
-test('列表在桌面端锁定一屏：列表内部滚动、翻页区避开右下角悬浮入口', () => {
-  // 整页高度上限 = 视口高 -（导航 + 页签 + 留白），行数多时只让列表内部滚动，整页不上下滚。
-  assert.match(viewSource, /max-height: max\(32rem, calc\(100dvh - var\(--settle-reserved\)\)\)/)
-  // 行数超出可视高度时只压缩列表所在的 .panel，顶部筛选区不被挤扁。
+test('列表在桌面端至少撑满剩余视口，行多时随页面自然向下扩展', () => {
+  // 整页高度下限 = 视口高 -（导航 + 页签 + 留白），行数少时列表也撑满可视区。
+  assert.match(viewSource, /min-height: max\(32rem, calc\(100dvh - var\(--settle-reserved\)\)\)/)
+  // 行数超出可视高度时列表随内容扩展，顶部筛选区保持原样。
   assert.match(viewSource, /\.settlement-list-page > \* \{ flex: 0 0 auto; \}/)
   assert.match(viewSource, /\.settlement-list-page \.panel \{ display: grid; flex: 1 1 auto;/)
-  // 翻页按钮靠左，右下角整块留空给“顺仔”悬浮入口，避免点不到。
+  // 翻页按钮仍靠左，右下角整块留空给“顺仔”悬浮入口，避免点不到。
   assert.match(viewSource, /\.pagination-actions \{ margin-left: 0; \}/)
 })
 
@@ -94,27 +94,27 @@ test('按行导出：地址指向单张结算单模板，手工单与导入件�
 
 test('列表每行都有导出入口，桌面表格与移动端卡片一致', () => {
   assert.match(viewSource, /settlementTemplateExportUrl/)
-  assert.match(viewSource, /function rowExportUrl\(item: SettlementListItem\): string \{\n\s*return settlementTemplateExportUrl\(item\.merchantNo\)/)
-  // 桌面表格操作列：导出 + 查看明细，两个都是带图标的按钮，主操作实心绿。
+  assert.match(viewSource, /settlementTemplatePdfUrl/)
+  // 桌面表格：导出按钮 → 下拉菜单（Excel / PDF），查看明细主操作实心绿。
   assert.match(
     viewSource,
-    /<template #cell-actions="\{ row \}">[\s\S]*?<a class="row-action-button" :href="rowExportUrl\(row\)" download>[\s\S]*?<Download :size="13" aria-hidden="true" \/>[\s\S]*?导出[\s\S]*?<button class="row-action-button is-primary" type="button" @click="openRecords\(row\)">[\s\S]*?<ListTree :size="13" aria-hidden="true" \/>[\s\S]*?查看明细[\s\S]*?<\/template>/,
+    /<template #cell-actions="{ row }">[\s\S]*?<span class="export-dropdown">[\s\S]*?<button class="row-action-button" type="button" @click\.prevent\.stop="toggleExportMenu\(row\.merchantNo\)">[\s\S]*?<Download :size="13" aria-hidden="true" \/>[\s\S]*?导出[\s\S]*?<span class="export-sub" :class="{ visible: openExportMenu === row\.merchantNo }">[\s\S]*?>[\s\S]*?Excel[\s\S]*?>[\s\S]*?PDF[\s\S]*?<button class="row-action-button is-primary" type="button" @click="openRecords\(row\)">[\s\S]*?<ListTree :size="13" aria-hidden="true" \/>[\s\S]*?查看明细[\s\S]*?<\/template>/,
   )
   assert.match(viewSource, /import Download from '@lucide\/vue\/dist\/esm\/icons\/download\.mjs'/)
   assert.match(viewSource, /import ListTree from '@lucide\/vue\/dist\/esm\/icons\/list-tree\.mjs'/)
   assert.match(viewSource, /\.row-action-button\.is-primary \{ border-color: var\(--primary-dark\); background: var\(--primary\); color: white; \}/)
-  // 移动端卡片同样两个入口，且不折行。
-  assert.match(
-    viewSource,
-    /<div class="mobile-card-actions">[\s\S]*?<a class="text-button export-row-link" :href="rowExportUrl\(item\)" download>导出<\/a>[\s\S]*?查看明细[\s\S]*?<\/div>/,
-  )
-  assert.match(viewSource, /\.row-actions \{ display: inline-flex; flex-wrap: nowrap;/)
-  assert.match(
-    viewSource,
-    /\.mobile-settlement-card header > div\.mobile-card-actions \{ display: inline-flex; flex: 0 0 auto; flex-wrap: nowrap;/,
-  )
+  // 移动端卡片：查看明细 + Excel / PDF + 删除放在同一动作栏，不折行。
+  assert.match(viewSource, /<div class="mobile-card-actions-bar">/)
+  assert.match(viewSource, /<button class="primary-button mobile-detail-button" type="button" @click="openRecords\(item\)">查看明细<\/button>/)
+  assert.match(viewSource, /<a class="text-button export-row-link" :href="rowExportUrl\(item, 'xlsx'\)" download>/)
+  assert.match(viewSource, /<FileSpreadsheet :size="14" aria-hidden="true" \/> Excel/)
+  assert.match(viewSource, /<a class="text-button export-row-link" :href="rowExportUrl\(item, 'pdf'\)" download>/)
+  assert.match(viewSource, /<FileText :size="14" aria-hidden="true" \/> PDF/)
+  assert.match(viewSource, /class="text-button delete-row-link"/)
+  assert.match(viewSource, /\.mobile-card-actions-bar \{\s+display: flex;/)
+  assert.match(viewSource, /\.mobile-detail-button \{\s+flex: 1 1 auto;/)
   // 操作列固定宽度，避免两按钮被挤到折行。
-  assert.match(viewSource, /\{ key: 'actions', label: '操作', align: 'right', width: '10\.5rem' \}/)
+  assert.match(viewSource, /\{ key: 'actions', label: '操作', align: 'right', width: '13\.5rem' \}/)
 })
 
 test('结算单列表空状态与其他页面一致使用 prominent，且不显示 null 范围提示', () => {
@@ -122,4 +122,12 @@ test('结算单列表空状态与其他页面一致使用 prominent，且不显�
   assert.match(viewSource, /<p v-if="dateRange" class="range-note">\{\{ rangeHint \}\}<\/p>/)
   assert.match(viewSource, /\.settlement-list-page \.panel > \.skeleton-block \{ min-height: 0; \}/)
   assert.doesNotMatch(viewSource, /\.settlement-list-page \.panel > \.empty-state \{ min-height: 0; \}/)
+})
+
+test('删除结算单使用页面内确认框，不弹浏览器原生确认框', () => {
+  assert.doesNotMatch(viewSource, /window\.confirm/)
+  assert.match(viewSource, /const deleteTarget = ref<SettlementListItem \| null>\(null\)/)
+  assert.match(viewSource, /v-if="deleteTarget" class="delete-confirm-overlay"/)
+  assert.match(viewSource, /role="alertdialog"/)
+  assert.match(viewSource, /确认删除/)
 })

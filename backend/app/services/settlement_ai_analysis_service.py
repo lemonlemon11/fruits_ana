@@ -27,7 +27,7 @@ from .settlement_analytics_service import get_settlement_comparison
 
 FEATURE = "settlement-detail"
 # v2：小标题只列当前结算单实际有的等级，不再要求给空等级写「暂无数据」占位小节。
-PROMPT_VERSION = "v3"
+PROMPT_VERSION = "v5"
 MAX_PEER_SETTLEMENTS = 6
 
 # 等级在结论里的小标题写法，顺序与平台等级顺序一致。
@@ -47,11 +47,11 @@ SYSTEM_PROMPT = """你是水果销售数据分析助手，服务对象是果农�
 规则：
 1. 全部用简体中文，句子要短，一句话不超过 40 个字。
 2. 禁止使用「加权均价」「贡献度」「环比」「同比」「毛利率」「渗透率」这类术语；
-   金额单位说「元」，单价一律说「平均每公斤售价」。
+   金额单位说「元」，单价一律说「每件均价」。
 3. 严格按给定的小标题输出，标题独占一行，标题下面每条以「- 」开头，每条 1 到 2 句。
-4. 平均每公斤售价保留整数（四舍五入，例如 515 元），占比写成百分比保留一位小数（例如 42.7%），
+4. 每件均价保留整数（四舍五入，例如 515 元），占比写成百分比保留一位小数（例如 42.7%），
    不要写 0.4273 这种小数占比；件数和金额照抄数据里的原样。
-5. 每条结论后面用括号补上依据的数字，例如（913 件、平均每公斤 515 元）。
+5. 每条结论后面用括号补上依据的数字，例如（913 件、每件均价 515 元）。
 6. 不要输出问候语、结尾套话，也不要解释你是怎么分析的。
 7. 数据里没有的内容不要写，也不要自己补算新的指标。
 8. 要「说透」，不要只复述数字：每个等级至少说明当前结算单比同品牌其他单据高还是低、
@@ -70,7 +70,7 @@ def _grade_payload(row: dict) -> list[dict]:
             "等级": item.get("grade"),
             "件数": item.get("sales_quantity"),
             "金额": item.get("sales_amount"),
-            "平均每公斤售价": item.get("weighted_avg_price"),
+            "每件均价": item.get("weighted_avg_price"),
             "件数占比": item.get("quantity_share"),
         }
         for item in grades
@@ -87,7 +87,7 @@ def _settlement_payload(row: dict) -> dict:
         "到达日期": f"{row.get('start_date')} 至 {row.get('end_date')}",
         "总件数": total.get("sales_quantity"),
         "总金额": total.get("sales_amount"),
-        "平均每公斤售价": total.get("weighted_avg_price"),
+        "每件均价": total.get("weighted_avg_price"),
         "分等级": _grade_payload(row),
     }
 
@@ -109,7 +109,7 @@ def _peer_grade_benchmark(peers: Sequence[dict]) -> list[dict]:
                 "等级": grade.get("grade"),
                 "件数": float(quantity),
                 "金额": float(amount),
-                "平均每公斤售价": float(amount / quantity) if quantity else None,
+                "每件均价": float(amount / quantity) if quantity else None,
             }
         )
     return grades
@@ -117,7 +117,7 @@ def _peer_grade_benchmark(peers: Sequence[dict]) -> list[dict]:
 
 def _build_payload(current: dict, peers: Sequence[dict]) -> dict:
     return {
-        "口径": "件数单位=件；金额单位=元；平均每公斤售价=销售金额÷销量（千克）（元/公斤）",
+        "口径": "件数单位=件；金额单位=元；每件均价=销售金额÷销量（件）（元/件）",
         "当前结算单": _settlement_payload(current),
         "同品牌其他结算单": [_settlement_payload(item) for item in peers],
         "同品牌其他结算单等级基准": _peer_grade_benchmark(peers),

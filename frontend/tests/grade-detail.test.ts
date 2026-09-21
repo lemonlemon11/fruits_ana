@@ -54,7 +54,7 @@ test('号别小结按自己的小标题切分，不误用系列小标题', () =>
     '这批货的等级结构',
     '- 共 3 821 件。',
     '哪个号最值钱',
-    '- A6 平均每件 530.28 元。',
+    '- A6 每件均价 530.28 元。',
   ].join('\n')
 
   assert.deepEqual(
@@ -67,7 +67,7 @@ test('号别小结按自己的小标题切分，不误用系列小标题', () =>
 
 test('等级细分页面使用果农能看懂的文案且不出现专业术语', () => {
   const component = read('components/SeriesGradeDetail.vue')
-  assert.match(component, /平均每公斤售价/)
+  assert.match(component, /每件均价/)
   assert.match(component, /号别/)
   assert.doesNotMatch(component, /加权均价|贡献度|环比|同比/)
 

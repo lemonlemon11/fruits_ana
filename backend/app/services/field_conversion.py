@@ -36,10 +36,17 @@ def convert_grade(db: Session, raw: str | None) -> StandardGrade:
         .order_by(AdminFieldConversionRule.sort_order, AdminFieldConversionRule.id)
         .first()
     )
-    target = rule.target_value if rule is not None else source_value
-    if target in {item.value for item in StandardGrade}:
-        return StandardGrade(target)
-    return StandardGrade.OTHER
+    if rule is not None:
+        try:
+            return StandardGrade(rule.target_value)
+        except ValueError as exc:
+            raise ValueError(
+                f"字段转换规则 {rule.source_value}→{rule.target_value} 的目标值不是合法等级"
+            ) from exc
+    try:
+        return StandardGrade(source_value)
+    except ValueError:
+        return StandardGrade.OTHER
 
 
 def active_grade_rules(db: Session) -> list[AdminFieldConversionRule]:

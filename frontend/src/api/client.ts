@@ -7,13 +7,14 @@ import {
   normalizeImportIssues,
   normalizeImportJob,
   normalizeImportReviewDraft,
+  normalizeEntryDraft,
   normalizeEntryFieldOptions,
   normalizeEntryRead,
+  normalizeGradeBreakdown,
   normalizeOverview,
   normalizeSettlementComparison,
   normalizeSettlementDetail,
   normalizeSettlementList,
-  normalizeSettlementRecordsData,
   normalizeSeriesAnalysis,
   normalizeSeriesComparison,
   normalizeTrend,
@@ -22,12 +23,15 @@ import {
 import type {
   AppNotification,
   AnalyticsFilters,
+  AuthMenu,
   AskHistoryMessage,
   AskResult,
   AuthUser,
+  EntryDraft,
   EntryFieldOption,
   EntryPayload,
   EntryRead,
+  GradeBreakdownData,
   ImportBatch,
   ImportConfirmResult,
   ImportIssue,
@@ -41,17 +45,27 @@ import type {
   SettlementDetail,
   SettlementListData,
   SettlementListFilters,
-  SettlementRecordsData,
   SeriesAnalysisResult,
   SeriesComparisonData,
   TrendPoint,
 } from './types.ts'
+import { createLogger } from '../utils/logger.ts'
 
 export * from './normalize.ts'
 export type * from './types.ts'
 
 type JsonRecord = Record<string, unknown>
 const API_ROOT = '/api'
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
+const logger = createLogger('api')
+
+interface RequestOptions extends RequestInit {
+  timeoutMs?: number
+}
+
+interface FetchApiOptions {
+  signal?: AbortSignal
+}
 
 export class ApiError extends Error {
   readonly status: number
@@ -63,10 +77,18 @@ export class ApiError extends Error {
   }
 }
 
+export async function sendCode(email: string): Promise<void> {
+  await request(`${API_ROOT}/auth/send-code`, jsonRequest({
+    email,
+  }))
+}
+
 export async function register(payload: RegisterPayload): Promise<AuthUser> {
   return normalizeAuthUser(await request(`${API_ROOT}/auth/register`, jsonRequest({
     display_name: payload.displayName,
     password: payload.password,
+    email: payload.email,
+    verification_code: payload.verificationCode,
   })))
 }
 
@@ -111,35 +133,46 @@ export async function askQuestion(payload: {
   return normalizeAskResult(await request(`${API_ROOT}/ask`, jsonRequest(payload)))
 }
 
-export async function getOverview(filters: AnalyticsFilters = {}): Promise<OverviewData> {
-  return normalizeOverview(await request(`${API_ROOT}/analytics/overview${buildAnalyticsQuery(filters)}`))
+export async function getOverview(filters: AnalyticsFilters = {}, options: FetchApiOptions = {}): Promise<OverviewData> {
+  return normalizeOverview(await request(`${API_ROOT}/analytics/overview${buildAnalyticsQuery(filters)}`, { signal: options.signal }))
 }
 
-export async function getTrend(filters: AnalyticsFilters = {}): Promise<TrendPoint[]> {
-  return normalizeTrend(await request(`${API_ROOT}/analytics/trend${buildAnalyticsQuery(filters)}`))
+export async function getGradeBreakdown(filters: AnalyticsFilters = {}, options: FetchApiOptions = {}): Promise<GradeBreakdownData> {
+  return normalizeGradeBreakdown(await request(`${API_ROOT}/analytics/grade-breakdown${buildAnalyticsQuery(filters)}`, { signal: options.signal }))
 }
 
-export async function getSettlementComparison(filters: AnalyticsFilters = {}): Promise<SettlementComparisonItem[]> {
-  return normalizeSettlementComparison(await request(`${API_ROOT}/analytics/settlement-comparison${buildAnalyticsQuery(filters)}`))
+export async function getTrend(filters: AnalyticsFilters = {}, options: FetchApiOptions = {}): Promise<TrendPoint[]> {
+  return normalizeTrend(await request(`${API_ROOT}/analytics/trend${buildAnalyticsQuery(filters)}`, { signal: options.signal }))
 }
 
-export async function getSettlementDetail(merchantNo: string, filters: AnalyticsFilters = {}): Promise<SettlementDetail> {
+export async function getSettlementComparison(filters: AnalyticsFilters = {}, options: FetchApiOptions = {}): Promise<SettlementComparisonItem[]> {
+  return normalizeSettlementComparison(await request(`${API_ROOT}/analytics/settlement-comparison${buildAnalyticsQuery(filters)}`, { signal: options.signal }))
+}
+
+export async function getSettlementDetail(merchantNo: string, filters: AnalyticsFilters = {}, options: FetchApiOptions = {}): Promise<SettlementDetail> {
   const path = `${API_ROOT}/analytics/settlements/${encodeURIComponent(merchantNo)}`
-  return normalizeSettlementDetail(await request(`${path}${buildAnalyticsQuery(filters)}`), merchantNo)
+  return normalizeSettlementDetail(await request(`${path}${buildAnalyticsQuery(filters)}`, { signal: options.signal }), merchantNo)
 }
 
-export async function getSettlements(filters: SettlementListFilters = {}): Promise<SettlementListData> {
-  return normalizeSettlementList(await request(`${API_ROOT}/settlements${buildAnalyticsQuery(filters)}`))
+export async function getSettlements(filters: SettlementListFilters = {}, options: FetchApiOptions = {}): Promise<SettlementListData> {
+  return normalizeSettlementList(await request(`${API_ROOT}/settlements${buildAnalyticsQuery(filters)}`, { signal: options.signal }))
 }
 
-export async function getSettlementRecords(merchantNo: string): Promise<SettlementRecordsData> {
-  const path = `${API_ROOT}/settlements/${encodeURIComponent(merchantNo)}/records`
-  return normalizeSettlementRecordsData(await request(path))
+export async function getSettlementReview(merchantNo: string): Promise<ImportReviewDraft> {
+  const path = `${API_ROOT}/settlements/${encodeURIComponent(merchantNo)}/review`
+  return normalizeImportReviewDraft(await request(path))
+}
+
+export async function deleteSettlement(merchantNo: string): Promise<void> {
+  await request(`${API_ROOT}/settlements/${encodeURIComponent(merchantNo)}`, {
+    method: 'DELETE',
+  })
 }
 
 export async function getSeriesComparison(
   merchantNos: string[],
   filters: AnalyticsFilters = {},
+  options: FetchApiOptions = {},
 ): Promise<SeriesComparisonData> {
   const params = new URLSearchParams()
   merchantNos.forEach((value) => params.append('merchant_no', value))
@@ -147,7 +180,7 @@ export async function getSeriesComparison(
   if (filters.endDate) params.set('end_date', filters.endDate)
   const query = params.toString()
   const path = `${API_ROOT}/analytics/series-comparison${query ? `?${query}` : ''}`
-  return normalizeSeriesComparison(await request(path))
+  return normalizeSeriesComparison(await request(path, { signal: options.signal }))
 }
 
 /** 按勾选的结算单生成 AI 分析结论；相同条件会直接返回后端缓存。 */
@@ -207,15 +240,9 @@ export async function getImportIssues(batchId: string | number): Promise<ImportI
   return normalizeImportIssues(await request(path))
 }
 
-export async function uploadImports(
-  files: File[],
-  options: { overwrite?: boolean } = {},
-): Promise<ImportBatch[]> {
-  const form = new FormData()
-  files.forEach((file) => form.append('files', file))
-  const query = options.overwrite ? '?overwrite=true' : ''
-  const body = unwrap(await request(`${API_ROOT}/imports${query}`, { method: 'POST', body: form }))
-  return asArray(Array.isArray(body) ? body : body.imports ?? body.items).map(normalizeImportBatch)
+export async function resolveImportIssue(batchId: string | number, issueId: string | number): Promise<void> {
+  const path = `${API_ROOT}/imports/${encodeURIComponent(String(batchId))}/issues/${encodeURIComponent(String(issueId))}/resolve`
+  await request(path, { method: 'POST' })
 }
 
 /** 新模板多文件上传：只生成草稿，不直接入库。 */
@@ -252,11 +279,6 @@ export async function confirmImportJob(jobToken: string, options: { force?: bool
   return normalizeImportConfirmResult(await request(path, jsonRequest({ force: options.force === true })))
 }
 
-export async function discardImportJob(jobToken: string): Promise<ImportJob> {
-  const path = `${API_ROOT}/imports/jobs/${encodeURIComponent(jobToken)}/discard`
-  return normalizeImportJob(await request(path, { method: 'POST' }))
-}
-
 export function issuesCsvUrl(batchId: string | number): string {
   return `${API_ROOT}/imports/${encodeURIComponent(String(batchId))}/issues.csv`
 }
@@ -268,6 +290,10 @@ export function recordSourceUrl(recordId: string | number): string {
 /** 单张结算单导出：版式与结算单模板一致，手工单与导入件同一入口。 */
 export function settlementTemplateExportUrl(merchantNo: string): string {
   return `${API_ROOT}/exports/settlements/${encodeURIComponent(merchantNo)}/template.xlsx`
+}
+
+export function settlementTemplatePdfUrl(merchantNo: string): string {
+  return `${API_ROOT}/exports/settlements/${encodeURIComponent(merchantNo)}/template.pdf`
 }
 
 function entryPayloadBody(payload: EntryPayload, overwrite: boolean): JsonRecord {
@@ -285,8 +311,8 @@ function entryPayloadBody(payload: EntryPayload, overwrite: boolean): JsonRecord
       variety: item.variety,
       head_count: item.headCount,
       spec_kg: item.specKg,
-      sales_quantity: item.salesQuantity,
-      unit_price: item.unitPrice,
+      sales_quantity: Number(item.salesQuantity) || 0,
+      unit_price: Number(item.unitPrice) || 0,
       amount: item.amount,
       remark: item.remark || null,
     })),
@@ -314,6 +340,30 @@ export async function getEntry(merchantNo: string): Promise<EntryRead> {
   return normalizeEntryRead(await request(`${API_ROOT}/entry/${encodeURIComponent(merchantNo)}`))
 }
 
+export async function getEntryDraft(): Promise<EntryDraft | null> {
+  return normalizeEntryDraft(await request(`${API_ROOT}/entry/draft`))
+}
+
+export async function saveEntryDraft(payload: EntryPayload, editing: boolean): Promise<EntryDraft> {
+  const body = entryPayloadBody(payload, false)
+  const draft = normalizeEntryDraft(await request(`${API_ROOT}/entry/draft`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      editing,
+      merchant_no: payload.merchantNo,
+      order_no: payload.orderNo,
+      payload: body,
+    }),
+  }))
+  if (!draft) throw new Error('暂存失败，请稍后重试')
+  return draft
+}
+
+export async function deleteEntryDraft(): Promise<void> {
+  await request(`${API_ROOT}/entry/draft`, { method: 'DELETE' })
+}
+
 export async function saveEntry(payload: EntryPayload, options: { overwrite?: boolean } = {}): Promise<EntryRead> {
   const body = entryPayloadBody(payload, options.overwrite === true)
   return normalizeEntryRead(await request(`${API_ROOT}/entry`, {
@@ -336,24 +386,63 @@ export function entryExportUrl(merchantNo: string): string {
   return `${API_ROOT}/entry/${encodeURIComponent(merchantNo)}/export.xlsx`
 }
 
-async function request(url: string, options?: RequestInit): Promise<unknown> {
-  const response = await fetch(url, {
-    ...options,
-    credentials: 'include',
-    headers: { Accept: 'application/json', ...(options?.headers as Record<string, string> ?? {}) },
-  })
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({})) as JsonRecord
-    const detail = body.detail
-    const message = typeof detail === 'string'
-      ? detail
-      : detail !== undefined
-        ? JSON.stringify(detail)
-        : body.message
-    throw new ApiError(typeof message === 'string' ? message : `请求失败（${response.status}）`, response.status)
+async function request(url: string, options: RequestOptions = {}): Promise<unknown> {
+  const { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, signal: externalSignal, ...fetchOptions } = options
+  const controller = new AbortController()
+  let timedOut = false
+  const timeoutId = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
+
+  const forwardAbort = () => controller.abort()
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort()
+    else externalSignal.addEventListener('abort', forwardAbort, { once: true })
   }
-  if (response.status === 204) return {}
-  return response.json()
+
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal,
+      credentials: 'include',
+      headers: { Accept: 'application/json', ...(fetchOptions.headers as Record<string, string> ?? {}) },
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({})) as JsonRecord
+      logger.error('request failed', {
+        url,
+        method: fetchOptions.method ?? 'GET',
+        status: response.status,
+        body,
+      })
+      const detail = body.detail
+      const message = typeof detail === 'string'
+        ? detail
+        : detail !== undefined
+          ? JSON.stringify(detail)
+          : body.message
+      throw new ApiError(typeof message === 'string' ? message : `请求失败（${response.status}）`, response.status)
+    }
+    if (response.status === 204) return {}
+    return response.json()
+  } catch (caught) {
+    if (timedOut) throw new Error('请求超时，请稍后重试')
+    if (controller.signal.aborted) {
+      const error = new Error('请求已取消')
+      error.name = 'AbortError'
+      throw error
+    }
+    logger.error('request error', {
+      url,
+      method: fetchOptions.method ?? 'GET',
+      error: caught,
+    })
+    throw caught
+  } finally {
+    clearTimeout(timeoutId)
+    if (externalSignal) externalSignal.removeEventListener('abort', forwardAbort)
+  }
 }
 
 function jsonRequest(body: unknown): RequestInit {
@@ -366,10 +455,37 @@ function jsonRequest(body: unknown): RequestInit {
 
 function normalizeAuthUser(payload: unknown): AuthUser {
   const body = unwrap(payload)
-  const user = (body.user && typeof body.user === 'object' ? body.user : body) as JsonRecord
+  const source = (body.user && typeof body.user === 'object' ? body.user : body) as JsonRecord
   return {
-    id: Number(user.id),
-    displayName: String(user.display_name ?? user.displayName ?? ''),
-    permissions: Array.isArray(user.permissions) ? user.permissions.map(String) : [],
+    id: Number(source.id),
+    displayName: String(source.display_name ?? source.displayName ?? ''),
+    permissions: Array.isArray(source.permissions) ? source.permissions.map(String) : [],
+    menus: normalizeAuthMenus(source.menus),
   }
+}
+
+function normalizeAuthMenus(value: unknown): AuthMenu[] {
+  return asArray(value)
+    .map((entry) => {
+      const item = entry as JsonRecord
+      const routePath = String(item.route_path ?? item.routePath ?? '').trim()
+      if (!routePath) return null
+      const icon = item.icon === null || item.icon === undefined ? null : String(item.icon)
+      const permissionCode =
+        item.permission_code === null || item.permission_code === undefined
+          ? null
+          : String(item.permission_code)
+      const sortOrder = Number(item.sort_order ?? item.sortOrder ?? 0)
+      return {
+        routePath,
+        name: String(item.name ?? ''),
+        icon,
+        permissionCode,
+        sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
+        isActive: item.is_active === undefined && item.isActive === undefined
+          ? true
+          : Boolean(item.is_active ?? item.isActive),
+      }
+    })
+    .filter((item): item is AuthMenu => item !== null)
 }

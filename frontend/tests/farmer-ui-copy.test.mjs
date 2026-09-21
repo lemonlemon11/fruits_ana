@@ -16,8 +16,8 @@ test('菜单使用确认后的中文入口', () => {
   // 「录单 / 导入」是文件导入与手工录单合并后的单一入口（方案 C）。
   for (const label of ['卖得怎么样', '每一单', '录单 / 导入']) assert.match(shell, new RegExp(label))
   for (const icon of ['ChartColumn', 'Table2', 'ClipboardPen']) assert.match(shell, new RegExp(icon))
-  const primaryNav = shell.match(/const primaryNavItems = \[[\s\S]*?\]/)?.[0] ?? ''
-  const moreNav = shell.match(/const moreNavItems = \[[\s\S]*?\]/)?.[0] ?? ''
+  const primaryNav = shell.match(/const primaryNavItems(?:\s*:\s*\w+\[\])? = \[[\s\S]*?\]/)?.[0] ?? ''
+  const moreNav = shell.match(/const moreNavItems(?:\s*:\s*\w+\[\])? = \[[\s\S]*?\]/)?.[0] ?? ''
   assert.ok(primaryNav)
   assert.ok(moreNav)
   const navLabels = `${primaryNav}\n${moreNav}`
@@ -28,17 +28,24 @@ test('移动端用底部大按钮导航，完整功能收进「更多」', () =>
   const shell = fs.readFileSync(path.join(root, 'AppShell.vue'), 'utf8')
   assert.match(shell, /class="mobile-tabbar"/)
   assert.match(shell, /mobile-tabbar-more/)
-  assert.match(shell, /const moreNavItems = \[[\s\S]*?\]/)
+  assert.match(shell, /const moreNavItems(:\s*\w+\[])? = \[[\s\S]*?\]/)
   for (const label of ['结算单详情', '结算单对比', '品牌对比']) {
-    assert.match(shell.split('const moreNavItems')[1].split(']')[0], new RegExp(label))
+    const match = shell.match(/const moreNavItems(?::\s*\w+\[])? = \[([\s\S]*?)\]/)
+    assert.ok(match, 'moreNavItems definition not found')
+    assert.match(match[1], new RegExp(label))
   }
 })
 
 test('页面内部不出现跨菜单跳转入口', () => {
-  const pageFiles = ['OverviewView.vue', 'SettlementComparisonView.vue', 'SettlementListView.vue']
+  const pageFiles = ['OverviewView.vue', 'SettlementComparisonView.vue']
     .map((file) => path.join(root, 'views', file))
   const pageSource = pageFiles.map((file) => fs.readFileSync(file, 'utf8')).join('\n')
   assert.doesNotMatch(pageSource, /RouterLink|router\.push|router\.replace/)
+
+  // 结算单列表的“查看明细”已改为复用导入二次确认页，属于已确认的单点查看入口。
+  const settlementListView = fs.readFileSync(path.join(root, 'views', 'SettlementListView.vue'), 'utf8')
+  assert.match(settlementListView, /router\.push\(\{ path: '\/import-review', query: \{ merchant_no: item\.merchantNo, readonly: '1' \} \}\)/)
+  assert.doesNotMatch(settlementListView, /RouterLink|router\.replace/)
 
   // 数据导入可在当前流程内跳转到“二次确认”，不提供跨菜单入口。
   const importView = fs.readFileSync(path.join(root, 'views', 'ImportView.vue'), 'utf8')
@@ -142,13 +149,13 @@ test('结算单选择器收进抽屉，靠搜索与品牌折叠定位，不平�
   assert.match(view, /SettlementPicker/)
 })
 
-test('数据导入一次只支持一个文件拖入，并保留文件选择与清空入口', () => {
+test('数据导入支持一次选择多个文件拖入，并保留文件选择与清空入口', () => {
   const importView = fs.readFileSync(path.join(root, 'views', 'ImportView.vue'), 'utf8')
   assert.match(importView, /@drop\.prevent\.stop="onDrop"/)
   assert.match(importView, /@dragenter\.prevent\.stop="onDragEnter"/)
-  assert.match(importView, /selectedFiles\.value = \[supported\[0\]\]/)
+  assert.match(importView, /selectedFiles\.value = supported/)
   assert.match(importView, /clearFiles/)
-  assert.doesNotMatch(importView, /type="file" multiple/)
+  assert.match(importView, /type="file" multiple/)
   assert.doesNotMatch(importView, /@drop="onDrop"/)
 })
 
@@ -170,13 +177,16 @@ test('认证页面和业务路由保护已接入', () => {
   assert.match(shell, /退出登录/)
 })
 
-test('登录和注册页面使用用户名，不要求邮箱', () => {
+test('登录和注册页面支持邮箱', () => {
   const login = fs.readFileSync(path.join(root, 'views', 'LoginView.vue'), 'utf8')
   const register = fs.readFileSync(path.join(root, 'views', 'RegisterView.vue'), 'utf8')
-  assert.match(login, /用户名/)
-  assert.match(register, /用户名|姓名/)
-  assert.doesNotMatch(login, /邮箱/)
-  assert.doesNotMatch(register, /邮箱/)
+
+  assert.ok(login.includes('用户名'))
+  assert.ok(register.includes('用户名'))
+  assert.ok(register.includes('密码'))
+  assert.ok(register.includes('邮箱'))
+  assert.ok(register.includes('验证码'))
+  assert.ok(login.includes('邮箱'))
 })
 
 test('业务页面不再显示旧的两步查看说明', () => {

@@ -7,14 +7,14 @@
   --font-scale: 1;
   font-size: calc(17px * var(--font-scale));
   color: #1f2923;
-  background: #f5f7f5;
+  background: #eef3ef;
   font-synthesis: none;
   --ink: #1f2923;
   --muted: #56635b;
   --line: #c8d2cd;
   --line-strong: #8aa095;
-  --surface: #ffffff;
-  --surface-soft: #edf1ee;
+  --surface: #f7faf8;
+  --surface-soft: #e8eee9;
   --primary: #17663f;
   --primary-dark: #104a2f;
   --primary-soft: #dcece2;
@@ -38,7 +38,7 @@
 
 * { box-sizing: border-box; }
 html { min-width: 320px; background: var(--surface-soft); }
-body { margin: 0; min-width: 320px; min-height: 100vh; color: var(--ink); background: #f5f7f5; }
+body { margin: 0; min-width: 320px; min-height: 100vh; color: var(--ink); background: #eef3ef; }
 button, input, select { font: inherit; }
 button, select, input, a { touch-action: manipulation; }
 button { cursor: pointer; }

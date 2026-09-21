@@ -15,8 +15,10 @@ from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import (
+    AdminMenu,
     AdminPermission,
     AdminRole,
+    AdminRoleMenu,
     AdminRolePermission,
     AdminUserRole,
     User,
@@ -30,6 +32,7 @@ DEFAULT_SESSION_DAYS = 7
 REMEMBERED_SESSION_DAYS = 30
 AUTH_ERROR_DETAIL = "用户名或密码错误"
 LOGIN_REQUIRED_DETAIL = "请先登录"
+DISABLED_USER_DETAIL = "该用户已被禁用"
 PASSWORD_HASHER = PasswordHasher()
 
 
@@ -136,6 +139,30 @@ def get_permission_codes(db: Session, user_id: int) -> set[str]:
         .all()
     )
     return {row[0] for row in rows}
+
+
+def get_menu_items(db: Session, user_id: int) -> list[AdminMenu]:
+    """读取用户在管理端被授权的业务菜单（只读）。
+
+    只返回配置了路由的菜单，按管理端排序输出；`is_active=False` 的菜单照常
+    返回，由业务端决定隐藏，便于前端区分「停用」与「未授权」。管理员改名或
+    改图标后，业务端侧边导航随之更新。
+    """
+
+    return (
+        db.query(AdminMenu)
+        .join(AdminRoleMenu, AdminRoleMenu.menu_id == AdminMenu.id)
+        .join(AdminRole, AdminRole.id == AdminRoleMenu.role_id)
+        .join(AdminUserRole, AdminUserRole.role_id == AdminRole.id)
+        .filter(
+            AdminUserRole.user_id == user_id,
+            AdminRole.is_active.is_(True),
+            AdminMenu.route_path.isnot(None),
+        )
+        .order_by(AdminMenu.sort_order, AdminMenu.id)
+        .distinct()
+        .all()
+    )
 
 
 def require_permission(permission_code: str) -> Callable:

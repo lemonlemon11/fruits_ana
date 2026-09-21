@@ -117,16 +117,16 @@ def _columns(grade_codes: list[str]) -> list[tuple[str, str, int]]:
         ("商号", "", 16),
         ("单号", "", 16),
         ("柜号", "", 16),
-        ("到达日期起", DATE_FORMAT, 14),
-        ("到达日期止", DATE_FORMAT, 14),
+        ("销售日期起", DATE_FORMAT, 14),
+        ("销售日期止", DATE_FORMAT, 14),
         ("总件数", NUMBER_FORMAT, 12),
     ]
     columns += [
         (f"{GRADE_LABELS.get(code, code)}件数", NUMBER_FORMAT, 12) for code in grade_codes
     ]
     columns += [
-        ("销售额", NUMBER_FORMAT, 14),
-        ("平均每公斤售价", NUMBER_FORMAT, 16),
+        ("销售金额", NUMBER_FORMAT, 14),
+        ("每件均价", NUMBER_FORMAT, 16),
         ("售后合计", NUMBER_FORMAT, 14),
         ("费用合计", NUMBER_FORMAT, 14),
         ("应付贵方总金额(RMB)", NUMBER_FORMAT, 20),
@@ -136,6 +136,8 @@ def _columns(grade_codes: list[str]) -> list[tuple[str, str, int]]:
 
 def _summary_amount(summary: SettlementSummary | None, field: str):
     value = getattr(summary, field, None) if summary is not None else None
+    if field == "after_sale_amount" and value is not None:
+        value = abs(value)
     return "" if value is None else value
 
 
@@ -247,7 +249,7 @@ def _after_sale_rows(
                 _cell(prefix[2]),
                 _cell(item.content),
                 _cell(item.summary),
-                item.amount if item.amount is not None else BLANK,
+                abs(item.amount) if item.amount is not None else BLANK,
                 MANUAL_AFTER_SALE_SOURCE,
             ]
             for item in items
@@ -255,6 +257,7 @@ def _after_sale_rows(
     amount = getattr(summary, "after_sale_amount", None) if summary is not None else None
     if amount is None:
         return []
+    amount = abs(amount)
     return [
         [
             _cell(prefix[0]),
@@ -407,11 +410,11 @@ def _write_notes_sheet(
     date_range = data["date_range"]
     rows = [
         ("导出内容", "结算单列表（汇总）+ 销售明细 / 售后明细 / 支出费用明细（分类明细）"),
-        ("到达日期起", date_range["start_date"].isoformat() if date_range else "暂无销售数据"),
-        ("到达日期止", date_range["end_date"].isoformat() if date_range else "暂无销售数据"),
+        ("销售日期起", date_range["start_date"].isoformat() if date_range else "暂无销售数据"),
+        ("销售日期止", date_range["end_date"].isoformat() if date_range else "暂无销售数据"),
         (
             "是否默认范围",
-            "是（最新到达日期往前一个月）" if date_range and date_range["is_default"] else "否",
+            "是（最新销售日期往前一个月）" if date_range and date_range["is_default"] else "否",
         ),
         ("筛选商号", merchant_no or "全部结算单"),
         ("导出行数", len(batches)),
@@ -421,7 +424,7 @@ def _write_notes_sheet(
         ("生成时间(UTC)", datetime.now(timezone.utc).isoformat()),
         ("等级映射", f"{grade_mapping}；明细等级原文保留在 grade_raw"),
         ("件数口径", "总件数与各等级件数为销售数量合计（千克）"),
-        ("金额口径", "销售额为明细金额合计；平均每公斤售价 = 销售额 ÷ 总件数"),
+        ("金额口径", "销售金额为明细金额合计；每件均价 = 销售金额 ÷ 总件数"),
         ("售后合计 / 费用合计 / 应付贵方总金额", "取自结算摘要原表；手工录单件按录单页口径计算"),
         ("销售明细口径", "每条销售记录一行；规格（头数）/ 规格（KG）仅手工录单有值，导入件看『规格原文』"),
         ("售后明细口径", "手工录单售后行；导入件没有明细时回填结算摘要的售后合计原值"),

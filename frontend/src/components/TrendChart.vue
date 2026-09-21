@@ -18,10 +18,11 @@ const chart = { width: 760, height: 258, left: 42, right: 18, top: 20, bottom: 3
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
 const legendItems = [
   { label: '每日销量', color: 'var(--primary)', variant: 'line' as const },
-  { label: '平均每公斤售价', color: 'var(--ink)', variant: 'dashed' as const },
+  { label: '每件均价', color: 'var(--ink)', variant: 'dashed' as const },
 ]
 const tablePageSize = 8
 const tablePage = ref(1)
+const MAX_X_LABELS = 7
 
 const plotWidth = chart.width - chart.left - chart.right
 const plotHeight = chart.height - chart.top - chart.bottom
@@ -31,10 +32,10 @@ const isSinglePoint = computed(() => props.points.length === 1)
 const singlePoint = computed(() => props.points[0])
 /** 趋势数据表列固定；行取值都在这里格式化，和图表口径保持一致。 */
 const tableColumns: DataTableColumn<TrendPoint>[] = [
-  { key: 'date', label: '到达日期', rowHeader: true, emphasis: true },
+  { key: 'date', label: '销售日期', rowHeader: true, emphasis: true },
   { key: 'salesQuantity', label: '销量', numeric: true, value: (point) => formatNumber(point.salesQuantity) },
-  { key: 'salesAmount', label: '销售额', numeric: true, value: (point) => formatCurrency(point.salesAmount) },
-  { key: 'weightedAvgPrice', label: '平均每公斤售价', numeric: true, value: (point) => formatPrice(point.weightedAvgPrice) },
+  { key: 'salesAmount', label: '销售金额', numeric: true, value: (point) => formatCurrency(point.salesAmount) },
+  { key: 'weightedAvgPrice', label: '每件均价', numeric: true, value: (point) => formatPrice(point.weightedAvgPrice) },
 ]
 
 const totalTablePages = computed(() => Math.max(1, Math.ceil(props.points.length / tablePageSize)))
@@ -45,7 +46,16 @@ const pagedPoints = computed(() => {
 
 const xStep = computed(() => props.points.length > 1 ? plotWidth / (props.points.length - 1) : plotWidth)
 const yTicks = computed(() => [0, 0.25, 0.5, 0.75, 1])
-const xLabels = computed(() => props.points.map((point, index) => ({ point, index })))
+const xLabelIndexes = computed(() => {
+  const total = props.points.length
+  if (total <= MAX_X_LABELS) return props.points.map((_, index) => index)
+  const step = Math.ceil((total - 1) / (MAX_X_LABELS - 1))
+  const indexes: number[] = []
+  for (let index = 0; index < total; index += step) indexes.push(index)
+  if (indexes[indexes.length - 1] !== total - 1) indexes.push(total - 1)
+  return indexes
+})
+const xLabels = computed(() => xLabelIndexes.value.map((index) => ({ point: props.points[index], index })))
 
 function xPosition(index: number): number {
   return props.points.length > 1 ? chart.left + index * xStep.value : chart.left + plotWidth / 2
@@ -81,8 +91,8 @@ function showPointTooltip(event: MouseEvent, point: TrendPoint) {
     title: formatDate(point.date),
     rows: [
       { label: '销量', value: `${formatNumber(point.salesQuantity)} 件`, color: 'var(--primary)' },
-      { label: '销售额', value: formatCurrency(point.salesAmount) },
-      { label: '平均每公斤售价', value: formatPrice(point.weightedAvgPrice), color: 'var(--ink)' },
+      { label: '销售金额', value: formatCurrency(point.salesAmount) },
+      { label: '每件均价', value: formatPrice(point.weightedAvgPrice), color: 'var(--ink)' },
     ],
   })
 }
@@ -95,14 +105,14 @@ watch(() => props.points.length, () => {
 <template>
   <section class="dashboard-section trend-section" aria-labelledby="trend-title">
     <header class="section-heading">
-      <h2 id="trend-title">{{ title ?? '每日销量和平均每公斤售价' }}</h2>
+      <h2 id="trend-title">{{ title ?? '销量与均价' }}</h2>
       <ChartLegend :items="legendItems" />
     </header>
 
     <div v-if="loading" class="trend-skeleton skeleton-block" aria-live="polite">正在加载趋势数据</div>
     <div v-else-if="!points.length" class="empty-state">
       <strong>当前范围没有趋势数据</strong>
-      <span>调整到达日期或商号筛选后重试。</span>
+      <span>调整销售日期或商号筛选后重试。</span>
     </div>
     <template v-else>
       <div class="trend-chart-shell">
@@ -113,7 +123,7 @@ watch(() => props.points.length, () => {
           class="trend-chart"
           :viewBox="`0 0 ${chart.width} ${chart.height}`"
           role="img"
-          :aria-label="`${points.length} 天销量与平均每公斤售价折线图。最高日销量 ${formatNumber(maxQuantity)}`"
+          :aria-label="`${points.length} 天销量与每件均价折线图。最高日销量 ${formatNumber(maxQuantity)}`"
         >
           <g class="chart-grid" aria-hidden="true">
             <line
@@ -199,7 +209,7 @@ watch(() => props.points.length, () => {
           <span v-for="ratio in [...yTicks].reverse()" :key="`price-${ratio}`">{{ priceTickLabel(ratio) }}</span>
         </div>
       </div>
-      <div class="scale-hint"><span>左轴：每日销量</span><span>右轴：平均每公斤售价</span></div>
+      <div class="scale-hint"><span>左轴：每日销量</span><span>右轴：每件均价</span></div>
       <p v-if="isSinglePoint" class="single-point-hint">
         所选范围内只有 {{ formatDate(singlePoint.date) }} 一天数据，图中以虚线标出当天水平。
       </p>

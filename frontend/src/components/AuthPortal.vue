@@ -8,10 +8,12 @@ import BrandMark from './BrandMark.vue'
 
 const features = ['销售分析', '数据明细', '结算单对比', '数据导入']
 
+withDefaults(defineProps<{ showFacts?: boolean }>(), { showFacts: true })
+
 const facts = [
   { label: '等级口径', value: 'A / B / C 三级' },
   { label: '核算维度', value: '逐张结算单' },
-  { label: '导入格式', value: 'xlsx / csv' },
+  { label: '导入格式', value: 'xlsx' },
 ]
 </script>
 
@@ -35,7 +37,7 @@ const facts = [
         </ul>
       </div>
 
-      <dl class="portal-facts">
+      <dl v-if="showFacts" class="portal-facts">
         <div v-for="fact in facts" :key="fact.label">
           <dt>{{ fact.label }}</dt>
           <dd>{{ fact.value }}</dd>

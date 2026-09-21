@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..models import (
+    EntryDraft,
     EntryFieldOption,
     ImportBatch,
     SaleRecord,
@@ -18,6 +19,7 @@ from ..models import (
     SettlementRevision,
     SettlementSummary,
     StandardGrade,
+    utc_now,
 )
 from ..parser.spec_range import SpecRange, parse_spec_range
 from ..schemas import EntryCreate
@@ -52,6 +54,8 @@ class EntrySaveResult:
     order_no: str | None = None
     existing_order_no: str | None = None
     existing_container_no: str | None = None
+    existing_source_type: str | None = None
+    conflict_reason: str | None = None
 
 
 def list_field_options(db: Session, field_key: str) -> list[dict]:
@@ -72,7 +76,17 @@ def list_field_options(db: Session, field_key: str) -> list[dict]:
     ]
 
 
-def _existing_conflict(db: Session, merchant_no: str, order_no: str | None) -> EntrySaveResult | None:
+def _source_label(source_type: str | None) -> str:
+    return "手工录单" if source_type == "manual" else "导入数据"
+
+
+def _existing_conflict(
+    db: Session,
+    merchant_no: str,
+    order_no: str | None,
+    *,
+    conflict_reason: str | None = None,
+) -> EntrySaveResult | None:
     existing = db.query(ImportBatch).filter(ImportBatch.merchant_no == merchant_no).first()
     if existing is None:
         return None
@@ -82,6 +96,23 @@ def _existing_conflict(db: Session, merchant_no: str, order_no: str | None) -> E
         order_no=order_no,
         existing_order_no=existing.order_no,
         existing_container_no=existing.container_no,
+        existing_source_type=existing.source_type,
+        conflict_reason=conflict_reason or f"商号 {merchant_no} 已存在，需确认后覆盖",
+    )
+
+
+def _normalized_merchant_conflict(
+    db: Session, merchant_no: str, normalized: str | None
+) -> ImportBatch | None:
+    if not normalized:
+        return None
+    return (
+        db.query(ImportBatch)
+        .filter(
+            ImportBatch.merchant_no != merchant_no,
+            ImportBatch.merchant_no_normalized == normalized,
+        )
+        .first()
     )
 
 
@@ -94,10 +125,13 @@ def _display_range(value) -> str:
     return "" if value is None else str(value).strip()
 
 
-def _spec_range(value, label: str) -> SpecRange:
+def _spec_range(value, label: str) -> SpecRange | None:
     """解析规格文本；解析不出来直接拒绝入库（客户口径：不猜数，由人工补全）。"""
 
-    parsed = parse_spec_range(value)
+    text = "" if value is None else str(value).strip()
+    if not text:
+        return None
+    parsed = parse_spec_range(text)
     if parsed is None:
         raise ValueError(f"{label}无法解析，请填写数字或区间（如 3/4、9/10、10）")
     return parsed
@@ -111,15 +145,15 @@ def _sale_model(batch_id: int, item, grade: StandardGrade) -> SaleRecord:
         import_batch_id=batch_id,
         sale_date=item.sale_date,
         fruit_type="榴莲",
-        grade_raw=item.variety.upper(),
+        grade_raw=(item.variety or "").upper(),
         grade=grade,
-        spec_raw=str(item.spec_kg).strip(),
-        piece_count=head_count.canonical,
-        piece_count_min=head_count.minimum,
-        piece_count_max=head_count.maximum,
-        spec_kg=spec_kg.canonical,
-        spec_kg_min=spec_kg.minimum,
-        spec_kg_max=spec_kg.maximum,
+        spec_raw=str(item.spec_kg or "").strip(),
+        piece_count=head_count.canonical if head_count else None,
+        piece_count_min=head_count.minimum if head_count else None,
+        piece_count_max=head_count.maximum if head_count else None,
+        spec_kg=spec_kg.canonical if spec_kg else None,
+        spec_kg_min=spec_kg.minimum if spec_kg else None,
+        spec_kg_max=spec_kg.maximum if spec_kg else None,
         quantity=_quantity(item.sales_quantity),
         unit_price=_money(item.unit_price),
         amount=amount,
@@ -139,7 +173,7 @@ def _write_entry(db: Session, batch: ImportBatch, payload: EntryCreate) -> None:
                 import_batch_id=batch.id,
                 content=item.content.strip(),
                 summary=item.summary.strip(),
-                amount=_money(item.amount),
+                amount=abs(_money(item.amount)),
                 sort_order=sort_order,
             )
         )
@@ -162,7 +196,7 @@ def _write_entry(db: Session, batch: ImportBatch, payload: EntryCreate) -> None:
         (_quantity(item.sales_quantity) for item in payload.sales),
         Decimal("0"),
     )
-    after_amount = sum((_money(item.amount) for item in payload.after_sales), Decimal("0"))
+    after_amount = sum((abs(_money(item.amount)) for item in payload.after_sales), Decimal("0"))
     fee_amount = sum((_money(item.amount) for item in payload.fees), Decimal("0"))
     goods_amount = sales_amount - after_amount
     payable_amount = goods_amount - fee_amount
@@ -206,9 +240,42 @@ def save_entry(db: Session, payload: EntryCreate, user_id: int | None = None) ->
     if any(not item.name.strip() for item in payload.fees):
         raise ValueError("费用摘要不能为空")
 
+    normalized_merchant = normalize_merchant_no(merchant_no)
+    normalized_collision = _normalized_merchant_conflict(
+        db, merchant_no, normalized_merchant
+    )
+    if normalized_collision is not None:
+        return EntrySaveResult(
+            status="conflict",
+            merchant_no=merchant_no,
+            order_no=payload.order_no,
+            existing_order_no=normalized_collision.order_no,
+            existing_container_no=normalized_collision.container_no,
+            existing_source_type=normalized_collision.source_type,
+            conflict_reason=(
+                f"商号 {merchant_no} 归一化后与已有商号 {normalized_collision.merchant_no} 相同"
+                f"（均为 {normalized_merchant}），不能保存"
+            ),
+        )
+
     existing = db.query(ImportBatch).filter(ImportBatch.merchant_no == merchant_no).first()
+    if existing is not None and existing.source_type != "manual":
+        return _existing_conflict(
+            db,
+            merchant_no,
+            payload.order_no,
+            conflict_reason=(
+                f"商号 {merchant_no} 已由{_source_label(existing.source_type)}占用，"
+                "不能通过手工录单覆盖"
+            ),
+        )
     if existing is not None and not payload.overwrite:
-        return _existing_conflict(db, merchant_no, payload.order_no)
+        return _existing_conflict(
+            db,
+            merchant_no,
+            payload.order_no,
+            conflict_reason=f"商号 {merchant_no} 已存在，需确认后覆盖",
+        )
 
     old_payload = read_entry(db, merchant_no) if existing is not None else None
     if existing is not None:
@@ -256,7 +323,16 @@ def save_entry(db: Session, payload: EntryCreate, user_id: int | None = None) ->
         db.rollback()
         concurrent = db.query(ImportBatch).filter(ImportBatch.merchant_no == merchant_no).first()
         if concurrent is not None:
-            return _existing_conflict(db, merchant_no, payload.order_no)
+            return _existing_conflict(
+                db,
+                merchant_no,
+                payload.order_no,
+                conflict_reason=(
+                    f"商号 {merchant_no} 已由导入数据占用，不能通过手工录单覆盖"
+                    if concurrent.source_type != "manual"
+                    else f"商号 {merchant_no} 已存在，需确认后覆盖"
+                ),
+            )
         raise
     return EntrySaveResult(
         status="created" if existing is None else "saved",
@@ -309,7 +385,7 @@ def read_entry(db: Session, merchant_no: str) -> dict | None:
         "sales": [
             {
                 "sale_date": record.sale_date,
-                "variety": record.grade_raw or record.grade.value,
+                "variety": record.grade_raw if record.grade_raw is not None else record.grade.value,
                 "head_count": _display_range(record.piece_count),
                 "spec_kg": _display_range(record.spec_kg),
                 "sales_quantity": record.quantity,
@@ -322,7 +398,7 @@ def read_entry(db: Session, merchant_no: str) -> dict | None:
             {
                 "content": item.content,
                 "summary": item.summary,
-                "amount": item.amount,
+                "amount": abs(item.amount) if item.amount is not None else None,
             }
             for item in after_items
         ],
@@ -335,6 +411,94 @@ def read_entry(db: Session, merchant_no: str) -> dict | None:
             for item in fee_items
         ],
     }
+
+
+def _positive_number(value) -> bool:
+    try:
+        return float(value) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _entry_draft_sales_count(payload: dict) -> int:
+    sales = payload.get("sales", []) if isinstance(payload, dict) else []
+    if not isinstance(sales, list):
+        return 0
+    return sum(
+        1
+        for row in sales
+        if isinstance(row, dict)
+        and (
+            str(row.get("sale_date") or "").strip()
+            or _positive_number(row.get("sales_quantity"))
+        )
+    )
+
+
+def _load_draft_payload(draft: EntryDraft | None) -> dict:
+    if draft is None:
+        return {}
+    try:
+        parsed = json.loads(draft.payload or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _entry_draft_dict(draft: EntryDraft) -> dict:
+    payload = _load_draft_payload(draft)
+    return {
+        "updated_at": draft.updated_at.isoformat(),
+        "editing": draft.editing,
+        "merchant_no": draft.merchant_no,
+        "order_no": draft.order_no,
+        "sales_count": _entry_draft_sales_count(payload),
+        "payload": payload,
+    }
+
+
+def read_entry_draft(db: Session, user_id: int) -> dict | None:
+    """读取当前用户最近一次暂存的手工录单草稿。"""
+
+    draft = db.query(EntryDraft).filter(EntryDraft.user_id == user_id).one_or_none()
+    if draft is None:
+        return None
+    return _entry_draft_dict(draft)
+
+
+def save_entry_draft(
+    db: Session,
+    user_id: int,
+    *,
+    editing: bool,
+    merchant_no: str,
+    order_no: str,
+    payload: dict,
+) -> dict:
+    """按用户 upsert 暂存草稿；不会校验正式录单的必填项。"""
+
+    draft = db.query(EntryDraft).filter(EntryDraft.user_id == user_id).one_or_none()
+    if draft is None:
+        draft = EntryDraft(user_id=user_id)
+        db.add(draft)
+    draft.editing = editing
+    draft.merchant_no = merchant_no or ""
+    draft.order_no = order_no or ""
+    draft.payload = json.dumps(payload, ensure_ascii=False, default=str)
+    draft.updated_at = utc_now()
+    db.commit()
+    db.refresh(draft)
+    return _entry_draft_dict(draft)
+
+
+def clear_entry_draft(db: Session, user_id: int) -> None:
+    """删除当前用户的暂存草稿；没有草稿时静默成功。"""
+
+    draft = db.query(EntryDraft).filter(EntryDraft.user_id == user_id).one_or_none()
+    if draft is None:
+        return
+    db.delete(draft)
+    db.commit()
 
 
 def ensure_manual_entry(db: Session, merchant_no: str) -> ImportBatch:
@@ -356,8 +520,11 @@ def ensure_manual_entry(db: Session, merchant_no: str) -> ImportBatch:
 __all__ = [
     "EntrySaveResult",
     "FIXED_FEES",
+    "clear_entry_draft",
     "ensure_manual_entry",
     "list_field_options",
     "read_entry",
+    "read_entry_draft",
     "save_entry",
+    "save_entry_draft",
 ]

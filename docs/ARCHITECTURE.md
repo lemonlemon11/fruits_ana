@@ -19,12 +19,13 @@ FastAPI (:8000)  backend/app/main.py
         ├── api/analytics.py 总览 / 趋势 / 结算单对比 / 结算单详情 / 品牌对比 / 等级细分小结
         ├── api/ask.py       自然语言数据问答「顺仔」（function calling 编排）
         ├── api/entry.py    手工录单读取、保存、修改、字段选项与模板导出
-        ├── api/settlements.py 数据明细列表 / 单张结算单全部明细
+        ├── api/settlements.py 数据明细列表 / 单张结算单全部明细 / 只读复核 / 删除结算单
         └── api/exports.py   总览 CSV、结算单 xlsx、原始文件下载
         ▼
 services/  analytics_core / settlement_analytics_service / series_analytics_service
            grade_detail_service / grade_detail_analysis_service / ai_analysis_service
            overview_service / settlement_detail_service / settlement_list_service
+           settlement_delete_service
            import_service / issue_service / entry_service / entry_export
            ask_service / ask_tools / ask_payloads / ask_tool_schemas
         ▼
@@ -42,12 +43,19 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 职责：Argon2 密码哈希、服务端会话、HttpOnly Cookie 认证、依赖注入 `require_user`。
 - 会话 token 以 SHA-256 哈希落库（`user_session.token_hash`）；登录默认有效期 7 天，
   勾选“30 天内免登录”时延长为 30 天，服务端到期时间与 Cookie `Max-Age` 保持一致。
+- 新用户注册成功后默认绑定管理端角色 `registered_user`；该角色在管理端不关联任何菜单
+  与权限，管理员可后续在用户管理中调整角色。
+- 侧边导航（ADR-036）：`/api/auth/me`（及 login / register）除 `permissions` 外还返回
+  `menus`（菜单 `route_path / name / icon / sort_order / is_active`），由管理端
+  `admin_menu` + `admin_role_menu` 按当前用户角色只读派生。业务端 `AppShell.vue` 的
+  **导航位置**仍由本地槽位决定，管理端菜单只覆盖名称、图标与启用状态；合并规则见
+  `frontend/src/utils/shellMenu.ts`。
 - 主要路由：`POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me`、`POST /api/auth/logout`。
 - 前端：`frontend/src/auth.ts`（`.vue` 侧会话状态）、`frontend/src/views/LoginView.vue`、`RegisterView.vue`。
 
 ### Import Pipeline（`backend/app/api/imports.py`、`services/import_draft_service.py`、`parser/`）
 
-- 职责：接收 `.xlsx` / `.csv`，先解析成草稿并进入二次确认，用户确认后才写入批次、源文件、
+- 职责：接收 `.xlsx`，先解析成草稿并进入二次确认，用户确认后才写入批次、源文件、
   销售记录、结算摘要与数据问题。
 - 身份：以商号（`import_batch.merchant_no`）作为结算单唯一业务键；柜号可为空且可重复。
 - 覆盖：同一商号再次上传返回 `conflict`，确认后以 `?overwrite=true` 在同一事务内替换旧结算单。
@@ -73,8 +81,10 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 - 职责：不依赖 Excel 文件直接录入结算单，保存后以 `source_type='manual'` 进入原有分析链路；
   支持读取、覆盖保存、按模板导出，并读取管理端维护的录单字段字典。
-- 路由：`GET /api/entry/field-options`、`POST /api/entry`、`GET/PUT /api/entry/{merchant_no}`、
-  `GET /api/entry/{merchant_no}/export.xlsx`。
+- 路由：`GET /api/entry/field-options`、`GET/PUT/DELETE /api/entry/draft`、`POST /api/entry`、
+  `GET/PUT /api/entry/{merchant_no}`、`GET /api/entry/{merchant_no}/export.xlsx`。
+- 暂存草稿：`entry_draft` 表按 `user_id` 唯一保存一份未提交表单，`/entry` 刷新时自动恢复；
+  正式保存成功后清除草稿。
 - 权限：对应 `entry:view` / `entry:create` / `entry:update` / `entry:export`，由管理端维护。
 - 冲突与覆盖：`merchant_no` 仍是唯一键；新录同商号默认 409，确认后 `overwrite=true` 覆盖；
   `PUT` 只允许修改 `source_type='manual'` 的单据。
@@ -108,6 +118,12 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 - 职责：「数据明细」页列表与单张结算单全部明细。
 - 默认范围：最新销售日期往前一个自然月；可用 `start_date` / `end_date` / `merchant_no` 覆盖。
+- 列表项附带 `fruit_type`，供品牌对比选择器先按品类收敛；空值回退「榴莲」。
+- 删除：`DELETE /api/settlements/{merchant_no}` 按商号删除整张结算单，由
+  `services/settlement_delete_service.py` 清理销售明细、售后/费用、汇总与留痕，
+  并在原始文件不再被引用时移除上传文件。
+- 只读复核：`GET /api/settlements/{merchant_no}/review` 按商号返回与导入二次确认页
+  相同结构的数据槽位，供「查看明细」只读复用；不写库、不产生修改。
 
 ### Ask（`backend/app/api/ask.py`、`services/ask_service.py`、`services/ask_tools.py`）
 
@@ -156,12 +172,15 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 视图：`OverviewView`（总览看板）、`SettlementListView`（数据明细）、
   `SettlementComparisonView`（结算单对比）、`SettlementView`（结算单诊断）、`ImportView`（导入）、
   `SeriesComparisonView`（品牌对比，内含「按品牌 / 按等级号别」两个视图）、
+  `ImportReviewView`（导入二次确认，`readonly=1` 时只读展示已入库结算单）、
   `LoginView` / `RegisterView` / `PublicPreviewView`。
 - 等级细分组件：`SeriesGradeDetail.vue`（号别阶梯与数据表）、`GradeDetailAiAnalysis.vue`（号别小结）。
   AI 结论的渲染与状态机抽到通用组件 `AiAnalysisCard.vue`，两个页面的封装只负责接口与小标题；
   卡片默认可见并自动以 `refresh=false` 先读缓存，命中缓存直接展示 `cached` 标记。
 - 下拉框：展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
 - 日期范围：五个业务页统一使用 `DateRangeFilter.vue` 组件，在一个面板内选择开始 / 结束日期。
+- 品牌对比选择器：`SettlementPicker.vue` 按「品类 → 品牌 → 同品牌结算单」三步选择；
+  品类来自 `SettlementListItem.fruitType`，品牌仍沿用单号中文前缀口径。
 - 单号展示口径（ADR-015）：统一用适配后单号 `orderNoNormalized`，
   经 `utils/orderNo.ts` 的 `displayOrderNo` 取值（缺失时回退原始 `orderNo`）；
   原始单号用 `rawOrderNo` 放在 tooltip / 副标题里，新增展示位不得直接渲染 `orderNo`。
@@ -189,6 +208,20 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 桌面端全局字号基线用 `clamp()` 随视口宽度平滑缩放（15px–17px），主要控件、外壳与卡片尺寸
   改为 `rem`；移动端固定 17px，避免用固定 `zoom` 造成横向溢出或非标缩放。
 
+### Logging（`backend/app/logging_config.py`、`frontend/src/utils/logger.ts`）
+
+- 后端使用 `fruits_ana` logger，控制台 + 轮转文件双写；文件默认落在
+  `backend/data/logs/fruits_ana.log`，可通过 `FRUIT_ANALYSIS_LOG_LEVEL` /
+  `FRUIT_ANALYSIS_LOG_DIR` / `FRUIT_ANALYSIS_LOG_FILE` / `FRUIT_ANALYSIS_LOG_MAX_BYTES` /
+  `FRUIT_ANALYSIS_LOG_BACKUP_COUNT` 调整。
+- HTTP 中间件记录 `method / path / status / duration_ms / request_id`，并在未捕获异常时
+  写 `exception` 日志；响应头回写 `X-Request-ID`，便于前后端串行排查。
+- 关键业务日志覆盖注册 / 登录成败、导入确认、结算单删除；所有日志经
+  `RequestIdFilter` 注入当前请求 ID，避免脱敏字段进入日志。
+- 前端统一通过 `utils/logger.ts` 的 `createLogger(scope)` 输出，生产环境默认仅记录
+  `warn` 及以上级别，`password / token / secret / authorization / cookie / api_key`
+  等敏感字段自动脱敏。
+
 ## Data Flow
 
 ### 登录
@@ -199,7 +232,8 @@ LoginView
   → auth.py 校验 Argon2 哈希
   → 创建 user_session（存 token_hash；默认 7 天，remember_me=true 时 30 天）
   → Set-Cookie: fruit_session (HttpOnly，同步会话期限)
-  → 前端 currentUser 更新 → 跳转 /overview
+  → 前端 currentUser 更新（含 menus 导航项）→ 跳转 /overview
+  → AppShell 用 menus 覆盖本地兜底文案与图标，停用菜单整项隐藏
 ```
 
 ### 数据导入（新模板）
@@ -220,7 +254,7 @@ ImportView
 ```text
 OverviewView / SettlementView / SettlementComparisonView / SettlementListView
   → GET /api/analytics/overview | /trend | /settlements/{merchant_no} | /settlement-comparison
-  → GET /api/settlements | /api/settlements/{merchant_no}/records
+  → GET /api/settlements | /api/settlements/{merchant_no}/records | /api/settlements/{merchant_no}/review
   → 分析服务聚合（按日期与商号筛选，按销售日期而非导入时间）
   → normalize.ts 归一化 → SVG 图表渲染
 ```
@@ -253,7 +287,9 @@ OverviewView / SettlementView / SettlementComparisonView / SettlementListView
 | `settlement_after_sale_item` | 手工录单售后明细（内容、摘要、金额） |
 | `settlement_fee_item` | 手工录单支出明细（固定六项 + 自定义项） |
 | `entry_field_option` | 市场 / 品种下拉字典，业务端只读、管理端维护 |
+| `entry_draft` | 手工录单暂存草稿，按用户唯一，正式保存前可跨刷新恢复 |
 | `admin_field_conversion_rule` | 管理端字段转换规则（当前用于等级 `grade`，如 `BC→C`） |
+| `admin_menu` / `admin_role_menu` | 管理端维护的业务菜单与角色菜单关系，业务端只读（驱动侧边导航名称与图标，ADR-036） |
 | `admin_role` / `admin_permission` / `admin_user_role` / `admin_role_permission` | 管理端维护的业务 RBAC，业务端只读 |
 
 ## Constraints

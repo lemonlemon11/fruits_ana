@@ -31,7 +31,7 @@ FEATURE = "series-comparison"
 # 旧结论可能仍在正文里写 `宝贝-L004`，因此提升版本让缓存失效。
 # v4：数据包改用适配后单号 / 适配后商号，并补充「原始单号」「原始商号」
 # （ADR-015 / ADR-016），旧缓存自动失效。
-PROMPT_VERSION = "v8"
+PROMPT_VERSION = "v10"
 # 低于该样本量时禁止下趋势/规律结论，只描述这批货本身。
 MIN_TREND_SAMPLES = 5
 # 部分模型会先消耗「思考」token，输出上限需要留足余量，避免正文被截断。
@@ -47,11 +47,11 @@ SYSTEM_PROMPT = """你是水果销售数据分析助手，服务对象是果农�
 规则：
 1. 全部用简体中文，句子要短，一句话不超过 40 个字。
 2. 禁止使用「加权均价」「贡献度」「环比」「同比」「毛利率」「渗透率」这类术语；
-   金额单位说「元」，单价一律说「平均每公斤售价」。
+   金额单位说「元」，单价一律说「每件均价」。
 3. 严格按给定的小标题输出，标题独占一行，标题下面每条以「- 」开头，每条 1 到 2 句。
-4. 平均每公斤售价保留整数（四舍五入，例如 515 元），占比写成百分比保留一位小数（例如 42.7%），
+4. 每件均价保留整数（四舍五入，例如 515 元），占比写成百分比保留一位小数（例如 42.7%），
    不要写 0.4273 这种小数占比；件数和金额照抄数据里的原样。
-5. 每条结论后面用括号补上依据的数字，例如（913 件、平均每公斤 515 元）。
+5. 每条结论后面用括号补上依据的数字，例如（913 件、每件均价 515 元）。
 6. 不要输出问候语、结尾套话，也不要解释你是怎么分析的。
 7. 数据里没有的内容不要写，也不要自己补算新的指标。
 8. 要「说透」，不要只复述数字：每条至少给出一个比较或一个原因——谁比谁高/低、
@@ -122,7 +122,7 @@ def _grade_rows(aggregate: dict) -> list[dict]:
                 "等级": row["grade"],
                 "件数": row["sales_quantity"],
                 "金额": row["sales_amount"],
-                "平均每公斤售价": row["weighted_avg_price"],
+                "每件均价": row["weighted_avg_price"],
                 "件数占比": quantity_share,
                 "金额占比": amount_share,
                 # 占比差为正说明这个等级卖得比它的数量更值钱（在撑金额）。
@@ -147,7 +147,7 @@ def _price_of(row: dict) -> float | None:
 
 
 def _settlement_price_ranking(comparison: dict) -> list[dict]:
-    """各结算单按平均每公斤售价排名，并给出与本次平均的差，方便直接引用。"""
+    """各结算单按每件均价排名，并给出与本次平均的差，方便直接引用。"""
 
     average = ((comparison.get("total") or {}).get("total") or {}).get("weighted_avg_price")
     rows = []
@@ -161,7 +161,7 @@ def _settlement_price_ranking(comparison: dict) -> list[dict]:
                 "原始商号": row.get("merchant_no"),
                 "品牌": row.get("series"),
                 "件数": (row.get("total") or {}).get("sales_quantity"),
-                "平均每公斤售价": price,
+                "每件均价": price,
                 "比本次平均高": (
                     rounded(Decimal(str(price)) - Decimal(str(average)))
                     if average is not None
@@ -169,7 +169,7 @@ def _settlement_price_ranking(comparison: dict) -> list[dict]:
                 ),
             }
         )
-    rows.sort(key=lambda item: item["平均每公斤售价"], reverse=True)
+    rows.sort(key=lambda item: item["每件均价"], reverse=True)
     return rows
 
 
@@ -179,10 +179,10 @@ def _comparison_insights(comparison: dict) -> dict:
     aggregate = comparison.get("total") or {}
     ranking = _settlement_price_ranking(comparison)
     return {
-        "本次平均每公斤售价": (aggregate.get("total") or {}).get("weighted_avg_price"),
+        "本次每件均价": (aggregate.get("total") or {}).get("weighted_avg_price"),
         "结算单均价排名": ranking,
-        "最高比最低每公斤贵": (
-            rounded(Decimal(str(ranking[0]["平均每公斤售价"])) - Decimal(str(ranking[-1]["平均每公斤售价"])))
+        "最高比最低每件贵": (
+            rounded(Decimal(str(ranking[0]["每件均价"])) - Decimal(str(ranking[-1]["每件均价"])))
             if len(ranking) >= 2
             else None
         ),
@@ -203,7 +203,7 @@ def _aggregate_payload(aggregate: dict) -> dict:
     return {
         "件数": total.get("sales_quantity"),
         "金额": total.get("sales_amount"),
-        "平均每公斤售价": total.get("weighted_avg_price"),
+        "每件均价": total.get("weighted_avg_price"),
         "分等级": _grade_rows(aggregate),
     }
 
@@ -219,7 +219,7 @@ def build_analysis_payload(
 
     settlements = comparison.get("settlements") or []
     return {
-        "口径": "件数单位=件；金额单位=元；平均每公斤售价=销售金额÷销量（千克）（元/公斤）",
+        "口径": "件数单位=件；金额单位=元；每件均价=销售金额÷销量（件）（元/件）",
         "样本量": {
             "结算单数量": len(settlements),
             "是否够下趋势结论": len(settlements) >= MIN_TREND_SAMPLES,

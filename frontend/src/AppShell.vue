@@ -2,7 +2,6 @@
 import ArrowUp from '@lucide/vue/dist/esm/icons/arrow-up.mjs'
 import Bell from '@lucide/vue/dist/esm/icons/bell.mjs'
 import BellRing from '@lucide/vue/dist/esm/icons/bell-ring.mjs'
-import BookOpen from '@lucide/vue/dist/esm/icons/book-open.mjs'
 import Boxes from '@lucide/vue/dist/esm/icons/boxes.mjs'
 import ChartColumn from '@lucide/vue/dist/esm/icons/chart-column.mjs'
 import ClipboardPen from '@lucide/vue/dist/esm/icons/clipboard-pen.mjs'
@@ -31,7 +30,8 @@ import {
   markNotificationRead,
   type AppNotification,
 } from './api/client'
-import { currentUser, setCurrentUser } from './auth'
+import { authReady, currentUser, setCurrentUser } from './auth'
+import { applyMenuItems, buildMenusByPath } from './utils/shellMenu'
 import AskWidget from './components/AskWidget.vue'
 import BrandMark from './components/BrandMark.vue'
 import {
@@ -90,27 +90,69 @@ interface ShellNavItem {
   icon: unknown
   /** 同一个菜单项下的其它页面前缀，用于侧栏 / 底部导航高亮。 */
   matches?: string[]
+  /** 需要的权限码；不设置则所有登录用户可见。 */
+  permission?: string
 }
 
 // 面向果农的主导航只保留三个大入口，其余功能收进「更多」。
 // 「录单 / 导入」直接进入上传页；手工录单从页头进入，不再先选录入方式。
-const primaryNavItems = [
-  { path: '/overview', label: '卖得怎么样', icon: ChartColumn },
-  { path: '/settlements', label: '每一单', icon: Table2 },
-  { path: '/imports', label: '录单 / 导入', icon: Upload, matches: ['/entry', '/import-review'] },
-] satisfies ShellNavItem[]
-const moreNavItems = [
-  { path: '/settlement-detail', label: '结算单详情', icon: PackageSearch },
-  { path: '/settlement-comparison', label: '结算单对比', icon: GitCompareArrows },
-  { path: '/series-comparison', label: '品牌对比', icon: Boxes },
-] satisfies ShellNavItem[]
+const primaryNavItems: ShellNavItem[] = [
+  { path: '/overview', label: '卖得怎么样', icon: ChartColumn, permission: 'overview:view' },
+  { path: '/settlements', label: '每一单', icon: Table2, permission: 'settlement:list' },
+  { path: '/imports', label: '录单 / 导入', icon: Upload, matches: ['/entry', '/import-review'], permission: 'import:view' },
+]
+const moreNavItems: ShellNavItem[] = [
+  { path: '/settlement-detail', label: '结算单详情', icon: PackageSearch, permission: 'settlement:detail' },
+  { path: '/settlement-comparison', label: '结算单对比', icon: GitCompareArrows, permission: 'settlement:comparison' },
+  { path: '/series-comparison', label: '品牌对比', icon: Boxes, permission: 'series:comparison' },
+]
 // 只用于页签命名，不进侧栏：手工录单保留一个独立页签。
-const tabNavItems = [
-  { path: '/entry', label: '手工录单', icon: ClipboardPen },
-] satisfies ShellNavItem[]
-const navItems = computed(() => [...primaryNavItems, ...moreNavItems, ...tabNavItems])
-const sidebarNavItems = computed(() => [...primaryNavItems, ...moreNavItems])
-const moreNavActive = computed(() => moreNavItems.some((item) => isNavActive(item, route.path)))
+const tabNavItems: ShellNavItem[] = [
+  { path: '/entry', label: '手工录单', icon: ClipboardPen, permission: 'entry:view' },
+]
+
+// 图标名 → 组件：管理端「菜单管理」填写的 icon 只允许命中这里的白名单，
+// 避免把任意字符串当作动态组件渲染。
+const SHELL_ICONS: Record<string, unknown> = {
+  ChartColumn,
+  Table2,
+  ClipboardPen,
+  Upload,
+  PackageSearch,
+  GitCompareArrows,
+  Boxes,
+}
+const resolveShellIcon = (name: string | null): unknown | null =>
+  name ? SHELL_ICONS[name] ?? null : null
+
+const menuByPath = computed(() => buildMenusByPath(currentUser.value?.menus ?? []))
+const primaryNav = computed(() =>
+  applyMenuItems(primaryNavItems, menuByPath.value, resolveShellIcon),
+)
+const moreNav = computed(() =>
+  applyMenuItems(moreNavItems, menuByPath.value, resolveShellIcon),
+)
+const tabNav = computed(() =>
+  applyMenuItems(tabNavItems, menuByPath.value, resolveShellIcon),
+)
+const navItems = computed(() => [...primaryNav.value, ...moreNav.value, ...tabNav.value])
+const _hasPerm = (item: ShellNavItem): boolean => {
+  const perms = currentUser.value?.permissions ?? []
+  return !item.permission || perms.includes(item.permission)
+}
+
+const sidebarNavItems = computed(() =>
+  [...primaryNav.value, ...moreNav.value].filter(_hasPerm),
+)
+
+const visiblePrimaryNavItems = computed(() =>
+  primaryNav.value.filter(_hasPerm),
+)
+
+const visibleMoreNavItems = computed(() =>
+  moreNav.value.filter(_hasPerm),
+)
+const moreNavActive = computed(() => visibleMoreNavItems.value.some((item) => isNavActive(item, route.path)))
 // 顺仔（数据问答）只对拥有 ask:view 的业务角色开放，由管理端角色授权控制。
 const canAsk = computed(() => Boolean(currentUser.value?.permissions.includes('ask:view')))
 const authPage = computed(() => Boolean(route.meta.guestOnly || route.meta.publicPreview))
@@ -145,11 +187,13 @@ onMounted(() => {
   clockTimer = window.setInterval(() => {
     clockNow.value = new Date()
   }, HEADER_CLOCK_REFRESH_MS)
-  void loadNotifications()
-  notificationTimer = window.setInterval(loadNotifications, 60_000)
-  notificationReminderTimer = window.setInterval(() => {
-    if (unreadNotificationCount.value > 0 && !notificationPanelOpen.value) showNotificationBanner()
-  }, 30 * 60 * 1000)
+  if (!authPage.value) {
+    void loadNotifications()
+    notificationTimer = window.setInterval(loadNotifications, 60_000)
+    notificationReminderTimer = window.setInterval(() => {
+      if (unreadNotificationCount.value > 0 && !notificationPanelOpen.value) showNotificationBanner()
+    }, 30 * 60 * 1000)
+  }
   window.addEventListener('scroll', handleScroll, { passive: true })
 })
 watch(
@@ -416,6 +460,7 @@ function scrollToTop() {
 
 <template>
   <RouterView v-if="authPage" />
+  <div v-else-if="!authReady || !currentUser" class="app-loading" aria-busy="true"></div>
   <template v-else>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <div class="app-shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
@@ -634,7 +679,7 @@ function scrollToTop() {
             </button>
           </div>
           <nav v-if="mobileNavOpen" id="mobile-nav" class="mobile-nav-panel" aria-label="更多页面">
-            <RouterLink v-for="item in moreNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined">
+            <RouterLink v-for="item in visibleMoreNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined">
               <component :is="item.icon" class="nav-icon" :size="20" aria-hidden="true" />
               <span>{{ item.label }}</span>
             </RouterLink>
@@ -645,7 +690,7 @@ function scrollToTop() {
           <footer class="app-footer">
             <span class="app-footer-copy">SLD-水果市场销售分析系统©2026</span>
             <nav class="app-footer-actions" aria-label="系统服务">
-              <button type="button"><BookOpen :size="16" :stroke-width="2" aria-hidden="true" />使用手册</button>
+              <span class="app-footer-manual">使用手册请联系管理员获取</span>
               <button type="button" class="wechat-qr-button">
                 <MessageCircle :size="16" :stroke-width="2" aria-hidden="true" />微信公众号
                 <img class="wechat-qr-popover" src="/gzh.jpg" alt="SLD-水果市场销售分析系统 微信公众号二维码" />
@@ -664,11 +709,12 @@ function scrollToTop() {
             <span>回顶部</span>
           </button>
           <nav class="mobile-tabbar" aria-label="主要导航（移动端）">
-            <RouterLink v-for="item in primaryNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined">
+            <RouterLink v-for="item in visiblePrimaryNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined">
               <component :is="item.icon" :size="28" :stroke-width="2" aria-hidden="true" />
               <span>{{ item.label }}</span>
             </RouterLink>
             <button
+              v-if="visibleMoreNavItems.length > 0"
               class="mobile-tabbar-more"
               type="button"
               aria-controls="mobile-nav"
@@ -689,3 +735,4 @@ function scrollToTop() {
 <style src="./styles.css"></style>
 <style src="./styles-shell.css"></style>
 <style src="./styles-responsive.css"></style>
+<style src="./styles-mobile.css"></style>

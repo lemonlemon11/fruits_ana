@@ -16,8 +16,8 @@ test('拖入多个文件会累加到已选列表并过滤不支持的类型', ()
     file('说明.txt'),
   ])
 
-  assert.deepEqual(result.files.map((item) => item.name), ['已选.xlsx', '甲.csv', '乙.xlsx'])
-  assert.equal(result.ignored, 1)
+  assert.deepEqual(result.files.map((item) => item.name), ['已选.xlsx', '乙.xlsx'])
+  assert.equal(result.ignored, 2)
 })
 
 test('重复拖入同一个文件不会产生重复条目', () => {
@@ -40,12 +40,12 @@ test('同名但大小或修改时间不同的文件视为不同文件', () => {
   assert.equal(result.files.length, 3)
 })
 
-test('扩展名大小写不敏感，空拖入保持原选择', () => {
+test('仅接受 xlsx 扩展名且大小写不敏感，空拖入保持原选择', () => {
   const current = [file('已选.xlsx')]
 
   assert.deepEqual(
     addSelectedFiles(current, [file('A.CSV'), file('B.Xlsx')]).files.map((item) => item.name),
-    ['已选.xlsx', 'A.CSV', 'B.Xlsx'],
+    ['已选.xlsx', 'B.Xlsx'],
   )
   assert.deepEqual(addSelectedFiles(current, []).files, current)
 })

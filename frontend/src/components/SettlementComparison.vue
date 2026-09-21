@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 
 import type { Grade, SettlementComparisonItem } from '../api/client'
-import { activeGrades } from '../utils/grades'
+import { activeGrades, gradeLabel } from '../utils/grades'
 import { displayMerchantNo } from '../utils/merchantNo'
 import { settlementOptionLabel, settlementSeries } from '../utils/settlementComparison'
 import { formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
@@ -17,9 +17,9 @@ const props = withDefaults(defineProps<{
 }>(), { mode: 'metrics' })
 
 const metricsSortOptions = [
-  { value: 'salesAmount', label: '按销售额' },
+  { value: 'salesAmount', label: '按销售金额' },
   { value: 'salesQuantity', label: '按销量' },
-  { value: 'weightedAvgPrice', label: '按平均每公斤售价' },
+  { value: 'weightedAvgPrice', label: '按每件均价' },
 ] as const
 const identitySortOptions = [
   { value: 'series', label: '按品牌' },
@@ -83,8 +83,8 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
   <section class="dashboard-section comparison-section" aria-labelledby="comparison-title">
     <header class="section-heading comparison-heading">
       <div>
-        <h2 id="comparison-title">结算单销售情况</h2>
-        <p class="section-note">{{ mode === 'identity' ? '按品牌、销售日期或商号排序查看' : '按销售额、销量或平均每公斤售价排序查看' }}</p>
+        <h2 id="comparison-title">结算单对比</h2>
+        <p class="section-note">{{ mode === 'identity' ? '按品牌、销售日期或商号排序查看' : '按销售金额、销量或每件均价排序查看' }}</p>
       </div>
       <div class="comparison-sort">
         <SearchableSelect
@@ -99,7 +99,7 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
     <div v-if="loading" class="comparison-skeleton skeleton-block">正在加载结算单数据</div>
     <div v-else-if="!items.length" class="empty-state">
       <strong>当前没有结算单数据</strong>
-      <span>请先导入销售数据，或调整到达日期范围。</span>
+      <span>请先导入销售数据，或调整销售日期范围。</span>
     </div>
     <div v-else class="simple-container-list">
       <article
@@ -114,12 +114,12 @@ function gradeOf(item: SettlementComparisonItem, grade: Grade) {
             <template v-if="item.containerNo"> · 柜号 {{ item.containerNo }}</template>
           </small>
         </span>
-        <span class="simple-metric"><small>销售额</small><strong>{{ formatCurrency(item.salesAmount) }}</strong></span>
+        <span class="simple-metric"><small>销售金额</small><strong>{{ formatCurrency(item.salesAmount) }}</strong></span>
         <span class="simple-metric"><small>销量</small><strong>{{ formatNumber(item.salesQuantity) }}</strong></span>
-        <span class="simple-metric"><small>平均每公斤售价</small><strong>{{ formatPrice(item.weightedAvgPrice) }}</strong></span>
+        <span class="simple-metric"><small>每件均价</small><strong>{{ formatPrice(item.weightedAvgPrice) }}</strong></span>
         <div class="simple-grade-shares" aria-label="等级、等级均价与占比">
           <div v-for="grade in gradeOrder" :key="grade" class="simple-grade-cell">
-            <strong>{{ grade }}果</strong>
+            <strong>{{ gradeLabel(grade) }}</strong>
             <small>等级均价 {{ formatPrice(gradeOf(item, grade)?.weightedAvgPrice ?? null) }}</small>
             <small>占比 {{ formatPercent(gradeOf(item, grade)?.quantityShare ?? null) }}</small>
           </div>

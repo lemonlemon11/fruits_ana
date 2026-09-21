@@ -72,7 +72,7 @@ const columns = computed<DataTableColumn<SeriesComparisonItem>[]>(() => {
   return [
     { key: 'merchant', label: '商号', rowHeader: true, emphasis: true, value: (item) => displayMerchantNo(item) },
     { key: 'series', label: '品牌', value: (item) => item.series, foot: () => `${props.items.length} 张结算单` },
-    { key: 'startDate', label: '到达日期', value: (item) => formatDate(item.startDate) },
+    { key: 'startDate', label: '销售日期', value: (item) => formatDate(item.startDate) },
     ...quantityColumns,
     {
       key: 'totalQuantity',
@@ -90,7 +90,7 @@ const columns = computed<DataTableColumn<SeriesComparisonItem>[]>(() => {
     },
     {
       key: 'avgPrice',
-      label: '平均每公斤售价',
+      label: '每件均价',
       numeric: true,
       value: (item) => formatPrice(item.total.weightedAvgPrice),
       foot: () => formatPrice(props.total.total.weightedAvgPrice),
@@ -117,14 +117,14 @@ function showShareTooltip(event: MouseEvent, item: SeriesComparisonItem, grade: 
     <header class="section-heading">
       <div>
         <h2 id="series-overview-title">所选结算单总览</h2>
-        <p class="section-note">按到达日期排列，末行为合计</p>
+        <p class="section-note">按销售日期排列，末行为合计</p>
       </div>
     </header>
 
     <div v-if="loading" class="table-skeleton skeleton-block">正在加载总览</div>
     <div v-else-if="!items.length" class="empty-state compact">
       <strong>没有可展示的结算单</strong>
-      <span>请调整到达日期范围或勾选结算单。</span>
+      <span>请调整销售日期范围或勾选结算单。</span>
     </div>
     <div v-else class="series-overview-results">
       <DataTable
@@ -172,7 +172,7 @@ function showShareTooltip(event: MouseEvent, item: SeriesComparisonItem, grade: 
           <div class="mobile-series-kpis">
             <span><small>总件数</small><strong>{{ formatNumber(item.total.salesQuantity) }}</strong></span>
             <span><small>总金额</small><strong>{{ formatCurrency(item.total.salesAmount) }}</strong></span>
-            <span><small>平均每公斤售价</small><strong>{{ formatPrice(item.total.weightedAvgPrice) }}</strong></span>
+            <span><small>每件均价</small><strong>{{ formatPrice(item.total.weightedAvgPrice) }}</strong></span>
           </div>
           <dl>
             <div v-for="grade in gradeOrder" :key="grade">
@@ -186,7 +186,7 @@ function showShareTooltip(event: MouseEvent, item: SeriesComparisonItem, grade: 
           <div class="mobile-series-kpis">
             <span><small>总件数</small><strong>{{ formatNumber(props.total.total.salesQuantity) }}</strong></span>
             <span><small>总金额</small><strong>{{ formatCurrency(props.total.total.salesAmount) }}</strong></span>
-            <span><small>平均每公斤售价</small><strong>{{ formatPrice(props.total.total.weightedAvgPrice) }}</strong></span>
+            <span><small>每件均价</small><strong>{{ formatPrice(props.total.total.weightedAvgPrice) }}</strong></span>
           </div>
           <dl>
             <div v-for="grade in gradeOrder" :key="grade">

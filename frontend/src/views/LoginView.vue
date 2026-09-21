@@ -20,9 +20,10 @@ const registerLink = computed(() => ({
   path: '/register',
   query: route.query.redirect ? { redirect: route.query.redirect } : {},
 }))
+const noAccess = computed(() => route.query.reason === 'no-access')
 
 function validate(): boolean {
-  errors.displayName = form.displayName ? '' : '请输入用户名'
+  errors.displayName = form.displayName ? '' : '请输入用户名或邮箱'
   errors.password = form.password ? '' : '请输入密码'
   return !errors.displayName && !errors.password
 }
@@ -43,14 +44,14 @@ async function submit() {
 </script>
 
 <template>
-  <AuthPortal>
+  <AuthPortal :show-facts="false">
     <form class="auth-form" novalidate @submit.prevent="submit">
       <header>
         <h2>欢迎回来</h2>
         <p>登录账号，继续查看你的水果经营数据。</p>
       </header>
       <div class="auth-field">
-        <label for="login-username">用户名</label>
+        <label for="login-username">用户名 / 邮箱</label>
         <div class="auth-input">
           <input
             id="login-username"
@@ -89,10 +90,14 @@ async function submit() {
         </div>
         <small v-if="errors.password" id="login-password-error" class="field-error">{{ errors.password }}</small>
       </div>
-      <label class="auth-remember">
-        <input v-model="form.rememberMe" type="checkbox" :disabled="submitting">
-        <span>30 天内免登录</span>
-      </label>
+      <div class="auth-links-row">
+        <label class="auth-remember">
+          <input v-model="form.rememberMe" type="checkbox" :disabled="submitting">
+          <span>30 天内免登录</span>
+        </label>
+        <RouterLink class="forgot-link" to="/forgot-password">忘记密码？</RouterLink>
+      </div>
+      <p v-if="noAccess" class="form-message warning" role="alert">当前账号暂未分配菜单，请联系管理员授权后再使用。</p>
       <p v-if="error" class="form-message error" role="alert">{{ error }}</p>
       <button class="primary-button auth-submit" type="submit" :disabled="submitting">
         {{ submitting ? '正在登录' : '登录经营台' }}

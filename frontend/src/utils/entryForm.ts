@@ -37,11 +37,11 @@ export interface EntryTotals {
 export function createEmptySale(): EntrySaleDraft {
   return {
     saleDate: '',
-    variety: 'A',
-    headCount: '1',
-    specKg: '10',
+    variety: '',
+    headCount: '',
+    specKg: '',
     salesQuantity: 0,
-    unitPrice: 20,
+    unitPrice: 0,
     remark: '',
   }
 }

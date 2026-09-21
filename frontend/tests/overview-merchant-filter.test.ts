@@ -13,7 +13,7 @@ const items = [
   { merchantNo: '626', orderNo: '宝贝02' },
 ] as never[]
 
-test('总览页结算单销售情况跟随商号收窄', () => {
+test('总览页销量与均价跟随商号收窄', () => {
   assert.deepEqual(
     filterSettlementsByMerchant(items, '626').map((item: { merchantNo: string }) => item.merchantNo),
     ['626'],
@@ -25,7 +25,7 @@ test('总览页结算单销售情况跟随商号收窄', () => {
 test('总览页下拉候选保留全部结算单，避免选中后无法切回', () => {
   const view = fs.readFileSync(path.join(src, 'views', 'OverviewView.vue'), 'utf8')
 
-  assert.match(view, /getSettlementComparison\(\{ \.\.\.query, includeAllSettlements: true \}\)/)
+  assert.match(view, /getSettlementComparison\(\{ \.\.\.query, includeAllSettlements: true \}(?:, \{ signal: controller\.signal \})?\)/)
   assert.match(view, /settlementOptions\.value = nextSettlements/)
   assert.match(view, /:options="merchantSelectOptions"/)
   assert.match(view, /filterSettlementsByMerchant\(settlementOptions\.value, filters\.merchantNo\)/)

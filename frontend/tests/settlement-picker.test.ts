@@ -5,6 +5,7 @@ import type { SettlementListItem } from '../src/api/types.ts'
 import {
   addWholeSeries,
   filterSettlementOptions,
+  groupByCategory,
   initialSameSeriesSelection,
   isWholeSeriesSelected,
   normalizeSameSeriesSelection,
@@ -18,10 +19,14 @@ import {
 function settlement(overrides: Partial<SettlementListItem>): SettlementListItem {
   return {
     merchantNo: '626',
+    merchantNoNormalized: '626',
     orderNo: '宝贝L004',
+    orderNoNormalized: '宝贝-004',
+    fruitType: '榴莲',
     series: '宝贝',
     containerNo: 'TCLU1234567',
     vehicleNo: '',
+    arrivalDate: '',
     saleDateStart: '2026-08-01',
     saleDateEnd: '2026-08-10',
     salesAmount: 1000,
@@ -54,6 +59,24 @@ test('filterSettlementOptions 按商号、单号、系列与柜号搜索', () =>
     ['888'],
   )
   assert.equal(filterSettlementOptions(OPTIONS, '不存在').length, 0)
+})
+
+test('groupByCategory 按品类分组，缺失品类归入未识别品类', () => {
+  const items = [
+    settlement({ merchantNo: '626', fruitType: '榴莲' }),
+    settlement({ merchantNo: '单637', fruitType: '榴莲' }),
+    settlement({ merchantNo: '888', orderNo: '金果A2', series: '金果', fruitType: '山竹' }),
+    settlement({ merchantNo: '999', fruitType: '' }),
+  ]
+
+  assert.deepEqual(
+    groupByCategory(items).map((group) => [group.category, group.items.map((item) => item.merchantNo)]),
+    [
+      ['榴莲', ['626', '单637']],
+      ['山竹', ['888']],
+      ['未识别品类', ['999']],
+    ],
+  )
 })
 
 test('toggleDraftSelection 支持勾选、取消与上限保护', () => {

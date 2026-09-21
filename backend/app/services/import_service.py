@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ from ..models import (
     DataIssue,
     ImportBatch,
     SaleRecord,
+    SettlementRevision,
     SettlementSummary,
     SourceFile,
 )
@@ -100,7 +102,18 @@ def _result_issues(db: Session, batch_id: int) -> list[ImportIssue]:
     ]
 
 
-def _batch_result(db: Session, batch: ImportBatch, status: str, filename: str) -> ImportResult:
+def _source_label(source_type: str | None) -> str:
+    return "手工录单" if source_type == "manual" else "导入数据"
+
+
+def _batch_result(
+    db: Session,
+    batch: ImportBatch,
+    status: str,
+    filename: str,
+    *,
+    error_summary: str | None = None,
+) -> ImportResult:
     """按既有结算单生成结果（conflict 或覆盖前的提示）。"""
 
     return ImportResult(
@@ -117,7 +130,60 @@ def _batch_result(db: Session, batch: ImportBatch, status: str, filename: str) -
         success_count=batch.success_count,
         warning_count=batch.warning_count,
         failure_count=batch.failure_count,
+        error_summary=error_summary,
         issues=_result_issues(db, batch.id),
+    )
+
+
+def _normalized_merchant_conflict(
+    db: Session, merchant_no: str, normalized: str | None
+) -> ImportBatch | None:
+    if not normalized:
+        return None
+    return (
+        db.query(ImportBatch)
+        .filter(
+            ImportBatch.merchant_no != merchant_no,
+            ImportBatch.merchant_no_normalized == normalized,
+        )
+        .first()
+    )
+
+
+def _source_conflict_result(
+    db: Session,
+    batch: ImportBatch,
+    filename: str,
+    incoming_source: str,
+) -> ImportResult:
+    return _batch_result(
+        db,
+        batch,
+        "conflict",
+        filename,
+        error_summary=(
+            f"商号 {batch.merchant_no} 已由{_source_label(batch.source_type)}占用，"
+            f"不能通过{_source_label(incoming_source)}覆盖"
+        ),
+    )
+
+
+def _normalized_conflict_result(
+    db: Session,
+    conflict: ImportBatch,
+    filename: str,
+    merchant_no: str,
+    normalized: str | None,
+) -> ImportResult:
+    return _batch_result(
+        db,
+        conflict,
+        "conflict",
+        filename,
+        error_summary=(
+            f"商号 {merchant_no} 归一化后与已有商号 {conflict.merchant_no} 相同"
+            f"（均为 {normalized}），不能保存"
+        ),
     )
 
 
@@ -179,6 +245,8 @@ def _prepare_import(
     db.add_all(_issue_models(batch.id, source.id, issues))
     db.add_all(_sale_models(batch.id, source.id, records))
     if summary:
+        if summary.get("after_sale_amount") is not None:
+            summary["after_sale_amount"] = abs(summary["after_sale_amount"])
         summary_row = SettlementSummary(import_batch_id=batch.id, **summary)
         _apply_reconciliation(summary_row, records)
         db.add(summary_row)
@@ -188,6 +256,40 @@ def _prepare_import(
     batch.failure_count = sum(item.severity == "error" for item in issues)
     batch.status = "success" if batch.failure_count == 0 else "partial"
     batch.error_summary = "; ".join(item.message for item in issues[:5]) or None
+
+
+def _revision_for_overwrite(
+    old: ImportBatch,
+    new: ImportBatch,
+) -> SettlementRevision:
+    old_payload = {
+        "merchant_no": old.merchant_no,
+        "order_no": old.order_no,
+        "container_no": old.container_no,
+        "vehicle_no": old.vehicle_no,
+        "source_type": old.source_type,
+        "parse_mode": old.parse_mode,
+        "file_name": old.file_name,
+    }
+    new_payload = {
+        "merchant_no": new.merchant_no,
+        "order_no": new.order_no,
+        "container_no": new.container_no,
+        "vehicle_no": new.vehicle_no,
+        "source_type": new.source_type,
+        "parse_mode": new.parse_mode,
+        "file_name": new.file_name,
+    }
+    return SettlementRevision(
+        import_batch_id=new.id,
+        version=1,
+        section="import",
+        field_name="full_batch",
+        old_value=json.dumps(old_payload, ensure_ascii=False, default=str),
+        new_value=json.dumps(new_payload, ensure_ascii=False, default=str),
+        change_type="import",
+        reason="导入覆盖同商号结算单",
+    )
 
 
 def _hash_file(path: Path) -> str:
@@ -225,12 +327,28 @@ def import_file(
         )
 
     meta = parsed.meta
+    normalized_merchant = normalize_merchant_no(meta.merchant_no)
+    normalized_collision = _normalized_merchant_conflict(
+        db, meta.merchant_no, normalized_merchant
+    )
+    if normalized_collision is not None:
+        return _normalized_conflict_result(
+            db,
+            normalized_collision,
+            filename,
+            meta.merchant_no,
+            normalized_merchant,
+        )
     existing = db.query(ImportBatch).filter_by(merchant_no=meta.merchant_no).first()
+    if existing is not None and existing.source_type != "import":
+        return _source_conflict_result(db, existing, filename, "import")
     if existing is not None and not overwrite:
         return _batch_result(db, existing, "conflict", filename)
 
     obsolete_storage_path = None
+    overwritten = None
     if existing is not None:
+        overwritten = existing
         obsolete_storage_path = _first_storage_path(db, existing.id)
         db.delete(existing)
         db.flush()
@@ -260,7 +378,20 @@ def import_file(
     db.add(source)
     try:
         _prepare_import(db, batch, source, parsed.records, parsed.issues, parsed.summary)
+        if overwritten is not None:
+            db.add(_revision_for_overwrite(overwritten, batch))
         db.commit()
+    except ValueError as exc:
+        db.rollback()
+        return ImportResult(
+            status="failed",
+            file_name=filename,
+            merchant_no=meta.merchant_no,
+            merchant_no_normalized=normalized_merchant,
+            order_no=meta.order_no,
+            failure_count=1,
+            error_summary=str(exc),
+        )
     except IntegrityError:
         db.rollback()
         concurrent = db.query(ImportBatch).filter_by(merchant_no=meta.merchant_no).first()

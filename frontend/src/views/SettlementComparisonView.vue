@@ -13,7 +13,7 @@ let requestVersion = 0
 
 async function refresh() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
-    error.value = '到达日期起不能晚于到达日期止'
+    error.value = '销售日期起不能晚于销售日期止'
     return
   }
   const version = ++requestVersion
@@ -51,7 +51,9 @@ onMounted(refresh)
 .comparison-filter { grid-template-columns: repeat(2, minmax(180px, 1fr)) auto; }
 
 @media (max-width: 720px) {
-  .comparison-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .comparison-filter .primary-button { grid-column: 1 / -1; }
+  .comparison-filter { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .comparison-filter::-webkit-scrollbar { display: none; }
+  .comparison-filter > * { flex: 0 0 auto; }
+  .comparison-filter .primary-button { flex: 0 0 auto; min-height: 34px; padding: 0 .7rem; }
 }
 </style>

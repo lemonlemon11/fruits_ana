@@ -9,6 +9,7 @@ backend/data/
 frontend/node_modules/
 frontend/dist/
 .env
+deploy/docker/.env.docker
 
 # 本地工具状态与真实业务数据（不应提交）
 .superpowers/

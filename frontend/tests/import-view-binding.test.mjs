@@ -20,9 +20,9 @@ test('submit 走预览草稿，不再把点击事件当覆盖参数', () => {
   assert.doesNotMatch(source, /forceOverwrite/)
 })
 
-test('数据导入一次只保留一个文件', () => {
-  assert.match(source, /selectedFiles\.value = \[supported\[0\]\]/)
-  assert.doesNotMatch(source, /type="file" multiple/)
+test('数据导入支持一次选择多个文件', () => {
+  assert.match(source, /selectedFiles\.value = supported/)
+  assert.match(source, /type="file" multiple/)
 })
 
 test('导入期间显示等待遮罩并标记忙碌状态', () => {

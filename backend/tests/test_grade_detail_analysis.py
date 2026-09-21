@@ -23,11 +23,11 @@ from app.services.grade_detail_analysis_service import (
 )
 
 SUMMARY_TEXT = """这批货的等级结构
-- 两张结算单合计 40 件，平均每件 75.00 元。
+- 两张结算单合计 40 件，每件均价 75.00 元。
 哪个号最值钱
-- A6 平均每件 100.00 元，是这批货里最贵的。
+- A6 每件均价 100.00 元，是这批货里最贵的。
 哪个号在拖后腿
-- C8 平均每件 30.00 元。
+- C8 每件均价 30.00 元。
 可以留意的地方
 - B6/7 是一段区间，建议按区间核算。"""
 
@@ -113,13 +113,13 @@ def test_payload_includes_backend_computed_comparisons():
     # 大等级占比由后端算好，模型不需要自己加号别。
     rollup = {row["大等级"]: row for row in payload["大等级汇总"]}
     assert rollup["A"]["件数"] == 20.0
-    assert rollup["A"]["平均每公斤售价"] == pytest.approx((10 * 100 + 10 * 80) / 20)
+    assert rollup["A"]["每件均价"] == pytest.approx((10 * 100 + 10 * 80) / 20)
     # A6 在两张结算单都出现，且其中一张带「熟」标记，两个对比都应有数据。
     cross = next(row for row in payload["同号别跨结算单价格差"] if row["号别"] == "A6")
     assert cross["相差"] == pytest.approx(20.0)
     marks = next(row for row in payload["品质标记对比"] if row["号别"] == "A6")
-    assert marks["带标记平均每公斤售价"] == 80.0
-    assert marks["无标记平均每公斤售价"] == 100.0
+    assert marks["带标记每件均价"] == 80.0
+    assert marks["无标记每件均价"] == 100.0
 
 
 def test_payload_carries_sample_size_and_keeps_ranges_intact():
@@ -140,7 +140,7 @@ def test_payload_carries_sample_size_and_keeps_ranges_intact():
     assert "B6/7" in labels, "区间必须原样保留，不能拆成 B6 与 B7"
     bucket = next(row for row in payload["等级阶梯"] if row["等级"] == "A6")
     assert bucket["件数"] == 20.0
-    assert bucket["平均每公斤售价"] == 90.0
+    assert bucket["每件均价"] == 90.0
     assert bucket["品质标记"] == ["熟"]
 
 

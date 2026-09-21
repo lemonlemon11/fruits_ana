@@ -31,7 +31,7 @@ const NUMBER_PATTERN = /(?<![A-Za-z0-9/])\d+(?:\.\d+)?%?/g
 
 /**
  * 把一条结论拆成「普通文字 / 数字」片段，数字单独加粗。
- * 例：「913 件、平均每件 514.52 元」→ 913、514.52 高亮。
+ * 例：「913 件、每件均价 514.52 元」→ 913、514.52 高亮。
  */
 export function highlightNumbers(text: string): HighlightSegment[] {
   const source = text ?? ''

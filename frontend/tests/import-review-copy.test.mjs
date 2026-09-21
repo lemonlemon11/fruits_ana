@@ -26,3 +26,9 @@ test('手工录单同步使用“数量（件）”文案', () => {
   assert.doesNotMatch(entry, /label: '销售数量'/)
   assert.match(entry, /aria-label="数量（件）"/)
 })
+
+test('文件导入二次确认不提供“保存当前修改”，保留还原与确认提交', () => {
+  assert.doesNotMatch(review, /@click="saveDraft"/)
+  assert.match(review, /@click="restoreCurrentDraft"/)
+  assert.match(review, /@click="openConfirm"/)
+})

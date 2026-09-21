@@ -49,7 +49,7 @@ const bucketColumns: DataTableColumn<GradeDetailBucket>[] = [
   { key: 'label', label: '等级', rowHeader: true, emphasis: true },
   { key: 'quantity', label: '件数', numeric: true, value: (row) => formatNumber(row.salesQuantity) },
   { key: 'amount', label: '金额', numeric: true, value: (row) => formatCurrency(row.salesAmount) },
-  { key: 'price', label: '平均每公斤售价', numeric: true, value: (row) => formatPrice(row.weightedAvgPrice) },
+  { key: 'price', label: '每件均价', numeric: true, value: (row) => formatPrice(row.weightedAvgPrice) },
   { key: 'quantityShare', label: '件数占比', numeric: true, value: (row) => formatPercent(row.quantityShare) },
   { key: 'amountShare', label: '金额占比', numeric: true, value: (row) => formatPercent(row.amountShare) },
 ]
@@ -65,12 +65,12 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
   showTooltip(event, {
     title: `${row.label} · ${gradeLabel(row.grade)}`,
     rows: [
-      { label: '平均每公斤售价', value: formatPrice(row.weightedAvgPrice), color: gradeColors[row.grade] },
+      { label: '每件均价', value: formatPrice(row.weightedAvgPrice), color: gradeColors[row.grade] },
       { label: '件数', value: `${formatNumber(row.salesQuantity)} 件` },
       { label: '金额', value: formatCurrency(row.salesAmount) },
       { label: '件数占比', value: formatPercent(row.quantityShare) },
     ],
-    note: row.qualityMarks.length ? `品质标记：${row.qualityMarks.join('、')}` : '条形长度按平均每公斤售价绘制',
+    note: row.qualityMarks.length ? `品质标记：${row.qualityMarks.join('、')}` : '条形长度按每件均价绘制',
   })
 }
 </script>
@@ -81,7 +81,7 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
       <div>
         <h2 id="grade-detail-title">按等级号别看价格</h2>
         <p class="section-note">
-          把等级再拆成号别。带斜杠的（如 B6/7）是一段区间，原样保留，不拆分；条形长度代表平均每公斤售价。
+          把等级再拆成号别。带斜杠的（如 B6/7）是一段区间，原样保留，不拆分；条形长度代表每件均价。
         </p>
       </div>
       <ChartLegend :items="legendItems" />
@@ -93,7 +93,7 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
 
     <div v-else-if="!details.buckets.length" class="empty-state compact">
       <strong>暂时没有可细分的等级</strong>
-      <span>勾选结算单后，这里会按号别列出件数、金额与平均每公斤售价。</span>
+      <span>勾选结算单后，这里会按号别列出件数、金额与每件均价。</span>
     </div>
 
     <template v-else>
@@ -109,7 +109,7 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
             <strong>{{ gradeLabel(group.grade) }}</strong>
             <span class="ladder-sum">
               {{ formatNumber(group.quantity) }} 件 · {{ formatCurrency(group.amount) }} ·
-              平均每公斤售价 {{ formatPrice(group.avgPrice) }}
+              每件均价 {{ formatPrice(group.avgPrice) }}
             </span>
           </p>
           <div
@@ -126,7 +126,7 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
                 class="ladder-bar"
                 :style="{ width: barWidth(row) }"
                 role="img"
-                :aria-label="`${row.label} 平均每公斤售价 ${formatPrice(row.weightedAvgPrice)}`"
+                :aria-label="`${row.label} 每件均价 ${formatPrice(row.weightedAvgPrice)}`"
               ></div>
             </div>
             <span class="ladder-price">{{ formatPrice(row.weightedAvgPrice) }}</span>
@@ -151,7 +151,7 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
           :columns="bucketColumns"
           :rows="details.buckets"
           :row-key="bucketRowKey"
-          caption="各细分等级的件数、金额、平均每公斤售价与占比"
+          caption="各细分等级的件数、金额、每件均价与占比"
           min-width="480px"
           cards-on-narrow
         />

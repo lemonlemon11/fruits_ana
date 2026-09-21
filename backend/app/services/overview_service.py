@@ -15,6 +15,7 @@ from .analytics_core import (
     group_by_merchant,
     metrics,
     records,
+    resolve_date_window,
     settlement_anomalies,
     settlement_map,
 )
@@ -31,8 +32,14 @@ def get_overview(
     merchant_no: str | None = None,
     thresholds: AnomalyThresholds = DEFAULT_THRESHOLDS,
 ) -> dict:
+    effective_start, effective_end, _ = resolve_date_window(
+        db, start_date, end_date
+    )
     filtered = records(
-        db, start_date=start_date, end_date=end_date, merchant_no=merchant_no
+        db,
+        start_date=effective_start,
+        end_date=effective_end,
+        merchant_no=merchant_no,
     )
     batches = settlement_map(db, filtered)
     by_day: dict[date, list] = defaultdict(list)
@@ -42,7 +49,9 @@ def get_overview(
     if merchant_no is None:
         baseline, baseline_batches = filtered, batches
     else:
-        baseline = records(db, start_date=start_date, end_date=end_date)
+        baseline = records(
+            db, start_date=effective_start, end_date=effective_end
+        )
         baseline_batches = settlement_map(db, baseline)
     anomalies = []
     for key, items in grouped.items():
@@ -83,6 +92,11 @@ def get_overview(
             }
             for key, items in sorted(grouped.items())
         ],
-        "issue_counts": get_issue_counts(db),
+        "issue_counts": get_issue_counts(
+            db,
+            start_date=effective_start,
+            end_date=effective_end,
+            merchant_no=merchant_no,
+        ),
         "operating_anomalies": anomalies,
     }

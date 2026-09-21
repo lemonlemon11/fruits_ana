@@ -33,6 +33,9 @@ cd frontend && npx vite --config vite.demo.config.ts
 | `settlement-picker-redesign.html` | 结算单选择交互改造稿（先选品牌，再选同品牌结算单；桌面 / 手机可切换） |
 | `grade-preview.html` | 「系列对比」真实页面（真实组件 + 真实结算单数据） |
 | `grade-detail-design.html` | 等级细分视图的静态设计稿 |
+| `settlement-detail-taste.html` | 结算单详情页设计测试稿（用 taste skill 重新组织，数据为 mock 示例） |
+| `settlement-detail-facts.html` | 结算单详情改造预览（基础信息条、规格级占比/总件数/均价，移除整单均价与销售金额排名） |
+| `grade-breakdown-compact.html` | 等级图表紧凑版（饼图与均价横条并排、规格件数表全宽展开） |
 | `mobile-review/index.html` | 手机端 6 个业务页面现状预览（截图与横向溢出/滚动指标） |
 
 `ask-demo.html` 的样式拆成两份，方便整体移植到 `frontend/src`：

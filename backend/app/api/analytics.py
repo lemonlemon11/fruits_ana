@@ -22,6 +22,7 @@ from ..services.ai_analysis_service import (
 from ..services.grade_detail_analysis_service import analyze_grade_detail
 from ..services.settlement_analytics_service import (
     get_daily_trend,
+    get_grade_breakdown,
     get_overview,
     get_settlement_comparison,
     get_settlement_detail,
@@ -36,6 +37,8 @@ from ..services.series_analytics_service import (
 # AI 分析一次最多覆盖的结算单数量，与前端勾选上限保持一致。
 MAX_ANALYSIS_SETTLEMENTS = 6
 MIN_ANALYSIS_SETTLEMENTS = 2
+# 普通系列对比接口与前端勾选上限一致。
+MAX_SERIES_COMPARISON_SETTLEMENTS = 6
 
 
 router = APIRouter(
@@ -98,6 +101,14 @@ def trend(filters: dict = Depends(_filters), db: Session = Depends(get_db)):
     return {"trend": get_daily_trend(db, **filters)}
 
 
+@router.get("/grade-breakdown")
+def grade_breakdown(
+    filters: dict = Depends(_filters),
+    db: Session = Depends(get_db),
+):
+    return get_grade_breakdown(db, **filters)
+
+
 @router.get("/settlement-comparison")
 def settlement_comparison(
     filters: dict = Depends(_filters),
@@ -139,10 +150,19 @@ def series_comparison(
 
     if start_date and end_date and start_date > end_date:
         raise HTTPException(422, "start_date 不能晚于 end_date")
-    _ensure_same_series(db, merchant_no or [])
+    merchant_nos = list(
+        dict.fromkeys(
+            value.strip() for value in (merchant_no or []) if value and value.strip()
+        )
+    )
+    if len(merchant_nos) > MAX_SERIES_COMPARISON_SETTLEMENTS:
+        raise HTTPException(
+            422, f"一次最多对比 {MAX_SERIES_COMPARISON_SETTLEMENTS} 张结算单"
+        )
+    _ensure_same_series(db, merchant_nos)
     return get_series_comparison(
         db,
-        merchant_nos=merchant_no or [],
+        merchant_nos=merchant_nos,
         start_date=start_date,
         end_date=end_date,
     )

@@ -68,6 +68,7 @@ function selectOption(option: SearchableOption) {
     emit('update:modelValue', option.value)
     emit('change', option.value)
   }
+  inputRef.value?.blur()
 }
 
 function onInput() {

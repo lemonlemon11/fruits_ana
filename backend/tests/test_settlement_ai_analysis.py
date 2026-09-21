@@ -90,7 +90,7 @@ def test_build_payload_keeps_current_and_same_brand_peer_numbers():
 
     assert payload["当前结算单"]["品牌"] == "宝贝"
     assert payload["同品牌其他结算单"][0]["品牌"] == "宝贝"
-    assert payload["同品牌其他结算单等级基准"][0]["平均每公斤售价"] == 50.0
+    assert payload["同品牌其他结算单等级基准"][0]["每件均价"] == 50.0
     assert '"品牌": "宝贝"' in messages[1]["content"]
 
 

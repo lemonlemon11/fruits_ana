@@ -222,6 +222,7 @@
 }
 
 .auth-form .form-message { grid-column: auto; margin: 0; padding: .59rem .71rem; border-radius: var(--radius-sm); font-size: .85rem; }
+.auth-form .form-message.warning { background: #fff4e0; color: var(--warning); }
 .auth-submit { width: 100%; min-height: 2.94rem; margin-top: .12rem; }
 .auth-switch { margin: 0; color: var(--muted); font-size: .88rem; text-align: center; }
 .auth-switch a { color: var(--primary-dark); font-weight: 700; }
@@ -254,4 +255,22 @@
   .portal-form-card { padding: 22px 18px 24px; }
   .portal-hero h1 { font-size: 1.85rem; }
   .auth-form header h2 { font-size: 1.5rem; }
+}
+
+.auth-links-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-top: .3rem;
+}
+.forgot-link {
+  font-size: .88rem;
+  color: var(--primary-dark);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.forgot-link:hover {
+  text-decoration: underline;
 }

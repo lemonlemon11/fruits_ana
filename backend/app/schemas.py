@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
@@ -18,15 +19,30 @@ class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SidebarMenuRead(ORMModel):
+    """业务端侧边导航条目：名称与图标由管理端菜单维护。"""
+
+    route_path: str
+    name: str
+    icon: str | None = None
+    permission_code: str | None = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
 class UserRead(BaseModel):
     id: int
     display_name: str
+    email: str | None = None
     permissions: list[str] = Field(default_factory=list)
+    menus: list[SidebarMenuRead] = Field(default_factory=list)
 
 
 class RegisterRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=80)
     password: str = Field(min_length=8, max_length=128)
+    email: str = Field(min_length=5, max_length=320)
+    verification_code: str = Field(min_length=6, max_length=6)
 
 
 class LoginRequest(BaseModel):
@@ -35,8 +51,40 @@ class LoginRequest(BaseModel):
     remember_me: bool = False
 
 
+class SendCodeRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+
+
+class SendCodeResponse(BaseModel):
+    message: str = "验证码已发送"
+
+
 class AuthResponse(BaseModel):
     user: UserRead
+
+
+
+class ForgotPasswordSendCodeRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+
+
+class ForgotPasswordSendCodeResponse(BaseModel):
+    message: str = "验证码已发送"
+
+
+class ForgotPasswordVerifyCodeRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+    verification_code: str = Field(min_length=6, max_length=6)
+
+
+class ForgotPasswordVerifyCodeResponse(BaseModel):
+    reset_token: str
+
+
+class ForgotPasswordResetRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+    reset_token: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
 
 
 class NotificationRead(BaseModel):
@@ -64,9 +112,11 @@ class SettlementListItem(BaseModel):
     merchant_no_normalized: str | None = None
     order_no: str | None
     order_no_normalized: str | None = None
+    fruit_type: str | None = None
     series: str
     container_no: str | None
     vehicle_no: str | None
+    arrival_date: date | None = None
     sale_date_start: date
     sale_date_end: date
     sales_amount: float
@@ -104,11 +154,22 @@ class SettlementRecordRead(BaseModel):
     grade: str
     grade_raw: str | None
     spec_raw: str | None
+    piece_count: str | None = None
     quantity: float | None
     unit_price: float | None
     amount: float | None
     remark: str | None
     sales_region: str | None = None
+
+
+class SettlementRecordTotals(BaseModel):
+    quantity: float
+    amount: float
+
+
+class SettlementSalesPeriod(BaseModel):
+    start_date: date | None
+    end_date: date | None
 
 
 class SettlementRecordsResponse(BaseModel):
@@ -119,6 +180,9 @@ class SettlementRecordsResponse(BaseModel):
     container_no: str | None
     vehicle_no: str | None
     records: list[SettlementRecordRead]
+    pagination: SettlementPagination | None = None
+    totals: SettlementRecordTotals | None = None
+    sales_period: SettlementSalesPeriod | None = None
 
 
 class ImportBatchCreate(BaseModel):
@@ -248,17 +312,28 @@ class EntrySaleItemCreate(BaseModel):
     """销售明细行；头数与 KG 为文本（支持 ``3/4``、``9/10`` 区间写法）。"""
 
     sale_date: date
-    variety: str = Field(pattern=r"^[A-Z]{1,3}$")
-    head_count: str = Field(min_length=1, max_length=32)
-    spec_kg: str = Field(min_length=1, max_length=32)
+    variety: str = Field(default="", max_length=16)
+    head_count: str = Field(default="", max_length=32)
+    spec_kg: str = Field(default="", max_length=32)
     sales_quantity: Decimal = Field(gt=0)
-    unit_price: Decimal = Field(gt=0)
+    unit_price: Decimal = Field(ge=0)
     remark: str | None = None
+
+    @field_validator("variety")
+    @classmethod
+    def _check_variety(cls, value: str) -> str:
+        text = value.strip()
+        if text and not re.fullmatch(r"[A-Z]{1,3}", text):
+            raise ValueError("品种必须是 1~3 个大写字母，如 A、AB、BC；不填按其他等级统计")
+        return text
 
     @field_validator("head_count", "spec_kg")
     @classmethod
     def _check_range(cls, value: str, info) -> str:
-        parsed = parse_spec_range(value)
+        text = value.strip()
+        if not text:
+            return ""
+        parsed = parse_spec_range(text)
         if parsed is None:
             label = "规格（头数）" if info.field_name == "head_count" else "规格（KG）"
             raise ValueError(f"{label}无法解析，请填写数字或区间（如 3/4、9/10、10）")
@@ -360,6 +435,8 @@ __all__ = [
     "AskResponse",
     "AskStep",
     "AuthResponse",
+    "SendCodeRequest",
+    "SendCodeResponse",
     "NotificationListResponse",
     "NotificationRead",
     "NotificationUnreadCount",

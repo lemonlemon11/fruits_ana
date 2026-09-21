@@ -109,31 +109,31 @@ function showSegmentTooltip(event: MouseEvent, row: (typeof rows.value)[number])
 
 <style scoped>
 .grade-pie-section { min-width: 0; }
-.pie-layout { display: grid; grid-template-columns: minmax(136px, .9fr) minmax(145px, 1.1fr); align-items: center; gap: 16px; min-height: 172px; }
+.pie-layout { display: grid; grid-template-columns: minmax(96px, .8fr) minmax(150px, 1.2fr); align-items: center; gap: 10px; min-height: 116px; }
 .pie-graphic { display: grid; place-items: center; }
-.pie-chart { width: min(100%, 178px); height: auto; overflow: visible; transform: rotate(-90deg); }
+.pie-chart { width: min(100%, 116px); height: auto; overflow: visible; transform: rotate(-90deg); }
 .pie-chart text { transform: rotate(90deg); transform-origin: 68px 68px; }
 .pie-track, .pie-segment { fill: none; stroke-width: 15; }
 .pie-track { stroke: var(--surface-soft); }
 .pie-segment { stroke-linecap: butt; transition: stroke-dasharray 260ms ease, stroke-dashoffset 260ms ease; }
-.pie-total { fill: var(--ink); font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: 17px; font-weight: 800; }
-.pie-caption { fill: var(--muted); font-size: 9px; }
-.pie-legend { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
+.pie-total { fill: var(--ink); font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: 15px; font-weight: 800; }
+.pie-caption { fill: var(--muted); font-size: 8px; }
+.pie-legend { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
 .pie-legend li { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 7px; min-width: 0; }
 .pie-dot { width: 8px; height: 8px; border-radius: 50%; }
-.pie-grade { color: var(--ink); font-size: .85rem; }
-.pie-legend strong { font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .85rem; font-variant-numeric: tabular-nums; }
-.pie-legend small { grid-column: 2 / 4; margin-top: -5px; color: var(--muted); font-size: .85rem; }
-.pie-skeleton { min-height: 172px; }
+.pie-grade { color: var(--ink); font-size: .84rem; }
+.pie-legend strong { font-family: Bahnschrift, "Microsoft YaHei", sans-serif; font-size: .84rem; font-variant-numeric: tabular-nums; }
+.pie-legend small { grid-column: 2 / 4; margin-top: -4px; color: var(--muted); font-size: .76rem; }
+.pie-skeleton { min-height: 116px; }
 
 @media (max-width: 560px) {
-  .pie-layout { grid-template-columns: 136px minmax(0, 1fr); gap: 10px; }
-  .pie-chart { width: 136px; }
+  .pie-layout { grid-template-columns: 100px minmax(0, 1fr); gap: 8px; }
+  .pie-chart { width: 100px; }
 }
 
 @media (max-width: 380px) {
-  .pie-layout { grid-template-columns: 1fr; gap: 10px; }
-  .pie-chart { width: 136px; }
+  .pie-layout { grid-template-columns: 1fr; gap: 8px; }
+  .pie-chart { width: 100px; }
   .pie-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
 }
 </style>

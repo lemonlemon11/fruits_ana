@@ -11,7 +11,12 @@ from ..auth import require_current_user
 from ..db import get_db
 from ..models import ImportBatch
 from ..schemas import SettlementListResponse, SettlementRecordsResponse
-from ..services.settlement_detail_service import get_settlement_records
+from ..services.settlement_detail_service import (
+    RECORD_PAGE_SIZE_MAX,
+    get_settlement_records,
+    get_settlement_review,
+)
+from ..services.settlement_delete_service import delete_settlement
 from ..services.settlement_list_service import PAGE_SIZE_MAX, list_settlements
 from ..services.order_no_naming import order_no_display
 from ..services.merchant_no_naming import merchant_no_display
@@ -50,10 +55,18 @@ def settlements(
 
 
 @router.get("/{merchant_no}/records", response_model=SettlementRecordsResponse)
-def settlement_records(merchant_no: str, db: Session = Depends(get_db)):
+def settlement_records(
+    merchant_no: str,
+    page: int | None = Query(default=None, ge=1),
+    page_size: int | None = Query(default=None, ge=1, le=RECORD_PAGE_SIZE_MAX),
+    db: Session = Depends(get_db),
+):
     batch = db.query(ImportBatch).filter_by(merchant_no=merchant_no).first()
     if batch is None:
         raise HTTPException(404, "结算单不存在")
+    records = get_settlement_records(
+        db, batch.id, page=page, page_size=page_size
+    )
     return {
         "merchant_no": batch.merchant_no,
         "merchant_no_normalized": merchant_no_display(
@@ -65,8 +78,34 @@ def settlement_records(merchant_no: str, db: Session = Depends(get_db)):
         ),
         "container_no": batch.container_no,
         "vehicle_no": batch.vehicle_no,
-        "records": get_settlement_records(db, batch.id),
+        **records,
     }
+
+
+@router.get("/{merchant_no}/review")
+def settlement_review(
+    merchant_no: str,
+    db: Session = Depends(get_db),
+):
+    """按商号读取结算单复核视图；仅供只读查看，不产生修改。"""
+
+    result = get_settlement_review(db, merchant_no)
+    if result is None:
+        raise HTTPException(404, "结算单不存在")
+    return result
+
+
+@router.delete("/{merchant_no}")
+def delete_settlement_by_merchant(
+    merchant_no: str,
+    db: Session = Depends(get_db),
+):
+    """删除录错的结算单，连带移除销售明细、售后、费用、汇总与留痕。"""
+
+    result = delete_settlement(db, merchant_no)
+    if result is None:
+        raise HTTPException(404, "结算单不存在")
+    return result
 
 
 __all__ = ["router"]

@@ -1,6 +1,6 @@
 /** 导入页文件选择：统一处理“选择文件”与“拖入文件”的多文件累加与过滤。 */
 
-const SUPPORTED_FILE = /\.(csv|xlsx)$/i
+const SUPPORTED_FILE = /\.xlsx$/i
 
 export interface FileSelection {
   files: File[]

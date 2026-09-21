@@ -95,7 +95,10 @@ def _computed_totals(payload: dict[str, Any]) -> dict[str, Decimal]:
         for row in sales
     )
     total_quantity = sum((_quantity(row.get("sales_quantity")) for row in sales), Decimal("0"))
-    after_amount = sum((_money(row.get("amount")) for row in payload.get("after_sales") or []), Decimal("0"))
+    after_amount = sum(
+        (abs(_money(row.get("amount"))) for row in payload.get("after_sales") or []),
+        Decimal("0"),
+    )
     fee_amount = sum((_money(row.get("amount")) for row in payload.get("fees") or []), Decimal("0"))
     goods_amount = sales_amount - after_amount
     payable_amount = goods_amount - fee_amount
@@ -165,13 +168,13 @@ def validate_draft_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]
             except ValueError:
                 issues.append(_issue("invalid_date", "error", "销售日期不是有效日期", section="sales", row=index, field="sale_date", raw_value=row.get("sale_date")))
         variety = str(row.get("variety") or "").strip()
-        if not variety:
-            issues.append(_issue("missing_field", "error", "品种不能为空", section="sales", row=index, field="variety"))
-        elif not re.fullmatch(r"[A-Z]{1,3}", variety):
+        if variety and not re.fullmatch(r"[A-Z]{1,3}", variety):
             issues.append(_issue("invalid_grade", "error", "品种必须是 1~3 个大写字母，如 A、AB、BC", section="sales", row=index, field="variety", raw_value=variety))
-        if parse_spec_range(row.get("head_count")) is None:
+        head_count = str(row.get("head_count") or "").strip()
+        if head_count and parse_spec_range(head_count) is None:
             issues.append(_issue("invalid_spec", "error", "规格（头数）无法解析", section="sales", row=index, field="head_count", raw_value=row.get("head_count")))
-        if parse_spec_range(row.get("spec_kg")) is None:
+        spec_kg = str(row.get("spec_kg") or "").strip()
+        if spec_kg and parse_spec_range(spec_kg) is None:
             issues.append(_issue("invalid_spec", "error", "规格（KG）无法解析", section="sales", row=index, field="spec_kg", raw_value=row.get("spec_kg")))
         try:
             quantity = _quantity(row.get("sales_quantity"))
@@ -197,8 +200,7 @@ def validate_draft_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]
         if not str(row.get("content") or "").strip():
             issues.append(_issue("missing_field", "error", "售后内容不能为空", section="after_sales", row=index, field="content"))
         try:
-            if _money(row.get("amount")) < 0:
-                issues.append(_issue("invalid_price", "error", "售后金额不能为负数", section="after_sales", row=index, field="amount", raw_value=row.get("amount")))
+            _money(row.get("amount"))
         except Exception:
             issues.append(_issue("invalid_price", "error", "售后金额必须为数字", section="after_sales", row=index, field="amount", raw_value=row.get("amount")))
 
@@ -323,6 +325,7 @@ def get_import_draft(db: Session, job_token: str, draft_token: str) -> dict[str,
     if draft is None:
         return None
     payload = _parse_json(draft.payload, {})
+    original_payload = _parse_json(draft.original_payload, payload)
     issues, computed = validate_draft_payload(payload)
     payload["issues"] = issues
     payload["computed_summary"] = computed
@@ -333,6 +336,31 @@ def get_import_draft(db: Session, job_token: str, draft_token: str) -> dict[str,
         "version": draft.version,
         "file_name": draft.file_name,
         "payload": payload,
+        "original_payload": original_payload,
+    }
+
+
+def resolve_import_issue(db: Session, issue_id: int, user_id: int | None) -> dict[str, Any]:
+    """把导入问题标记为人工已确认处理。"""
+
+    issue = db.get(DataIssue, issue_id)
+    if issue is None:
+        raise ValueError("导入问题不存在")
+    was_resolved = issue.resolved
+    issue.resolved = True
+    issue.resolved_by = user_id
+    issue.resolved_at = datetime.now(issue.created_at.tzinfo)
+    warning_count = None
+    if not was_resolved and issue.severity == "warning":
+        batch = db.get(ImportBatch, issue.import_batch_id)
+        if batch is not None and batch.warning_count > 0:
+            batch.warning_count -= 1
+            warning_count = batch.warning_count
+    db.commit()
+    return {
+        "id": issue.id,
+        "resolved": issue.resolved,
+        "warning_count": warning_count,
     }
 
 
@@ -516,7 +544,7 @@ def _write_batch(
 
     after_amount = Decimal("0")
     for sort_order, row in enumerate(payload.get("after_sales") or []):
-        amount = _money(row.get("amount"))
+        amount = abs(_money(row.get("amount")))
         after_amount += amount
         db.add(
             SettlementAfterSaleItem(
@@ -557,6 +585,8 @@ def _write_batch(
         value = file_summary.get(field)
         return _quantity(value) if value not in (None, "") else None
 
+    file_after_sale_amount = _file_money("after_sale_amount")
+
     summary = SettlementSummary(
         import_batch_id=batch.id,
         sales_amount=sales_amount,
@@ -569,7 +599,11 @@ def _write_batch(
         computed_quantity=sum((_quantity(row.get("sales_quantity")) for row in payload.get("sales") or []), Decimal("0")),
         file_sales_quantity=_file_quantity("sales_quantity"),
         file_sales_amount=_file_money("sales_amount"),
-        file_after_sale_amount=_file_money("after_sale_amount"),
+        file_after_sale_amount=(
+            abs(file_after_sale_amount)
+            if file_after_sale_amount is not None
+            else None
+        ),
         file_goods_amount=_file_money("goods_amount"),
         file_fee_amount=_file_money("fee_amount"),
         file_fee_detail=file_summary.get("fee_detail"),
@@ -625,8 +659,10 @@ def confirm_import_job(
 
     blockers: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
+    hard_conflicts: list[dict[str, Any]] = []
     draft_payloads: list[tuple[ImportDraft, dict[str, Any], list[dict[str, Any]]]] = []
     latest_by_merchant: dict[str, ImportDraft] = {}
+    latest_by_normalized: dict[str, str] = {}
     for draft in drafts:
         payload = _parse_json(draft.payload, {})
         issues, computed = validate_draft_payload(payload)
@@ -647,9 +683,64 @@ def confirm_import_job(
             latest_by_merchant[merchant_no] = draft
         if any(item["severity"] == "error" for item in issues):
             blockers.append({"draft_token": draft.token, "file_name": draft.file_name, "issues": issues})
+
+        normalized = normalize_merchant_no(merchant_no)
+        if normalized and normalized in latest_by_normalized and latest_by_normalized[normalized] != merchant_no:
+            hard_conflicts.append(
+                {
+                    "draft_token": draft.token,
+                    "file_name": draft.file_name,
+                    "merchant_no": merchant_no,
+                    "reason": f"商号 {merchant_no} 与 {latest_by_normalized[normalized]} 归一化后均为 {normalized}",
+                }
+            )
+        else:
+            latest_by_normalized[normalized or merchant_no] = merchant_no
+
+        normalized_collision = (
+            db.query(ImportBatch)
+            .filter(
+                ImportBatch.merchant_no != merchant_no,
+                ImportBatch.merchant_no_normalized == normalized,
+            )
+            .first()
+            if normalized
+            else None
+        )
+        if normalized_collision is not None:
+            hard_conflicts.append(
+                {
+                    "draft_token": draft.token,
+                    "file_name": draft.file_name,
+                    "merchant_no": merchant_no,
+                    "reason": f"商号 {merchant_no} 归一化后与已有商号 {normalized_collision.merchant_no} 相同",
+                }
+            )
+
         existing = db.query(ImportBatch).filter(ImportBatch.merchant_no == merchant_no).first()
         if existing is not None:
-            conflicts.append({"draft_token": draft.token, "file_name": draft.file_name, "merchant_no": merchant_no})
+            conflict = {
+                "draft_token": draft.token,
+                "file_name": draft.file_name,
+                "merchant_no": merchant_no,
+            }
+            if existing.source_type != "import":
+                hard_conflicts.append(
+                    {
+                        **conflict,
+                        "reason": f"商号 {merchant_no} 已由手工录单占用，导入不能覆盖",
+                    }
+                )
+            else:
+                conflicts.append({**conflict, "reason": "该商号已存在，确认后覆盖"})
+
+    if hard_conflicts:
+        raise ImportConfirmBlocked(
+            json.dumps(
+                {"blockers": blockers, "conflicts": [*hard_conflicts, *conflicts]},
+                ensure_ascii=False,
+            )
+        )
 
     if blockers and not force:
         raise ImportConfirmBlocked(json.dumps({"blockers": blockers, "conflicts": conflicts}, ensure_ascii=False))
@@ -668,13 +759,67 @@ def confirm_import_job(
     else:
         drafts_to_write = draft_payloads
 
+    overwritten_by_draft: dict[str, dict[str, Any]] = {}
     for draft, payload, issues in drafts_to_write:
         if force:
             existing = db.query(ImportBatch).filter(ImportBatch.merchant_no == payload.get("merchant_no")).first()
             if existing is not None:
+                if existing.source_type != "import":
+                    raise ImportConfirmBlocked(
+                        json.dumps(
+                            {
+                                "blockers": blockers,
+                                "conflicts": [
+                                    {
+                                        "draft_token": draft.token,
+                                        "file_name": draft.file_name,
+                                        "merchant_no": payload.get("merchant_no"),
+                                        "reason": "商号已由手工录单占用，导入不能覆盖",
+                                    }
+                                ],
+                            },
+                            ensure_ascii=False,
+                        )
+                    )
+                overwritten_by_draft[draft.token] = {
+                    "merchant_no": existing.merchant_no,
+                    "order_no": existing.order_no,
+                    "container_no": existing.container_no,
+                    "vehicle_no": existing.vehicle_no,
+                    "source_type": existing.source_type,
+                    "parse_mode": existing.parse_mode,
+                    "file_name": existing.file_name,
+                }
                 db.delete(existing)
                 db.flush()
         batch = _write_batch(db, draft, payload, issues, user_id)
+        overwritten = overwritten_by_draft.get(draft.token)
+        if overwritten is not None:
+            db.add(
+                SettlementRevision(
+                    import_batch_id=batch.id,
+                    version=1,
+                    section="import",
+                    field_name="full_batch",
+                    old_value=json.dumps(overwritten, ensure_ascii=False, default=str),
+                    new_value=json.dumps(
+                        {
+                            "merchant_no": batch.merchant_no,
+                            "order_no": batch.order_no,
+                            "container_no": batch.container_no,
+                            "vehicle_no": batch.vehicle_no,
+                            "source_type": batch.source_type,
+                            "parse_mode": batch.parse_mode,
+                            "file_name": batch.file_name,
+                        },
+                        ensure_ascii=False,
+                        default=str,
+                    ),
+                    change_type="import",
+                    reason="导入覆盖同商号结算单",
+                    changed_by=user_id,
+                )
+            )
         draft.status = "confirmed"
         draft.confirmed_by = user_id
         draft.confirmed_at = datetime.now(draft.created_at.tzinfo)

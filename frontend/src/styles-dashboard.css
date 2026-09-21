@@ -1,4 +1,4 @@
-.total-strip, .settlement-strip { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: .82rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.total-strip, .settlement-strip { display: grid; grid-template-columns: repeat(2, 1fr); margin-bottom: .82rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .total-strip > div, .settlement-strip > div { padding: .76rem .94rem; border-right: 1px solid var(--line); }
 .total-strip > div:last-child, .settlement-strip > div:last-child { border-right: 0; }
 .total-strip span, .settlement-strip dt { display: block; margin-bottom: .35rem; color: var(--muted); font-size: 1rem; }

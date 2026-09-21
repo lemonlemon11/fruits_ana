@@ -1,24 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
-import { getImportIssues, getImports, issuesCsvUrl, previewImports, type ImportBatch, type ImportIssue } from '../api/client'
+import { deleteEntryDraft, getEntryDraft, getImportIssues, getImports, issuesCsvUrl, previewImports, resolveImportIssue, type EntryDraft, type ImportBatch, type ImportIssue } from '../api/client'
 import { currentUser } from '../auth'
 import { useRouter } from 'vue-router'
 import { formatDateTime } from '../utils/format'
 import { isFileDrag } from '../utils/importFiles'
-import { clearEntryDraft, describeEntryDraft, draftTitle, readEntryDraft } from '../utils/entryDraft'
+import { describeEntryDraft, draftTitle } from '../utils/entryDraft'
 import DataTable, { type DataTableColumn } from '../components/DataTable.vue'
 
 const batches = ref<ImportBatch[]>([])
 const router = useRouter()
 const canEnter = computed(() => Boolean(currentUser.value?.permissions.includes('entry:view')))
-const entryDraft = computed(() => {
-  try {
-    return readEntryDraft(window.localStorage, currentUser.value?.id)
-  } catch {
-    return null
-  }
-})
+const entryDraft = ref<EntryDraft | null>(null)
 const hasEntryDraft = computed(() => Boolean(entryDraft.value))
 // 问题明细列固定，行号 / 级别 / 类型 / 字段 / 说明 / 原始值由通用列表组件渲染。
 const issueRowKey = (issue: ImportIssue) => issue.id
@@ -44,9 +38,18 @@ const expandedBatch = ref('')
 const loadingIssues = ref('')
 const issuesByBatch = reactive<Record<string, ImportIssue[]>>({})
 const issueErrors = reactive<Record<string, string>>({})
+const confirmBatchId = ref('')
+const confirmIssueBusy = ref('')
 const dragging = ref(false)
 const detailOpen = ref(false)
 let dragDepth = 0
+
+// 手机端没有拖拽能力，文案与桌面端区分，避免承诺做不到的交互。
+const narrowQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  ? window.matchMedia('(max-width: 820px)')
+  : null
+const isNarrow = ref(narrowQuery?.matches ?? false)
+function onNarrowChange(event: MediaQueryListEvent) { isNarrow.value = event.matches }
 
 const warningBatches = computed(() => batches.value.filter((batch) => batch.warningCount > 0).length)
 const failedBatches = computed(() => batches.value.filter((batch) => batch.failureCount > 0 || batch.status.toLowerCase() === 'failed').length)
@@ -56,6 +59,18 @@ const totalBatchPages = computed(() => Math.max(1, Math.ceil(batches.value.lengt
 const pagedBatches = computed(() => {
   const start = (batchPage.value - 1) * batchPageSize
   return batches.value.slice(start, start + batchPageSize)
+})
+const confirmBatch = computed(() => batches.value.find((batch) => String(batch.id) === confirmBatchId.value) ?? null)
+const confirmIssues = computed(() => issuesByBatch[confirmBatchId.value] ?? [])
+const confirmWarningIssues = computed(() => confirmIssues.value.filter((issue) => issue.severity.toLowerCase() !== 'error'))
+
+// 一次可选多个文件，队列里只显示第一个文件名会让人以为漏选，这里补上数量与总大小。
+const uploadQueueSummary = computed(() => {
+  const files = selectedFiles.value
+  if (!files.length) return { title: '', detail: '' }
+  if (files.length === 1) return { title: files[0].name, detail: formatFileSize(files[0].size) }
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0)
+  return { title: `已选 ${files.length} 个文件`, detail: `${files[0].name} 等 · 共 ${formatFileSize(totalBytes)}` }
 })
 
 function goBatchPage(page: number) {
@@ -67,19 +82,23 @@ watch(() => batches.value.length, () => { batchPage.value = 1 })
 
 function selectFiles(files: File[]) {
   if (!files.length) return
-  const supported = files.filter((file) => /\.(csv|xlsx)$/i.test(file.name))
+  const supported = files.filter((file) => /\.xlsx$/i.test(file.name))
   if (!supported.length) {
     selectedFiles.value = []
-    error.value = '不支持的文件格式，请选择 CSV 或 XLSX 文件。'
+    error.value = '不支持的文件格式，请选择 XLSX 文件。'
     return
   }
-  selectedFiles.value = [supported[0]]
+  const skipped = files.length - supported.length
+  selectedFiles.value = supported
   error.value = ''
-  notice.value = files.length > 1 ? '一次只能导入一个文件，已保留第一个文件。' : ''
+  notice.value = skipped > 0 ? `已忽略 ${skipped} 个不支持的文件，保留 ${supported.length} 个受支持文件。` : ''
 }
 
 function onInput(event: Event) {
   selectFiles(Array.from((event.target as HTMLInputElement).files ?? []))
+  // 桌面上选文件即导入，少一次点击；手机上没有撤销入口，误选会直接把文件推上去，
+  // 因此手机端停在「已选 N 个文件 + 开始导入」这一步，由用户确认（也顺带让清空选择有用）。
+  if (isNarrow.value) return
   if (selectedFiles.value.length) void submit()
 }
 function openFilePicker() { fileInput.value?.click() }
@@ -88,13 +107,23 @@ function goManualEntry() {
   void router.push(hasEntryDraft.value ? '/entry?draft=1' : '/entry')
 }
 
-function startNewEntry() {
+async function startNewEntry() {
   try {
-    clearEntryDraft(window.localStorage, currentUser.value?.id)
+    await deleteEntryDraft()
+    entryDraft.value = null
   } catch {
-    // 存储不可用时仍允许打开空白录单。
+    // 清不掉服务端草稿时仍允许打开空白录单。
   }
   void router.push('/entry')
+}
+
+async function loadEntryDraft() {
+  if (!canEnter.value) return
+  try {
+    entryDraft.value = await getEntryDraft()
+  } catch {
+    entryDraft.value = null
+  }
 }
 
 function onDragEnter(event: DragEvent) {
@@ -147,22 +176,60 @@ async function submit() {
     selectedFiles.value = []
     if (fileInput.value) fileInput.value.value = ''
     await loadBatches()
-    notice.value = `已生成 ${result.draftCount} 条待确认草稿，正在打开复核页`
+    const failures = result.failures ?? []
+    const failureText = failures.length
+      ? `；${failures.length} 个文件解析失败：${failures.map((item) => `${item.fileName}：${item.error}`).join('；')}`
+      : ''
+    notice.value = `已生成 ${result.draftCount} 条待确认草稿${failureText}，正在打开复核页`
+    await new Promise((resolve) => window.setTimeout(resolve, failures.length ? 1600 : 400))
     await router.push({ path: '/import-review', query: { job: result.token } })
-  } catch (caught) { error.value = caught instanceof Error ? caught.message : '文件上传失败' }
+  } catch (caught) { error.value = caught instanceof Error ? friendlyUploadError(caught.message) : '文件上传失败' }
   finally { uploading.value = false }
 }
 
-async function toggleIssues(batchId: string | number) {
+async function loadIssues(batchId: string | number) {
   const key = String(batchId)
-  if (expandedBatch.value === key) { expandedBatch.value = ''; return }
-  expandedBatch.value = key
   if (issuesByBatch[key]) return
   loadingIssues.value = key
   issueErrors[key] = ''
   try { issuesByBatch[key] = await getImportIssues(batchId) }
   catch (caught) { issueErrors[key] = caught instanceof Error ? caught.message : '问题明细加载失败' }
   finally { loadingIssues.value = '' }
+}
+
+async function toggleIssues(batchId: string | number) {
+  const key = String(batchId)
+  if (expandedBatch.value === key) { expandedBatch.value = ''; return }
+  expandedBatch.value = key
+  await loadIssues(batchId)
+}
+
+async function openConfirmDialog(batch: ImportBatch) {
+  confirmBatchId.value = String(batch.id)
+  confirmIssueBusy.value = ''
+  await loadIssues(batch.id)
+}
+
+function closeConfirmDialog() {
+  confirmBatchId.value = ''
+  confirmIssueBusy.value = ''
+}
+
+async function confirmIssue(batchId: string | number, issue: ImportIssue) {
+  const batch = batches.value.find((item) => String(item.id) === String(batchId))
+  const wasResolved = issue.resolved
+  confirmIssueBusy.value = String(issue.id)
+  try {
+    await resolveImportIssue(batchId, issue.id)
+    issue.resolved = true
+    if (!wasResolved && issue.severity.toLowerCase() !== 'error' && batch?.warningCount) {
+      batch.warningCount -= 1
+    }
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '问题确认失败'
+  } finally {
+    confirmIssueBusy.value = ''
+  }
 }
 
 function statusLabel(status: string): string {
@@ -207,7 +274,7 @@ function formatFileSize(bytes: number): string {
 
 function fieldLabel(fieldName: string): string {
   const labels: Record<string, string> = {
-    amount: '金额', quantity: '数量', unit_price: '单价', sale_date: '到达日期',
+    amount: '金额', quantity: '数量', unit_price: '单价', sale_date: '销售日期',
     grade: '等级', merchant_no: '商号', order_no: '单号', container_no: '柜号', vehicle_no: '转运车号',
   }
   return labels[fieldName.toLowerCase()] ?? (fieldName || '—')
@@ -226,15 +293,40 @@ function issueTypeLabel(issueType: string): string {
   return labels[issueType.toLowerCase()] ?? '数据需要核对'
 }
 
+/*
+ * 上传接口解析失败时后端返回 detail = { message, failures[] }，
+ * 直接展示会是一整段 JSON（手机上一屏都放不下）。这里只取人话部分：
+ * 结论 + 第一个失败原因，明细仍可在导入记录里看到。
+ */
+function friendlyUploadError(raw: string): string {
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object') {
+      const detail = parsed as { message?: unknown; failures?: unknown }
+      if (typeof detail.message === 'string') {
+        const failures = Array.isArray(detail.failures) ? detail.failures as { error?: unknown }[] : []
+        const firstError = failures.find((item) => item && typeof item.error === 'string')?.error
+        return typeof firstError === 'string' ? `${detail.message}：${firstError}` : detail.message
+      }
+    }
+  } catch {
+    // 不是 JSON，按原文展示
+  }
+  return raw
+}
+
 onMounted(() => {
   loadBatches()
+  void loadEntryDraft()
   // 拖到拖拽区外时避免浏览器直接打开文件、把单页应用顶掉。
   window.addEventListener('dragover', preventBrowserFileOpen)
   window.addEventListener('drop', preventBrowserFileOpen)
+  narrowQuery?.addEventListener('change', onNarrowChange)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('dragover', preventBrowserFileOpen)
   window.removeEventListener('drop', preventBrowserFileOpen)
+  narrowQuery?.removeEventListener('change', onNarrowChange)
 })
 </script>
 
@@ -244,24 +336,25 @@ onBeforeUnmount(() => {
       <article class="mode-card upload-mode">
         <div class="mode-card-head">
           <h2 id="upload-title">上传结算单</h2>
-          <span>支持常见表格文件</span>
+          <span>仅支持表格文件上传</span>
         </div>
-        <p class="mode-desc">拖入文件会自动解析并生成待确认草稿，导入记录就在下方查看。</p>
+        <p class="mode-desc">{{ isNarrow ? '选择文件上传后会自动解析并生成待确认草稿，导入记录就在下方查看。' : '拖入文件会自动解析并生成待确认草稿，导入记录就在下方查看。' }}</p>
         <div
           class="file-picker-panel"
           :class="{ 'is-dragging': dragging }"
+          @click="openFilePicker"
           @dragenter.prevent.stop="onDragEnter"
           @dragover.prevent.stop="onDragOver"
           @dragleave.prevent.stop="onDragLeave"
           @drop.prevent.stop="onDrop"
         >
-          <input id="settlement-files" ref="fileInput" class="sr-only" type="file" accept=".csv,.xlsx" @click.stop @change="onInput">
-          <button class="primary-button" type="button" @click="openFilePicker">选择结算单</button>
-          <span>一次只拖入一个文件</span>
+          <input id="settlement-files" ref="fileInput" class="sr-only" type="file" multiple accept=".xlsx" @click.stop @change="onInput">
+          <button class="primary-button" type="button" @click.stop="openFilePicker">选择结算单</button>
+          <span>仅支持 Excel 表格文件，可一次选择多个</span>
         </div>
         <div v-if="selectedFiles.length" class="upload-queue" aria-live="polite">
-          <div><strong>已选择 {{ selectedFiles.length }} 个文件</strong><span>{{ formatFileSize(selectedFiles.reduce((total, file) => total + file.size, 0)) }}</span></div>
-          <ul><li v-for="file in selectedFiles" :key="`${file.name}-${file.size}`"><span>{{ file.name }}</span><small>{{ formatFileSize(file.size) }}</small></li></ul>
+          <div v-if="selectedFiles.length" class="upload-queue-summary"><strong>{{ uploadQueueSummary.title }}</strong><span>{{ uploadQueueSummary.detail }}</span></div>
+
           <div class="upload-queue-actions">
             <button class="secondary-button" type="button" :disabled="uploading" @click="clearFiles">清空选择</button>
             <button class="primary-button" type="button" :disabled="uploading" @click="submit()">{{ uploading ? '正在导入' : '开始导入' }}</button>
@@ -309,7 +402,7 @@ onBeforeUnmount(() => {
 
     <div v-show="detailOpen" id="import-mobile-history" class="import-mobile-history">
       <section class="dashboard-section" aria-labelledby="history-title">
-        <header class="section-heading"><div><h2 id="history-title">导入记录和问题</h2><p class="section-note">只在需要时展开问题明细</p></div><button class="secondary-button" type="button" :disabled="loading" @click="loadBatches">重新加载</button></header>
+        <header class="section-heading"><div><h2 id="history-title">导入记录</h2><p class="section-note">只在需要时展开问题明细</p></div><button class="secondary-button" type="button" :disabled="loading" @click="loadBatches">重新加载</button></header>
         <div v-if="loading" class="history-skeleton skeleton-block">正在加载导入记录</div>
         <div v-else-if="!batches.length" class="empty-state prominent"><strong>还没有导入记录</strong><span>完成首次文件导入后，批次与质量统计会显示在这里。</span></div>
         <div v-else class="batch-list">
@@ -318,10 +411,10 @@ onBeforeUnmount(() => {
             <span class="status-badge" :class="statusTone(batch.status)">{{ statusLabel(batch.status) }}</span>
             <dl class="batch-counts"><div><dt>成功</dt><dd>{{ batch.successCount }}</dd></div><div><dt>警告</dt><dd class="count-warning">{{ batch.warningCount }}</dd></div><div><dt>失败</dt><dd class="count-error">{{ batch.failureCount }}</dd></div></dl>
             <p v-if="batch.errorSummary" class="batch-error">{{ batch.errorSummary }}</p>
-            <div v-if="batch.warningCount || batch.failureCount" class="batch-actions"><button class="secondary-button compact-button" type="button" :aria-expanded="expandedBatch === String(batch.id)" :aria-controls="`batch-issues-${batch.id}`" @click="toggleIssues(batch.id)">{{ expandedBatch === String(batch.id) ? '收起问题' : '查看问题' }}</button><a class="secondary-button compact-button" :href="issuesCsvUrl(batch.id)" download>下载问题明细</a></div>
+            <div v-if="batch.warningCount || batch.failureCount" class="batch-actions"><button class="secondary-button compact-button" type="button" :aria-expanded="expandedBatch === String(batch.id)" :aria-controls="`batch-issues-${batch.id}`" @click="toggleIssues(batch.id)">{{ expandedBatch === String(batch.id) ? '收起问题' : '查看问题' }}</button><button v-if="batch.warningCount > 0" class="secondary-button compact-button" type="button" @click="openConfirmDialog(batch)">确认无误</button><a class="secondary-button compact-button" :href="issuesCsvUrl(batch.id)" download>下载问题明细</a></div>
             <div v-if="expandedBatch === String(batch.id)" :id="`batch-issues-${batch.id}`" class="batch-issues">
               <p v-if="loadingIssues === String(batch.id)" class="section-note" aria-live="polite">正在加载问题明细</p>
-              <div v-else-if="issueErrors[String(batch.id)]" class="issue-load-error" role="alert"><span>{{ issueErrors[String(batch.id)] }}</span><button type="button" class="text-button" @click="toggleIssues(batch.id).then(() => toggleIssues(batch.id))">重试</button></div>
+              <div v-else-if="issueErrors[String(batch.id)]" class="issue-load-error" role="alert"><span>{{ issueErrors[String(batch.id)] }}</span><button type="button" class="text-button" @click="loadIssues(batch.id)">重试</button></div>
               <p v-else-if="!issuesByBatch[String(batch.id)]?.length" class="section-note">该批次没有问题明细。</p>
               <div v-else class="issue-results">
                 <DataTable
@@ -352,6 +445,29 @@ onBeforeUnmount(() => {
           <button type="button" :disabled="batchPage <= 1" @click="goBatchPage(batchPage - 1)">上一页</button>
           <button type="button" :disabled="batchPage >= totalBatchPages" @click="goBatchPage(batchPage + 1)">下一页</button>
         </nav>
+      </section>
+    </div>
+    <div v-if="confirmBatch" class="issue-confirm-overlay" role="dialog" aria-modal="true" aria-label="确认无误">
+      <section class="issue-confirm-dialog">
+        <header class="issue-confirm-head">
+          <div><h2>确认无误</h2><p>{{ batchTitle(confirmBatch) }}</p></div>
+          <button class="issue-confirm-close" type="button" aria-label="关闭确认框" @click="closeConfirmDialog">×</button>
+        </header>
+        <p class="issue-confirm-prompt">请确认是否对警告项知悉，并且确认无误。</p>
+        <div v-if="loadingIssues === String(confirmBatch.id)" class="section-note" aria-live="polite">正在加载问题明细</div>
+        <div v-else-if="issueErrors[String(confirmBatch.id)]" class="issue-load-error" role="alert"><span>{{ issueErrors[String(confirmBatch.id)] }}</span><button type="button" class="text-button" @click="loadIssues(confirmBatch.id)">重试</button></div>
+        <div v-else class="issue-confirm-list">
+          <p v-if="!confirmWarningIssues.length" class="section-note">该批次没有待确认的警告项。</p>
+          <article v-for="issue in confirmWarningIssues" :key="issue.id" class="issue-confirm-row" :class="{ resolved: issue.resolved }">
+            <header><span class="issue-severity" :class="severityTone(issue.severity)">{{ severityLabel(issue.severity) }}</span><strong>{{ issueTypeLabel(issue.issueType) }}</strong><small>行 {{ issue.rowNumber ?? '—' }} · {{ fieldLabel(issue.fieldName) }}</small></header>
+            <p>{{ issue.message }}<span v-if="issue.rawValue" class="issue-confirm-raw">原始值：{{ issue.rawValue }}</span></p>
+            <button class="secondary-button compact-button" type="button" :disabled="confirmIssueBusy === String(issue.id) || issue.resolved" @click="confirmIssue(confirmBatch.id, issue)">{{ issue.resolved ? '已确认处理' : '确认处理' }}</button>
+          </article>
+        </div>
+        <footer class="issue-confirm-actions">
+          <button class="secondary-button" type="button" @click="closeConfirmDialog">取消</button>
+          <button class="primary-button" type="button" @click="closeConfirmDialog">确认</button>
+        </footer>
       </section>
     </div>
   </div>
@@ -417,8 +533,8 @@ onBeforeUnmount(() => {
 .quality-summary small { color: var(--muted); font-size: .85rem; line-height: 1.4; }
 .quality-summary strong { overflow-wrap: anywhere; font-size: 1rem; }
 .quality-summary strong.is-alert { color: var(--danger); }
-.batch-list { gap: 9px; }
-.batch-row { grid-template-columns: minmax(180px, 1fr) auto minmax(190px, .7fr) auto; gap: 12px; padding: 14px; }
+.batch-list { gap: 12px; }
+.batch-row { grid-template-columns: minmax(200px, 1.15fr) auto minmax(230px, .85fr) auto; gap: 16px 20px; padding: 18px 20px; }
 .batch-pagination {
   display: flex;
   flex-wrap: wrap;
@@ -442,7 +558,7 @@ onBeforeUnmount(() => {
 .batch-pagination button:disabled { cursor: not-allowed; opacity: .45; }
 .batch-counts dd.count-warning { color: var(--warning); }
 .batch-counts dd.count-error { color: var(--danger); }
-.batch-actions { gap: 8px; }
+.batch-actions { gap: 10px; }
 /* 问题明细可能几十行：限高后滚动留在表格内部，页面不被撑长。 */
 .batch-issues :deep(.data-table) { max-height: 22rem; }
 .mobile-issue-cards { display: none; }
@@ -451,6 +567,24 @@ onBeforeUnmount(() => {
 .issue-severity { display: inline-flex; padding: 4px 7px; border-radius: var(--radius-sm); font-size: .85rem; font-weight: 700; }
 .issue-warning { background: #f8edda; color: var(--warning); }
 .issue-error { background: #f8e4e2; color: var(--danger); }
+.issue-confirm-overlay { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 18px; background: rgb(24 49 42 / 52%); }
+.issue-confirm-dialog { width: min(720px, 100%); max-height: min(80vh, 720px); display: flex; flex-direction: column; padding: 18px; border-radius: 14px; background: #fff; box-shadow: 0 16px 44px rgb(0 0 0 / 22%); }
+.issue-confirm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.issue-confirm-head h2 { margin: 0; font-size: 1.15rem; }
+.issue-confirm-head p { margin: 3px 0 0; color: var(--muted); font-size: .84rem; }
+.issue-confirm-close { flex: none; min-height: 34px; padding: 0 11px; border: 1px solid var(--line-strong); border-radius: 999px; background: #fff; color: var(--ink); font-weight: 800; }
+.issue-confirm-close:hover { border-color: var(--danger); color: var(--danger); }
+.issue-confirm-prompt { margin: 14px 0 10px; padding: 10px 12px; border-left: 4px solid var(--warning); background: var(--warning-soft); color: var(--ink); font-weight: 800; line-height: 1.5; }
+.issue-confirm-list { flex: 1; min-height: 0; overflow: auto; display: grid; gap: 9px; padding-right: 4px; }
+.issue-confirm-row { display: grid; gap: 7px; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); }
+.issue-confirm-row.resolved { opacity: .62; background: var(--primary-soft); }
+.issue-confirm-row header { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.issue-confirm-row header strong { font-size: .95rem; }
+.issue-confirm-row header small { color: var(--muted); font-size: .8rem; }
+.issue-confirm-row p { margin: 0; line-height: 1.5; }
+.issue-confirm-row .compact-button { justify-self: end; }
+.issue-confirm-raw { display: block; margin-top: 4px; color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; }
+.issue-confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
 .overwrite-prompt { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border-left: 4px solid var(--warning); background: #fff7df; }
 .overwrite-prompt span { color: #5c5545; font-size: .88rem; line-height: 1.5; }
 .overwrite-prompt strong { display: block; color: var(--ink); font-size: .92rem; }

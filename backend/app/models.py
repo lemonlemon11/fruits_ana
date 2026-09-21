@@ -61,12 +61,18 @@ class User(Base):
     """平台认证用户。"""
 
     __tablename__ = "user"
-    __table_args__ = (Index("ux_user_display_name", "display_name", unique=True),)
+    __table_args__ = (
+        Index("ux_user_display_name", "display_name", unique=True),
+        Index("ux_user_email", "email"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     # display_name 同时作为登录用户名，规范化后全局唯一。
     display_name: Mapped[str] = mapped_column(String(80), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
+    email: Mapped[str | None] = mapped_column(
+        String(320), nullable=True, comment="用户邮箱，nullable 兼容老用户"
+    )
     created_at: Mapped[datetime] = mapped_column(
         PRECISE_DATETIME, default=utc_now, nullable=False
     )
@@ -95,8 +101,63 @@ class UserSession(Base):
         PRECISE_DATETIME, default=utc_now, nullable=False
     )
     expires_at: Mapped[datetime] = mapped_column(PRECISE_DATETIME, nullable=False)
-
     user: Mapped[User] = relationship(back_populates="sessions")
+
+
+class VerificationCode(Base):
+    """验证码记录，支持注册和重置密码两种用途。"""
+
+    __tablename__ = "verification_code"
+    __table_args__ = (
+        Index("ix_verification_code_email", "email"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, comment="接收验证码的邮箱")
+    code: Mapped[str] = mapped_column(String(6), nullable=False, comment="6 位纯数字验证码")
+    purpose: Mapped[str] = mapped_column(
+        String(20), default="register", nullable=False,
+        comment="用途：register / reset_password"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, default=utc_now, nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, nullable=False, comment="过期时间，默认 10 分钟"
+    )
+    verified_at: Mapped[datetime | None] = mapped_column(
+        PRECISE_DATETIME, nullable=True, comment="验证通过时间，非空表示已验证"
+    )
+    attempt_count: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False, comment="已尝试验证次数"
+    )
+
+class PasswordResetToken(Base):
+    """密码重置令牌，验证码校验通过后发放，一次性使用。"""
+
+    __tablename__ = "password_reset_token"
+    __table_args__ = (
+        Index("ix_password_reset_token_email", "email"),
+        Index("ix_password_reset_token_token_hash", "token_hash"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, comment="关联邮箱")
+    token_hash: Mapped[str] = mapped_column(
+        String(64), nullable=False, unique=True, comment="令牌 SHA-256 哈希"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, default=utc_now, nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, nullable=False, comment="过期时间，默认 5 分钟"
+    )
+    used_at: Mapped[datetime | None] = mapped_column(
+        PRECISE_DATETIME, nullable=True, comment="使用时间，非空表示已使用"
+    )
+
+
+
 
 
 class AdminRole(Base):
@@ -176,6 +237,49 @@ class AdminRolePermission(Base):
     )
     permission_id: Mapped[int] = mapped_column(
         ForeignKey("admin_permission.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+
+class AdminMenu(Base):
+    """只读映射管理端维护的业务菜单，用于侧边导航的名称、图标与排序。"""
+
+    __tablename__ = "admin_menu"
+    __table_args__ = (Index("ix_admin_menu_parent_id", "parent_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("admin_menu.id", ondelete="CASCADE"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    menu_type: Mapped[str] = mapped_column(String(16), default="menu", nullable=False)
+    route_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    component: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    icon: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    permission_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, default=utc_now, onupdate=utc_now, nullable=False
+    )
+
+
+class AdminRoleMenu(Base):
+    """只读映射业务角色与菜单关系。"""
+
+    __tablename__ = "admin_role_menu"
+    __table_args__ = (
+        UniqueConstraint("role_id", "menu_id", name="ux_admin_role_menu"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    role_id: Mapped[int] = mapped_column(
+        ForeignKey("admin_role.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    menu_id: Mapped[int] = mapped_column(
+        ForeignKey("admin_menu.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
 
@@ -517,6 +621,30 @@ class EntryFieldOption(Base):
     )
 
 
+class EntryDraft(Base):
+    """手工录单的暂存草稿：按登录用户保留一份未提交内容。"""
+
+    __tablename__ = "entry_draft"
+    __table_args__ = (
+        Index("ux_entry_draft_user", "user_id", unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"), nullable=False
+    )
+    editing: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    merchant_no: Mapped[str] = mapped_column(String(128), default="", nullable=False)
+    order_no: Mapped[str] = mapped_column(String(128), default="", nullable=False)
+    payload: Mapped[str] = mapped_column(PARSE_PAYLOAD, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, default=utc_now, onupdate=utc_now, nullable=False
+    )
+
+
 class AdminFieldConversionRule(Base):
     """管理端维护的字段转换规则，业务侧读取后生成统计字段。"""
 
@@ -774,6 +902,7 @@ __all__ = [
     "AiAnalysis",
     "AdminFieldConversionRule",
     "DataIssue",
+    "EntryDraft",
     "EntryFieldOption",
     "Grade",
     "ImportBatch",
@@ -810,7 +939,7 @@ FIELD_COMMENTS: dict[str, str] = {
     "code": "编码",
     "component": "前端组件",
     "computed_quantity": "计算数量",
-    "computed_sales_amount": "计算销售额",
+    "computed_sales_amount": "计算销售金额",
     "confidence": "置信度",
     "confirmed_at": "确认时间",
     "confirmed_by": "确认人",
@@ -823,6 +952,7 @@ FIELD_COMMENTS: dict[str, str] = {
     "description": "描述",
     "display_name": "显示名称（登录用户名）",
     "draft_count": "草稿数",
+    "editing": "是否修改中",
     "error_summary": "错误摘要",
     "expire_at": "过期时间",
     "expires_at": "过期时间",
@@ -842,7 +972,7 @@ FIELD_COMMENTS: dict[str, str] = {
     "file_hash": "文件哈希",
     "file_name": "文件名",
     "file_payable_amount": "文件应付金额",
-    "file_sales_amount": "文件销售额",
+    "file_sales_amount": "文件销售金额",
     "file_sales_quantity": "文件销售数量",
     "fruit_type": "水果类型",
     "goods_amount": "货款金额",
@@ -920,7 +1050,7 @@ FIELD_COMMENTS: dict[str, str] = {
     "row_number": "行号",
     "sale_date": "销售日期",
     "sale_record_id": "销售记录ID",
-    "sales_amount": "销售额",
+    "sales_amount": "销售金额",
     "sales_quantity": "销售数量",
     "sales_region": "销售区域",
     "section": "区块",

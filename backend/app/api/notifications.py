@@ -121,15 +121,12 @@ def mark_all_read(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user),
 ):
-    recipients = (
-        db.query(AdminNotificationRecipient)
-        .filter(
-            AdminNotificationRecipient.user_id == current_user.id,
-            AdminNotificationRecipient.is_read.is_(False),
-        )
+    rows = (
+        _visible_notifications(db, current_user.id)
+        .filter(AdminNotificationRecipient.is_read.is_(False))
         .all()
     )
-    for recipient in recipients:
+    for _, recipient in rows:
         recipient.is_read = True
         recipient.read_at = utc_now()
     db.commit()
