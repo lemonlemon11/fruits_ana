@@ -17,6 +17,7 @@ import { ANALYSIS_HEADINGS } from '../utils/seriesAnalysis'
 import { displayMerchantNo } from '../utils/merchantNo'
 import { formatAnomalyValue, formatCurrency, formatNumber, formatPercent, formatPrice } from '../utils/format'
 import { getCachedSettlementComparison } from '../utils/settlementCandidateCache'
+import { downloadFile } from '../utils/fileDownload'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,6 +30,9 @@ const filters = reactive({
 const activeMerchantNo = ref('')
 const options = ref<SettlementComparisonItem[]>([]); const detail = ref<SettlementDetail | null>(null); const trend = ref<TrendPoint[]>([]); const loading = ref(true); const error = ref(''); let requestVersion = 0
 const detailOpen = ref(false)
+const manualExporting = ref(false)
+const manualExportNotice = ref('')
+const manualExportError = ref('')
 let activeController: AbortController | null = null
 
 /** 销售明细列定义：数量 / 金额右对齐，来源文件走链接单元格。 */
@@ -98,8 +102,22 @@ function editManualEntry() {
   }
 }
 
-function exportManualEntry() {
-  if (activeMerchantNo.value) window.location.href = entryExportUrl(activeMerchantNo.value)
+async function exportManualEntry() {
+  if (!activeMerchantNo.value || manualExporting.value) return
+  manualExporting.value = true
+  manualExportNotice.value = ''
+  manualExportError.value = ''
+  try {
+    const filename = await downloadFile(
+      entryExportUrl(activeMerchantNo.value),
+      `${activeMerchantLabel.value}-结算单.xlsx`,
+    )
+    manualExportNotice.value = `${filename} 已开始下载`
+  } catch (caught) {
+    manualExportError.value = caught instanceof Error ? caught.message : '导出失败，请稍后重试'
+  } finally {
+    manualExporting.value = false
+  }
 }
 
 function runSettlementAi(refresh: boolean) {
@@ -202,6 +220,7 @@ onBeforeUnmount(() => {
         label="品牌"
         aria-label="品牌"
         placeholder="全部品牌"
+        :loading="loading"
         @change="refresh"
       />
       <SearchableSelect
@@ -210,6 +229,7 @@ onBeforeUnmount(() => {
         label="商号"
         aria-label="商号"
         placeholder="选择商号"
+        :loading="loading"
         @change="refresh"
       />
       <DateRangeFilter
@@ -228,9 +248,13 @@ onBeforeUnmount(() => {
         </div>
         <div v-if="canEditManualEntry || canExportManualEntry" class="manual-entry-actions">
           <button v-if="canEditManualEntry" class="ghost-button" type="button" @click="editManualEntry">修改录单</button>
-          <button v-if="canExportManualEntry" class="primary-button" type="button" @click="exportManualEntry">导出模板</button>
+          <button v-if="canExportManualEntry" class="primary-button" type="button" :disabled="manualExporting" @click="exportManualEntry">
+            {{ manualExporting ? '导出中…' : '导出模板' }}
+          </button>
         </div>
       </section>
+      <p v-if="manualExportError" class="manual-export-status is-error" role="alert">{{ manualExportError }}</p>
+      <p v-else-if="manualExportNotice" class="manual-export-status" role="status" aria-live="polite">{{ manualExportNotice }}</p>
       <section class="settlement-fact-grid" aria-label="结算单基础信息">
         <article v-for="item in settlementFacts" :key="item.label" class="settlement-fact">
           <span>{{ item.label }}</span>
@@ -303,6 +327,9 @@ onBeforeUnmount(() => {
 .settlement-identity small { color: var(--muted); font-size: .85rem; line-height: 1.5; }
 .manual-entry-actions { display: flex; gap: 8px; flex: 0 0 auto; }
 .manual-entry-actions button { min-height: 36px; padding: 0 12px; border-radius: 9px; font-weight: 800; }
+.manual-entry-actions button:disabled { cursor: wait; opacity: .65; }
+.manual-export-status { margin: -8px 0 0; color: var(--primary-dark); font-size: .88rem; font-weight: 700; }
+.manual-export-status.is-error { color: var(--danger); }
 .settlement-fact-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .settlement-fact { display: grid; gap: 5px; min-width: 0; padding: 12px 14px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .settlement-fact span { color: var(--muted); font-size: .78rem; }

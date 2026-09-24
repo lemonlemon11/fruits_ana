@@ -18,6 +18,7 @@ from .series_analytics_service import series_name
 PAGE_SIZE_DEFAULT = 10
 PAGE_SIZE_MAX = 100
 LIKE_ESCAPE = "\\"
+UNKNOWN_BRAND = "未识别品牌"
 # 模糊搜索覆盖「原始写法 + 适配后写法」，页面展示哪一列都能搜到。
 KEYWORD_COLUMNS = (
     ImportBatch.merchant_no,
@@ -39,6 +40,17 @@ def _keyword_pattern(keyword: str) -> str:
         .replace("_", f"{LIKE_ESCAPE}_")
     )
     return f"%{cleaned}%"
+
+
+def _brand_from_order_no(order_no: str | None, normalized: str | None = None) -> str:
+    """按页面口径从单号 ``-`` 前截取品牌，与 ``series_name`` 一致。"""
+
+    display_order_no = order_no_display(order_no, normalized)
+    return series_name(display_order_no or order_no)
+
+
+def _brand_from_batch(batch: ImportBatch) -> str:
+    return _brand_from_order_no(batch.order_no, batch.order_no_normalized)
 
 
 def _apply_keyword(query, keyword: str):
@@ -63,11 +75,17 @@ def _payload(
     page: int | None,
     page_size: int | None,
     total: int | None = None,
+    brand_totals: list[dict] | None = None,
 ) -> dict:
     """不传分页参数时保持全量返回；传入时返回已切好的当页并附 ``pagination``。"""
 
     if page is None and page_size is None:
-        return {"date_range": date_range, "settlements": items, "pagination": None}
+        return {
+            "date_range": date_range,
+            "settlements": items,
+            "pagination": None,
+            "brand_totals": brand_totals or [],
+        }
     info = _pagination_info(len(items) if total is None else total, page, page_size)
     if total is None:
         start = (info["page"] - 1) * info["page_size"]
@@ -76,6 +94,7 @@ def _payload(
         "date_range": date_range,
         "settlements": items,
         "pagination": info,
+        "brand_totals": brand_totals or [],
     }
 
 
@@ -103,6 +122,7 @@ def _aggregate_query(
     end: date,
     merchant_no: str | None,
     keyword: str | None,
+    brand_batch_ids: set[int] | None,
 ):
     """在数据库内按结算单聚合，只返回页面需要的指标。"""
 
@@ -126,9 +146,66 @@ def _aggregate_query(
     )
     if merchant_no:
         query = query.filter(ImportBatch.merchant_no == merchant_no)
+    if brand_batch_ids is not None:
+        query = query.filter(ImportBatch.id.in_(brand_batch_ids))
     if keyword and keyword.strip():
         query = _apply_keyword(query, keyword)
     return query, aggregated
+
+
+def _brand_batch_ids(db: Session, brand: str | None) -> set[int] | None:
+    """按页面展示的品牌口径匹配批次 ID；品牌从单号 ``-`` 前截取。"""
+
+    if not brand:
+        return None
+    rows = (
+        db.query(
+            ImportBatch.id,
+            ImportBatch.order_no,
+            ImportBatch.order_no_normalized,
+        )
+        .all()
+    )
+    matched = {
+        row.id
+        for row in rows
+        if _brand_from_order_no(row.order_no, row.order_no_normalized) == brand
+    }
+    return matched or {-1}
+
+
+def _brand_totals(db: Session, query, aggregated) -> list[dict]:
+    """按单号前缀汇总当前筛选范围内的总件数与结算单数，分页不影响汇总。"""
+
+    rows = query.with_entities(
+        aggregated.c.batch_id, aggregated.c.total_quantity
+    ).all()
+    batch_ids = {row.batch_id for row in rows if row.batch_id}
+    if not batch_ids:
+        return []
+    batches = {
+        batch.id: batch
+        for batch in db.query(ImportBatch).filter(ImportBatch.id.in_(batch_ids)).all()
+    }
+    grouped: dict[str, dict] = {}
+    for row in rows:
+        batch = batches.get(row.batch_id)
+        if batch is None:
+            continue
+        brand = _brand_from_batch(batch)
+        total = grouped.setdefault(
+            brand, {"total_quantity": Decimal("0"), "settlement_count": 0}
+        )
+        total["total_quantity"] += _decimal(row.total_quantity)
+        total["settlement_count"] += 1
+    return [
+        {
+            "brand": brand,
+            "total_quantity": rounded(total["total_quantity"]),
+            "settlement_count": total["settlement_count"],
+        }
+        for brand, total in sorted(grouped.items())
+    ]
 
 
 def _settlement_items(db: Session, rows) -> list[dict]:
@@ -156,10 +233,9 @@ def _settlement_item(agg, batch: ImportBatch) -> dict:
         "order_no_normalized": order_no_display(
             batch.order_no, batch.order_no_normalized
         ),
+        "brand": _brand_from_batch(batch),
         "fruit_type": agg.fruit_type or "榴莲",
-        "series": series_name(
-            batch.order_no_normalized or batch.order_no
-        ),
+        "series": _brand_from_batch(batch),
         "container_no": batch.container_no,
         "vehicle_no": batch.vehicle_no,
         "arrival_date": batch.arrival_date,
@@ -168,6 +244,7 @@ def _settlement_item(agg, batch: ImportBatch) -> dict:
         "sales_amount": rounded(amount),
         "total_quantity": rounded(quantity),
         "average_price": rounded(amount / quantity) if quantity else None,
+        "confirmed_at": batch.confirmed_at,
         "grade_quantities": {
             grade.value: rounded(_decimal(getattr(agg, f"grade_{grade.value.lower()}")))
             for grade in GRADES
@@ -176,15 +253,41 @@ def _settlement_item(agg, batch: ImportBatch) -> dict:
     }
 
 
+def _sorted_query(query, aggregated, sort_by: str | None, sort_order: str):
+    """按列表允许的字段排序；空日期始终排在末尾，商号作为稳定次序。"""
+
+    if sort_by is None:
+        return query.order_by(
+            aggregated.c.sale_date_end.desc(), ImportBatch.merchant_no.asc()
+        )
+    expressions = {
+        "arrival_date": ImportBatch.arrival_date,
+        "total_quantity": aggregated.c.total_quantity,
+        "grade_a": aggregated.c.grade_a,
+        "grade_b": aggregated.c.grade_b,
+        "sales_amount": aggregated.c.sales_amount,
+        "average_price": aggregated.c.sales_amount
+        / func.nullif(aggregated.c.total_quantity, 0),
+        "confirmed_at": ImportBatch.confirmed_at,
+    }
+    expression = expressions[sort_by]
+    direction = expression.asc() if sort_order == "asc" else expression.desc()
+    nulls_last = case((expression.is_(None), 1), else_=0).asc()
+    return query.order_by(nulls_last, direction, ImportBatch.merchant_no.asc())
+
+
 def list_settlements(
     db: Session,
     *,
     start_date: date | None = None,
     end_date: date | None = None,
     merchant_no: str | None = None,
+    brand: str | None = None,
     keyword: str | None = None,
     page: int | None = None,
     page_size: int | None = None,
+    sort_by: str | None = None,
+    sort_order: str = "desc",
 ) -> dict:
     """按结算单汇总指定日期范围内的销售明细。
 
@@ -195,21 +298,22 @@ def list_settlements(
 
     latest = db.query(func.max(SaleRecord.sale_date)).scalar()
     if latest is None:
-        return _payload(None, [], page, page_size)
+        return _payload(None, [], page, page_size, brand_totals=[])
     is_default = start_date is None and end_date is None
     start = start_date or one_month_before(latest)
     end = end_date or latest
 
+    brand_batch_ids = _brand_batch_ids(db, brand)
     query, aggregated = _aggregate_query(
         db,
         start=start,
         end=end,
         merchant_no=merchant_no,
         keyword=keyword,
+        brand_batch_ids=brand_batch_ids,
     )
-    query = query.order_by(
-        aggregated.c.sale_date_end.desc(), ImportBatch.merchant_no.asc()
-    )
+    brand_totals = _brand_totals(db, query, aggregated)
+    query = _sorted_query(query, aggregated, sort_by, sort_order)
     if page is None and page_size is None:
         items = _settlement_items(db, query.all())
         return _payload(
@@ -217,6 +321,7 @@ def list_settlements(
             items,
             page,
             page_size,
+            brand_totals=brand_totals,
         )
 
     total = query.count()
@@ -233,12 +338,14 @@ def list_settlements(
         page,
         page_size,
         total=total,
+        brand_totals=brand_totals,
     )
 
 
 __all__ = [
     "PAGE_SIZE_DEFAULT",
     "PAGE_SIZE_MAX",
+    "UNKNOWN_BRAND",
     "list_settlements",
     "one_month_before",
 ]

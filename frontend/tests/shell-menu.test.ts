@@ -72,7 +72,7 @@ test('菜单名称为空时回退到本地文案', () => {
   assert.equal(applyMenuItems([slot], menus, () => null)[0].label, '录单 / 导入')
 })
 
-test('未命中菜单的槽位保持兜底，避免未授权时导航整块消失', () => {
+test('未命中菜单的槽位不显示本地兜底，导航以角色菜单分配为准', () => {
   const result = applyMenuItems([slot], buildMenusByPath([]), () => null)
-  assert.deepEqual(result, [slot])
+  assert.deepEqual(result, [])
 })

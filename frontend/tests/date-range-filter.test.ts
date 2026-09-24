@@ -7,23 +7,18 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src')
 const source = fs.readFileSync(path.join(root, 'components', 'DateRangeFilter.vue'), 'utf8')
 
-test('日期筛选使用 Element Plus 日期范围组件并保持双绑定', () => {
-  assert.match(source, /ElDatePicker/)
-  assert.match(source, /type="daterange"/)
-  assert.match(source, /value-format="YYYY-MM-DD"/)
+test('日期筛选默认使用轻量原生日期输入并保持双绑定', () => {
+  assert.doesNotMatch(source, /element-plus/)
+  assert.doesNotMatch(source, /ElDatePicker/)
+  assert.equal((source.match(/type="date"/g) ?? []).length, 2)
   assert.match(source, /'update:startDate'/)
   assert.match(source, /'update:endDate'/)
   assert.match(source, /ref="root" class="date-range-filter"/)
 })
 
-test('日期筛选使用中文环境配置', () => {
-  assert.match(source, /ElConfigProvider/)
-  assert.match(source, /zhCn/)
-})
-
-test('手机端日期筛选切到原生 date 输入，避免聚焦后页面缩放', () => {
-  assert.match(source, /@media \(max-width: 820px\)/)
-  assert.match(source, /type="date"/)
-  assert.match(source, /date-range-native/)
-  assert.match(source, /\.date-range-control \{[\s\S]*?display: none;[\s]*\}/)
+test('日期输入在桌面和手机端共用同一结构，避免重复加载重型日历组件', () => {
+  assert.match(source, /date-range-fields/)
+  assert.match(source, /date-range-native-field/)
+  assert.doesNotMatch(source, /date-range-control/)
+  assert.doesNotMatch(source, /display:\s*none/)
 })

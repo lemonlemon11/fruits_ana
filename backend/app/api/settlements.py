@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -34,9 +35,20 @@ def settlements(
     start_date: date | None = None,
     end_date: date | None = None,
     merchant_no: str | None = None,
+    brand: str | None = None,
     keyword: str | None = None,
     page: int | None = Query(default=None, ge=1),
     page_size: int | None = Query(default=None, ge=1, le=PAGE_SIZE_MAX),
+    sort_by: Literal[
+        "arrival_date",
+        "total_quantity",
+        "grade_a",
+        "grade_b",
+        "sales_amount",
+        "average_price",
+        "confirmed_at",
+    ] | None = None,
+    sort_order: Literal["asc", "desc"] = "desc",
     db: Session = Depends(get_db),
 ):
     """结算单列表；``keyword`` 模糊匹配商号 / 单号 / 柜号 / 车牌，分页参数可选。"""
@@ -48,9 +60,12 @@ def settlements(
         start_date=start_date,
         end_date=end_date,
         merchant_no=merchant_no,
+        brand=brand,
         keyword=keyword,
         page=page,
         page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 

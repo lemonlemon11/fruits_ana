@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 import { formatDateTime } from '../utils/format'
 import { isFileDrag } from '../utils/importFiles'
 import { describeEntryDraft, draftTitle } from '../utils/entryDraft'
+import { downloadFile } from '../utils/fileDownload'
 import DataTable, { type DataTableColumn } from '../components/DataTable.vue'
 
 const batches = ref<ImportBatch[]>([])
@@ -40,6 +41,9 @@ const issuesByBatch = reactive<Record<string, ImportIssue[]>>({})
 const issueErrors = reactive<Record<string, string>>({})
 const confirmBatchId = ref('')
 const confirmIssueBusy = ref('')
+const downloadingIssuesBatch = ref('')
+const issueDownloadNotice = ref('')
+const issueDownloadError = ref('')
 const dragging = ref(false)
 const detailOpen = ref(false)
 let dragDepth = 0
@@ -189,7 +193,7 @@ async function submit() {
 
 async function loadIssues(batchId: string | number) {
   const key = String(batchId)
-  if (issuesByBatch[key]) return
+  if (issuesByBatch[key] || loadingIssues.value === key) return
   loadingIssues.value = key
   issueErrors[key] = ''
   try { issuesByBatch[key] = await getImportIssues(batchId) }
@@ -229,6 +233,22 @@ async function confirmIssue(batchId: string | number, issue: ImportIssue) {
     error.value = caught instanceof Error ? caught.message : '问题确认失败'
   } finally {
     confirmIssueBusy.value = ''
+  }
+}
+
+async function downloadIssues(batchId: string | number) {
+  const key = String(batchId)
+  if (downloadingIssuesBatch.value === key) return
+  downloadingIssuesBatch.value = key
+  issueDownloadNotice.value = ''
+  issueDownloadError.value = ''
+  try {
+    const filename = await downloadFile(issuesCsvUrl(batchId), `数据问题-${key}.csv`)
+    issueDownloadNotice.value = `${filename} 已开始下载`
+  } catch (caught) {
+    issueDownloadError.value = caught instanceof Error ? caught.message : '问题明细下载失败'
+  } finally {
+    downloadingIssuesBatch.value = ''
   }
 }
 
@@ -403,6 +423,8 @@ onBeforeUnmount(() => {
     <div v-show="detailOpen" id="import-mobile-history" class="import-mobile-history">
       <section class="dashboard-section" aria-labelledby="history-title">
         <header class="section-heading"><div><h2 id="history-title">导入记录</h2><p class="section-note">只在需要时展开问题明细</p></div><button class="secondary-button" type="button" :disabled="loading" @click="loadBatches">重新加载</button></header>
+        <p v-if="issueDownloadError" class="form-message error" role="alert">{{ issueDownloadError }}</p>
+        <p v-else-if="issueDownloadNotice" class="form-message success" role="status" aria-live="polite">{{ issueDownloadNotice }}</p>
         <div v-if="loading" class="history-skeleton skeleton-block">正在加载导入记录</div>
         <div v-else-if="!batches.length" class="empty-state prominent"><strong>还没有导入记录</strong><span>完成首次文件导入后，批次与质量统计会显示在这里。</span></div>
         <div v-else class="batch-list">
@@ -411,7 +433,7 @@ onBeforeUnmount(() => {
             <span class="status-badge" :class="statusTone(batch.status)">{{ statusLabel(batch.status) }}</span>
             <dl class="batch-counts"><div><dt>成功</dt><dd>{{ batch.successCount }}</dd></div><div><dt>警告</dt><dd class="count-warning">{{ batch.warningCount }}</dd></div><div><dt>失败</dt><dd class="count-error">{{ batch.failureCount }}</dd></div></dl>
             <p v-if="batch.errorSummary" class="batch-error">{{ batch.errorSummary }}</p>
-            <div v-if="batch.warningCount || batch.failureCount" class="batch-actions"><button class="secondary-button compact-button" type="button" :aria-expanded="expandedBatch === String(batch.id)" :aria-controls="`batch-issues-${batch.id}`" @click="toggleIssues(batch.id)">{{ expandedBatch === String(batch.id) ? '收起问题' : '查看问题' }}</button><button v-if="batch.warningCount > 0" class="secondary-button compact-button" type="button" @click="openConfirmDialog(batch)">确认无误</button><a class="secondary-button compact-button" :href="issuesCsvUrl(batch.id)" download>下载问题明细</a></div>
+            <div v-if="batch.warningCount || batch.failureCount" class="batch-actions"><button class="secondary-button compact-button" type="button" :aria-expanded="expandedBatch === String(batch.id)" :aria-controls="`batch-issues-${batch.id}`" @click="toggleIssues(batch.id)">{{ expandedBatch === String(batch.id) ? '收起问题' : '查看问题' }}</button><button v-if="batch.warningCount > 0" class="secondary-button compact-button" type="button" @click="openConfirmDialog(batch)">确认无误</button><button class="secondary-button compact-button" type="button" :disabled="downloadingIssuesBatch === String(batch.id)" @click="downloadIssues(batch.id)">{{ downloadingIssuesBatch === String(batch.id) ? '下载中…' : '下载问题明细' }}</button></div>
             <div v-if="expandedBatch === String(batch.id)" :id="`batch-issues-${batch.id}`" class="batch-issues">
               <p v-if="loadingIssues === String(batch.id)" class="section-note" aria-live="polite">正在加载问题明细</p>
               <div v-else-if="issueErrors[String(batch.id)]" class="issue-load-error" role="alert"><span>{{ issueErrors[String(batch.id)] }}</span><button type="button" class="text-button" @click="loadIssues(batch.id)">重试</button></div>
@@ -461,7 +483,7 @@ onBeforeUnmount(() => {
           <article v-for="issue in confirmWarningIssues" :key="issue.id" class="issue-confirm-row" :class="{ resolved: issue.resolved }">
             <header><span class="issue-severity" :class="severityTone(issue.severity)">{{ severityLabel(issue.severity) }}</span><strong>{{ issueTypeLabel(issue.issueType) }}</strong><small>行 {{ issue.rowNumber ?? '—' }} · {{ fieldLabel(issue.fieldName) }}</small></header>
             <p>{{ issue.message }}<span v-if="issue.rawValue" class="issue-confirm-raw">原始值：{{ issue.rawValue }}</span></p>
-            <button class="secondary-button compact-button" type="button" :disabled="confirmIssueBusy === String(issue.id) || issue.resolved" @click="confirmIssue(confirmBatch.id, issue)">{{ issue.resolved ? '已确认处理' : '确认处理' }}</button>
+            <button class="secondary-button compact-button" type="button" :disabled="confirmIssueBusy === String(issue.id) || issue.resolved" @click="confirmIssue(confirmBatch.id, issue)">{{ issue.resolved ? '已确认处理' : confirmIssueBusy === String(issue.id) ? '处理中…' : '确认处理' }}</button>
           </article>
         </div>
         <footer class="issue-confirm-actions">

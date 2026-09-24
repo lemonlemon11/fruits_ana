@@ -75,8 +75,8 @@ test('所有商号下拉在切换后自动查询，日期筛选仍需点击按�
       const expected = name === 'SettlementView.vue'
         ? ['@change="refresh"', '@change="refresh"']
         : name === 'SettlementListView.vue'
-          // 列表页有分页：切换商号要回到第 1 页再查询。
-          ? ['@change="refresh({ resetPage: true })"']
+          // 列表页有分页：切换商号 / 品牌都要回到第 1 页再查询。
+          ? ['@change="refresh({ resetPage: true })"', '@change="refresh({ resetPage: true })"']
           : ['@change="refresh"']
       assert.deepEqual(matches, expected, `${name} 商号/品牌下拉应在切换后自动查询`)
       assert.match(content, /<SearchableSelect[\s\S]*?v-model="filters\.merchantNo"[\s\S]*?@change="refresh/)

@@ -50,6 +50,14 @@ import type {
   TrendPoint,
 } from './types.ts'
 import { createLogger } from '../utils/logger.ts'
+import {
+  classifyApiFailure,
+  reportAuthExpired,
+  reportFatalError,
+  type ApiFailureKind,
+  type FailureMode,
+  type FatalErrorKind,
+} from '../utils/errorRecovery.ts'
 
 export * from './normalize.ts'
 export type * from './types.ts'
@@ -61,6 +69,8 @@ const logger = createLogger('api')
 
 interface RequestOptions extends RequestInit {
   timeoutMs?: number
+  failureMode?: FailureMode
+  authFailureMode?: 'redirect' | 'inline'
 }
 
 interface FetchApiOptions {
@@ -69,39 +79,59 @@ interface FetchApiOptions {
 
 export class ApiError extends Error {
   readonly status: number
+  readonly requestId: string | null
+  readonly method: string
+  readonly url: string
+  readonly kind: FatalErrorKind | null
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, metadata: {
+    requestId?: string | null
+    method?: string
+    url?: string
+    kind?: FatalErrorKind | null
+  } = {}) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.requestId = metadata.requestId ?? null
+    this.method = metadata.method ?? 'GET'
+    this.url = metadata.url ?? ''
+    this.kind = metadata.kind ?? null
   }
 }
 
 export async function sendCode(email: string): Promise<void> {
-  await request(`${API_ROOT}/auth/send-code`, jsonRequest({
-    email,
-  }))
+  await request(`${API_ROOT}/auth/send-code`, {
+    ...jsonRequest({ email }),
+    authFailureMode: 'inline',
+  })
 }
 
 export async function register(payload: RegisterPayload): Promise<AuthUser> {
-  return normalizeAuthUser(await request(`${API_ROOT}/auth/register`, jsonRequest({
-    display_name: payload.displayName,
-    password: payload.password,
-    email: payload.email,
-    verification_code: payload.verificationCode,
-  })))
+  return normalizeAuthUser(await request(`${API_ROOT}/auth/register`, {
+    ...jsonRequest({
+      display_name: payload.displayName,
+      password: payload.password,
+      email: payload.email,
+      verification_code: payload.verificationCode,
+    }),
+    authFailureMode: 'inline',
+  }))
 }
 
 export async function login(payload: LoginPayload): Promise<AuthUser> {
-  return normalizeAuthUser(await request(`${API_ROOT}/auth/login`, jsonRequest({
-    display_name: payload.displayName,
-    password: payload.password,
-    remember_me: payload.rememberMe === true,
-  })))
+  return normalizeAuthUser(await request(`${API_ROOT}/auth/login`, {
+    ...jsonRequest({
+      display_name: payload.displayName,
+      password: payload.password,
+      remember_me: payload.rememberMe === true,
+    }),
+    authFailureMode: 'inline',
+  }))
 }
 
 export async function getCurrentUser(): Promise<AuthUser> {
-  return normalizeAuthUser(await request(`${API_ROOT}/auth/me`))
+  return normalizeAuthUser(await request(`${API_ROOT}/auth/me`, { authFailureMode: 'inline' }))
 }
 
 export async function logout(): Promise<void> {
@@ -109,7 +139,7 @@ export async function logout(): Promise<void> {
 }
 
 export async function getNotifications(limit = 20): Promise<NotificationListData> {
-  const body = await request(`${API_ROOT}/notifications?limit=${limit}`) as NotificationListData
+  const body = await request(`${API_ROOT}/notifications?limit=${limit}`, { failureMode: 'inline' }) as NotificationListData
   return {
     items: Array.isArray(body.items) ? body.items : [],
     unread_count: Number(body.unread_count ?? 0),
@@ -237,7 +267,7 @@ export async function getImports(): Promise<ImportBatch[]> {
 
 export async function getImportIssues(batchId: string | number): Promise<ImportIssue[]> {
   const path = `${API_ROOT}/imports/${encodeURIComponent(String(batchId))}/issues`
-  return normalizeImportIssues(await request(path))
+  return normalizeImportIssues(await request(path, { failureMode: 'inline' }))
 }
 
 export async function resolveImportIssue(batchId: string | number, issueId: string | number): Promise<void> {
@@ -294,6 +324,17 @@ export function settlementTemplateExportUrl(merchantNo: string): string {
 
 export function settlementTemplatePdfUrl(merchantNo: string): string {
   return `${API_ROOT}/exports/settlements/${encodeURIComponent(merchantNo)}/template.pdf`
+}
+
+/** 导出「结算单列表」当前筛选范围，与列表页品牌 / 商号 / 日期筛选一致。 */
+export function settlementListExportUrl(filters: SettlementListFilters = {}): string {
+  const params = new URLSearchParams()
+  if (filters.startDate) params.set('start_date', filters.startDate)
+  if (filters.endDate) params.set('end_date', filters.endDate)
+  if (filters.merchantNo) params.set('merchant_no', filters.merchantNo)
+  if (filters.brand) params.set('brand', filters.brand)
+  const query = params.toString()
+  return `${API_ROOT}/exports/settlements.xlsx${query ? `?${query}` : ''}`
 }
 
 function entryPayloadBody(payload: EntryPayload, overwrite: boolean): JsonRecord {
@@ -387,7 +428,14 @@ export function entryExportUrl(merchantNo: string): string {
 }
 
 async function request(url: string, options: RequestOptions = {}): Promise<unknown> {
-  const { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, signal: externalSignal, ...fetchOptions } = options
+  const {
+    timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+    failureMode = 'auto',
+    authFailureMode = 'redirect',
+    signal: externalSignal,
+    ...fetchOptions
+  } = options
+  const method = String(fetchOptions.method ?? 'GET').toUpperCase()
   const controller = new AbortController()
   let timedOut = false
   const timeoutId = setTimeout(() => {
@@ -422,20 +470,74 @@ async function request(url: string, options: RequestOptions = {}): Promise<unkno
         : detail !== undefined
           ? JSON.stringify(detail)
           : body.message
-      throw new ApiError(typeof message === 'string' ? message : `请求失败（${response.status}）`, response.status)
+      const requestId = response.headers.get('X-Request-ID')
+      const kind = reportApiFailure({
+        failureKind: 'http',
+        status: response.status,
+        method,
+        url,
+        requestId,
+        failureMode,
+      })
+      if (response.status === 401 && authFailureMode === 'redirect') reportAuthExpired()
+      throw new ApiError(
+        typeof message === 'string' ? message : `请求失败（${response.status}）`,
+        response.status,
+        { requestId, method, url, kind },
+      )
     }
     if (response.status === 204) return {}
-    return response.json()
+    try {
+      return await response.json()
+    } catch {
+      const kind = reportApiFailure({
+        failureKind: 'invalid-response',
+        status: response.status,
+        method,
+        url,
+        requestId: response.headers.get('X-Request-ID'),
+        failureMode,
+      })
+      throw new ApiError('服务返回的数据格式异常', response.status, {
+        requestId: response.headers.get('X-Request-ID'),
+        method,
+        url,
+        kind,
+      })
+    }
   } catch (caught) {
-    if (timedOut) throw new Error('请求超时，请稍后重试')
+    if (timedOut) {
+      const kind = reportApiFailure({
+        failureKind: 'timeout',
+        status: null,
+        method,
+        url,
+        requestId: null,
+        failureMode,
+      })
+      throw new ApiError('请求超时，请稍后重试', 0, { method, url, kind })
+    }
     if (controller.signal.aborted) {
       const error = new Error('请求已取消')
       error.name = 'AbortError'
       throw error
     }
+    if (!(caught instanceof ApiError)) {
+      const kind = reportApiFailure({
+        failureKind: 'network',
+        status: null,
+        method,
+        url,
+        requestId: null,
+        failureMode,
+      })
+      const error = new ApiError('网络异常，请检查连接后重试', 0, { method, url, kind })
+      logger.error('request error', { url, method, error: caught })
+      throw error
+    }
     logger.error('request error', {
       url,
-      method: fetchOptions.method ?? 'GET',
+      method,
       error: caught,
     })
     throw caught
@@ -443,6 +545,39 @@ async function request(url: string, options: RequestOptions = {}): Promise<unkno
     clearTimeout(timeoutId)
     if (externalSignal) externalSignal.removeEventListener('abort', forwardAbort)
   }
+}
+
+function reportApiFailure(input: {
+  failureKind: ApiFailureKind
+  status: number | null
+  method: string
+  url: string
+  requestId: string | null
+  failureMode: FailureMode
+}): FatalErrorKind | null {
+  const kind = classifyApiFailure({
+    kind: input.failureKind,
+    status: input.status,
+    method: input.method,
+    url: input.url,
+    requestId: input.requestId,
+    failureMode: input.failureMode,
+  })
+  if (kind) {
+    reportFatalError({
+      kind,
+      from: currentLocationPath(),
+      status: input.status,
+      requestId: input.requestId,
+      source: 'api',
+    })
+  }
+  return kind
+}
+
+function currentLocationPath(): string | null {
+  if (typeof window === 'undefined' || !window.location) return null
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`
 }
 
 function jsonRequest(body: unknown): RequestInit {

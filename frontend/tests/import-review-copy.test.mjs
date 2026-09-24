@@ -32,3 +32,22 @@ test('文件导入二次确认不提供“保存当前修改”，保留还原�
   assert.match(review, /@click="restoreCurrentDraft"/)
   assert.match(review, /@click="openConfirm"/)
 })
+
+test('导入二次确认按具体操作展示等待文案', () => {
+  assert.match(review, /type SavingAction = 'switch' \| 'restore' \| 'prepare' \| 'submit' \| ''/)
+  assert.match(review, /正在切换文件…/)
+  assert.match(review, /正在还原…/)
+  assert.match(review, /正在保存…/)
+  assert.match(review, /正在提交…/)
+  assert.match(review, /savingAction === 'switch' \? savingMessage : '正在加载复核数据…'/)
+  assert.match(review, /role="status" aria-live="polite"/)
+})
+
+test('手工录单区分暂存和正式保存状态', () => {
+  assert.match(entry, /const draftSaving = ref\(false\)/)
+  assert.match(entry, /暂存中…/)
+  assert.match(entry, /保存中…/)
+  assert.match(entry, /savingAsOverwrite \? '覆盖中…' : '保存中…'/)
+  assert.match(entry, /const saved = await flushDraft\(\)/)
+  assert.match(entry, /saved \? '已暂存，可稍后继续录单' : '暂存失败，请稍后重试'/)
+})

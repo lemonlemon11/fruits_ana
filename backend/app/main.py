@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from .api.analytics import router as analytics_router
 from .api.ask import router as ask_router
@@ -36,6 +37,23 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# CORS配置 - 支持demo前端
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://120.48.117.234:53002",
+        "http://127.0.0.1:53002",
+        "http://localhost:53002",
+        "http://120.48.117.234:5173",  # Vite开发服务器
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth_router)
 app.include_router(forgot_password_router)
 app.include_router(analytics_router)

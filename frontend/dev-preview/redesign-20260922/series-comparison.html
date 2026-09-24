@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>品牌对比 · 布局重设计</title>
+<link rel="stylesheet" href="redesign.css" />
+</head>
+<body data-page="series-comparison">
+<main class="page">
+
+  <div class="filter-scroll" data-chip-group>
+    <button class="chip is-on" type="button">近 30 天</button>
+    <button class="chip" type="button">近 90 天</button>
+    <button class="chip" type="button">今年</button>
+  </div>
+
+  <div class="page-head" style="padding-bottom:8px">
+    <h1 class="mobile-only" style="font-size:1.2rem">三个品牌，谁更能卖上价？</h1>
+    <p>按品牌汇总销量、金额与每件均价，并拆解 A / B / C 等级表现。</p>
+  </div>
+
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="kpi" style="--kpi-color:var(--brand-600)">
+      <div class="kpi-label">金秋 · 每件均价</div>
+      <div class="kpi-value" style="font-size:1.3rem">434.20</div>
+      <div class="kpi-sub">3,704 件 · ¥160.8万</div>
+    </div>
+    <div class="kpi" style="--kpi-color:#d9812a">
+      <div class="kpi-label">宝贝 · 每件均价</div>
+      <div class="kpi-value" style="font-size:1.3rem">451.02</div>
+      <div class="kpi-sub">2,168 件 · ¥97.8万</div>
+    </div>
+    <div class="kpi" style="--kpi-color:#2c5f9e">
+      <div class="kpi-label">红钻 · 每件均价</div>
+      <div class="kpi-value" style="font-size:1.3rem">398.66</div>
+      <div class="kpi-sub">1,520 件 · ¥60.6万</div>
+    </div>
+  </div>
+
+  <div class="section-title"><h2>各品牌等级占比</h2><span class="more">件数占比</span></div>
+  <div class="card card-pad" style="display:grid;gap:16px">
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:.9rem;font-weight:800;margin-bottom:7px"><span>金秋</span><span class="num" style="color:var(--muted);font-weight:600">3,704 件</span></div>
+      <div class="grade-bar" style="height:14px"><i class="ga" style="width:26.9%"></i><i class="gb" style="width:42.5%"></i><i class="gc" style="width:30.6%"></i></div>
+      <div class="bill-grades"><span>A 26.9%</span><span>B 42.5%</span><span>C 30.6%</span></div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:.9rem;font-weight:800;margin-bottom:7px"><span>宝贝</span><span class="num" style="color:var(--muted);font-weight:600">2,168 件</span></div>
+      <div class="grade-bar" style="height:14px"><i class="ga" style="width:31.2%"></i><i class="gb" style="width:44.8%"></i><i class="gc" style="width:24%"></i></div>
+      <div class="bill-grades"><span>A 31.2%</span><span>B 44.8%</span><span>C 24.0%</span></div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:.9rem;font-weight:800;margin-bottom:7px"><span>红钻</span><span class="num" style="color:var(--muted);font-weight:600">1,520 件</span></div>
+      <div class="grade-bar" style="height:14px"><i class="ga" style="width:18.4%"></i><i class="gb" style="width:41.6%"></i><i class="gc" style="width:40%"></i></div>
+      <div class="bill-grades"><span>A 18.4%</span><span>B 41.6%</span><span>C 40.0%</span></div>
+    </div>
+    <div class="chart-legend" style="border-top:1px solid var(--line);padding-top:12px">
+      <span><i style="background:var(--grade-a)"></i>A 果</span>
+      <span><i style="background:var(--grade-b)"></i>B 果</span>
+      <span><i style="background:var(--grade-c)"></i>C 果（含 BC）</span>
+    </div>
+  </div>
+
+  <div class="section-title"><h2>各品牌各等级每件均价</h2><span class="more">元/件</span></div>
+  <div class="card table-card desktop-only">
+    <table class="data-table">
+      <thead><tr><th>品牌</th><th class="num">A 果</th><th class="num">B 果</th><th class="num">C 果（含 BC）</th><th class="num">整牌均价</th><th class="num">A-C 价差</th></tr></thead>
+      <tbody>
+        <tr><td><b>金秋</b></td><td class="num">486.50</td><td class="num">438.10</td><td class="num">361.40</td><td class="num"><b>434.20</b></td><td class="num">125.10</td></tr>
+        <tr><td><b>宝贝</b></td><td class="num">512.30</td><td class="num">452.20</td><td class="num">368.90</td><td class="num"><b>451.02</b></td><td class="num">143.40</td></tr>
+        <tr><td><b>红钻</b></td><td class="num">455.80</td><td class="num">410.60</td><td class="num">342.50</td><td class="num"><b>398.66</b></td><td class="num">113.30</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mobile-only" style="display:grid;gap:12px">
+    <div class="card card-pad">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:1.05rem">金秋</b><span class="num" style="color:var(--muted)">均价 434.20</span></div>
+      <div class="hbar-row" style="padding-top:12px"><span class="grade-tag grade-a">A</span><div class="hbar"><i style="width:95%;background:var(--grade-a)"></i></div><b class="num">486.50</b></div>
+      <div class="hbar-row"><span class="grade-tag grade-b">B</span><div class="hbar"><i style="width:85%;background:var(--grade-b)"></i></div><b class="num">438.10</b></div>
+      <div class="hbar-row"><span class="grade-tag grade-c">C</span><div class="hbar"><i style="width:71%;background:var(--grade-c)"></i></div><b class="num">361.40</b></div>
+    </div>
+    <div class="card card-pad">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:1.05rem">宝贝</b><span class="num" style="color:var(--muted)">均价 451.02</span></div>
+      <div class="hbar-row" style="padding-top:12px"><span class="grade-tag grade-a">A</span><div class="hbar"><i style="width:100%;background:var(--grade-a)"></i></div><b class="num">512.30</b></div>
+      <div class="hbar-row"><span class="grade-tag grade-b">B</span><div class="hbar"><i style="width:88%;background:var(--grade-b)"></i></div><b class="num">452.20</b></div>
+      <div class="hbar-row"><span class="grade-tag grade-c">C</span><div class="hbar"><i style="width:72%;background:var(--grade-c)"></i></div><b class="num">368.90</b></div>
+    </div>
+    <div class="card card-pad">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:1.05rem">红钻</b><span class="num" style="color:var(--muted)">均价 398.66</span></div>
+      <div class="hbar-row" style="padding-top:12px"><span class="grade-tag grade-a">A</span><div class="hbar"><i style="width:89%;background:var(--grade-a)"></i></div><b class="num">455.80</b></div>
+      <div class="hbar-row"><span class="grade-tag grade-b">B</span><div class="hbar"><i style="width:80%;background:var(--grade-b)"></i></div><b class="num">410.60</b></div>
+      <div class="hbar-row"><span class="grade-tag grade-c">C</span><div class="hbar"><i style="width:67%;background:var(--grade-c)"></i></div><b class="num">342.50</b></div>
+    </div>
+  </div>
+
+  <div class="card card-pad" style="margin-top:14px;border-left:4px solid var(--accent)">
+    <b>小结</b>
+    <p style="margin-top:8px;color:var(--muted);font-size:.92rem;line-height:1.8">
+      <b style="color:var(--ink)">宝贝</b>卖得最贵（451.02 元/件），A 果占比也最高；
+      <b style="color:var(--ink)">红钻</b> C 果（含 BC）占 40%，均价被明显拉低。
+      量最大的金秋处于中间，分级还有提升空间。
+    </p>
+  </div>
+
+</main>
+<script src="redesign.js"></script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>结算单详情页 · 设计测试（视觉伴侣 53001）</title>
+    <link rel="stylesheet" href="./settlement-detail-taste.css" />
+    <link rel="stylesheet" href="./settlement-detail-taste-components.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <header class="topbar">
+      <div class="wrap topbar-inner">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">SLD</span>
+          <span class="brand-copy">
+            <strong>水果市场销售分析</strong>
+            <span>结算单详情 · 设计测试</span>
+          </span>
+        </div>
+        <p class="env">视觉伴侣 <code>127.0.0.1:53001</code></p>
+      </div>
+    </header>
+
+    <main id="main" class="wrap page">
+      <section class="hero reveal" style="--index: 1">
+        <div class="hero-copy">
+          <p class="eyebrow">结算单详情页 / 测试稿</p>
+          <h1>晴牌-012</h1>
+          <p class="hero-sub">2026-09-16 至 2026-09-18，一车货的钱从哪里来、扣在哪里。</p>
+          <p class="mock-note">页面数据为 mock 示例，仅用于验证视觉方案，非真实经营数据。</p>
+        </div>
+        <div class="hero-figure" aria-hidden="true">
+          <img src="/auth-portal-durian.webp" alt="" />
+        </div>
+      </section>
+
+      <section class="identity reveal" aria-label="结算单身份" style="--index: 2">
+        <dl class="identity-grid">
+          <div><dt>商号</dt><dd>晴牌-012</dd></div>
+          <div><dt>柜号</dt><dd>CBHU 4021897</dd></div>
+          <div><dt>到达日期</dt><dd>2026-09-16 至 2026-09-18</dd></div>
+          <div><dt>来源</dt><dd>文件导入</dd></div>
+        </dl>
+      </section>
+
+      <section class="metrics reveal" aria-label="核心指标" style="--index: 3">
+        <article class="metric metric--primary">
+          <span class="metric-label">销售金额</span>
+          <strong class="metric-value">562,340</strong>
+          <span class="metric-note">元，48 小时结算周期</span>
+        </article>
+        <article class="metric">
+          <span class="metric-label">销量</span>
+          <strong class="metric-value">1,248</strong>
+          <span class="metric-note">件</span>
+        </article>
+        <article class="metric">
+          <span class="metric-label">平均每件售价</span>
+          <strong class="metric-value">450.59</strong>
+          <span class="metric-note">元/件</span>
+        </article>
+        <article class="metric metric--wide">
+          <span class="metric-label">应付结算</span>
+          <strong class="metric-value">502,840</strong>
+          <span class="metric-note">销售金额减去售后、费用与清关税费</span>
+        </article>
+        <article class="metric">
+          <span class="metric-label">扣款合计</span>
+          <strong class="metric-value">59,500</strong>
+          <span class="metric-note">售后 8,420 + 费用 32,680 + 清关 18,400</span>
+        </article>
+      </section>
+
+      <section class="panel reveal" aria-labelledby="grade-title" style="--index: 4">
+        <header class="panel-head">
+          <div>
+            <p class="section-kicker">等级表现</p>
+            <h2 id="grade-title">哪个等级在支撑均价</h2>
+            <p class="panel-note">平均每件售价 = 金额 ÷ 件数；颜色深浅只用来区分等级。</p>
+          </div>
+          <div class="legend" aria-label="图例">
+            <span><i class="legend-dot legend-a"></i>A 果</span>
+            <span><i class="legend-dot legend-b"></i>B 果</span>
+            <span><i class="legend-dot legend-c"></i>C 果（含 BC）</span>
+          </div>
+        </header>
+        <div id="grade-chart" class="grade-chart"></div>
+      </section>
+
+      <section class="panel reveal" aria-labelledby="detail-title" style="--index: 5">
+        <header class="panel-head">
+          <div>
+            <p class="section-kicker">销售明细</p>
+            <h2 id="detail-title">原始记录</h2>
+            <p class="panel-note">展示数据可读性，不在这里做二次计算。</p>
+          </div>
+          <span class="count-badge" id="record-count">0 条</span>
+        </header>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">销售日期</th>
+                <th scope="col">等级</th>
+                <th scope="col">品种</th>
+                <th scope="col" class="num">数量</th>
+                <th scope="col" class="num">单价</th>
+                <th scope="col" class="num">金额</th>
+              </tr>
+            </thead>
+            <tbody id="record-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel settlement-panel reveal" aria-labelledby="settlement-title" style="--index: 6">
+        <header class="panel-head">
+          <div>
+            <p class="section-kicker">结算信息</p>
+            <h2 id="settlement-title">钱扣在哪里</h2>
+            <p class="panel-note">回款、费用与清关数据只用于解释单柜经营结果。</p>
+          </div>
+        </header>
+        <dl class="settlement-grid">
+          <div><dt>售后金额</dt><dd>8,420</dd></div>
+          <div><dt>费用合计</dt><dd>32,680</dd></div>
+          <div><dt>清关税费</dt><dd>18,400</dd></div>
+          <div><dt>扣款合计</dt><dd>59,500</dd></div>
+          <div class="payable"><dt>应付结算</dt><dd>502,840</dd></div>
+        </dl>
+      </section>
+    </main>
+
+    <footer class="page-footer wrap">
+      <p>视觉伴侣测试稿，数据为 mock 示例，不参与线上构建。</p>
+    </footer>
+
+    <script type="module" src="./settlement-detail-taste.js"></script>
+  </body>
+</html>

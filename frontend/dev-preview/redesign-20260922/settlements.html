@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>每一单 · 布局重设计</title>
+<link rel="stylesheet" href="redesign.css" />
+</head>
+<body data-page="settlements">
+<main class="page">
+
+  <div class="filter-scroll" data-chip-group>
+    <button class="chip is-on" type="button">全部</button>
+    <button class="chip" type="button">近 30 天</button>
+    <button class="chip" type="button">近 90 天</button>
+    <button class="chip" type="button">金秋</button>
+    <button class="chip" type="button">宝贝</button>
+    <button class="chip" type="button">红钻</button>
+  </div>
+
+  <div class="field mobile-only">
+    <input type="search" placeholder="搜索单号 / 商号，如 金秋-001" style="min-height:48px;border-radius:999px;padding-left:18px" />
+  </div>
+
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-top:6px">
+    <div class="kpi" style="padding:12px 14px">
+      <div class="kpi-label">4 张单 · 销售额</div>
+      <div class="kpi-value" style="font-size:1.2rem;margin-top:5px">160.83 万</div>
+    </div>
+    <div class="kpi" style="padding:12px 14px;--kpi-color:#d9812a">
+      <div class="kpi-label">总销量</div>
+      <div class="kpi-value" style="font-size:1.2rem;margin-top:5px">3,704 件</div>
+    </div>
+    <div class="kpi" style="padding:12px 14px;--kpi-color:#2c5f9e">
+      <div class="kpi-label">平均每件</div>
+      <div class="kpi-value" style="font-size:1.2rem;margin-top:5px">434.20 元</div>
+    </div>
+  </div>
+
+  <div class="card table-card desktop-only" style="margin-top:14px">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>单号</th><th>商号</th><th>品牌</th><th>到达市场日期</th><th>销售日期</th>
+          <th class="num">销售金额</th><th class="num">销量(件)</th><th class="num">每件均价</th>
+          <th style="width:170px">等级结构 A/B/C</th><th>来源</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>金秋-001</b></td><td>888</td><td>金秋</td><td>2026-09-08</td><td>2026-09-09</td>
+          <td class="num"><b>¥403,410</b></td><td class="num">974</td><td class="num">414.18</td>
+          <td><div class="grade-bar"><i class="ga" style="width:21.5%"></i><i class="gb" style="width:43.6%"></i><i class="gc" style="width:34.9%"></i></div></td>
+          <td><span class="status status-info">文件导入</span></td>
+          <td><a href="settlement-detail.html" style="color:var(--brand-700);font-weight:700">详情 ›</a></td>
+        </tr>
+        <tr>
+          <td><b>金秋-002</b></td><td>866</td><td>金秋</td><td>2026-09-05</td><td>2026-09-06</td>
+          <td class="num"><b>¥406,570</b></td><td class="num">900</td><td class="num">451.74</td>
+          <td><div class="grade-bar"><i class="ga" style="width:27.6%"></i><i class="gb" style="width:45.1%"></i><i class="gc" style="width:27.3%"></i></div></td>
+          <td><span class="status status-info">文件导入</span></td>
+          <td><a href="settlement-detail.html" style="color:var(--brand-700);font-weight:700">详情 ›</a></td>
+        </tr>
+        <tr>
+          <td><b>金秋-003</b></td><td>852</td><td>金秋</td><td>2026-08-27</td><td>2026-08-28</td>
+          <td class="num"><b>¥432,300</b></td><td class="num">974</td><td class="num">443.84</td>
+          <td><div class="grade-bar"><i class="ga" style="width:34.9%"></i><i class="gb" style="width:39.6%"></i><i class="gc" style="width:25.5%"></i></div></td>
+          <td><span class="status status-ok">手工录单</span></td>
+          <td><a href="settlement-detail.html" style="color:var(--brand-700);font-weight:700">详情 ›</a></td>
+        </tr>
+        <tr>
+          <td><b>金秋-004</b></td><td>836</td><td>金秋</td><td>2026-08-20</td><td>2026-08-21</td>
+          <td class="num"><b>¥365,980</b></td><td class="num">856</td><td class="num">427.55</td>
+          <td><div class="grade-bar"><i class="ga" style="width:23.1%"></i><i class="gb" style="width:41.8%"></i><i class="gc" style="width:35%"></i></div></td>
+          <td><span class="status status-info">文件导入</span></td>
+          <td><a href="settlement-detail.html" style="color:var(--brand-700);font-weight:700">详情 ›</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mobile-only" style="margin-top:12px">
+    <a class="bill-card" href="settlement-detail.html">
+      <div class="bill-head">
+        <span class="bill-no">金秋-001<small>商号 888</small></span>
+        <span class="status status-info">文件导入</span>
+      </div>
+      <div class="bill-money"><small>¥</small>403,410</div>
+      <div class="bill-meta"><span><b>974</b> 件</span><span>均价 <b>414.18</b></span><span>09-09 销售</span></div>
+      <div class="grade-bar"><i class="ga" style="width:21.5%"></i><i class="gb" style="width:43.6%"></i><i class="gc" style="width:34.9%"></i></div>
+      <div class="bill-grades"><span>A 209 件</span><span>B 425 件</span><span>C 340 件</span></div>
+    </a>
+    <a class="bill-card" href="settlement-detail.html">
+      <div class="bill-head">
+        <span class="bill-no">金秋-002<small>商号 866</small></span>
+        <span class="status status-info">文件导入</span>
+      </div>
+      <div class="bill-money"><small>¥</small>406,570</div>
+      <div class="bill-meta"><span><b>900</b> 件</span><span>均价 <b>451.74</b></span><span>09-06 销售</span></div>
+      <div class="grade-bar"><i class="ga" style="width:27.6%"></i><i class="gb" style="width:45.1%"></i><i class="gc" style="width:27.3%"></i></div>
+      <div class="bill-grades"><span>A 248 件</span><span>B 406 件</span><span>C 246 件</span></div>
+    </a>
+    <a class="bill-card" href="settlement-detail.html">
+      <div class="bill-head">
+        <span class="bill-no">金秋-003<small>商号 852</small></span>
+        <span class="status status-ok">手工录单</span>
+      </div>
+      <div class="bill-money"><small>¥</small>432,300</div>
+      <div class="bill-meta"><span><b>974</b> 件</span><span>均价 <b>443.84</b></span><span>08-28 销售</span></div>
+      <div class="grade-bar"><i class="ga" style="width:34.9%"></i><i class="gb" style="width:39.6%"></i><i class="gc" style="width:25.5%"></i></div>
+      <div class="bill-grades"><span>A 340 件</span><span>B 386 件</span><span>C 248 件</span></div>
+    </a>
+    <a class="bill-card" href="settlement-detail.html">
+      <div class="bill-head">
+        <span class="bill-no">金秋-004<small>商号 836</small></span>
+        <span class="status status-info">文件导入</span>
+      </div>
+      <div class="bill-money"><small>¥</small>365,980</div>
+      <div class="bill-meta"><span><b>856</b> 件</span><span>均价 <b>427.55</b></span><span>08-21 销售</span></div>
+      <div class="grade-bar"><i class="ga" style="width:23.1%"></i><i class="gb" style="width:41.8%"></i><i class="gc" style="width:35%"></i></div>
+      <div class="bill-grades"><span>A 198 件</span><span>B 358 件</span><span>C 300 件</span></div>
+    </a>
+  </div>
+
+  <p class="note mobile-only" style="text-align:center;margin-top:18px">已显示全部 4 张结算单</p>
+
+</main>
+<script src="redesign.js"></script>
+</body>
+</html>

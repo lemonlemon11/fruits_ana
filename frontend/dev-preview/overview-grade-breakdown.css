@@ -1,0 +1,30 @@
+.overview-preview { padding-top: 28px; }
+.overview-filter {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.filter-field { display: grid; gap: 7px; }
+.filter-field span { color: var(--muted); font-size: .78rem; font-weight: 900; }
+.filter-field strong { font-size: .95rem; }
+.filter-action {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 900;
+}
+.overview-grade-grid { margin-bottom: 18px; }
+
+@media (max-width: 760px) {
+  .overview-filter { grid-template-columns: 1fr; }
+  .filter-action { width: 100%; }
+}

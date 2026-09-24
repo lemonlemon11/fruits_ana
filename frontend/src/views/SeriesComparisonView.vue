@@ -191,10 +191,11 @@ onBeforeUnmount(() => {
       :options="options"
       :selected="selected"
       :max="MAX_SERIES_COMPARISON"
-      :loading="loadingOptions"
+      :loading="loadingOptions || loadingComparison"
       @apply="applySelection"
     />
     <p v-if="notice" class="section-note" aria-live="polite">{{ notice }}</p>
+    <p v-if="loadingComparison" class="comparison-updating" role="status" aria-live="polite">正在更新对比结果…</p>
 
     <SeriesOverviewTable :items="result.settlements" :total="result.total" :loading="loadingComparison" />
 
@@ -261,6 +262,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .series-page { gap: 18px; }
+.comparison-updating { margin: -8px 0 0; color: var(--primary-dark); font-size: .88rem; font-weight: 700; }
 .series-view-panel { display: grid; gap: 18px; }
 .series-view-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
 .mobile-detail-toggle { display: none; }

@@ -10,7 +10,7 @@ import { formatNumber, formatPrice } from '../utils/format'
 import { displayMerchantNo } from '../utils/merchantNo'
 import { displayOrderNo } from '../utils/orderNo'
 import { gradePrice } from '../utils/seriesComparison'
-import BaseEChart from './BaseEChart.vue'
+import DeferredEChart from './DeferredEChart.vue'
 import ChartLegend from './ChartLegend.vue'
 
 const props = defineProps<{ items: SeriesComparisonItem[]; loading?: boolean }>()
@@ -111,7 +111,7 @@ const chartOption = computed<EChartsOption>(() => ({
       <span>在上方勾选两个及以上结算单后即可对比。</span>
     </div>
     <div v-else class="price-figure">
-      <BaseEChart
+      <DeferredEChart
         :option="chartOption"
         height="250px"
         :aria-label="`${items.length} 张结算单等级均价对比柱状图`"

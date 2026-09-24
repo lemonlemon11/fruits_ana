@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>登录 · 果销分析（真实数据版）</title>
+<link rel="stylesheet" href="../redesign-20260922/redesign.css" />
+<link rel="stylesheet" href="v2.css" />
+</head>
+<body>
+<div class="login-shell">
+
+  <section class="login-hero">
+    <div class="logo-mark">果</div>
+    <h1>每一柜水果，<br />都是一笔明白账</h1>
+    <p>果销分析帮果农看清每张结算单：各等级各卖了多少件、每件均价多少、哪一柜更划算。</p>
+    <ul class="login-points">
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>结算单 xlsx 上传，自动识别金额与等级</li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>卖得怎么样，打开首页一眼看清</li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>两柜对比，找出更划算的装柜方式</li>
+    </ul>
+  </section>
+
+  <section class="login-card">
+    <h2>欢迎回来</h2>
+    <p class="sub">登录后查看你的真实销售数据</p>
+    <form id="login-form">
+      <div class="field">
+        <label for="u">用户名</label>
+        <input id="u" type="text" placeholder="请输入用户名" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label for="p">密码</label>
+        <input id="p" type="password" placeholder="请输入密码" autocomplete="current-password" required />
+      </div>
+      <div class="login-links">
+        <label class="login-remember"><input id="remember" type="checkbox" checked />30 天内免登录</label>
+        <a href="/forgot-password">忘记密码？</a>
+      </div>
+      <div id="login-error" class="error-banner" style="display:none"></div>
+      <button class="btn btn-primary btn-block" id="login-btn" type="submit" style="min-height:54px;font-size:1.06rem">登 录</button>
+      <p class="note" style="text-align:center">还没有账号？<a href="/register" style="color:var(--brand-700);font-weight:700">立即注册</a></p>
+    </form>
+  </section>
+
+</div>
+<script src="v2.js"></script>
+<script>
+(function () {
+  var form = document.getElementById('login-form');
+  var btn = document.getElementById('login-btn');
+  var errBox = document.getElementById('login-error');
+  var next = new URLSearchParams(location.search).get('next') || 'overview.html';
+
+  V2.getUser().then(function () { location.href = next; }).catch(function () {});
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    errBox.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = '正在登录…';
+    V2.api('/api/auth/login', {
+      method: 'POST',
+      skipAuthRedirect: true,
+      body: {
+        display_name: document.getElementById('u').value.trim(),
+        password: document.getElementById('p').value,
+        remember_me: document.getElementById('remember').checked
+      }
+    }).then(function () {
+      location.href = next;
+    }).catch(function (e) {
+      errBox.innerHTML = '<span><strong>登录失败</strong> ' + V2.esc(e.message) + '</span>';
+      errBox.style.display = '';
+    }).finally(function () {
+      btn.disabled = false;
+      btn.textContent = '登 录';
+    });
+  });
+})();
+</script>
+</body>
+</html>

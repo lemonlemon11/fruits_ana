@@ -5,46 +5,41 @@ import {
   getOverview,
   getGradeBreakdown,
   getSettlementComparison,
-  getTrend,
   type AnalyticsFilters,
   type GradeBreakdownData,
   type OverviewData,
   type SettlementComparisonItem,
-  type TrendPoint,
 } from '../api/client'
 import GradeSummary from '../components/GradeSummary.vue'
 import SettlementGradeBreakdown from '../components/SettlementGradeBreakdown.vue'
-import SettlementComparison from '../components/SettlementComparison.vue'
-import TrendChart from '../components/TrendChart.vue'
 import DateRangeFilter from '../components/DateRangeFilter.vue'
 import SearchableSelect from '../components/SearchableSelect.vue'
-import { formatAnomalyValue } from '../utils/format'
-import { displayMerchantNo } from '../utils/merchantNo'
-import { filterSettlementsByMerchant, settlementOptionLabel } from '../utils/settlementComparison'
+import { settlementOptionLabel } from '../utils/settlementComparison'
 
 const filters = reactive({ startDate: '', endDate: '', merchantNo: '' })
 const overview = ref<OverviewData | null>(null)
 const gradeBreakdown = ref<GradeBreakdownData | null>(null)
-const trend = ref<TrendPoint[]>([])
 // 下拉框候选始终是筛选范围内的全部结算单，避免选中后无法切回。
 const settlementOptions = ref<SettlementComparisonItem[]>([])
-const loading = ref(true)
-const error = ref('')
-const detailOpen = ref(false)
+const overviewLoading = ref(true)
+const gradeBreakdownLoading = ref(true)
+const settlementOptionsLoading = ref(true)
+const requestErrors = reactive({ overview: '', gradeBreakdown: '', settlementOptions: '' })
+const validationError = ref('')
 const alertPage = ref(1)
 const alertPageSize = 5
 let requestVersion = 0
 let activeController: AbortController | null = null
 
-const selectedSettlement = computed(
-  () => settlementOptions.value.find((item) => item.merchantNo === filters.merchantNo) ?? null,
-)
-const settlements = computed(() => filterSettlementsByMerchant(settlementOptions.value, filters.merchantNo))
-const trendTitle = computed(() => (
-  selectedSettlement.value
-    ? `销量与均价 · ${settlementOptionLabel(selectedSettlement.value)}`
-    : '销量与均价'
+const queryLoading = computed(() => (
+  overviewLoading.value || gradeBreakdownLoading.value || settlementOptionsLoading.value
 ))
+const error = computed(() => [
+  validationError.value,
+  requestErrors.overview && `核心指标：${requestErrors.overview}`,
+  requestErrors.gradeBreakdown && `等级明细：${requestErrors.gradeBreakdown}`,
+  requestErrors.settlementOptions && `商号列表：${requestErrors.settlementOptions}`,
+].filter(Boolean).join('；'))
 const merchantSelectOptions = computed(() =>
   [
     { value: '', label: '全部结算单' },
@@ -69,34 +64,65 @@ watch(() => overview.value?.operatingAnomalies.length, () => {
   alertPage.value = 1
 })
 
+function errorMessage(caught: unknown): string {
+  return caught instanceof Error ? caught.message : '看板数据加载失败'
+}
+
+async function loadOverviewData(query: AnalyticsFilters, version: number, controller: AbortController) {
+  overviewLoading.value = true
+  requestErrors.overview = ''
+  try {
+    const nextOverview = await getOverview(query, { signal: controller.signal })
+    if (version === requestVersion) overview.value = nextOverview
+  } catch (caught) {
+    if (!controller.signal.aborted && version === requestVersion) requestErrors.overview = errorMessage(caught)
+  } finally {
+    if (version === requestVersion) overviewLoading.value = false
+  }
+}
+
+async function loadGradeBreakdownData(query: AnalyticsFilters, version: number, controller: AbortController) {
+  gradeBreakdownLoading.value = true
+  requestErrors.gradeBreakdown = ''
+  try {
+    const nextGradeBreakdown = await getGradeBreakdown(query, { signal: controller.signal })
+    if (version === requestVersion) gradeBreakdown.value = nextGradeBreakdown
+  } catch (caught) {
+    if (!controller.signal.aborted && version === requestVersion) requestErrors.gradeBreakdown = errorMessage(caught)
+  } finally {
+    if (version === requestVersion) gradeBreakdownLoading.value = false
+  }
+}
+
+async function loadSettlementOptions(query: AnalyticsFilters, version: number, controller: AbortController) {
+  settlementOptionsLoading.value = true
+  requestErrors.settlementOptions = ''
+  try {
+    const nextSettlements = await getSettlementComparison({ ...query, includeAllSettlements: true }, { signal: controller.signal })
+    if (version === requestVersion) settlementOptions.value = nextSettlements
+  } catch (caught) {
+    if (!controller.signal.aborted && version === requestVersion) requestErrors.settlementOptions = errorMessage(caught)
+  } finally {
+    if (version === requestVersion) settlementOptionsLoading.value = false
+  }
+}
+
 async function refresh() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
-    error.value = '销售日期起不能晚于销售日期止'
+    validationError.value = '销售日期起不能晚于销售日期止'
     return
   }
+  validationError.value = ''
   const version = ++requestVersion
   activeController?.abort()
   const controller = new AbortController()
   activeController = controller
-  loading.value = true
-  error.value = ''
-  try {
-    const query: AnalyticsFilters = { ...filters }
-    const [nextOverview, nextSettlements, nextGradeBreakdown] = await Promise.all([
-      getOverview(query, { signal: controller.signal }),
-      getSettlementComparison({ ...query, includeAllSettlements: true }, { signal: controller.signal }),
-      getGradeBreakdown(query, { signal: controller.signal }),
-    ])
-    if (version !== requestVersion) return
-    overview.value = nextOverview
-    settlementOptions.value = nextSettlements
-    gradeBreakdown.value = nextGradeBreakdown
-  } catch (caught) {
-    if (controller.signal.aborted) return
-    if (version === requestVersion) error.value = caught instanceof Error ? caught.message : '看板数据加载失败'
-  } finally {
-    if (version === requestVersion) loading.value = false
-  }
+  const query: AnalyticsFilters = { ...filters }
+  await Promise.allSettled([
+    loadOverviewData(query, version, controller),
+    loadGradeBreakdownData(query, version, controller),
+    loadSettlementOptions(query, version, controller),
+  ])
 }
 
 onMounted(refresh)
@@ -119,9 +145,10 @@ onBeforeUnmount(() => {
         label="商号"
         aria-label="商号"
         placeholder="全部结算单"
+        :loading="settlementOptionsLoading"
         @change="refresh"
       />
-      <button class="primary-button" type="submit" :disabled="loading">{{ loading ? '正在查询' : '查看结果' }}</button>
+      <button class="primary-button" type="submit" :disabled="queryLoading">{{ queryLoading ? '正在查询' : '查看结果' }}</button>
     </form>
 
     <div v-if="error" class="error-banner" role="alert">
@@ -133,14 +160,14 @@ onBeforeUnmount(() => {
       <GradeSummary
         :grades="overview?.grades ?? []"
         :total="overview?.total ?? { salesQuantity: 0, salesAmount: 0, weightedAvgPrice: null }"
-        :loading="loading"
+        :loading="overviewLoading"
       />
     </div>
 
     <SettlementGradeBreakdown
       :grades="gradeBreakdown?.grades ?? []"
       :records="gradeBreakdown?.records ?? []"
-      :loading="loading"
+      :loading="gradeBreakdownLoading"
     />
 
   </div>

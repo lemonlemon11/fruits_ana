@@ -24,8 +24,8 @@ test('列表页分页：每页条数、上一页 / 下一页与页码文案', ()
   assert.match(viewSource, /class="list-pagination"/)
   assert.match(viewSource, /@click="goPage\(page - 1\)">上一页</)
   assert.match(viewSource, /@click="goPage\(page \+ 1\)">下一页</)
-  assert.match(viewSource, /:disabled="page <= 1"/)
-  assert.match(viewSource, /:disabled="page >= totalPages"/)
+  assert.match(viewSource, /:disabled="loading \|\| sorting \|\| page <= 1"/)
+  assert.match(viewSource, /:disabled="loading \|\| sorting \|\| page >= totalPages"/)
   // 页码文案只在分页条出现一次；面板标题不再重复「共 N 张 · 第 x / y 页」。
   assert.match(viewSource, /<span class="pagination-summary">共 <b>\{\{ totalCount \}\}<\/b> 张 · 第 <b>\{\{ page \}\}<\/b> \/ \{\{ totalPages \}\} 页<\/span>/)
   assert.doesNotMatch(viewSource, /共 \$\{totalCount\} 张结算单/)
@@ -72,6 +72,10 @@ test('列表在桌面端至少撑满剩余视口，行多时随页面自然向�
 test('分页请求参数与响应解析', () => {
   assert.equal(buildAnalyticsQuery({ page: 3, pageSize: 20 }), '?page=3&page_size=20')
   assert.equal(buildAnalyticsQuery({ merchantNo: '637' }), '?merchant_no=637')
+  assert.equal(
+    buildAnalyticsQuery({ sortBy: 'confirmed_at', sortOrder: 'asc' }),
+    '?sort_by=confirmed_at&sort_order=asc',
+  )
 
   const data = normalizeSettlementList({
     date_range: { start_date: '2026-09-01', end_date: '2026-09-15', is_default: false },
@@ -80,6 +84,41 @@ test('分页请求参数与响应解析', () => {
   })
   assert.deepEqual(data.pagination, { total: 13, page: 2, pageSize: 10, pages: 2 })
   assert.equal(normalizeSettlementList({ settlements: [] }).pagination, null)
+})
+
+test('结算单列表展示录单时间，并把七个指定指标设为可排序列', () => {
+  assert.match(viewSource, /key: 'confirmedAt', label: '录单时间'/)
+  assert.match(viewSource, /key: 'arrivalDate'[\s\S]*?sortable: true[\s\S]*?sortKey: 'arrival_date'/)
+  assert.match(viewSource, /key: 'totalQuantity'[\s\S]*?sortable: true[\s\S]*?sortKey: 'total_quantity'/)
+  assert.match(viewSource, /key: `grade-\$\{grade\}`[\s\S]*?sortable: grade === 'A' \|\| grade === 'B'/)
+  assert.match(viewSource, /sortKey: `grade_\$\{grade\.toLowerCase\(\)\}`/)
+  assert.match(viewSource, /key: 'salesAmount'[\s\S]*?sortKey: 'sales_amount'/)
+  assert.match(viewSource, /key: 'averagePrice'[\s\S]*?sortKey: 'average_price'/)
+  assert.match(viewSource, /key: 'confirmedAt'[\s\S]*?sortKey: 'confirmed_at'/)
+  assert.match(viewSource, /:active-sort-key="sortBy"/)
+  assert.match(viewSource, /:sort-order="sortOrder"/)
+  assert.match(viewSource, /@sort="toggleSort"/)
+  assert.match(viewSource, /录单 \{\{ formatDateTime\(item\.confirmedAt\) \}\}/)
+})
+
+test('点击排序保留现有表格，只在请求完成后替换行数据', () => {
+  assert.match(
+    viewSource,
+    /async function refresh\(options: \{ resetPage\?: boolean; preserveRows\?: boolean \} = \{\}\)/,
+  )
+  assert.match(viewSource, /if \(!options\.preserveRows\) loading\.value = true/)
+  assert.match(
+    viewSource,
+    /if \(options\.resetPage && !options\.preserveRows\) \{\s+page\.value = 1\s+scopeGrades\.value = \[\]/,
+  )
+  assert.match(
+    viewSource,
+    /if \(version === requestVersion && !options\.preserveRows\) loading\.value = false/,
+  )
+  assert.match(viewSource, /void refresh\(\{ resetPage: true, preserveRows: true \}\)/)
+  assert.match(viewSource, /const sorting = ref\(false\)/)
+  assert.match(viewSource, /:sort-busy="sorting"/)
+  assert.match(viewSource, /if \(sorting\.value\) return/)
 })
 
 test('按行导出：地址指向单张结算单模板，手工单与导入件同一入口', async () => {
@@ -95,21 +134,20 @@ test('按行导出：地址指向单张结算单模板，手工单与导入件�
 test('列表每行都有导出入口，桌面表格与移动端卡片一致', () => {
   assert.match(viewSource, /settlementTemplateExportUrl/)
   assert.match(viewSource, /settlementTemplatePdfUrl/)
-  // 桌面表格：导出按钮 → 下拉菜单（Excel / PDF），查看明细主操作实心绿。
-  assert.match(
-    viewSource,
-    /<template #cell-actions="{ row }">[\s\S]*?<span class="export-dropdown">[\s\S]*?<button class="row-action-button" type="button" @click\.prevent\.stop="toggleExportMenu\(row\.merchantNo\)">[\s\S]*?<Download :size="13" aria-hidden="true" \/>[\s\S]*?导出[\s\S]*?<span class="export-sub" :class="{ visible: openExportMenu === row\.merchantNo }">[\s\S]*?>[\s\S]*?Excel[\s\S]*?>[\s\S]*?PDF[\s\S]*?<button class="row-action-button is-primary" type="button" @click="openRecords\(row\)">[\s\S]*?<ListTree :size="13" aria-hidden="true" \/>[\s\S]*?查看明细[\s\S]*?<\/template>/,
-  )
+  // 桌面表格：导出按钮 → 下拉菜单（Excel / PDF），实际下载使用异步状态。
+  assert.match(viewSource, /import \{ downloadFile \} from '\.\.\/utils\/fileDownload'/)
+  assert.match(viewSource, /async function runExport\(/)
+  assert.match(viewSource, /导出列表中…/)
+  assert.match(viewSource, /isExporting\(rowExportKey\(row, 'xlsx'\)\) \? '导出中…' : 'Excel'/)
+  assert.match(viewSource, /isExporting\(rowExportKey\(row, 'pdf'\)\) \? '导出中…' : 'PDF'/)
   assert.match(viewSource, /import Download from '@lucide\/vue\/dist\/esm\/icons\/download\.mjs'/)
   assert.match(viewSource, /import ListTree from '@lucide\/vue\/dist\/esm\/icons\/list-tree\.mjs'/)
   assert.match(viewSource, /\.row-action-button\.is-primary \{ border-color: var\(--primary-dark\); background: var\(--primary\); color: white; \}/)
   // 移动端卡片：查看明细 + Excel / PDF + 删除放在同一动作栏，不折行。
   assert.match(viewSource, /<div class="mobile-card-actions-bar">/)
   assert.match(viewSource, /<button class="primary-button mobile-detail-button" type="button" @click="openRecords\(item\)">查看明细<\/button>/)
-  assert.match(viewSource, /<a class="text-button export-row-link" :href="rowExportUrl\(item, 'xlsx'\)" download>/)
-  assert.match(viewSource, /<FileSpreadsheet :size="14" aria-hidden="true" \/> Excel/)
-  assert.match(viewSource, /<a class="text-button export-row-link" :href="rowExportUrl\(item, 'pdf'\)" download>/)
-  assert.match(viewSource, /<FileText :size="14" aria-hidden="true" \/> PDF/)
+  assert.match(viewSource, /class="text-button export-row-link"[\s\S]*?@click="runRowExport\(item, 'xlsx'\)"/)
+  assert.match(viewSource, /class="text-button export-row-link"[\s\S]*?@click="runRowExport\(item, 'pdf'\)"/)
   assert.match(viewSource, /class="text-button delete-row-link"/)
   assert.match(viewSource, /\.mobile-card-actions-bar \{\s+display: flex;/)
   assert.match(viewSource, /\.mobile-detail-button \{\s+flex: 1 1 auto;/)

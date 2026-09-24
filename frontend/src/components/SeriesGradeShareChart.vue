@@ -8,7 +8,7 @@ import { activeGrades, gradeColors } from '../utils/grades'
 import { echartTheme } from '../utils/echartTheme'
 import { formatNumber, formatPercent } from '../utils/format'
 import { gradeOf, shortLabel } from '../utils/seriesComparison'
-import BaseEChart from './BaseEChart.vue'
+import DeferredEChart from './DeferredEChart.vue'
 import ChartLegend from './ChartLegend.vue'
 
 const props = defineProps<{ items: SeriesComparisonItem[]; loading?: boolean }>()
@@ -113,7 +113,7 @@ const chartOption = computed<EChartsOption>(() => ({
       <span>勾选结算单后即可查看等级结构。</span>
     </div>
     <div v-else class="share-chart">
-      <BaseEChart
+      <DeferredEChart
         :option="chartOption"
         :height="`${Math.max(items.length * 46 + 84, 172)}px`"
         :aria-label="`${items.length} 张结算单等级件数占比堆叠图`"

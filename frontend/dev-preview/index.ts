@@ -3,6 +3,8 @@ import '../src/styles-shell.css'
 import './showcase.css'
 
 const PAGES: Array<[string, string, string]> = [
+  ['布局重设计 v2 · 真实数据联调版（推荐）', 'redesign-20260922-v2/index.html', '沿用 09-22 重设计视觉；全页真实接口数据，登录/看板/每一单/详情/对比/品牌/导入/复核/录单/顺仔/通知功能与现网一致'],
+  ['布局重设计 v1 · 静态设计稿', 'redesign-20260922/index.html', '2026-09-22 手机/桌面布局重设计静态稿，演示数据为虚构'],
   ['顺仔 · 悬浮问答机器人（Demo）', 'ask-demo.html', '右下角悬浮机器人「顺仔」，点开是微信式悬浮对话窗；答案里的数字来自与看板同一批分析函数'],
   ['系统外壳设计（header + 页签）', 'shell-preview.html', '顶部 header 显示用户名与退出登录，页签记录已打开的页面'],
   ['手工录单界面交互稿', 'entry-design.html', '基本信息、销售/售后/费用动态行、自动计算与冲突覆盖交互'],

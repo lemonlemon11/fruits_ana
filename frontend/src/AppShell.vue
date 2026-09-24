@@ -8,6 +8,7 @@ import ClipboardPen from '@lucide/vue/dist/esm/icons/clipboard-pen.mjs'
 import Clock3 from '@lucide/vue/dist/esm/icons/clock-3.mjs'
 import GitCompareArrows from '@lucide/vue/dist/esm/icons/git-compare-arrows.mjs'
 import LogOut from '@lucide/vue/dist/esm/icons/log-out.mjs'
+import Leaf from '@lucide/vue/dist/esm/icons/leaf.mjs'
 import Menu from '@lucide/vue/dist/esm/icons/menu.mjs'
 import MessageCircle from '@lucide/vue/dist/esm/icons/message-circle.mjs'
 import PackageSearch from '@lucide/vue/dist/esm/icons/package-search.mjs'
@@ -17,6 +18,7 @@ import PanelRightClose from '@lucide/vue/dist/esm/icons/panel-right-close.mjs'
 import RefreshCw from '@lucide/vue/dist/esm/icons/refresh-cw.mjs'
 import SquareX from '@lucide/vue/dist/esm/icons/square-x.mjs'
 import Table2 from '@lucide/vue/dist/esm/icons/table-2.mjs'
+import TriangleAlert from '@lucide/vue/dist/esm/icons/triangle-alert.mjs'
 import Type from '@lucide/vue/dist/esm/icons/type.mjs'
 import Upload from '@lucide/vue/dist/esm/icons/upload.mjs'
 import X from '@lucide/vue/dist/esm/icons/x.mjs'
@@ -30,7 +32,7 @@ import {
   markNotificationRead,
   type AppNotification,
 } from './api/client'
-import { authReady, currentUser, setCurrentUser } from './auth'
+import { authReady, currentUser, firstAllowedPath, setCurrentUser } from './auth'
 import { applyMenuItems, buildMenusByPath } from './utils/shellMenu'
 import AskWidget from './components/AskWidget.vue'
 import BrandMark from './components/BrandMark.vue'
@@ -46,7 +48,7 @@ import {
   type FontSizePreference,
 } from './utils/shellHeader'
 import {
-  HOME_TAB_PATH,
+  WELCOME_TAB_PATH,
   closeOtherTabs,
   closeTab,
   isClosableTab,
@@ -56,6 +58,10 @@ import {
   type ShellTab,
 } from './utils/shellTabs'
 import { notificationPlainText, sanitizeNotificationHtml } from './utils/notificationHtml'
+import {
+  NAVIGATION_END_EVENT,
+  NAVIGATION_START_EVENT,
+} from './utils/navigationFeedback'
 
 const mobileNavOpen = ref(false)
 const signingOut = ref(false)
@@ -69,6 +75,8 @@ const sidebarCollapsed = ref(readStoredSidebarState())
 const clockNow = ref(new Date())
 const showBackToTop = ref(false)
 const askOpen = ref(false)
+const navigationPending = ref(false)
+const navigationPendingPath = ref('')
 const fontSize = ref(readStoredFontSize())
 const fontSizePanelOpen = ref(false)
 const fontSizePanel = ref<HTMLElement | null>(null)
@@ -110,6 +118,16 @@ const moreNavItems: ShellNavItem[] = [
 const tabNavItems: ShellNavItem[] = [
   { path: '/entry', label: '手工录单', icon: ClipboardPen, permission: 'entry:view' },
 ]
+const welcomeNavItem: ShellNavItem = {
+  path: WELCOME_TAB_PATH,
+  label: '欢迎访问',
+  icon: Leaf,
+}
+const errorNavItem: ShellNavItem = {
+  path: '/error',
+  label: '页面错误',
+  icon: TriangleAlert,
+}
 
 // 图标名 → 组件：管理端「菜单管理」填写的 icon 只允许命中这里的白名单，
 // 避免把任意字符串当作动态组件渲染。
@@ -133,9 +151,9 @@ const moreNav = computed(() =>
   applyMenuItems(moreNavItems, menuByPath.value, resolveShellIcon),
 )
 const tabNav = computed(() =>
-  applyMenuItems(tabNavItems, menuByPath.value, resolveShellIcon),
+  applyMenuItems(tabNavItems, menuByPath.value, resolveShellIcon, { keepUnmatched: true }),
 )
-const navItems = computed(() => [...primaryNav.value, ...moreNav.value, ...tabNav.value])
+const navItems = computed(() => [welcomeNavItem, errorNavItem, ...primaryNav.value, ...moreNav.value, ...tabNav.value])
 const _hasPerm = (item: ShellNavItem): boolean => {
   const perms = currentUser.value?.permissions ?? []
   return !item.permission || perms.includes(item.permission)
@@ -152,10 +170,21 @@ const visiblePrimaryNavItems = computed(() =>
 const visibleMoreNavItems = computed(() =>
   moreNav.value.filter(_hasPerm),
 )
+const defaultHomePath = computed(() => firstAllowedPath(
+  currentUser.value?.permissions ?? [],
+  currentUser.value?.menus ?? [],
+) ?? WELCOME_TAB_PATH)
 const moreNavActive = computed(() => visibleMoreNavItems.value.some((item) => isNavActive(item, route.path)))
 // 顺仔（数据问答）只对拥有 ask:view 的业务角色开放，由管理端角色授权控制。
 const canAsk = computed(() => Boolean(currentUser.value?.permissions.includes('ask:view')))
 const authPage = computed(() => Boolean(route.meta.guestOnly || route.meta.publicPreview))
+const errorPage = computed(() => Boolean(route.meta.errorPage))
+const canLoadNotifications = computed(() => (
+  authReady.value
+  && Boolean(currentUser.value)
+  && !authPage.value
+  && !errorPage.value
+))
 const currentNav = computed(() => navItemFor(route.path))
 const activeTabPath = computed(() => currentNav.value.path)
 // 页签栏记录本次会话打开过的页面，登录/刷新后从首页开始，不缓存页签。
@@ -183,17 +212,12 @@ let notificationReminderTimer: number | undefined
 
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener(NAVIGATION_START_EVENT, handleNavigationStart)
+  window.addEventListener(NAVIGATION_END_EVENT, handleNavigationEnd)
   document.addEventListener('pointerdown', handleGlobalPointerDown)
   clockTimer = window.setInterval(() => {
     clockNow.value = new Date()
   }, HEADER_CLOCK_REFRESH_MS)
-  if (!authPage.value) {
-    void loadNotifications()
-    notificationTimer = window.setInterval(loadNotifications, 60_000)
-    notificationReminderTimer = window.setInterval(() => {
-      if (unreadNotificationCount.value > 0 && !notificationPanelOpen.value) showNotificationBanner()
-    }, 30 * 60 * 1000)
-  }
   window.addEventListener('scroll', handleScroll, { passive: true })
 })
 watch(
@@ -207,6 +231,10 @@ watch(
   },
   { immediate: true },
 )
+watch(canLoadNotifications, (active) => {
+  if (active) startNotificationPolling()
+  else stopNotificationPolling()
+}, { immediate: true })
 
 function showNotificationBanner() {
   if (notificationPanelOpen.value || notificationDetail.value) return
@@ -229,6 +257,33 @@ async function loadNotifications() {
   } catch {
     // 登录态失效或后端暂不可用时静默忽略，避免 header 反复报错。
   }
+}
+
+function startNotificationPolling() {
+  if (notificationTimer !== undefined) return
+  void loadNotifications()
+  notificationTimer = window.setInterval(loadNotifications, 60_000)
+  notificationReminderTimer = window.setInterval(() => {
+    if (unreadNotificationCount.value > 0 && !notificationPanelOpen.value) showNotificationBanner()
+  }, 30 * 60 * 1000)
+}
+
+function stopNotificationPolling() {
+  if (notificationTimer !== undefined) window.clearInterval(notificationTimer)
+  if (notificationReminderTimer !== undefined) window.clearInterval(notificationReminderTimer)
+  notificationTimer = undefined
+  notificationReminderTimer = undefined
+}
+
+function handleNavigationStart(event: Event) {
+  const path = (event as CustomEvent<{ path?: string }>).detail?.path
+  navigationPendingPath.value = path ?? ''
+  navigationPending.value = true
+}
+
+function handleNavigationEnd() {
+  navigationPending.value = false
+  navigationPendingPath.value = ''
 }
 
 function toggleNotificationPanel() {
@@ -421,7 +476,7 @@ function closeOtherTabsFromMenu(path: string) {
 function closeAllTabsFromMenu() {
   closeTabContextMenu()
   openedTabs.value = restoreTabs(null, isKnownPath)
-  if (route.path !== HOME_TAB_PATH) void router.push(HOME_TAB_PATH)
+  if (route.path !== WELCOME_TAB_PATH) void router.push(WELCOME_TAB_PATH)
 }
 
 async function signOut() {
@@ -441,11 +496,12 @@ async function signOut() {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener(NAVIGATION_START_EVENT, handleNavigationStart)
+  window.removeEventListener(NAVIGATION_END_EVENT, handleNavigationEnd)
   document.removeEventListener('pointerdown', handleGlobalPointerDown)
   window.removeEventListener('scroll', handleScroll)
   if (clockTimer !== undefined) window.clearInterval(clockTimer)
-  if (notificationTimer !== undefined) window.clearInterval(notificationTimer)
-  if (notificationReminderTimer !== undefined) window.clearInterval(notificationReminderTimer)
+  stopNotificationPolling()
 })
 
 function handleScroll() {
@@ -459,14 +515,20 @@ function scrollToTop() {
 </script>
 
 <template>
-  <RouterView v-if="authPage" />
+  <RouterView v-if="authPage || (errorPage && (!authReady || !currentUser))" />
   <div v-else-if="!authReady || !currentUser" class="app-loading" aria-busy="true"></div>
   <template v-else>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <div class="app-shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+      <div class="route-loading-bar" :class="{ 'is-active': navigationPending }" aria-hidden="true">
+        <span />
+      </div>
+      <p class="sr-only" aria-live="polite">
+        {{ navigationPending ? '正在打开页面' : '' }}
+      </p>
       <header class="app-header">
         <div class="app-header-brand">
-          <RouterLink class="app-header-home" to="/overview" title="返回销售总览" aria-label="返回销售总览">
+          <RouterLink class="app-header-home" :to="defaultHomePath" title="返回默认首页" aria-label="返回默认首页">
             <BrandMark :size="34" />
           </RouterLink>
           <div class="app-header-copy">
@@ -608,7 +670,7 @@ function scrollToTop() {
       <div class="app-body">
         <aside class="app-sidebar" aria-label="主要导航">
           <nav id="primary-nav" aria-label="主要导航">
-            <RouterLink v-for="item in sidebarNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-label="sidebarCollapsed ? item.label : undefined" :aria-current="isNavActive(item, route.path) ? 'page' : undefined">
+            <RouterLink v-for="item in sidebarNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-label="sidebarCollapsed ? item.label : undefined" :aria-current="isNavActive(item, route.path) ? 'page' : undefined" :class="{ 'is-navigation-pending': navigationPending && isNavActive(item, navigationPendingPath) }">
               <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
               <span>{{ item.label }}</span>
             </RouterLink>
@@ -663,7 +725,7 @@ function scrollToTop() {
             <button
               type="button"
               role="menuitem"
-              :disabled="tabContextMenu.path === HOME_TAB_PATH"
+              :disabled="!isClosableTab(tabContextMenu.path)"
               @click="closeTabFromMenu(tabContextMenu.path)"
             >
               <X :size="15" aria-hidden="true" />
@@ -679,7 +741,7 @@ function scrollToTop() {
             </button>
           </div>
           <nav v-if="mobileNavOpen" id="mobile-nav" class="mobile-nav-panel" aria-label="更多页面">
-            <RouterLink v-for="item in visibleMoreNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined">
+            <RouterLink v-for="item in visibleMoreNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined" :class="{ 'is-navigation-pending': navigationPending && isNavActive(item, navigationPendingPath) }">
               <component :is="item.icon" class="nav-icon" :size="20" aria-hidden="true" />
               <span>{{ item.label }}</span>
             </RouterLink>
@@ -709,7 +771,7 @@ function scrollToTop() {
             <span>回顶部</span>
           </button>
           <nav class="mobile-tabbar" aria-label="主要导航（移动端）">
-            <RouterLink v-for="item in visiblePrimaryNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined">
+            <RouterLink v-for="item in visiblePrimaryNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined" :class="{ 'is-navigation-pending': navigationPending && isNavActive(item, navigationPendingPath) }">
               <component :is="item.icon" :size="28" :stroke-width="2" aria-hidden="true" />
               <span>{{ item.label }}</span>
             </RouterLink>

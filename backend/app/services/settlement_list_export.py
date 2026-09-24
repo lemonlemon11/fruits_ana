@@ -115,6 +115,7 @@ def _columns(grade_codes: list[str]) -> list[tuple[str, str, int]]:
 
     columns = [
         ("商号", "", 16),
+        ("品牌", "", 14),
         ("单号", "", 16),
         ("柜号", "", 16),
         ("销售日期起", DATE_FORMAT, 14),
@@ -145,6 +146,7 @@ def _row(item: dict, grade_codes: list[str], summary: SettlementSummary | None) 
     quantities = item["grade_quantities"]
     values = [
         item["merchant_no_normalized"] or item["merchant_no"] or BLANK,
+        item.get("brand") or BLANK,
         item["order_no_normalized"] or item["order_no"] or BLANK,
         item["container_no"] or BLANK,
         item["sale_date_start"],
@@ -403,6 +405,7 @@ def _write_notes_sheet(
     batches: list[ImportBatch],
     counts: dict[str, int],
     merchant_no: str | None,
+    brand: str | None,
     grade_mapping: str,
 ) -> None:
     sheet.column_dimensions["A"].width = 20
@@ -417,6 +420,7 @@ def _write_notes_sheet(
             "是（最新销售日期往前一个月）" if date_range and date_range["is_default"] else "否",
         ),
         ("筛选商号", merchant_no or "全部结算单"),
+        ("筛选品牌", brand or "全部品牌"),
         ("导出行数", len(batches)),
         ("销售明细行数", counts["sales"]),
         ("售后明细行数", counts["after_sales"]),
@@ -442,11 +446,16 @@ def build_settlements_workbook(
     start_date: date | None = None,
     end_date: date | None = None,
     merchant_no: str | None = None,
+    brand: str | None = None,
 ) -> bytes:
     """导出「结算单列表」当前筛选结果（汇总 + 分类明细），返回 xlsx 字节。"""
 
     data = list_settlements(
-        db, start_date=start_date, end_date=end_date, merchant_no=merchant_no
+        db,
+        start_date=start_date,
+        end_date=end_date,
+        merchant_no=merchant_no,
+        brand=brand,
     )
     items = data["settlements"]
     grade_codes = _visible_grades(items)
@@ -495,6 +504,7 @@ def build_settlements_workbook(
         batches,
         {"sales": len(sales_rows), "after_sales": len(after_sale_rows), "fees": len(fee_rows)},
         merchant_no,
+        brand,
         grade_mapping_note(db),
     )
     output = BytesIO()
@@ -506,10 +516,13 @@ def settlements_export_filename(
     start_date: date | None,
     end_date: date | None,
     merchant_no: str | None,
+    brand: str | None,
 ) -> str:
     parts = ["结算单列表"]
     if merchant_no:
         parts.append(merchant_no)
+    if brand:
+        parts.append(brand)
     if start_date and end_date:
         parts.append(f"{start_date:%Y%m%d}-{end_date:%Y%m%d}")
     return "-".join(parts) + ".xlsx"

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 import pytest
@@ -62,6 +62,7 @@ def seed_batches(db):
         sale_date=date(2026, 8, 27),
         grades={StandardGrade.A: 10},
         unit_price=10,
+        imported_at=datetime(2026, 8, 27, 8, 0),
     )
     add_settlement(
         db,
@@ -71,6 +72,7 @@ def seed_batches(db):
         sale_date=date(2026, 8, 28),
         grades={StandardGrade.B: 5},
         unit_price=10,
+        imported_at=datetime(2026, 8, 28, 8, 0),
     )
     add_settlement(
         db,
@@ -80,6 +82,7 @@ def seed_batches(db):
         sale_date=date(2026, 9, 6),
         grades={StandardGrade.C: 4},
         unit_price=10,
+        imported_at=datetime(2026, 9, 6, 8, 0),
     )
     add_settlement(
         db,
@@ -90,6 +93,8 @@ def seed_batches(db):
         sale_date=date(2026, 9, 9),
         grades={StandardGrade.A: 6, StandardGrade.B: 2},
         unit_price=20,
+        imported_at=datetime(2026, 9, 9, 8, 0),
+        confirmed_at=datetime(2026, 9, 9, 9, 30),
     )
     db.commit()
 
@@ -127,6 +132,7 @@ def test_settlement_item_exposes_sales_metrics(client):
         "merchant_no_normalized": "640",
         "order_no": "宝贝L004",
         "order_no_normalized": "宝贝-004",
+        "brand": "宝贝",
         "fruit_type": "榴莲",
         "series": "宝贝",
         "container_no": "CBHU2970762",
@@ -137,6 +143,7 @@ def test_settlement_item_exposes_sales_metrics(client):
         "sales_amount": 160.0,
         "total_quantity": 8.0,
         "average_price": 20.0,
+        "confirmed_at": "2026-09-09T09:30:00",
         "grade_quantities": {
             "A": 6.0,
             "B": 2.0,
@@ -182,6 +189,148 @@ def test_invalid_range_returns_422(client):
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("sort_by", "sort_order", "expected"),
+    [
+        ("arrival_date", "asc", ["排序甲", "排序丙", "排序乙"]),
+        ("total_quantity", "desc", ["排序乙", "排序甲", "排序丙"]),
+        ("grade_a", "desc", ["排序甲", "排序丙", "排序乙"]),
+        ("grade_b", "desc", ["排序乙", "排序丙", "排序甲"]),
+        ("sales_amount", "desc", ["排序丙", "排序乙", "排序甲"]),
+        ("average_price", "desc", ["排序丙", "排序乙", "排序甲"]),
+        ("confirmed_at", "desc", ["排序甲", "排序丙", "排序乙"]),
+    ],
+)
+def test_settlement_list_supports_requested_sort_fields(
+    client, sort_by, sort_order, expected
+):
+    with SessionLocal() as db:
+        add_settlement(
+            db,
+            merchant_no="排序甲",
+            sale_date=date(2026, 9, 10),
+            arrival_date=date(2026, 9, 1),
+            imported_at=datetime(2026, 9, 1, 8, 0),
+            confirmed_at=datetime(2026, 9, 3, 8, 0),
+            grades={StandardGrade.A: 8, StandardGrade.B: 1},
+            unit_price=10,
+        )
+        add_settlement(
+            db,
+            merchant_no="排序乙",
+            sale_date=date(2026, 9, 10),
+            arrival_date=date(2026, 9, 3),
+            imported_at=datetime(2026, 9, 3, 8, 0),
+            confirmed_at=datetime(2026, 9, 1, 8, 0),
+            grades={StandardGrade.A: 2, StandardGrade.B: 8},
+            unit_price=20,
+        )
+        add_settlement(
+            db,
+            merchant_no="排序丙",
+            sale_date=date(2026, 9, 10),
+            arrival_date=date(2026, 9, 2),
+            imported_at=datetime(2026, 9, 2, 8, 0),
+            confirmed_at=datetime(2026, 9, 2, 8, 0),
+            grades={StandardGrade.A: 5, StandardGrade.B: 2},
+            unit_price=30,
+        )
+        db.commit()
+
+    body = client.get(
+        "/api/settlements",
+        params={"sort_by": sort_by, "sort_order": sort_order},
+    ).json()
+
+    assert [row["merchant_no"] for row in body["settlements"]] == expected
+
+
+def test_settlement_item_allows_missing_confirmed_at(client):
+    with SessionLocal() as db:
+        add_settlement(
+            db,
+            merchant_no="未确认时间",
+            sale_date=date(2026, 9, 10),
+            grades={StandardGrade.A: 1},
+            unit_price=10,
+        )
+        db.commit()
+
+    response = client.get(
+        "/api/settlements", params={"merchant_no": "未确认时间"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["settlements"][0]["confirmed_at"] is None
+
+
+def test_settlement_sort_is_applied_before_pagination(client):
+    with SessionLocal() as db:
+        add_settlement(
+            db,
+            merchant_no="件数多",
+            sale_date=date(2026, 9, 10),
+            grades={StandardGrade.A: 20},
+            unit_price=10,
+        )
+        add_settlement(
+            db,
+            merchant_no="件数少",
+            sale_date=date(2026, 9, 10),
+            grades={StandardGrade.A: 2},
+            unit_price=10,
+        )
+        db.commit()
+
+    body = client.get(
+        "/api/settlements",
+        params={
+            "sort_by": "total_quantity",
+            "sort_order": "asc",
+            "page": 1,
+            "page_size": 1,
+        },
+    ).json()
+
+    assert body["pagination"]["total"] == 2
+    assert [row["merchant_no"] for row in body["settlements"]] == ["件数少"]
+
+
+def test_invalid_settlement_sort_parameters_return_422(client):
+    assert client.get("/api/settlements", params={"sort_by": "unknown"}).status_code == 422
+    assert client.get(
+        "/api/settlements",
+        params={"sort_by": "sales_amount", "sort_order": "sideways"},
+    ).status_code == 422
+
+
+def test_brand_filter_uses_order_no_prefix(client):
+    with SessionLocal() as db:
+        seed_batches(db)
+        add_settlement(
+            db,
+            merchant_no="香香700",
+            order_no="香香01",
+            container_no="CBHU2970762",
+            sale_date=date(2026, 9, 8),
+            grades={StandardGrade.A: 3},
+            unit_price=10,
+        )
+        db.commit()
+
+    body = client.get("/api/settlements", params={"brand": "香香"}).json()
+
+    assert [row["merchant_no"] for row in body["settlements"]] == ["香香700"]
+    assert [row["brand"] for row in body["settlements"]] == ["香香"]
+    assert body["brand_totals"] == [
+        {"brand": "香香", "total_quantity": 3.0, "settlement_count": 1}
+    ]
+
+    empty = client.get("/api/settlements", params={"brand": "不存在的品牌"}).json()
+    assert empty["settlements"] == []
+    assert empty["brand_totals"] == []
 
 
 def test_settlement_records_endpoint(client):
@@ -237,4 +386,9 @@ def test_delete_settlement_removes_batch_and_sales(client):
 def test_empty_database_returns_no_default_range(client):
     body = client.get("/api/settlements").json()
 
-    assert body == {"date_range": None, "settlements": [], "pagination": None}
+    assert body == {
+        "date_range": None,
+        "settlements": [],
+        "pagination": None,
+        "brand_totals": [],
+    }

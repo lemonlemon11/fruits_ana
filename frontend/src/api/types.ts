@@ -58,7 +58,21 @@ export interface AnalyticsFilters {
 export interface SettlementListFilters extends AnalyticsFilters {
   page?: number
   pageSize?: number
+  brand?: string
+  sortBy?: SettlementSortBy
+  sortOrder?: SettlementSortOrder
 }
+
+export type SettlementSortBy =
+  | 'arrival_date'
+  | 'total_quantity'
+  | 'grade_a'
+  | 'grade_b'
+  | 'sales_amount'
+  | 'average_price'
+  | 'confirmed_at'
+
+export type SettlementSortOrder = 'asc' | 'desc'
 
 export interface MetricTotal {
   salesQuantity: number
@@ -166,6 +180,7 @@ export interface SettlementListItem {
   merchantNoNormalized: string
   orderNo: string
   orderNoNormalized: string
+  brand: string
   fruitType: string
   series: string
   containerNo: string
@@ -176,6 +191,7 @@ export interface SettlementListItem {
   salesAmount: number
   totalQuantity: number
   averagePrice: number | null
+  confirmedAt: string
   gradeQuantities: Record<Grade, number>
   recordCount: number
 }
@@ -197,6 +213,13 @@ export interface SettlementListData {
   dateRange: SettlementDateRange | null
   settlements: SettlementListItem[]
   pagination: SettlementPagination | null
+  brandTotals: BrandTotal[]
+}
+
+export interface BrandTotal {
+  brand: string
+  totalQuantity: number
+  settlementCount: number
 }
 
 export interface SeriesAggregate {

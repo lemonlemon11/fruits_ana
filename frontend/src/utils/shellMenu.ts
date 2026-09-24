@@ -17,6 +17,11 @@ export interface ShellMenuSlot {
   permission?: string
 }
 
+export interface ApplyMenuItemsOptions {
+  /** 非主导航的辅助页签可保留本地槽位（例如手工录单）。 */
+  keepUnmatched?: boolean
+}
+
 /** 按路由路径索引管理端返回的菜单，便于槽位逐个匹配。 */
 export function buildMenusByPath(menus: readonly AuthMenu[]): Map<string, AuthMenu> {
   const map = new Map<string, AuthMenu>()
@@ -28,19 +33,20 @@ export function buildMenusByPath(menus: readonly AuthMenu[]): Map<string, AuthMe
  * 用管理端菜单覆盖本地兜底槽位：
  * - 命中且已停用 → 整项隐藏；
  * - 命中且启用 → 采用菜单名称与图标，图标名无法解析时保留本地图标；
- * - 未命中 → 保持本地兜底项，权限行为不变。
+ * - 未命中 → 主导航隐藏；仅辅助页签可通过 keepUnmatched 保留本地命名。
  */
 export function applyMenuItems(
   items: readonly ShellMenuSlot[],
   menus: Map<string, AuthMenu>,
   resolveIcon: (name: string | null) => unknown | null,
+  options: ApplyMenuItemsOptions = {},
 ): ShellMenuSlot[] {
   const result: ShellMenuSlot[] = []
   for (const item of items) {
     const menu = menus.get(item.path)
     if (menu && !menu.isActive) continue
     if (!menu) {
-      result.push(item)
+      if (options.keepUnmatched) result.push(item)
       continue
     }
     result.push({

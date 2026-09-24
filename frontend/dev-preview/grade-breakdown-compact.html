@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>等级图表 · 紧凑版 · 视觉伴侣 53001</title>
+  <link rel="stylesheet" href="./grade-breakdown-compact.css" />
+</head>
+<body>
+  <main class="preview-page">
+    <header class="preview-head">
+      <div>
+        <p class="eyebrow">视觉伴侣 · 53001 · 紧凑版</p>
+        <h1>等级图表 · 紧凑版</h1>
+        <p>饼图与均价横条并排压缩空白，规格件数表全宽展开；桌面一屏看完三张图，移动端单列回落。</p>
+      </div>
+      <span class="preview-meta">桌面 1440 / 移动 390</span>
+    </header>
+
+    <section class="compact-panel" aria-labelledby="grade-chart-title">
+      <header class="panel-head">
+        <div>
+          <h2 id="grade-chart-title">等级图表</h2>
+          <p>件数结构、各等级均价、各规格件数分布三张图紧凑成一组</p>
+        </div>
+        <span class="panel-note">推荐版</span>
+      </header>
+
+      <div class="chart-layout">
+        <article class="chart-card">
+          <header class="chart-head">
+            <h3>等级件数结构</h3>
+            <span>按件数占比</span>
+          </header>
+          <div class="pie-body">
+            <div class="pie-donut" role="img" aria-label="A果 26%，B果 29.2%，C果含 BC 44.8% 等级件数结构">
+              <div class="pie-center"><strong>960</strong><span>总件数</span></div>
+            </div>
+            <ul class="pie-legend">
+              <li><i class="pie-dot grade-a"></i><span>A果</span><strong>26.0%</strong><small>250 件</small></li>
+              <li><i class="pie-dot grade-b"></i><span>B果</span><strong>29.2%</strong><small>280 件</small></li>
+              <li><i class="pie-dot grade-c"></i><span>C果（含 BC）</span><strong>44.8%</strong><small>430 件</small></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="chart-card">
+          <header class="chart-head">
+            <h3>各等级平均每件售价</h3>
+            <span>单位：元/件</span>
+          </header>
+          <div class="price-body">
+            <div class="price-row"><span>A果</span><div class="price-track"><i class="price-bar grade-a" style="width:85%"></i></div><strong>¥608</strong></div>
+            <div class="price-row"><span>B果</span><div class="price-track"><i class="price-bar grade-b" style="width:58%"></i></div><strong>¥420</strong></div>
+            <div class="price-row"><span>C果（含 BC）</span><div class="price-track"><i class="price-bar grade-c" style="width:100%"></i></div><strong>¥718</strong></div>
+          </div>
+        </article>
+
+        <article class="chart-card spec-card">
+          <header class="chart-head">
+            <h3>各等级各规格件数/均价</h3>
+            <span>条越长件数越多，占比与均价单行对齐</span>
+          </header>
+          <div class="spec-list">
+            <div class="spec-head" aria-hidden="true">
+              <span>等级</span><span>规格</span><span>件数分布</span><span>占比</span><span>总件数</span><span>平均每件售价</span>
+            </div>
+            <div class="spec-row"><span class="spec-grade grade-a">A果</span><span class="spec-label">3/4头</span><div class="spec-track"><i class="spec-bar grade-a" style="width:35%"></i></div><span class="spec-share">15.6%</span><span class="spec-qty">150 件</span><span class="spec-price">¥620</span></div>
+            <div class="spec-row"><span class="spec-grade grade-a">A果</span><span class="spec-label">5/6头</span><div class="spec-track"><i class="spec-bar grade-a" style="width:23%"></i></div><span class="spec-share">10.4%</span><span class="spec-qty">100 件</span><span class="spec-price">¥580</span></div>
+            <div class="spec-row"><span class="spec-grade grade-b">B果</span><span class="spec-label">3/4头</span><div class="spec-track"><i class="spec-bar grade-b" style="width:47%"></i></div><span class="spec-share">20.8%</span><span class="spec-qty">200 件</span><span class="spec-price">¥430</span></div>
+            <div class="spec-row"><span class="spec-grade grade-b">B果</span><span class="spec-label">5/6头</span><div class="spec-track"><i class="spec-bar grade-b" style="width:19%"></i></div><span class="spec-share">8.3%</span><span class="spec-qty">80 件</span><span class="spec-price">¥400</span></div>
+            <div class="spec-row"><span class="spec-grade grade-c">C果（含 BC）</span><span class="spec-label">3/4头</span><div class="spec-track"><i class="spec-bar grade-c" style="width:100%"></i></div><span class="spec-share">44.8%</span><span class="spec-qty">430 件</span><span class="spec-price">¥718</span></div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

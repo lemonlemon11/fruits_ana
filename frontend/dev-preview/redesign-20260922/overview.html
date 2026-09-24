@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>卖得怎么样 · 布局重设计</title>
+<link rel="stylesheet" href="redesign.css" />
+</head>
+<body data-page="overview">
+<main class="page">
+
+  <div class="filter-scroll mobile-only" data-chip-group>
+    <button class="chip is-on" type="button">近 30 天</button>
+    <button class="chip" type="button">近 7 天</button>
+    <button class="chip" type="button">全部商号</button>
+    <button class="chip" type="button">全部品牌</button>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi kpi-hero">
+      <div class="kpi-label">销售金额</div>
+      <div class="kpi-value">160.83<small> 万元</small></div>
+      <div class="kpi-sub"><span class="up">▲ 12.4%</span> · 共 ¥1,608,260</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">销量</div>
+      <div class="kpi-value">3,704<small> 件</small></div>
+      <div class="kpi-sub"><span class="up">▲ 6.1%</span> 较上一周期</div>
+    </div>
+    <div class="kpi" style="--kpi-color:#d9812a">
+      <div class="kpi-label">每件均价</div>
+      <div class="kpi-value">434.20<small> 元/件</small></div>
+      <div class="kpi-sub"><span class="up">▲ 5.9%</span> 较上一周期</div>
+    </div>
+    <div class="kpi" style="--kpi-color:#2c5f9e">
+      <div class="kpi-label">结算单</div>
+      <div class="kpi-value">4<small> 张</small></div>
+      <div class="kpi-sub">08-11 ~ 09-09</div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top:16px">
+    <div class="card card-pad trend-card">
+      <div class="section-title" style="margin-top:0">
+        <h2>每天卖了多少钱</h2>
+        <div class="chip-row" data-chip-group>
+          <button class="chip is-on" type="button" style="min-height:32px;font-size:.8rem">金额</button>
+          <button class="chip" type="button" style="min-height:32px;font-size:.8rem">件数</button>
+        </div>
+      </div>
+      <svg viewBox="0 0 560 200" role="img" aria-label="销售金额趋势图">
+        <defs>
+          <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#1d9253" stop-opacity=".22"/>
+            <stop offset="1" stop-color="#1d9253" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <g stroke="#e3ece3" stroke-width="1">
+          <line x1="0" y1="40" x2="560" y2="40"/><line x1="0" y1="85" x2="560" y2="85"/>
+          <line x1="0" y1="130" x2="560" y2="130"/><line x1="0" y1="175" x2="560" y2="175"/>
+        </g>
+        <path d="M0,112 L43,88 L86,99 L129,66 L172,76 L215,43 L259,57 L302,33 L345,70 L388,82 L431,49 L474,39 L517,58 L560,30 L560,185 L0,185 Z" fill="url(#trendFill)"/>
+        <path d="M0,112 L43,88 L86,99 L129,66 L172,76 L215,43 L259,57 L302,33 L345,70 L388,82 L431,49 L474,39 L517,58 L560,30" fill="none" stroke="#1d9253" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="302" cy="33" r="4.5" fill="#fff" stroke="#1d9253" stroke-width="2.6"/>
+        <g font-size="11" fill="#8ba190" font-family="inherit">
+          <text x="0" y="198">08-11</text><text x="129" y="198">08-18</text>
+          <text x="259" y="198">08-25</text><text x="388" y="198">09-01</text><text x="517" y="198">09-09</text>
+        </g>
+        <g font-size="11" fill="#8ba190" text-anchor="end" font-family="inherit">
+          <text x="556" y="36">12万</text><text x="556" y="81">9万</text>
+          <text x="556" y="126">6万</text><text x="556" y="171">3万</text>
+        </g>
+      </svg>
+      <p class="note" style="margin-top:8px">09-06 金秋-002 开柜，单日 40.7 万为近 30 天最高。</p>
+    </div>
+
+    <div class="card card-pad">
+      <div class="section-title" style="margin-top:0"><h2>等级结构</h2><span class="more">A / B / C（含 BC）</span></div>
+      <div class="donut-wrap">
+        <div class="donut" role="img" aria-label="等级占比：A 26.9%，B 42.5%，C 30.6%"></div>
+        <div class="donut-legend">
+          <div class="row"><span class="grade-tag grade-a">A</span> 995 件 <b>26.9%</b></div>
+          <div class="row"><span class="grade-tag grade-b">B</span> 1,575 件 <b>42.5%</b></div>
+          <div class="row"><span class="grade-tag grade-c">C</span> 1,134 件 <b>30.6%</b></div>
+          <div class="divider"></div>
+          <div style="color:var(--muted);font-size:.84rem;line-height:1.6">C 果（含 BC）占比偏高，可关注金秋-001 的分级。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">
+    <h2>结算单销售情况</h2>
+    <a class="more" href="settlements.html">查看全部 ›</a>
+  </div>
+
+  <div class="card table-card desktop-only">
+    <table class="data-table">
+      <thead>
+        <tr><th>单号</th><th>商号</th><th>销售日期</th><th class="num">销售金额</th><th class="num">销量(件)</th><th class="num">每件均价</th><th style="width:180px">等级结构 A/B/C</th><th></th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>金秋-001</b></td><td>888</td><td>2026-09-09</td>
+          <td class="num"><b>¥403,410</b></td><td class="num">974</td><td class="num">414.18</td>
+          <td><div class="grade-bar"><i class="ga" style="width:21.5%"></i><i class="gb" style="width:43.6%"></i><i class="gc" style="width:34.9%"></i></div></td>
+          <td><a href="settlement-detail.html" style="color:var(--brand-700);font-weight:700">详情 ›</a></td>
+        </tr>
+        <tr>
+          <td><b>金秋-002</b></td><td>866</td><td>2026-09-06</td>
+          <td class="num"><b>¥406,570</b></td><td class="num">900</td><td class="num">451.74</td>
+          <td><div class="grade-bar"><i class="ga" style="width:27.6%"></i><i class="gb" style="width:45.1%"></i><i class="gc" style="width:27.3%"></i></div></td>
+          <td><a href="settlement-detail.html" style="color:var(--brand-700);font-weight:700">详情 ›</a></td>
+        </tr>
+        <tr>
+          <td><b>金秋-003</b></td><td>852</td><td>2026-08-28</td>
+          <td class="num"><b>¥432,300</b></td><td class="num">974</td><td class="num">443.84</td>
+          <td><div class="grade-bar"><i class="ga" style="width:34.9%"></i><i class="gb" style="width:39.6%"></i><i class="gc" style="width:25.5%"></i></div></td>
+          <td><a href="settlement-detail.html" style="color:var(--brand-700);font-weight:700">详情 ›</a></td>
+        </tr>
+        <tr>
+          <td><b>金秋-004</b></td><td>836</td><td>2026-08-21</td>
+          <td class="num"><b>¥365,980</b></td><td class="num">856</td><td class="num">427.55</td>
+          <td><div class="grade-bar"><i class="ga" style="width:23.1%"></i><i class="gb" style="width:41.8%"></i><i class="gc" style="width:35%"></i></div></td>
+          <td><a href="settlement-detail.html" style="color:var(--brand-700);font-weight:700">详情 ›</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mobile-only">
+    <a class="bill-card" href="settlement-detail.html">
+      <div class="bill-head"><span class="bill-no">金秋-001<small>商号 888</small></span><span class="bill-date">09-09 销售</span></div>
+      <div class="bill-money"><small>¥</small>403,410</div>
+      <div class="bill-meta"><span><b>974</b> 件</span><span>均价 <b>414.18</b> 元/件</span></div>
+      <div class="grade-bar"><i class="ga" style="width:21.5%"></i><i class="gb" style="width:43.6%"></i><i class="gc" style="width:34.9%"></i></div>
+      <div class="bill-grades"><span>A 209 件</span><span>B 425 件</span><span>C 340 件</span></div>
+    </a>
+    <a class="bill-card" href="settlement-detail.html">
+      <div class="bill-head"><span class="bill-no">金秋-002<small>商号 866</small></span><span class="bill-date">09-06 销售</span></div>
+      <div class="bill-money"><small>¥</small>406,570</div>
+      <div class="bill-meta"><span><b>900</b> 件</span><span>均价 <b>451.74</b> 元/件</span></div>
+      <div class="grade-bar"><i class="ga" style="width:27.6%"></i><i class="gb" style="width:45.1%"></i><i class="gc" style="width:27.3%"></i></div>
+      <div class="bill-grades"><span>A 248 件</span><span>B 406 件</span><span>C 246 件</span></div>
+    </a>
+    <a class="bill-card" href="settlement-detail.html">
+      <div class="bill-head"><span class="bill-no">金秋-003<small>商号 852</small></span><span class="bill-date">08-28 销售</span></div>
+      <div class="bill-money"><small>¥</small>432,300</div>
+      <div class="bill-meta"><span><b>974</b> 件</span><span>均价 <b>443.84</b> 元/件</span></div>
+      <div class="grade-bar"><i class="ga" style="width:34.9%"></i><i class="gb" style="width:39.6%"></i><i class="gc" style="width:25.5%"></i></div>
+      <div class="bill-grades"><span>A 340 件</span><span>B 386 件</span><span>C 248 件</span></div>
+    </a>
+    <a class="bill-card" href="settlement-detail.html">
+      <div class="bill-head"><span class="bill-no">金秋-004<small>商号 836</small></span><span class="bill-date">08-21 销售</span></div>
+      <div class="bill-money"><small>¥</small>365,980</div>
+      <div class="bill-meta"><span><b>856</b> 件</span><span>均价 <b>427.55</b> 元/件</span></div>
+      <div class="grade-bar"><i class="ga" style="width:23.1%"></i><i class="gb" style="width:41.8%"></i><i class="gc" style="width:35%"></i></div>
+      <div class="bill-grades"><span>A 198 件</span><span>B 358 件</span><span>C 300 件</span></div>
+    </a>
+  </div>
+
+</main>
+<script src="redesign.js"></script>
+</body>
+</html>

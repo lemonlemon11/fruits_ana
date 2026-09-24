@@ -118,6 +118,9 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 - 职责：「数据明细」页列表与单张结算单全部明细。
 - 默认范围：最新销售日期往前一个自然月；可用 `start_date` / `end_date` / `merchant_no` 覆盖。
+- 列表项返回可空的 `confirmed_at` 作为「录单时间」；列表支持按到达市场日期、总件数、
+  A/B 果件数、销售金额、每件均价、录单时间做服务端升降序排序，排序先于分页执行。
+  前端排序请求保留当前表格，响应返回后仅替换行数据，不切换为首次加载骨架屏。
 - 列表项附带 `fruit_type`，供品牌对比选择器先按品类收敛；空值回退「榴莲」。
 - 删除：`DELETE /api/settlements/{merchant_no}` 按商号删除整张结算单，由
   `services/settlement_delete_service.py` 清理销售明细、售后/费用、汇总与留痕，
@@ -179,8 +182,8 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   卡片默认可见并自动以 `refresh=false` 先读缓存，命中缓存直接展示 `cached` 标记。
 - 下拉框：`SearchableSelect.vue` 对业务保持原有 props，内部使用 Element Plus
   `ElSelect` / `ElOption`；展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
-- 日期范围：五个业务页继续使用 `DateRangeFilter.vue`，内部使用 Element Plus
-  `ElDatePicker` 的 daterange 与中文语言包。
+- 日期范围：五个业务页继续使用 `DateRangeFilter.vue`，桌面与手机统一渲染两个原生
+  `input[type=date]`，不再把 Element Plus DatePicker 及中文语言包带入业务页分片。
 - 品牌对比选择器：`SettlementPicker.vue` 按「品类 → 品牌 → 同品牌结算单」三步选择；
   品类来自 `SettlementListItem.fruitType`，品牌仍沿用单号中文前缀口径。
 - 单号展示口径（ADR-015）：统一用适配后单号 `orderNoNormalized`，
@@ -192,16 +195,24 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   注意下拉取值、接口参数与 `?selected=` 仍必须用原始 `merchantNo`。
 - 图表已迁移到 ECharts（ADR-038）：`components/BaseEChart.vue` 统一初始化、主题色、
   resize 与 Canvas 渲染；`TrendChart` / `GradePieChart` / `SeriesGradePriceChart` /
-  `SeriesGradeShareChart` 使用 ECharts。
+  `SeriesGradeShareChart` 通过 `DeferredEChart.vue` 异步加载 ECharts；延迟容器预留传入高度，
+  避免图表分片下载期间的布局跳动。路由页面只预加载轻量封装，`BaseEChart` 实现分片在图表
+  实际渲染时再请求。
 - 业务图表组件对外 props 保持不变；页面与 API 契约不变。
+- `OverviewView.vue` 的 overview、grade-breakdown、settlement-comparison 三个请求并发启动，
+  但分别维护 loading / error / 数据提交；商号候选或等级明细变慢、失败时，不阻塞核心指标显示。
 - 手写进度条、卡片、表格继续使用自研组件；`ChartLegend.vue` + `ChartTooltip.vue` 与
   `utils/chartTooltip.ts` 仍用于未迁移的手写可视化组件，`frontend/tests/chart-tooltip.test.ts`
   分别校验手写图表与 ECharts 图表。
 - API 契约集中在 `api/types.ts` + `api/normalize.ts` + `api/client.ts`，后端字段变更必须同步这三处。
 - 路由守卫在 `main.ts`：`requiresAuth` 保护业务页，`guestOnly` 让已登录用户跳过登录/注册页；
-  `/` 重定向到 `/login`（已登录时经 `guestOnly` 再跳 `/overview`），`/preview` 保留为公开演示页但不再作为默认入口。
+  `/` 重定向到 `/login`（已登录时按当前角色实际分配的首个菜单进入，无可用菜单时进入
+  `/welcome`），`/preview` 保留为公开演示页但不再作为默认入口。
   业务路由统一按需 `import()` 懒加载；图标统一从 `@lucide/vue/dist/esm/icons/*` 深导入，
   避免登录首屏加载全量业务模块与整包图标。
+- `utils/navigationFeedback.ts` 在路由开始/结束时广播目标路径；`AppShell.vue` 据此显示固定顶部
+  进度条和目标菜单 pending 状态，读屏通过 `aria-live` 获知页面正在打开，动画遵循
+  `prefers-reduced-motion`。
 - 工作台外壳 `AppShell.vue`：顶部 header（品牌图标、当前页面、本地时间含秒、当前用户名与退出登录）、
   左侧导航与页签栏三部分；品牌图标返回 `/overview`，桌面侧栏可收起为自适应图标栏，状态存
   `localStorage`（键 `fruits-ana:sidebar-collapsed`）；页签记录本次会话打开过的页面，首页 `/overview` 固定不可关闭，
@@ -212,6 +223,34 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   底部大按钮导航，页签栏保持可见并可横向滚动，回顶按钮自动抬到底部导航上方。
 - 桌面端全局字号基线用 `clamp()` 随视口宽度平滑缩放（15px–17px），主要控件、外壳与卡片尺寸
   改为 `rem`；移动端固定 17px，避免用固定 `zoom` 造成横向溢出或非标缩放。
+
+### Error Recovery（ADR-040）
+
+- `frontend/src/utils/errorRecovery.ts` 负责错误分类、安全来源路径、30 分钟有效的
+  `sessionStorage` 状态和 `fatal/auth-expired` 浏览器事件；只保存错误类型、来源路径、
+  HTTP 状态、Request ID、发生时间和来源模块，不保存响应体或堆栈。
+- `frontend/src/api/client.ts` 给 `ApiError` 附加 `requestId / method / url / kind`。
+  GET/HEAD 的网络错误、超时、无效响应和 500/502/503/504 会发布系统级错误；写请求、
+  400/409/422、通知等局部读取继续留在当前页面。访客登录、注册和验证码接口的 401
+  使用 inline 模式，业务请求和 `/api/auth/me` 的 401 才发布会话过期事件并返回登录页。
+- `frontend/src/main.ts` 注册 `/error` 与 catch-all 404，权限不足保存 403 状态；Vue 渲染异常、
+  未处理脚本异常、Promise rejection 和路由模块二次加载失败统一进入错误页。懒加载分片首次
+  失败仍先整页刷新一次，避免部署切版后旧分片短暂失效造成误报。
+- `frontend/src/utils/routeChunkRecovery.ts` 统一识别 JS 动态导入、Vite CSS preload 与 Safari
+  模块脚本失败；`main.ts` 同时接入 `router.onError` 和 `vite:preloadError`。同一页面首次失败
+  带 `_route_reload` 刷新目标地址，刷新后仍失败则进入 `/error`，`sessionStorage` 标记防止循环。
+- `frontend/src/views/ErrorView.vue` 只读取本地错误状态，不请求业务 API；已登录时保留工作台
+  外壳，无会话时独立显示。404/403 只提供返回首页，其他系统错误同时提供重新加载来源页面。
+- `frontend/public/error-static.html` 是完全自包含的部署级兜底，供 Vue 本身无法加载时使用。
+  Nginx 可按部署目录配置（仓库不直接修改生产配置）：
+
+```nginx
+error_page 500 502 503 504 /error-static.html;
+location = /error-static.html {
+    root /path/to/frontend/dist;
+    internal;
+}
+```
 
 ### Logging（`backend/app/logging_config.py`、`frontend/src/utils/logger.ts`）
 

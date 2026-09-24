@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>结算单对比 · 布局重设计</title>
+<link rel="stylesheet" href="redesign.css" />
+</head>
+<body data-page="settlement-comparison">
+<main class="page">
+
+  <div class="page-head desktop-only" style="padding-bottom:6px">
+    <p>选两张结算单，看看哪一柜卖得更划算。</p>
+  </div>
+
+  <div class="vs-cards">
+    <div class="vs-card" style="border-top:4px solid var(--brand-600)">
+      <div class="vs-head"><span class="bill-no">金秋-001<small>商号 888</small></span><span class="status status-ok">本柜</span></div>
+      <div class="bill-money"><small>¥</small>403,410</div>
+      <div class="bill-meta"><span><b>974</b> 件</span><span>均价 <b>414.18</b></span><span>09-09 销售</span></div>
+    </div>
+    <div class="vs-card" style="border-top:4px solid var(--accent)">
+      <div class="vs-head"><span class="bill-no">金秋-002<small>商号 866</small></span><span class="status status-warn">对比柜</span></div>
+      <div class="bill-money"><small>¥</small>406,570</div>
+      <div class="bill-meta"><span><b>900</b> 件</span><span>均价 <b>451.74</b></span><span>09-06 销售</span></div>
+    </div>
+  </div>
+
+  <div class="filter-scroll" style="margin-top:12px">
+    <button class="chip" type="button">更换本柜：金秋-001</button>
+    <button class="chip" type="button">更换对比柜：金秋-002</button>
+  </div>
+
+  <div class="section-title"><h2>关键指标对比</h2><span class="more">绿字为更优</span></div>
+  <div class="card card-pad">
+    <div class="cmp-row"><span class="v num">403,410</span><span class="lab">销售金额（元）</span><span class="v right win num">406,570</span></div>
+    <div class="cmp-row"><span class="v win num">974</span><span class="lab">销量（件）</span><span class="v right num">900</span></div>
+    <div class="cmp-row"><span class="v num">414.18</span><span class="lab">每件均价（元/件）</span><span class="v right win num">451.74</span></div>
+    <div class="cmp-row"><span class="v num">21.5%</span><span class="lab">A 果占比</span><span class="v right win num">27.6%</span></div>
+    <div class="cmp-row"><span class="v num">34.9%</span><span class="lab">C 果（含 BC）占比</span><span class="v right win num">27.3%</span></div>
+    <div class="cmp-row"><span class="v num">0.58%</span><span class="lab">售后比</span><span class="v right win num">0.41%</span></div>
+  </div>
+
+  <div class="section-title"><h2>各等级件数对比</h2></div>
+  <div class="card card-pad pair-bars">
+    <div class="pair-bar">
+      <div class="lab"><span class="grade-tag grade-a">A</span><span>件数</span></div>
+      <div class="track">
+        <div class="bar"><i style="width:84%;background:var(--brand-600)"></i><span>001 · 209</span></div>
+        <div class="bar"><i style="width:100%;background:var(--accent)"></i><span>002 · 248</span></div>
+      </div>
+    </div>
+    <div class="pair-bar">
+      <div class="lab"><span class="grade-tag grade-b">B</span><span>件数</span></div>
+      <div class="track">
+        <div class="bar"><i style="width:100%;background:var(--brand-600)"></i><span>001 · 425</span></div>
+        <div class="bar"><i style="width:95%;background:var(--accent)"></i><span>002 · 406</span></div>
+      </div>
+    </div>
+    <div class="pair-bar">
+      <div class="lab"><span class="grade-tag grade-c">C</span><span>件数</span></div>
+      <div class="track">
+        <div class="bar"><i style="width:100%;background:var(--brand-600)"></i><span>001 · 340</span></div>
+        <div class="bar"><i style="width:72%;background:var(--accent)"></i><span>002 · 246</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card-pad" style="margin-top:14px;border-left:4px solid var(--brand-600)">
+    <b>怎么看这两柜？</b>
+    <p style="margin-top:8px;color:var(--muted);font-size:.92rem;line-height:1.8">
+      金秋-002 金额更高（+3,160 元），主要靠 <b style="color:var(--ink)">每件均价高 37.56 元</b>：
+      它的 A 果占比高 6.1 个百分点、C 果（含 BC）少 7.6 个百分点。金秋-001 件数多 74 件，
+      但分级偏弱拉低了均价。下一次装柜可对照 002 的分级标准。
+    </p>
+  </div>
+
+</main>
+<script src="redesign.js"></script>
+</body>
+</html>

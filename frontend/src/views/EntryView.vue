@@ -26,6 +26,7 @@ const router = useRouter()
 const editingMerchantNo = ref(typeof route.query.merchant_no === 'string' ? route.query.merchant_no : '')
 const loading = ref(true)
 const saving = ref(false)
+const draftSaving = ref(false)
 const savingAsOverwrite = ref(false)
 const error = ref('')
 const toast = ref('')
@@ -116,17 +117,19 @@ function draftPayload(): EntryPayload {
   }
 }
 
-async function flushDraft() {
-  if (!draftEnabled) return
+async function flushDraft(): Promise<boolean> {
+  if (!draftEnabled) return true
   const payload = draftPayload()
   try {
     if (!hasEntryDraftContent(payload)) {
       await deleteEntryDraft()
-      return
+      return true
     }
     await saveEntryDraft(payload, Boolean(editingMerchantNo.value))
+    return true
   } catch {
     // 暂存接口失败时仍可正常录单，只影响“刷新后继续填”。
+    return false
   }
 }
 
@@ -140,8 +143,11 @@ function scheduleDraftSave() {
 }
 
 async function saveDraftNow() {
-  await flushDraft()
-  showToast('已暂存，可稍后继续录单')
+  if (draftSaving.value || saving.value) return
+  draftSaving.value = true
+  const saved = await flushDraft()
+  showToast(saved ? '已暂存，可稍后继续录单' : '暂存失败，请稍后重试')
+  draftSaving.value = false
 }
 
 async function clearDraft() {
@@ -263,6 +269,7 @@ function validate() {
 }
 
 async function submit(overwrite = false) {
+  if (saving.value || draftSaving.value) return
   const validation = validate()
   if (validation) {
     expandAllBlocks()
@@ -380,7 +387,7 @@ onMounted(() => {
           <strong>{{ editingMerchantNo ? '正在修改已有结算单' : '手工录入，保存后生成结算单' }}</strong>
           <p>金额 = 数量（件） × 单价；空白单价按 0 计算。</p>
         </div>
-        <button type="button" @click="saveDraftNow">暂存</button>
+        <button type="button" :disabled="draftSaving || saving" @click="saveDraftNow">{{ draftSaving ? '暂存中…' : '暂存' }}</button>
       </div>
 
       <nav class="jump-nav" aria-label="表单分区">
@@ -557,8 +564,8 @@ onMounted(() => {
 
       <div class="actions">
         <span class="toast">{{ toast }}</span>
-        <button class="subtle" type="button" :disabled="saving" @click="saveDraftNow">暂存</button>
-        <button class="primary" type="button" :disabled="saving" @click="submit(false)">{{ editingMerchantNo ? '保存修改' : '确认保存' }}</button>
+        <button class="subtle" type="button" :disabled="draftSaving || saving" @click="saveDraftNow">{{ draftSaving ? '暂存中…' : '暂存' }}</button>
+        <button class="primary" type="button" :disabled="saving || draftSaving" @click="submit(false)">{{ saving ? (savingAsOverwrite ? '覆盖中…' : '保存中…') : editingMerchantNo ? '保存修改' : '确认保存' }}</button>
       </div>
     </template>
 

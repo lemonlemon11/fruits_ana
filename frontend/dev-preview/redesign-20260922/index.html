@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>布局重设计 · 视觉伴侣（2026-09-22）</title>
+<style>
+  :root {
+    --brand-900:#0c3a24; --brand-700:#177a45; --brand-600:#1d9253;
+    --ink:#182b1f; --muted:#5c6f61; --faint:#8ba190;
+    --line:#dfe9df; --bg:#eef3ee; --card:#fff; --accent:#e8862e;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+    font-family:"PingFang SC","Microsoft YaHei",sans-serif; }
+  header {
+    position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:12px 22px; background:linear-gradient(120deg,var(--brand-900),var(--brand-700)); color:#fff;
+  }
+  header h1 { margin:0; font-size:1.05rem; font-weight:900; letter-spacing:.02em; }
+  header .tag { font-size:.74rem; padding:3px 10px; border-radius:999px; background:rgba(255,255,255,.16); }
+  .devices { margin-left:auto; display:flex; gap:6px; background:rgba(255,255,255,.14); padding:4px; border-radius:12px; }
+  .devices button {
+    border:0; border-radius:9px; padding:8px 14px; background:transparent; color:#dcefe2;
+    font:600 .86rem/1 inherit; cursor:pointer;
+  }
+  .devices button.on { background:#fff; color:var(--brand-900); }
+  .wrap { display:grid; grid-template-columns:320px minmax(0,1fr); gap:18px; padding:18px 22px 30px; }
+  .menu { display:grid; gap:8px; align-content:start; }
+  .menu .group { margin:12px 4px 2px; font-size:.74rem; font-weight:800; letter-spacing:.1em; color:var(--faint); }
+  .menu a {
+    display:flex; gap:12px; align-items:flex-start; padding:12px 14px; border-radius:13px;
+    background:var(--card); border:1px solid var(--line); text-decoration:none; color:inherit;
+  }
+  .menu a.on { border-color:var(--brand-600); box-shadow:0 0 0 3px rgba(29,146,83,.16); }
+  .menu .n {
+    flex:none; width:26px; height:26px; border-radius:8px; display:grid; place-items:center;
+    background:#e2f3e7; color:var(--brand-700); font-weight:800; font-size:.8rem;
+  }
+  .menu a.on .n { background:var(--brand-700); color:#fff; }
+  .menu b { display:block; font-size:.95rem; }
+  .menu span { display:block; margin-top:3px; font-size:.78rem; color:var(--muted); line-height:1.5; }
+  .stage { min-width:0; }
+  .stage-bar { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .stage-bar b { font-size:1rem; }
+  .stage-bar .open { margin-left:auto; font-size:.84rem; font-weight:700; color:var(--brand-700); text-decoration:none; }
+  .points { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .points span { font-size:.76rem; font-weight:600; color:var(--brand-900); background:#e2f3e7; padding:5px 10px; border-radius:999px; }
+  .frame-box { display:flex; justify-content:center; }
+  .phone {
+    width:402px; border:7px solid #14261b; border-radius:44px; overflow:hidden;
+    box-shadow:0 24px 60px -20px rgba(9,44,26,.4); background:#fff;
+  }
+  .phone iframe { width:388px; height:800px; border:0; display:block; }
+  .desktop {
+    width:100%; border:7px solid #14261b; border-radius:18px; overflow:hidden;
+    box-shadow:0 24px 60px -20px rgba(9,44,26,.35); background:#fff;
+  }
+  .desktop iframe { width:100%; height:calc(100vh - 210px); min-height:620px; border:0; display:block; }
+  @media (max-width:860px) {
+    .wrap { grid-template-columns:1fr; }
+    .menu { grid-template-columns:1fr 1fr; }
+    .menu .group { grid-column:1/-1; }
+    .menu a .d { display:none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>果销分析 · 布局重设计</h1>
+  <span class="tag">视觉伴侣 · 2026-09-22</span>
+  <span class="tag">演示数据为虚构</span>
+  <div class="devices" id="devices">
+    <button data-dev="phone" class="on" type="button">📱 手机 390</button>
+    <button data-dev="desktop" type="button">🖥 网页</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="menu" id="menu"></nav>
+  <section class="stage">
+    <div class="stage-bar">
+      <b id="stageTitle"></b>
+      <a class="open" id="openLink" href="#" target="_blank" rel="noopener">新窗口打开 ↗</a>
+    </div>
+    <div class="points" id="points"></div>
+    <div class="frame-box" id="frameBox">
+      <div class="phone" id="frame"><iframe id="view" src="overview.html"></iframe></div>
+    </div>
+  </section>
+</div>
+
+<script>
+var PAGES = [
+  { group:'入口', items:[
+    { id:'login', file:'login.html', title:'登录', desc:'品牌主视觉 + 大输入框', points:['品牌渐变主视觉','54px 大按钮','桌面左右分栏','一句话说清产品价值'] }
+  ]},
+  { group:'主导航', items:[
+    { id:'overview', file:'overview.html', title:'卖得怎么样', desc:'KPI 大数字 + 趋势 + 等级结构', points:['金额第一眼最大','KPI 2×2 / 桌面 4 列','趋势图 + 等级环图','手机单据卡片替代表格'] },
+    { id:'settlements', file:'settlements.html', title:'每一单', desc:'筛选 chips + 单据卡片 / 表格', points:['品牌快捷筛选','手机搜索圆角大框','卡片自带 A/B/C 占比条','来源徽标（导入/手工）'] },
+    { id:'imports', file:'imports.html', title:'录单 / 导入', desc:'双入口大卡 + 批次状态', points:['两个 52px 图标大入口','桌面拖拽上传区','暂存草稿提醒卡','批次状态彩色徽标'] }
+  ]},
+  { group:'分析', items:[
+    { id:'settlement-detail', file:'settlement-detail.html', title:'结算单详情', desc:'金额 hero + 信息条 + 规格表', points:['深绿金额 hero 卡','基础信息两/三列网格','等级环图 + 均价横条','费用/回款并排卡'] },
+    { id:'settlement-comparison', file:'settlement-comparison.html', title:'结算单对比', desc:'双柜卡片 + 逐项对比', points:['绿/橙双柜标识','指标行绿字标更优','成对横条比件数','一段大白话结论'] },
+    { id:'series-comparison', file:'series-comparison.html', title:'品牌对比', desc:'品牌 KPI + 等级堆叠条', points:['三品牌均价直接比','14px 高占比堆叠条','手机改品牌卡+横条','小结说人话'] }
+  ]},
+  { group:'录入流程', items:[
+    { id:'import-review', file:'import-review.html', title:'导入复核', desc:'手风琴草稿 + 底部确认条', points:['问题文件排在眼前','状态徽标：可提交/冲突','问题行红底说清原因','底部固定「确认导入」'] },
+    { id:'entry', file:'entry.html', title:'手工录单', desc:'分步手风琴表单 + 暂存', points:['①②③④ 分步编号','销售明细卡片式行','自动合计件数金额','底部固定暂存/保存'] }
+  ]}
+];
+
+var menu = document.getElementById('menu');
+var view = document.getElementById('view');
+var frame = document.getElementById('frame');
+var stageTitle = document.getElementById('stageTitle');
+var pointsBox = document.getElementById('points');
+var openLink = document.getElementById('openLink');
+
+var flat = [];
+PAGES.forEach(function (g) {
+  var gh = document.createElement('div');
+  gh.className = 'group'; gh.textContent = g.group;
+  menu.appendChild(gh);
+  g.items.forEach(function (p) {
+    flat.push(p);
+    var a = document.createElement('a');
+    a.href = '#'; a.dataset.id = p.id;
+    a.innerHTML = '<span class="n">' + (flat.length) + '</span><span style="min-width:0"><b>' + p.title + '</b><span class="d">' + p.desc + '</span></span>';
+    a.addEventListener('click', function (ev) { ev.preventDefault(); select(p.id); });
+    menu.appendChild(a);
+  });
+});
+
+function select(id) {
+  var p = flat.find(function (x) { return x.id === id; });
+  if (!p) return;
+  menu.querySelectorAll('a').forEach(function (a) { a.classList.toggle('on', a.dataset.id === id); });
+  view.src = p.file;
+  stageTitle.textContent = p.title;
+  openLink.href = p.file;
+  pointsBox.innerHTML = p.points.map(function (t) { return '<span>' + t + '</span>'; }).join('');
+}
+
+document.getElementById('devices').addEventListener('click', function (ev) {
+  var btn = ev.target.closest('button');
+  if (!btn) return;
+  this.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b === btn); });
+  var phone = btn.dataset.dev === 'phone';
+  frame.className = phone ? 'phone' : 'desktop';
+});
+
+select('overview');
+</script>
+</body>
+</html>

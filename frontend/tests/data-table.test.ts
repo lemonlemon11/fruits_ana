@@ -21,6 +21,25 @@ test('通用列表组件暴露列 / 行 / 行键三个必需属性', () => {
   assert.match(source, /rowKey: \(row: Row, index: number\) => string \| number/)
 })
 
+test('通用列表组件支持可访问的排序表头', () => {
+  assert.match(source, /sortable\?: boolean/)
+  assert.match(source, /sortKey\?: string/)
+  assert.match(source, /activeSortKey\?: string/)
+  assert.match(source, /sortOrder\?: 'asc' \| 'desc'/)
+  assert.match(source, /defineEmits<\{ sort: \[key: string\] \}>/)
+  assert.match(source, /:aria-sort="ariaSort\(column\)"/)
+  assert.match(source, /class="data-table-sort"/)
+  assert.match(source, /@click="emit\('sort', column\.sortKey \?\? column\.key\)"/)
+})
+
+test('排序请求期间保留表格并阻止重复点击', () => {
+  assert.match(source, /sortBusy\?: boolean/)
+  assert.match(source, /:aria-busy="props\.sortBusy"/)
+  assert.match(source, /:disabled="props\.sortBusy"/)
+  assert.match(source, /v-if="props\.sortBusy" class="data-table-busy"/)
+  assert.match(source, /正在排序/)
+})
+
 test('通用列表组件按列配置决定对齐与取值', () => {
   // 数值列默认右对齐，文本列默认左对齐，列可显式覆盖。
   assert.match(source, /return column\.numeric \? 'right' : 'left'/)
@@ -68,7 +87,7 @@ test('通用列表组件提供表内底栏插槽，用于内嵌分页 / 合计�
   assert.match(source, /<div v-if="\$slots\.footer" class="data-table-foot">/)
   assert.match(source, /<slot name="footer" \/>/)
   // 底栏固定在表格外框内、不参与数据区滚动。
-  assert.match(source, /\.data-table \{\n  display: grid;\n  grid-template-rows: minmax\(0, 1fr\) auto;/)
+  assert.match(source, /\.data-table \{[\s\S]*?display: grid;\n  grid-template-rows: minmax\(0, 1fr\) auto;/)
   assert.match(source, /\.data-table-foot \{[\s\S]*?border-top: 1px solid var\(--line\)/)
 })
 

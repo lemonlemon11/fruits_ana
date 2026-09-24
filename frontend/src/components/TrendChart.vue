@@ -5,7 +5,7 @@ import type { EChartsOption } from 'echarts'
 import type { TrendPoint } from '../api/client'
 import { formatCurrency, formatDate, formatNumber, formatPrice } from '../utils/format'
 import { echartTheme } from '../utils/echartTheme'
-import BaseEChart from './BaseEChart.vue'
+import DeferredEChart from './DeferredEChart.vue'
 import ChartLegend from './ChartLegend.vue'
 import DataTable, { type DataTableColumn } from './DataTable.vue'
 
@@ -138,7 +138,7 @@ watch(() => props.points.length, () => {
     </div>
     <template v-else>
       <div class="trend-chart-shell">
-        <BaseEChart
+        <DeferredEChart
           :option="chartOption"
           height="258px"
           :aria-label="`${points.length} 天销量与每件均价折线图`"

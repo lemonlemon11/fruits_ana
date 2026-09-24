@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>导入复核 · 布局重设计</title>
+<link rel="stylesheet" href="redesign.css" />
+</head>
+<body data-page="import-review" class="has-action-bar">
+<main class="page">
+
+  <div class="backbar mobile-only">
+    <a class="back" href="imports.html" aria-label="返回录单导入">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m0 0l7 7m-7-7l7-7"/></svg>
+    </a>
+    <h1>导入复核 · 0908 批次</h1>
+  </div>
+
+  <div class="card card-pad" style="border-left:4px solid var(--accent)">
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+      <div>
+        <b style="font-size:1.05rem">3 份文件已解析，请逐份确认</b>
+        <p class="note" style="margin-top:4px">09-08 20:41 上传 · 确认前不会写入正式数据；标红的问题行修改后才能提交。</p>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <span class="status status-warn">2 处问题</span>
+        <span class="status status-info">3 份草稿</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:14px"></div>
+
+  <div class="acc open">
+    <button class="acc-head" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:19px;height:19px;color:var(--brand-700)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <span class="acc-name">金秋005结算单.xlsx</span>
+      <span class="status badge-n status-ok">可提交</span>
+      <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+    </button>
+    <div class="acc-body">
+      <div class="info-grid">
+        <div class="cell"><div class="k">商号</div><div class="v">902</div></div>
+        <div class="cell"><div class="k">单号</div><div class="v">金秋-005</div></div>
+        <div class="cell"><div class="k">销售日期</div><div class="v">2026-09-08</div></div>
+        <div class="cell"><div class="k">系统金额</div><div class="v num">¥388,220</div></div>
+        <div class="cell"><div class="k">文件合计</div><div class="v num">¥388,220</div></div>
+        <div class="cell"><div class="k">有效行</div><div class="v">15 行</div></div>
+      </div>
+      <p class="note" style="margin-top:10px">金额与文件合计一致，无需修改。</p>
+    </div>
+  </div>
+
+  <div class="acc open">
+    <button class="acc-head" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:19px;height:19px;color:var(--danger)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <span class="acc-name">金秋006结算单.xlsx</span>
+      <span class="status badge-n status-bad">2 处问题</span>
+      <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+    </button>
+    <div class="acc-body">
+      <div class="info-grid">
+        <div class="cell"><div class="k">商号</div><div class="v">915</div></div>
+        <div class="cell"><div class="k">单号</div><div class="v">金秋-006</div></div>
+        <div class="cell"><div class="k">销售日期</div><div class="v">2026-09-08</div></div>
+        <div class="cell"><div class="k">系统金额</div><div class="v num">¥371,540</div></div>
+        <div class="cell"><div class="k">文件合计</div><div class="v num">¥371,540</div></div>
+        <div class="cell"><div class="k">有效行</div><div class="v">13 行 · 2 行待处理</div></div>
+      </div>
+      <div class="divider"></div>
+      <div class="issue-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <span>第 8 行：等级写法「<b>BC</b>」将按规则归入 <b>C</b> 统计，原始写法保留。请确认是否符合预期。</span>
+      </div>
+      <div class="issue-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <span>第 12 行：单价为空，未计入销售事实。请补充单价，或确认该行作废。</span>
+      </div>
+      <div class="form-grid" style="margin-top:12px">
+        <div class="field"><label>第 12 行单价（元/件）</label><input type="number" placeholder="请输入单价，如 385.00" /></div>
+        <div class="field"><label>备注（可选）</label><input type="text" placeholder="如：客户退回后重售" /></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="acc">
+    <button class="acc-head" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:19px;height:19px;color:var(--brand-700)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <span class="acc-name">金秋007结算单.xlsx</span>
+      <span class="status badge-n status-warn">商号冲突</span>
+      <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+    </button>
+    <div class="acc-body">
+      <div class="issue-row" style="background:#fdf6ea">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-strong)"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <span>商号 <b>918</b> 已存在一张结算单（¥362,140）。再次导入将<b>整单替换</b>，原数据不可恢复。</span>
+      </div>
+      <div class="form-grid" style="margin-top:12px">
+        <div class="field"><label>处理方式</label>
+          <select><option>替换旧单（推荐，数据以新文件为准）</option><option>跳过该文件</option></select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="action-bar">
+  <button class="btn btn-ghost" type="button">全部重传</button>
+  <button class="btn btn-primary" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M20 6L9 17l-5-5"/></svg>
+    确认导入（3 份）
+  </button>
+</div>
+
+<script src="redesign.js"></script>
+</body>
+</html>

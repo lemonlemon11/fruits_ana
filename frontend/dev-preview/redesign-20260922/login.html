@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>登录 · 布局重设计</title>
+<link rel="stylesheet" href="redesign.css" />
+</head>
+<body>
+<div class="login-shell">
+
+  <section class="login-hero">
+    <div class="logo-mark">果</div>
+    <h1>每一柜水果，<br />都是一笔明白账</h1>
+    <p>果销分析帮果农看清每张结算单：A / B / C 各卖了多少件、每件均价多少、哪一柜更划算。</p>
+    <ul class="login-points">
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>结算单拍照上传，自动识别金额与等级</li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>卖得怎么样，打开首页一眼看清</li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>两柜对比，找出更划算的装柜方式</li>
+    </ul>
+  </section>
+
+  <section class="login-card">
+    <h2>欢迎回来</h2>
+    <p class="sub">登录后查看你的销售数据</p>
+    <form onsubmit="return false">
+      <div class="field">
+        <label for="u">用户名</label>
+        <input id="u" type="text" placeholder="请输入用户名" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="p">密码</label>
+        <input id="p" type="password" placeholder="请输入密码" autocomplete="current-password" />
+      </div>
+      <div class="login-links">
+        <label class="login-remember"><input type="checkbox" checked />30 天内免登录</label>
+        <a href="#">忘记密码？</a>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" style="min-height:54px;font-size:1.06rem">登 录</button>
+      <p class="note" style="text-align:center">还没有账号？<a href="#" style="color:var(--brand-700);font-weight:700">立即注册</a></p>
+    </form>
+  </section>
+
+</div>
+</body>
+</html>

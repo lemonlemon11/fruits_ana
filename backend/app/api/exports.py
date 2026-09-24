@@ -77,6 +77,7 @@ def export_settlement_list_xlsx(
     start_date: date | None = None,
     end_date: date | None = None,
     merchant_no: str | None = None,
+    brand: str | None = None,
     db: Session = Depends(get_db),
 ):
     """导出「数据明细」里的结算单列表，口径与列表页当前筛选范围一致。"""
@@ -84,9 +85,13 @@ def export_settlement_list_xlsx(
     if start_date and end_date and start_date > end_date:
         raise HTTPException(422, "start_date 不能晚于 end_date")
     payload = build_settlements_workbook(
-        db, start_date=start_date, end_date=end_date, merchant_no=merchant_no
+        db,
+        start_date=start_date,
+        end_date=end_date,
+        merchant_no=merchant_no,
+        brand=brand,
     )
-    filename = settlements_export_filename(start_date, end_date, merchant_no)
+    filename = settlements_export_filename(start_date, end_date, merchant_no, brand)
     return StreamingResponse(
         BytesIO(payload), media_type=XLSX_MEDIA_TYPE, headers=_attachment(filename)
     )

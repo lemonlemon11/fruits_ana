@@ -47,12 +47,21 @@ const job = ref<ImportJob | null>(null)
 const draft = ref<ImportReviewDraft | null>(null)
 const loading = ref(true)
 const saving = ref(false)
+type SavingAction = 'switch' | 'restore' | 'prepare' | 'submit' | ''
+const savingAction = ref<SavingAction>('')
 const error = ref('')
 const toast = ref('')
 const confirmDialog = ref('')
 const confirmOpen = ref(false)
 const confirmForce = ref(false)
 const marketOptions = ref<string[]>([])
+const savingMessage = computed(() => ({
+  switch: '正在切换文件…',
+  restore: '正在还原…',
+  prepare: '正在保存…',
+  submit: '正在提交…',
+  '': '',
+})[savingAction.value])
 
 const form = reactive<EntryPayload>({
   merchantNo: '',
@@ -253,16 +262,17 @@ async function switchDraft(token: string) {
   if (saving.value) return
   if (!draft.value || draft.value.draftToken === token) return
   saving.value = true
+  savingAction.value = 'switch'
   error.value = ''
   try {
     await persistCurrentDraft()
+    await loadDraft(token)
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '当前文件保存失败，未切换文件'
+  } finally {
     saving.value = false
-    return
+    savingAction.value = ''
   }
-  saving.value = false
-  await loadDraft(token)
 }
 
 function onFileSelect(event: Event) {
@@ -453,6 +463,7 @@ async function restoreCurrentDraft() {
   if (!draft.value) return
   const original = draft.value.originalPayload
   saving.value = true
+  savingAction.value = 'restore'
   error.value = ''
   try {
     Object.assign(form, {
@@ -474,12 +485,14 @@ async function restoreCurrentDraft() {
     error.value = caught instanceof Error ? caught.message : '还原失败'
   } finally {
     saving.value = false
+    savingAction.value = ''
   }
 }
 
 async function openConfirm() {
   if (!draft.value) return
   saving.value = true
+  savingAction.value = 'prepare'
   error.value = ''
   logger.info('openConfirm start', {
     jobToken,
@@ -497,12 +510,14 @@ async function openConfirm() {
     error.value = caught instanceof Error ? caught.message : '保存失败，无法提交'
   } finally {
     saving.value = false
+    savingAction.value = ''
   }
 }
 
 async function doSubmit(force = false) {
   if (!draft.value) return
   saving.value = true
+  savingAction.value = 'submit'
   error.value = ''
   logger.info('doSubmit start', { jobToken, force, feeCount: form.fees.length })
   try {
@@ -532,16 +547,19 @@ async function doSubmit(force = false) {
     }
   } finally {
     saving.value = false
+    savingAction.value = ''
   }
 }
 
 function closeConfirm() {
+  if (saving.value) return
   confirmOpen.value = false
   confirmDialog.value = ''
   confirmForce.value = false
 }
 
 function goBack() {
+  if (saving.value) return
   void router.push(isReadonly.value ? '/settlements' : '/imports')
 }
 
@@ -563,23 +581,24 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
     <div class="review-dialog mobile-form-page" role="dialog" aria-modal="true" :aria-label="isReadonly ? '结算单明细只读查看' : '导入文件二次确认'">
       <header class="review-head">
         <span class="draft-state">{{ isReadonly ? '已入库 · 只读' : '待确认 · 尚未入库' }}</span>
-        <button class="modal-close" type="button" aria-label="关闭二次确认" @click="goBack">关闭</button>
+        <button class="modal-close" type="button" aria-label="关闭二次确认" :disabled="saving" @click="goBack">关闭</button>
       </header>
 
       <div class="review-body">
-        <div v-if="loading" class="empty-card">正在加载复核数据…</div>
+        <div v-if="loading" class="empty-card" role="status" aria-live="polite">{{ savingAction === 'switch' ? savingMessage : '正在加载复核数据…' }}</div>
         <div v-else-if="error" class="error-card">{{ error }}</div>
 
         <template v-else>
       <div v-if="!isReadonly" class="file-toolbar">
         <label for="review-file">待确认文件</label>
-        <select id="review-file" :value="draft?.draftToken" :disabled="saving" @change="onFileSelect">
+        <select id="review-file" :value="draft?.draftToken" :disabled="saving || loading" @change="onFileSelect">
           <option v-for="item in job?.drafts ?? []" :key="item.token" :value="item.token">
             {{ item.fileName }} · 商号 {{ item.merchantNo }}
           </option>
         </select>
         <span class="file-name">{{ draft?.fileName }}</span>
       </div>
+      <p v-if="saving" class="review-saving-status" role="status" aria-live="polite">{{ savingMessage }}</p>
       <div v-else class="file-toolbar">
         <label>结算单</label>
         <span class="file-name">{{ draft?.fileName || form.merchantNo }}</span>
@@ -771,8 +790,8 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
         </template>
         <template v-else>
           <span>文件导入只支持还原为导入解析值或确认提交，确认前会自动重新计算。</span>
-          <button class="outline" type="button" :disabled="saving" @click="restoreCurrentDraft">还原修改</button>
-          <button class="primary" type="button" :disabled="saving" @click="openConfirm">确认提交</button>
+          <button class="outline" type="button" :disabled="saving" @click="restoreCurrentDraft">{{ savingAction === 'restore' ? '正在还原…' : '还原修改' }}</button>
+          <button class="primary" type="button" :disabled="saving" @click="openConfirm">{{ savingAction === 'prepare' ? '正在保存…' : '确认提交' }}</button>
         </template>
       </footer>
     </div>
@@ -802,8 +821,8 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
         </div>
         <p>继续提交将以当前填写值入库；系统金额和汇总会按自洽口径修正。</p>
         <div class="dialog-actions">
-          <button class="subtle" type="button" @click="closeConfirm">返回修改</button>
-          <button class="primary" type="button" :disabled="saving" @click="doSubmit(confirmForce)">确认提交</button>
+          <button class="subtle" type="button" :disabled="saving" @click="closeConfirm">返回修改</button>
+          <button class="primary" type="button" :disabled="saving" @click="doSubmit(confirmForce)">{{ savingAction === 'submit' ? '正在提交…' : '确认提交' }}</button>
         </div>
       </section>
     </div>

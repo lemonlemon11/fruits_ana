@@ -149,6 +149,7 @@ def test_settlement_list_xlsx_matches_list_columns_and_metrics():
     headers = [cell.value for cell in sheet[1]]
     assert headers == [
         "商号",
+        "品牌",
         "单号",
         "柜号",
         "销售日期起",
@@ -162,8 +163,9 @@ def test_settlement_list_xlsx_matches_list_columns_and_metrics():
         "应付贵方总金额(RMB)",
     ]
     # 商号 / 单号与页面一致走适配后写法（ADR-015 / ADR-016）。
-    assert [sheet.cell(2, index).value for index in (1, 2, 3, 6, 7, 8, 9)] == [
+    assert [sheet.cell(2, index).value for index in (1, 2, 3, 4, 7, 8, 9, 10)] == [
         "624",
+        "宝贝",
         "宝贝-001",
         "MWCU1823691",
         2,
@@ -171,12 +173,12 @@ def test_settlement_list_xlsx_matches_list_columns_and_metrics():
         16,
         8,
     ]
-    assert sheet["D2"].value.date() == date(2026, 1, 2)
     assert sheet["E2"].value.date() == date(2026, 1, 2)
-    assert sheet["D2"].number_format == "yyyy-mm-dd"
-    assert sheet["F2"].number_format == "#,##0.00"
+    assert sheet["F2"].value.date() == date(2026, 1, 2)
+    assert sheet["E2"].number_format == "yyyy-mm-dd"
+    assert sheet["G2"].number_format == "#,##0.00"
     # 导入件没有结算摘要时，售后 / 费用合计留空而不是补 0，避免误导。
-    assert [sheet.cell(2, index).value for index in (10, 11, 12)] == [None, None, None]
+    assert [sheet.cell(2, index).value for index in (11, 12, 13)] == [None, None, None]
     sales = workbook["销售明细"]
     assert [cell.value for cell in sales[1]] == [
         "商号",
@@ -352,8 +354,8 @@ def test_settlement_list_xlsx_exports_sales_after_sale_and_fee_details():
     imported_row = next(
         row for row in summary.iter_rows(min_row=2, values_only=True) if row[0] == "624"
     )
-    assert [float(value) for value in manual_row[10:13]] == [10.0, 8.0, 122.0]
-    assert [float(value) for value in imported_row[10:13]] == [2420.0, 10300.0, 65848.0]
+    assert [float(value) for value in manual_row[11:14]] == [10.0, 8.0, 122.0]
+    assert [float(value) for value in imported_row[11:14]] == [2420.0, 10300.0, 65848.0]
 
     sales = workbook["销售明细"]
     assert sales.max_row == 4

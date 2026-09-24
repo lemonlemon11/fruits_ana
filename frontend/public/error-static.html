@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#17663f">
+  <title>页面暂时打不开 · SLD-水果市场销售分析</title>
+  <style>
+    :root { font-family:"Microsoft YaHei","PingFang SC",sans-serif; color:#1f2923; background:#eef3ef; }
+    * { box-sizing:border-box; }
+    html,body { min-width:320px; min-height:100%; }
+    body { display:grid; min-height:100vh; min-height:100dvh; margin:0; place-items:center; padding:24px; background:#eef3ef; }
+    main { display:grid; width:min(760px,100%); grid-template-columns:180px minmax(0,1fr); overflow:hidden; border:1px solid #8aa095; border-radius:6px; background:#f7faf8; }
+    .visual { position:relative; display:grid; min-height:360px; place-items:center; border-right:1px solid #c8d2cd; background:#e8eee9; }
+    .code { position:absolute; top:20px; left:20px; color:#56635b; font-size:13px; font-weight:800; letter-spacing:.14em; }
+    svg { width:118px; height:118px; color:#17663f; fill:#f7faf8; stroke:currentcolor; stroke-width:4; }
+    .copy { min-width:0; padding:48px; align-self:center; }
+    .label { display:flex; align-items:center; gap:8px; margin-bottom:12px; color:#9b3029; font-size:14px; font-weight:800; }
+    .label::before { width:8px; height:8px; border-radius:50%; background:#9b3029; box-shadow:0 0 0 4px #f4dedc; content:""; }
+    h1 { margin:0; font-size:32px; line-height:1.25; }
+    p { margin:14px 0 0; color:#56635b; font-size:16px; line-height:1.75; }
+    .safe { margin-top:18px; padding:12px 14px; border:1px solid #b9d4c3; border-radius:4px; background:#dcece2; color:#104a2f; font-size:14px; line-height:1.65; }
+    .safe strong { display:block; }
+    .actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:24px; }
+    button,a { display:inline-flex; min-height:48px; align-items:center; justify-content:center; padding:0 18px; border:1px solid #8aa095; border-radius:4px; background:#f7faf8; color:#1f2923; font:inherit; font-weight:800; text-decoration:none; cursor:pointer; }
+    button { border-color:#104a2f; background:#17663f; color:white; }
+    button:hover { background:#104a2f; }
+    a:hover { border-color:#17663f; color:#104a2f; }
+    :focus-visible { outline:3px solid #0b63ce; outline-offset:3px; }
+    @media (max-width:680px) {
+      body { place-items:start stretch; padding:16px 12px; }
+      main { display:block; width:100%; }
+      .visual { min-height:180px; border-right:0; border-bottom:1px solid #c8d2cd; }
+      svg { width:92px; height:92px; }
+      .copy { padding:24px 20px 28px; }
+      h1 { font-size:24px; }
+      .actions { display:grid; }
+      button,a { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <main aria-labelledby="error-title">
+    <div class="visual" aria-hidden="true">
+      <span class="code">ERROR 50X</span>
+      <svg viewBox="0 0 160 160">
+        <rect x="22" y="27" width="116" height="94" rx="8" />
+        <path d="M22 49h116M42 98l20-18 16 12 24-29 18 14" fill="none" />
+        <circle cx="112" cy="108" r="26" fill="#f4dedc" stroke="#9b3029" />
+        <path d="m101 97 22 22m0-22-22 22" fill="none" stroke="#9b3029" stroke-width="5" stroke-linecap="round" />
+      </svg>
+    </div>
+    <div class="copy">
+      <div class="label">系统暂时无法响应</div>
+      <h1 id="error-title" role="alert">页面暂时打不开</h1>
+      <p>服务可能正在维护或暂时繁忙。请稍后重新加载，或者先返回系统入口。</p>
+      <div class="safe"><strong>已保存的数据不会丢失</strong>如果刚完成录单或导入，请先确认结果，不要重复提交。</div>
+      <div class="actions">
+        <button type="button" onclick="location.reload()">重新加载</button>
+        <a href="/">返回系统入口</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

@@ -26,6 +26,7 @@ cd frontend && npx vite --config vite.demo.config.ts
 
 | 文件 | 用途 |
 | --- | --- |
+| `redesign-20260922/index.html` | 全站布局重设计稿（手机 390 / 网页双端，登录 + 7 个菜单页 + 导入复核/手工录单流程页，虚构数据） |
 | `index.html` | 预览索引 |
 | `ask-demo.html` | 顺仔 · 悬浮问答机器人 Demo（右下角悬浮按钮 + 悬浮对话窗，`/api/ask`，53001 → 8010） |
 | `review-2026-09-11.html` | 本轮改动呈现（AI 结论醒目化 + 抽屉式选择器） |

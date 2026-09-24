@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  HOME_TAB_PATH,
   closeOtherTabs,
   closeTab,
   isClosableTab,
@@ -29,8 +28,9 @@ function tab(path: string, fullPath = path): ShellTab {
   return { path, fullPath }
 }
 
-test('首页固定不可关闭', () => {
-  assert.equal(isClosableTab(HOME_TAB_PATH), false)
+test('欢迎页固定不可关闭，所有业务页签都可关闭', () => {
+  assert.equal(isClosableTab('/welcome'), false)
+  assert.equal(isClosableTab('/overview'), true)
   assert.equal(isClosableTab('/settlements'), true)
 })
 
@@ -67,11 +67,11 @@ test('关闭其他只保留不可关闭页签与当前页', () => {
 
   assert.deepEqual(
     closeOtherTabs(tabs, '/series-comparison').map((item) => item.path),
-    ['/overview', '/series-comparison'],
+    ['/series-comparison'],
   )
 })
 
-test('恢复页签时过滤脏数据、去重并把首页提到最前', () => {
+test('恢复页签时过滤脏数据、去重并保留业务页签顺序', () => {
   const restored = restoreTabs(
     [
       { path: '/series-comparison', fullPath: '/series-comparison' },
@@ -85,13 +85,27 @@ test('恢复页签时过滤脏数据、去重并把首页提到最前', () => {
     isKnownPath,
   )
 
-  assert.deepEqual(restored.map((item) => item.path), ['/overview', '/series-comparison'])
+  assert.deepEqual(restored.map((item) => item.path), ['/series-comparison', '/overview'])
 })
 
-test('恢复页签时补回缺失的首页', () => {
-  assert.deepEqual(restoreTabs(null, isKnownPath), [{ path: HOME_TAB_PATH, fullPath: HOME_TAB_PATH }])
+test('没有业务页签时恢复为欢迎访问页', () => {
+  assert.deepEqual(restoreTabs(null, isKnownPath), [{ path: '/welcome', fullPath: '/welcome' }])
   assert.deepEqual(
     restoreTabs([{ path: '/settlements', fullPath: '/settlements' }], isKnownPath).map((item) => item.path),
-    ['/overview', '/settlements'],
+    ['/settlements'],
+  )
+})
+
+test('关闭最后一个业务页签后回到欢迎访问页', () => {
+  assert.equal(nextActivePath([], 0), '/welcome')
+})
+
+test('从欢迎页打开业务菜单时移除欢迎占位且不产生重复页签', () => {
+  const welcome = [{ path: '/welcome', fullPath: '/welcome' }]
+  const opened = openTab(welcome, '/settlements', '/settlements')
+  assert.deepEqual(opened, [{ path: '/settlements', fullPath: '/settlements' }])
+  assert.deepEqual(
+    openTab(opened, '/settlements', '/settlements'),
+    opened,
   )
 })

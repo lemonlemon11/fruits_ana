@@ -30,6 +30,14 @@ test('buildAnalyticsQuery sends only populated contract filters', () => {
     buildAnalyticsQuery({ includeAllSettlements: true }),
     '?include_all_settlements=true',
   )
+  assert.equal(
+    buildAnalyticsQuery({ brand: '香香' }),
+    '?brand=%E9%A6%99%E9%A6%99',
+  )
+  assert.equal(
+    buildAnalyticsQuery({ sortBy: 'average_price', sortOrder: 'desc' }),
+    '?sort_by=average_price&sort_order=desc',
+  )
 })
 
 test('normalizeGradeMetrics 只保留实际出现过的等级并保留 AB 独立', () => {
@@ -117,6 +125,7 @@ test('normalizeSettlementList reads the default range and grade quantities', () 
     settlements: [{
       merchant_no: '640', order_no: '宝贝L004', container_no: 'CBHU2970762',
       vehicle_no: '桂ABF330', arrival_date: '2026-09-08', sale_date_start: '2026-09-09', sale_date_end: '2026-09-09',
+      confirmed_at: '2026-09-09T08:30:00',
       sales_amount: 8000, total_quantity: 20, average_price: 400,
       grade_quantities: { A: 12, B: 6, C: 2 }, record_count: 3,
     }],
@@ -126,6 +135,7 @@ test('normalizeSettlementList reads the default range and grade quantities', () 
   assert.equal(list.settlements[0].merchantNo, '640')
   assert.equal(list.settlements[0].orderNo, '宝贝L004')
   assert.equal(list.settlements[0].arrivalDate, '2026-09-08')
+  assert.equal(list.settlements[0].confirmedAt, '2026-09-09T08:30:00')
   assert.deepEqual(list.settlements[0].gradeQuantities, {
     A: 12, B: 6, AB: 0, C: 2, D: 0, E: 0, F: 0, OTHER: 0,
   })
@@ -138,6 +148,7 @@ test('normalizeSettlementList tolerates an empty payload', () => {
     dateRange: null,
     settlements: [],
     pagination: null,
+    brandTotals: [],
   })
 })
 

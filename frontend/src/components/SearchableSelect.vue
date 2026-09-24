@@ -12,11 +12,13 @@ const props = withDefaults(defineProps<{
   placeholder?: string
   ariaLabel?: string
   disabled?: boolean
+  loading?: boolean
 }>(), {
   label: '',
   placeholder: '请选择',
   ariaLabel: '',
   disabled: false,
+  loading: false,
 })
 
 const emit = defineEmits<{
@@ -34,12 +36,14 @@ function onChange(value: string) {
 </script>
 
 <template>
-  <div class="searchable-select">
+  <div class="searchable-select" :aria-busy="loading">
     <label v-if="label" class="searchable-select-label">{{ label }}</label>
     <ElSelect
       :model-value="modelValue"
       :placeholder="placeholder"
-      :disabled="disabled"
+      :disabled="disabled || loading"
+      :loading="loading"
+      loading-text="正在加载"
       filterable
       clearable
       :aria-label="ariaLabel || label || placeholder"

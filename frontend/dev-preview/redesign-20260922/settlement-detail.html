@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>结算单详情 · 布局重设计</title>
+<link rel="stylesheet" href="redesign.css" />
+</head>
+<body data-page="settlement-detail">
+<main class="page">
+
+  <div class="backbar mobile-only">
+    <a class="back" href="settlements.html" aria-label="返回每一单">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m0 0l7 7m-7-7l7-7"/></svg>
+    </a>
+    <h1>金秋-001 · 商号 888</h1>
+  </div>
+
+  <div class="hero-money">
+    <div class="k">销售金额（2026-09-09 销售）</div>
+    <div class="v"><small>¥</small>403,410</div>
+    <div class="subs">
+      <div class="s"><div class="k">总件数</div><div class="n">974 件</div></div>
+      <div class="s"><div class="k">每件均价</div><div class="n">414.18 元/件</div></div>
+      <div class="s"><div class="k">售后 / 占比</div><div class="n">2,340 · 0.58%</div></div>
+    </div>
+  </div>
+
+  <div class="card card-pad" style="margin-top:14px">
+    <div class="section-title" style="margin-top:0"><h2>基础信息</h2><span class="status status-info">文件导入</span></div>
+    <div class="info-grid">
+      <div class="cell"><div class="k">市场</div><div class="v">嘉兴水果市场</div></div>
+      <div class="cell"><div class="k">单号</div><div class="v">金秋-001</div></div>
+      <div class="cell"><div class="k">到达市场日期</div><div class="v">2026-09-08</div></div>
+      <div class="cell"><div class="k">销售日期</div><div class="v">2026-09-09</div></div>
+      <div class="cell"><div class="k">柜号</div><div class="v">CBHU2970762</div></div>
+      <div class="cell"><div class="k">转运公司</div><div class="v">顺达物流 · 桂ABF330</div></div>
+    </div>
+  </div>
+
+  <div class="grid-2-even" style="margin-top:14px">
+    <div class="card card-pad">
+      <div class="section-title" style="margin-top:0"><h2>等级件数结构</h2></div>
+      <div class="donut-wrap">
+        <div class="donut" style="background:conic-gradient(var(--grade-a) 0 21.5%, var(--grade-b) 0 65.1%, var(--grade-c) 0 100%)" role="img" aria-label="A 21.5%，B 43.6%，C 34.9%"></div>
+        <div class="donut-legend">
+          <div class="row"><span class="grade-tag grade-a">A</span> 209 件 <b>21.5%</b></div>
+          <div class="row"><span class="grade-tag grade-b">B</span> 425 件 <b>43.6%</b></div>
+          <div class="row"><span class="grade-tag grade-c">C</span> 340 件 <b>34.9%</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="card card-pad">
+      <div class="section-title" style="margin-top:0"><h2>各等级平均每件售价</h2></div>
+      <div class="hbar-row"><span class="grade-tag grade-a">A</span><div class="hbar"><i style="width:97%;background:var(--grade-a)"></i></div><b class="num">486.50</b></div>
+      <div class="hbar-row"><span class="grade-tag grade-b">B</span><div class="hbar"><i style="width:84%;background:var(--grade-b)"></i></div><b class="num">421.30</b></div>
+      <div class="hbar-row"><span class="grade-tag grade-c">C</span><div class="hbar"><i style="width:71%;background:var(--grade-c)"></i></div><b class="num">356.20</b></div>
+      <p class="note" style="margin-top:12px">A 与 C 价差 130.30 元/件；C 果（含 BC）占比 34.9%，高于近期均值。</p>
+    </div>
+  </div>
+
+  <div class="section-title"><h2>各等级各规格件数 / 均价</h2><span class="more">共 6 个规格</span></div>
+  <div class="card table-card">
+    <div style="overflow-x:auto">
+    <table class="data-table spec-table" style="min-width:560px">
+      <thead>
+        <tr><th>等级</th><th>规格</th><th class="num">件数</th><th class="num">占比</th><th class="num">每件均价</th><th class="num">销售金额</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="grade-tag grade-a">A</span></td><td>大果</td><td class="num">120</td><td class="num">12.3%</td><td class="num">498.00</td><td class="num">¥59,760</td></tr>
+        <tr><td><span class="grade-tag grade-a">A</span></td><td>中果</td><td class="num">89</td><td class="num">9.1%</td><td class="num">471.24</td><td class="num">¥41,940</td></tr>
+        <tr><td><span class="grade-tag grade-b">B</span></td><td>大果</td><td class="num">232</td><td class="num">23.8%</td><td class="num">438.50</td><td class="num">¥101,732</td></tr>
+        <tr><td><span class="grade-tag grade-b">B</span></td><td>中果</td><td class="num">193</td><td class="num">19.8%</td><td class="num">400.68</td><td class="num">¥77,331</td></tr>
+        <tr><td><span class="grade-tag grade-c">C</span></td><td>中果</td><td class="num">204</td><td class="num">20.9%</td><td class="num">362.40</td><td class="num">¥73,930</td></tr>
+        <tr><td><span class="grade-tag grade-c">C</span></td><td>小果</td><td class="num">136</td><td class="num">14.0%</td><td class="num">357.84</td><td class="num">¥48,666</td></tr>
+      </tbody>
+      <tfoot>
+        <tr><td colspan="2" style="padding:12px 14px;font-weight:800">合计</td><td class="num" style="font-weight:800">974</td><td class="num" style="font-weight:800">100%</td><td class="num" style="font-weight:800">414.18</td><td class="num" style="font-weight:800">¥403,410</td></tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>
+
+  <div class="grid-2-even" style="margin-top:14px">
+    <div class="card card-pad">
+      <div class="section-title" style="margin-top:0"><h2>费用</h2><span class="more">合计 ¥18,600</span></div>
+      <div class="hbar-row"><span style="color:var(--muted)">代办费</span><div class="hbar"><i style="width:65%;background:var(--brand-500)"></i></div><b class="num">12,100</b></div>
+      <div class="hbar-row"><span style="color:var(--muted)">运费</span><div class="hbar"><i style="width:22%;background:var(--brand-500)"></i></div><b class="num">4,000</b></div>
+      <div class="hbar-row"><span style="color:var(--muted)">装卸费</span><div class="hbar"><i style="width:9%;background:var(--brand-500)"></i></div><b class="num">1,600</b></div>
+      <div class="hbar-row"><span style="color:var(--muted)">其他</span><div class="hbar"><i style="width:5%;background:var(--brand-500)"></i></div><b class="num">900</b></div>
+    </div>
+    <div class="card card-pad">
+      <div class="section-title" style="margin-top:0"><h2>回款</h2></div>
+      <div class="info-grid" style="grid-template-columns:1fr 1fr">
+        <div class="cell"><div class="k">应回金额</div><div class="v num">¥401,070</div></div>
+        <div class="cell"><div class="k">已回金额</div><div class="v num" style="color:var(--brand-700)">¥401,070</div></div>
+        <div class="cell"><div class="k">回款状态</div><div class="v"><span class="status status-ok">已结清</span></div></div>
+        <div class="cell"><div class="k">清关</div><div class="v">正常</div></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+<script src="redesign.js"></script>
+</body>
+</html>

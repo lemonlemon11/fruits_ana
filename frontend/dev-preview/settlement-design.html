@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>结算单 · 财务报表样式</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #f0f2f5; font-family: 'Microsoft YaHei', '微软雅黑', sans-serif; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
+
+.page { width: 100%; max-width: 1024px; background: #fff; padding: 40px 36px 50px; box-shadow: 0 2px 16px rgba(0,0,0,.08); border-radius: 4px; margin-bottom: 30px; }
+
+/* ========== Title ========== */
+.title-row { text-align: center; margin-bottom: 28px; }
+.title-row h1 { font-size: 24px; letter-spacing: 8px; color: #1a3c34; font-weight: 700; }
+.title-row .sub { font-size: 12px; color: #999; margin-top: 4px; }
+
+/* ========== Info Grid ========== */
+.info-grid { display: grid; grid-template-columns: 1fr 1.2fr 1fr 1.2fr; gap: 6px 12px; margin-bottom: 20px; padding: 14px 16px; background: #f8faf9; border: 1px solid #e8edeb; border-radius: 4px; }
+.info-grid .item { display: flex; align-items: center; min-height: 26px; }
+.info-grid .label { font-size: 12px; color: #888; white-space: nowrap; min-width: 72px; }
+.info-grid .value { font-size: 14px; color: #1a3c34; font-weight: 600; }
+
+/* ========== Table ========== */
+table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13px; }
+th { background: #2b5e4a; color: #fff; padding: 8px 6px; font-weight: 600; font-size: 12px; text-align: center; border: 1px solid #1f4a3a; white-space: nowrap; }
+td { padding: 6px; text-align: center; border: 1px solid #dde5e1; color: #333; }
+tr:nth-child(even) td { background: #f8faf9; }
+
+/* section headers */
+.section-hdr td { background: #eef4f1 !important; font-weight: 700; font-size: 13px; color: #1a3c34; text-align: left; padding: 7px 12px; border: 1px solid #d0ddd6; }
+.section-hdr .bracket { color: #2b5e4a; font-weight: 800; margin-right: 6px; }
+
+/* totals */
+.total-row td { background: #f0f5f3 !important; font-weight: 700; color: #1a3c34; border-top: 2px solid #2b5e4a; }
+.grand-total td { background: #e1ede7 !important; font-weight: 800; color: #1a3c34; font-size: 14px; border-top: 3px double #2b5e4a; }
+
+/* numeric */
+.num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 10px; }
+.text-left { text-align: left; padding-left: 10px; }
+
+/* annotation */
+.annotation { font-size: 11px; color: #999; margin-top: -10px; margin-bottom: 20px; }
+
+/* ========== Section Dividers ========== */
+.section-divider { height: 2px; background: linear-gradient(90deg, #2b5e4a 0%, #b0ccc0 100%); margin: 24px 0 18px; }
+
+/* labels */
+.sales-section { }
+.after-section { }
+.fee-section { }
+.payable-section { }
+</style>
+</head>
+<body>
+
+<!-- ============== PAGE 1: Simplified view ============== -->
+<div class="page">
+  <div class="title-row">
+    <h1>结 算 单</h1>
+    <div class="sub">SETTLEMENT STATEMENT</div>
+  </div>
+
+  <div class="info-grid">
+    <div class="item"><span class="label">商号：</span><span class="value">单 650</span></div>
+    <div class="item"><span class="label">单号：</span><span class="value">香香-L011RXRK03</span></div>
+    <div class="item"><span class="label">柜号：</span><span class="value">EISU5674802</span></div>
+    <div class="item"><span class="label">转运公司：</span><span class="value">桂AX6166</span></div>
+    <div class="item"><span class="label">市场：</span><span class="value">海吉星</span></div>
+    <div class="item"><span class="label">到达市场日期：</span><span class="value">2026-09-15</span></div>
+    <div class="item"><span class="label">来货数量（件）：</span><span class="value">1,977</span></div>
+    <div class="item"><span class="label">销售日期范围：</span><span class="value">2026-09-17 ~ 2026-09-18</span></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>销售日期</th><th>品种</th><th>等级</th><th>规格(头数)</th><th>规格(KG)</th><th>备注</th><th>数量(件)</th><th>单价(元)</th><th>金额(元)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>09-17</td><td>榴莲</td><td>B</td><td>4</td><td>9</td><td>9</td><td class="num">20</td><td class="num">260.00</td><td class="num">5,200.00</td></tr>
+      <tr><td>09-17</td><td>榴莲</td><td>B</td><td>4</td><td>9</td><td>9</td><td class="num">21</td><td class="num">280.00</td><td class="num">5,880.00</td></tr>
+      <tr><td>09-17</td><td>榴莲</td><td>B</td><td>3/4</td><td>9</td><td>9</td><td class="num">64</td><td class="num">260.00</td><td class="num">16,640.00</td></tr>
+      <tr><td>09-17</td><td>榴莲</td><td>B</td><td>3/4</td><td>9</td><td>9</td><td class="num">3</td><td class="num">270.00</td><td class="num">810.00</td></tr>
+      <tr><td>09-17</td><td>榴莲</td><td>B</td><td>3</td><td>9</td><td>9</td><td class="num">165</td><td class="num">250.00</td><td class="num">41,250.00</td></tr>
+      <tr><td>09-17</td><td>榴莲</td><td>A</td><td>3</td><td>10</td><td>10</td><td class="num">76</td><td class="num">320.00</td><td class="num">24,320.00</td></tr>
+      <tr><td>09-17</td><td>榴莲</td><td>A</td><td>4</td><td>10</td><td>10</td><td class="num">2</td><td class="num">340.00</td><td class="num">680.00</td></tr>
+      <tr><td colspan="4" style="text-align:left; padding-left:10px; font-size:11px; color:#888;">… 共 52 行明细 …</td>
+          <td></td><td></td><td></td><td></td><td></td></tr>
+      <tr class="total-row"><td colspan="6" class="text-left"><strong>总件数：</strong>1,977</td><td class="num"><strong>1,977</strong></td><td></td><td class="num"><strong>569,120.00</strong></td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-divider"></div>
+
+  <!-- After-Sales Section -->
+  <table>
+    <tbody>
+      <tr class="section-hdr"><td colspan="9"><span class="bracket">▼</span> 售 后</td></tr>
+      <tr><th style="background:#5a7a6b;">序号</th><th style="background:#5a7a6b;" colspan="2">内容</th><th style="background:#5a7a6b;" colspan="3">摘要</th><th style="background:#5a7a6b;" colspan="3">金额(元)</th></tr>
+      <tr><td>1</td><td colspan="2" class="text-left">硬包/白肉</td><td colspan="3" class="text-left">损耗</td><td colspan="3" class="num">750.00</td></tr>
+      <tr><td>2</td><td colspan="2" class="text-left">硬包/白肉</td><td colspan="3" class="text-left">损耗</td><td colspan="3" class="num">1,362.00</td></tr>
+      <tr><td>3</td><td colspan="2" class="text-left">硬包/白肉</td><td colspan="3" class="text-left">损耗</td><td colspan="3" class="num">687.00</td></tr>
+      <tr><td colspan="5" style="text-align:left; padding-left:10px; font-size:11px; color:#888;">… 共 8 项售后 …</td>
+          <td></td><td></td><td></td><td></td></tr>
+      <tr class="total-row"><td colspan="6"></td><td colspan="2">售后合计：</td><td class="num"><strong>12,040.00</strong></td></tr>
+      <tr class="total-row"><td colspan="6"></td><td colspan="2">扣减售后 → 货款合计：</td><td class="num"><strong>557,080.00</strong></td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-divider"></div>
+
+  <!-- Expenses Section -->
+  <table>
+    <tbody>
+      <tr class="section-hdr"><td colspan="9"><span class="bracket">▼</span> 支出费用</td></tr>
+      <tr><th style="background:#5a7a6b;" colspan="5">费用项目</th><th style="background:#5a7a6b;" colspan="4">金额(元)</th></tr>
+      <tr><td colspan="5" class="text-left">代卖佣金</td><td colspan="4" class="num">10,000.00</td></tr>
+      <tr><td colspan="5" class="text-left">运费</td><td colspan="4" class="num">4,500.00</td></tr>
+      <tr><td colspan="5" class="text-left">车位费</td><td colspan="4" class="num">2,400.00</td></tr>
+      <tr><td colspan="5" class="text-left">入场费</td><td colspan="4" class="num">810.00</td></tr>
+      <tr><td colspan="5" class="text-left">搬运费</td><td colspan="4" class="num">1,380.00</td></tr>
+      <tr><td colspan="5" class="text-left">压车费</td><td colspan="4" class="num">300.00</td></tr>
+      <tr><td colspan="5" class="text-left">打冷费</td><td colspan="4" class="num">800.00</td></tr>
+      <tr class="total-row"><td colspan="5">费用合计</td><td colspan="4" class="num"><strong>20,190.00</strong></td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-divider" style="margin-top:10px;"></div>
+
+  <!-- Payable Section -->
+  <table>
+    <tbody>
+      <tr class="grand-total"><td colspan="6" style="font-size:15px;">应付贵方总金额（RMB）</td><td colspan="3" class="num" style="font-size:20px; letter-spacing:2px;"><strong>¥ 536,890.00</strong></td></tr>
+      <tr style="font-size:11px; color:#888;"><td colspan="9" style="padding:4px 10px;">货款合计 ¥557,080.00 − 售后合计 ¥12,040.00 − 费用合计 ¥20,190.00 = 应付 ¥536,890.00</td></tr>
+    </tbody>
+  </table>
+
+  <div class="annotation">生成时间：2026-09-20 15:30 UTC+8 &nbsp;|&nbsp; 等级映射：BC→C</div>
+</div>
+
+</body>
+</html>

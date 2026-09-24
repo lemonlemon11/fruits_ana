@@ -163,6 +163,7 @@ function backToBrands() {
 }
 
 function confirmSelection() {
+  if (props.loading) return
   emit('apply', [...draft.value])
   closePicker()
 }
@@ -190,6 +191,7 @@ function toggleActiveSeries() {
 }
 
 function removeSelected(merchantNo: string) {
+  if (props.loading) return
   emit(
     'apply',
     props.selected.filter((item) => item !== merchantNo),
@@ -253,16 +255,16 @@ onBeforeUnmount(() => {
         </p>
       </div>
       <div class="picker-trigger-actions">
-        <button type="button" class="primary-button" @click="openPicker">选择结算单</button>
-        <button v-if="selected.length" type="button" class="text-button" @click="emit('apply', [])">
+        <button type="button" class="primary-button" :disabled="loading" @click="openPicker">选择结算单</button>
+        <button v-if="selected.length" type="button" class="text-button" :disabled="loading" @click="emit('apply', [])">
           清空
         </button>
       </div>
     </header>
 
     <div class="picker-mobile-actions">
-      <button type="button" class="primary-button" @click="openPicker">选择结算单</button>
-      <button v-if="selected.length" type="button" class="text-button" @click="emit('apply', [])">
+      <button type="button" class="primary-button" :disabled="loading" @click="openPicker">选择结算单</button>
+      <button v-if="selected.length" type="button" class="text-button" :disabled="loading" @click="emit('apply', [])">
         清空
       </button>
     </div>
@@ -274,6 +276,7 @@ onBeforeUnmount(() => {
           type="button"
           class="picker-chip-remove"
           :aria-label="`移除 ${settlementOptionLabel(item)}`"
+          :disabled="loading"
           @click="removeSelected(item.merchantNo)"
         >
           ×
@@ -308,7 +311,7 @@ onBeforeUnmount(() => {
                 对比只允许同一品牌，最多选 {{ maxSelect }} 张
               </p>
             </div>
-            <button type="button" class="text-button" @click="closePicker">关闭</button>
+            <button type="button" class="text-button" :disabled="loading" @click="closePicker">关闭</button>
           </header>
 
           <div class="picker-status" aria-live="polite">
@@ -429,14 +432,14 @@ onBeforeUnmount(() => {
               <div class="settlement-tools">
                 <strong>找到 {{ filteredActiveItems.length }} 张</strong>
                 <div>
-                  <button type="button" class="text-button" @click="toggleActiveSeries">
+                  <button type="button" class="text-button" :disabled="loading" @click="toggleActiveSeries">
                     {{
                       isWholeSeriesSelected(draft, groupMerchantNos(activeBrandItems))
                         ? '取消本品牌'
                         : '全选本品牌'
                     }}
                   </button>
-                  <button type="button" class="text-button" @click="clearDraft">清空本品牌</button>
+                  <button type="button" class="text-button" :disabled="loading" @click="clearDraft">清空本品牌</button>
                 </div>
               </div>
 
@@ -482,9 +485,9 @@ onBeforeUnmount(() => {
           </div>
 
           <footer class="picker-foot">
-            <button type="button" class="text-button" @click="closePicker">取消</button>
-            <button type="button" class="primary-button" @click="confirmSelection">
-              确定（{{ draft.length }} 张）
+            <button type="button" class="text-button" :disabled="loading" @click="closePicker">取消</button>
+            <button type="button" class="primary-button" :disabled="loading" @click="confirmSelection">
+              {{ loading ? '正在更新…' : `确定（${draft.length} 张）` }}
             </button>
           </footer>
         </section>

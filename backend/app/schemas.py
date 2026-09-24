@@ -112,6 +112,7 @@ class SettlementListItem(BaseModel):
     merchant_no_normalized: str | None = None
     order_no: str | None
     order_no_normalized: str | None = None
+    brand: str | None = None
     fruit_type: str | None = None
     series: str
     container_no: str | None
@@ -122,6 +123,7 @@ class SettlementListItem(BaseModel):
     sales_amount: float
     total_quantity: float
     average_price: float | None
+    confirmed_at: datetime | None = None
     grade_quantities: dict[str, float]
     record_count: int
 
@@ -143,6 +145,13 @@ class SettlementListResponse(BaseModel):
     date_range: SettlementDateRange | None
     settlements: list[SettlementListItem]
     pagination: SettlementPagination | None = None
+    brand_totals: list["BrandTotal"] = Field(default_factory=list)
+
+
+class BrandTotal(BaseModel):
+    brand: str
+    total_quantity: float
+    settlement_count: int
 
 
 class SettlementRecordRead(BaseModel):
@@ -447,6 +456,7 @@ __all__ = [
     "SaleRecordBase",
     "SaleRecordCreate",
     "SaleRecordRead",
+    "BrandTotal",
     "SettlementDateRange",
     "SettlementListItem",
     "SettlementListResponse",

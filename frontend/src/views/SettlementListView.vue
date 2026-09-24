@@ -10,35 +10,49 @@ import {
   deleteSettlement,
   getSettlements,
   gradeLabel,
+  settlementListExportUrl,
   settlementTemplateExportUrl,
   settlementTemplatePdfUrl,
+  type BrandTotal,
   type SettlementListItem,
   type SettlementPagination,
+  type SettlementSortBy,
+  type SettlementSortOrder,
 } from '../api/client'
 import { GRADES, type Grade } from '../utils/grades'
 import DataTable, { type DataTableColumn } from '../components/DataTable.vue'
 import DateRangeFilter from '../components/DateRangeFilter.vue'
 import SearchableSelect from '../components/SearchableSelect.vue'
-import { formatCurrency, formatNumber, formatPrice } from '../utils/format'
+import { formatCurrency, formatDateTime, formatNumber, formatPrice } from '../utils/format'
 import { settlementOptionLabel } from '../utils/settlementComparison'
 import { displayMerchantNo, rawMerchantNo } from '../utils/merchantNo'
+import { downloadFile } from '../utils/fileDownload'
 import {
   getCachedSettlements,
   invalidateSettlementCandidateCache,
 } from '../utils/settlementCandidateCache'
 
-const filters = reactive({ startDate: '', endDate: '', merchantNo: '' })
+const filters = reactive({ startDate: '', endDate: '', merchantNo: '', brand: '' })
 const settlements = ref<SettlementListItem[]>([])
 const options = ref<SettlementListItem[]>([])
+const brandTotals = ref<BrandTotal[]>([])
+type PeriodPreset = 'custom' | 'this_month' | 'this_quarter' | 'this_year' | 'last_month' | 'last_quarter' | 'last_year'
+const periodPreset = ref<PeriodPreset>('custom')
 const dateRange = ref<{ startDate: string; endDate: string; isDefault: boolean } | null>(null)
 const loading = ref(true)
+const sorting = ref(false)
 const error = ref('')
+const exportingKeys = ref<ReadonlySet<string>>(new Set())
+const exportNotice = ref('')
+const exportError = ref('')
 const deletingMerchantNo = ref('')
 const deleteTarget = ref<SettlementListItem | null>(null)
 const deleteError = ref('')
 const pagination = ref<SettlementPagination | null>(null)
 const page = ref(1)
 const pageSize = ref(10)
+const sortBy = ref<SettlementSortBy | ''>('')
+const sortOrder = ref<SettlementSortOrder>('desc')
 /** 等级列在筛选范围内累积，翻页时列不跳变，与导出列口径一致。 */
 const scopeGrades = ref<Grade[]>([])
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
@@ -57,25 +71,32 @@ const rangeHint = computed(() => {
 const totalCount = computed(() => pagination.value?.total ?? settlements.value.length)
 const totalPages = computed(() => pagination.value?.pages ?? 1)
 const deleteBusy = computed(() => Boolean(deletingMerchantNo.value))
+const totalFilteredQuantity = computed(() =>
+  brandTotals.value.reduce((total, row) => total + row.totalQuantity, 0),
+)
 
 const visibleGrades = computed(() => scopeGrades.value)
 
 /** 列表列定义：等级列随筛选范围动态展开，保证翻页时列不跳变。 */
 const columns = computed<DataTableColumn<SettlementListItem>[]>(() => [
   { key: 'merchantNo', label: '商号', emphasis: true },
+  { key: 'brand', label: '品牌', value: (item) => item.brand || '未识别品牌' },
   { key: 'orderNo', label: '单号', emphasis: true, value: (item) => item.orderNoNormalized || item.orderNo || '—' },
   { key: 'containerNo', label: '柜号', value: (item) => item.containerNo || '—' },
-  { key: 'arrivalDate', label: '到达市场日期', value: (item) => item.arrivalDate || '—' },
+  { key: 'arrivalDate', label: '到达市场日期', sortable: true, sortKey: 'arrival_date', value: (item) => item.arrivalDate || '—' },
   { key: 'salePeriod', label: '销售日期', value: (item) => salesPeriod(item) },
-  { key: 'totalQuantity', label: '总件数', numeric: true, value: (item) => formatNumber(item.totalQuantity) },
+  { key: 'totalQuantity', label: '总件数', numeric: true, sortable: true, sortKey: 'total_quantity', value: (item) => formatNumber(item.totalQuantity) },
   ...visibleGrades.value.map((grade) => ({
     key: `grade-${grade}`,
     label: `${gradeLabel(grade)}件数`,
     numeric: true,
+    sortable: grade === 'A' || grade === 'B',
+    sortKey: `grade_${grade.toLowerCase()}`,
     value: (item: SettlementListItem) => formatNumber(item.gradeQuantities[grade]),
   })),
-  { key: 'salesAmount', label: '销售金额', numeric: true, value: (item) => formatCurrency(item.salesAmount) },
-  { key: 'averagePrice', label: '每件均价', numeric: true, value: (item) => formatPrice(item.averagePrice) },
+  { key: 'salesAmount', label: '销售金额', numeric: true, sortable: true, sortKey: 'sales_amount', value: (item) => formatCurrency(item.salesAmount) },
+  { key: 'averagePrice', label: '每件均价', numeric: true, sortable: true, sortKey: 'average_price', value: (item) => formatPrice(item.averagePrice) },
+  { key: 'confirmedAt', label: '录单时间', sortable: true, sortKey: 'confirmed_at', value: (item) => formatDateTime(item.confirmedAt) },
   { key: 'actions', label: '操作', align: 'right', width: '13.5rem' },
 ])
 
@@ -99,11 +120,75 @@ const merchantSelectOptions = computed(() =>
   ],
 )
 
+const brandSelectOptions = computed(() => {
+  const brands = new Set(options.value.map((item) => item.brand || '未识别品牌').filter(Boolean))
+  return [
+    { value: '', label: '全部品牌' },
+    ...[...brands].sort((left, right) => left.localeCompare(right, 'zh-CN')).map((brand) => ({
+      value: brand,
+      label: brand,
+    })),
+  ]
+})
+
+const periodOptions: Array<{ value: PeriodPreset; label: string }> = [
+  { value: 'custom', label: '自定义' },
+  { value: 'this_month', label: '本月' },
+  { value: 'this_quarter', label: '本季度' },
+  { value: 'this_year', label: '本年' },
+  { value: 'last_month', label: '上月' },
+  { value: 'last_quarter', label: '上季度' },
+  { value: 'last_year', label: '去年' },
+]
+
+const listExportUrl = computed(() => settlementListExportUrl({ ...filters }))
+
 function salesPeriod(item: SettlementListItem): string {
   if (!item.saleDateStart) return '—'
   return item.saleDateStart === item.saleDateEnd
     ? item.saleDateStart
     : `${item.saleDateStart} 至 ${item.saleDateEnd}`
+}
+
+function toDateInput(value: Date): string {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function periodBounds(preset: Exclude<PeriodPreset, 'custom'>): [string, string] {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  if (preset === 'this_month') {
+    return [toDateInput(new Date(year, month, 1)), toDateInput(new Date(year, month + 1, 0))]
+  }
+  if (preset === 'last_month') {
+    return [toDateInput(new Date(year, month - 1, 1)), toDateInput(new Date(year, month, 0))]
+  }
+  if (preset === 'this_quarter' || preset === 'last_quarter') {
+    const quarterStartMonth = Math.floor(month / 3) * 3 + (preset === 'last_quarter' ? -3 : 0)
+    return [
+      toDateInput(new Date(year, quarterStartMonth, 1)),
+      toDateInput(new Date(year, quarterStartMonth + 3, 0)),
+    ]
+  }
+  const targetYear = preset === 'last_year' ? year - 1 : year
+  return [toDateInput(new Date(targetYear, 0, 1)), toDateInput(new Date(targetYear, 11, 31))]
+}
+
+function applyPeriodPreset(preset: PeriodPreset) {
+  periodPreset.value = preset
+  if (preset === 'custom') return
+  const [startDate, endDate] = periodBounds(preset)
+  filters.startDate = startDate
+  filters.endDate = endDate
+  void refresh({ resetPage: true })
+}
+
+function onPeriodChange(event: Event) {
+  applyPeriodPreset((event.target as HTMLSelectElement).value as PeriodPreset)
 }
 
 /** 当前展开导出菜单的商号（桌面端） */
@@ -131,6 +216,50 @@ function rowExportUrl(item: SettlementListItem, fmt: 'xlsx' | 'pdf' = 'xlsx'): s
   return fmt === 'pdf'
     ? settlementTemplatePdfUrl(item.merchantNo)
     : settlementTemplateExportUrl(item.merchantNo)
+}
+
+function rowExportKey(item: SettlementListItem, fmt: 'xlsx' | 'pdf'): string {
+  return `${item.merchantNo}:${fmt}`
+}
+
+function isExporting(key: string): boolean {
+  return exportingKeys.value.has(key)
+}
+
+function setExporting(key: string, active: boolean) {
+  const next = new Set(exportingKeys.value)
+  if (active) next.add(key)
+  else next.delete(key)
+  exportingKeys.value = next
+}
+
+async function runExport(key: string, url: string, fallbackFilename: string) {
+  if (isExporting(key)) return
+  setExporting(key, true)
+  exportNotice.value = ''
+  exportError.value = ''
+  try {
+    const filename = await downloadFile(url, fallbackFilename)
+    exportNotice.value = `${filename} 已开始下载`
+  } catch (caught) {
+    exportError.value = caught instanceof Error ? caught.message : '导出失败，请稍后重试'
+  } finally {
+    setExporting(key, false)
+  }
+}
+
+function runListExport() {
+  void runExport('list', listExportUrl.value, '结算单列表.xlsx')
+}
+
+function runRowExport(item: SettlementListItem, fmt: 'xlsx' | 'pdf') {
+  openExportMenu.value = ''
+  const extension = fmt === 'pdf' ? 'pdf' : 'xlsx'
+  void runExport(
+    rowExportKey(item, fmt),
+    rowExportUrl(item, fmt),
+    `${displayMerchantNo(item)}-结算单.${extension}`,
+  )
 }
 
 function openRecords(item: SettlementListItem) {
@@ -173,12 +302,13 @@ async function loadOptions() {
   return data
 }
 
-async function refresh(options: { resetPage?: boolean } = {}) {
+async function refresh(options: { resetPage?: boolean; preserveRows?: boolean } = {}) {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
     error.value = '销售日期起不能晚于销售日期止'
     return
   }
-  if (options.resetPage) {
+  const targetPage = options.resetPage ? 1 : page.value
+  if (options.resetPage && !options.preserveRows) {
     page.value = 1
     scopeGrades.value = []
   }
@@ -186,25 +316,30 @@ async function refresh(options: { resetPage?: boolean } = {}) {
   activeController?.abort()
   const controller = new AbortController()
   activeController = controller
-  loading.value = true
+  sorting.value = Boolean(options.preserveRows)
+  if (!options.preserveRows) loading.value = true
   error.value = ''
   try {
     const data = await getSettlements({
       ...filters,
-      page: page.value,
+      page: targetPage,
       pageSize: pageSize.value,
+      sortBy: sortBy.value || undefined,
+      sortOrder: sortOrder.value,
     }, { signal: controller.signal })
     if (version !== requestVersion) return
     settlements.value = data.settlements
     dateRange.value = data.dateRange
     pagination.value = data.pagination
+    brandTotals.value = data.brandTotals
     if (data.pagination) page.value = data.pagination.page
     mergeScopeGrades(data.settlements)
   } catch (caught) {
     if (controller.signal.aborted) return
     if (version === requestVersion) error.value = caught instanceof Error ? caught.message : '数据明细加载失败'
   } finally {
-    if (version === requestVersion) loading.value = false
+    if (version === requestVersion && !options.preserveRows) loading.value = false
+    if (version === requestVersion) sorting.value = false
   }
 }
 
@@ -221,6 +356,7 @@ async function bootstrap() {
     options.value = data.settlements
     settlements.value = data.settlements.slice(0, pageSize.value)
     dateRange.value = data.dateRange
+    brandTotals.value = data.brandTotals
     const total = data.settlements.length
     pagination.value = {
       total,
@@ -252,6 +388,18 @@ function onPageSizeChange(event: Event) {
   refresh({ resetPage: true })
 }
 
+function toggleSort(key: string) {
+  if (sorting.value) return
+  const nextSort = key as SettlementSortBy
+  if (sortBy.value === nextSort) {
+    sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
+  } else {
+    sortBy.value = nextSort
+    sortOrder.value = 'desc'
+  }
+  void refresh({ resetPage: true, preserveRows: true })
+}
+
 onMounted(bootstrap)
 onBeforeUnmount(() => {
   requestVersion += 1
@@ -268,17 +416,43 @@ onBeforeUnmount(() => {
         label="商号"
         aria-label="商号"
         placeholder="全部结算单"
+        :loading="loading || sorting"
+        @change="refresh({ resetPage: true })"
+      />
+      <SearchableSelect
+        v-model="filters.brand"
+        :options="brandSelectOptions"
+        label="品牌"
+        aria-label="品牌"
+        placeholder="全部品牌"
+        :loading="loading || sorting"
         @change="refresh({ resetPage: true })"
       />
       <DateRangeFilter
         v-model:start-date="filters.startDate"
         v-model:end-date="filters.endDate"
+        @update:start-date="periodPreset = 'custom'"
+        @update:end-date="periodPreset = 'custom'"
       />
-      <button class="primary-button" type="submit" :disabled="loading">{{ loading ? '正在查询' : '查看结果' }}</button>
+      <label class="period-filter">
+        <span class="period-filter-label">统计周期</span>
+        <select :value="periodPreset" :disabled="loading || sorting" @change="onPeriodChange">
+          <option v-for="option in periodOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+      <button class="primary-button" type="submit" :disabled="loading || sorting">{{ loading ? '正在查询' : sorting ? '正在排序' : '查看结果' }}</button>
     </form>
 
     <p v-if="dateRange" class="range-note">{{ rangeHint }}</p>
+    <div v-if="brandTotals.length" class="brand-summary" aria-label="品牌件数汇总">
+      <span class="brand-summary-total">总货量 <b>{{ formatNumber(totalFilteredQuantity) }}</b> 件</span>
+      <span v-for="row in brandTotals" :key="row.brand" class="brand-summary-item">
+        {{ row.brand }} <b>{{ formatNumber(row.totalQuantity) }}</b> 件
+      </span>
+    </div>
     <p v-if="deleteError" class="delete-error" role="alert">{{ deleteError }}</p>
+    <p v-if="exportError" class="export-feedback is-error" role="alert">{{ exportError }}</p>
+    <p v-else-if="exportNotice" class="export-feedback" role="status" aria-live="polite">{{ exportNotice }}</p>
 
     <div v-if="error" class="error-banner" role="alert">
       <span><strong>数据明细没有加载成功</strong>{{ error }}</span>
@@ -288,6 +462,16 @@ onBeforeUnmount(() => {
     <section class="panel">
       <header class="panel-head">
         <h2>结算单列表</h2>
+        <button
+          class="primary-button list-export-button"
+          type="button"
+          :disabled="isExporting('list')"
+          @click="runListExport"
+        >
+          <span v-if="isExporting('list')" class="button-spinner" aria-hidden="true"></span>
+          <FileSpreadsheet v-else :size="13" aria-hidden="true" />
+          {{ isExporting('list') ? '导出列表中…' : '导出列表' }}
+        </button>
       </header>
       <div v-if="loading" class="skeleton-block">正在加载数据明细</div>
       <div v-else-if="!settlements.length" class="empty-state prominent">
@@ -300,9 +484,13 @@ onBeforeUnmount(() => {
           :columns="columns"
           :rows="settlements"
           :row-key="(item) => item.merchantNo"
-          caption="结算单列表：每张结算单的商号、单号、柜号、到达市场日期、销售日期、各等级件数、销售金额与每件均价"
+          caption="结算单列表：每张结算单的商号、单号、柜号、到达市场日期、销售日期、各等级件数、销售金额、每件均价与录单时间"
           min-width="900px"
+          :active-sort-key="sortBy"
+          :sort-order="sortOrder"
+          :sort-busy="sorting"
           bordered
+          @sort="toggleSort"
         >
           <template #cell-merchantNo="{ row }">
             <span :title="rawMerchantNo(row) && rawMerchantNo(row) !== displayMerchantNo(row) ? `原始商号：${rawMerchantNo(row)}` : ''">
@@ -317,8 +505,16 @@ onBeforeUnmount(() => {
                   导出
                 </button>
                 <span class="export-sub" :class="{ visible: openExportMenu === row.merchantNo }">
-                  <a :href="rowExportUrl(row, 'xlsx')" download @click.stop="openExportMenu = ''"><FileSpreadsheet :size="14" aria-hidden="true" /> Excel</a>
-                  <a :href="rowExportUrl(row, 'pdf')" download @click.stop="openExportMenu = ''"><FileText :size="14" aria-hidden="true" /> PDF</a>
+                  <button
+                    type="button"
+                    :disabled="isExporting(rowExportKey(row, 'xlsx'))"
+                    @click.stop="runRowExport(row, 'xlsx')"
+                  ><FileSpreadsheet :size="14" aria-hidden="true" /> {{ isExporting(rowExportKey(row, 'xlsx')) ? '导出中…' : 'Excel' }}</button>
+                  <button
+                    type="button"
+                    :disabled="isExporting(rowExportKey(row, 'pdf'))"
+                    @click.stop="runRowExport(row, 'pdf')"
+                  ><FileText :size="14" aria-hidden="true" /> {{ isExporting(rowExportKey(row, 'pdf')) ? '导出中…' : 'PDF' }}</button>
                 </span>
               </span>
               <button class="row-action-button is-primary" type="button" @click="openRecords(row)">
@@ -339,14 +535,14 @@ onBeforeUnmount(() => {
             <footer v-if="totalCount" class="list-pagination" aria-label="结算单分页">
               <span class="pagination-summary">共 <b>{{ totalCount }}</b> 张 · 第 <b>{{ page }}</b> / {{ totalPages }} 页</span>
               <label class="pagination-size">每页
-                <select :value="pageSize" @change="onPageSizeChange">
+                <select :value="pageSize" :disabled="loading || sorting" @change="onPageSizeChange">
                   <option v-for="size in PAGE_SIZE_OPTIONS" :key="size" :value="size">{{ size }}</option>
                 </select>
                 张
               </label>
               <div class="pagination-actions">
-                <button type="button" class="page-button" :disabled="page <= 1" @click="goPage(page - 1)">上一页</button>
-                <button type="button" class="page-button" :disabled="page >= totalPages" @click="goPage(page + 1)">下一页</button>
+                <button type="button" class="page-button" :disabled="loading || sorting || page <= 1" @click="goPage(page - 1)">上一页</button>
+                <button type="button" class="page-button" :disabled="loading || sorting || page >= totalPages" @click="goPage(page + 1)">下一页</button>
               </div>
             </footer>
           </template>
@@ -358,9 +554,11 @@ onBeforeUnmount(() => {
               <div>
                 <strong>{{ displayMerchantNo(item) }}</strong>
                 <small>
-                  {{ item.orderNoNormalized || item.orderNo || '未登记单号' }} · {{ item.containerNo || '未登记柜号' }}
+                  {{ item.brand || '未识别品牌' }} · {{ item.orderNoNormalized || item.orderNo || '未登记单号' }} · {{ item.containerNo || '未登记柜号' }}
                   <br />
                   到达 {{ item.arrivalDate || '—' }} · 销售 {{ salesPeriod(item) }}
+                  <br />
+                  录单 {{ formatDateTime(item.confirmedAt) }}
                 </small>
               </div>
             </header>
@@ -376,12 +574,18 @@ onBeforeUnmount(() => {
             </div>
             <div class="mobile-card-actions-bar">
               <button class="primary-button mobile-detail-button" type="button" @click="openRecords(item)">查看明细</button>
-              <a class="text-button export-row-link" :href="rowExportUrl(item, 'xlsx')" download>
-                <FileSpreadsheet :size="14" aria-hidden="true" /> Excel
-              </a>
-              <a class="text-button export-row-link" :href="rowExportUrl(item, 'pdf')" download>
-                <FileText :size="14" aria-hidden="true" /> PDF
-              </a>
+              <button
+                class="text-button export-row-link"
+                type="button"
+                :disabled="isExporting(rowExportKey(item, 'xlsx'))"
+                @click="runRowExport(item, 'xlsx')"
+              ><FileSpreadsheet :size="14" aria-hidden="true" /> {{ isExporting(rowExportKey(item, 'xlsx')) ? '导出中…' : 'Excel' }}</button>
+              <button
+                class="text-button export-row-link"
+                type="button"
+                :disabled="isExporting(rowExportKey(item, 'pdf'))"
+                @click="runRowExport(item, 'pdf')"
+              ><FileText :size="14" aria-hidden="true" /> {{ isExporting(rowExportKey(item, 'pdf')) ? '导出中…' : 'PDF' }}</button>
               <button
                 class="text-button delete-row-link"
                 type="button"
@@ -429,9 +633,33 @@ onBeforeUnmount(() => {
    让网格项可收缩，宽度不够时交给 .table-wrap 自己内部滚动。 */
 .settlement-list-page > * { min-width: 0; }
 /* 顶部区块收紧，把高度让给列表：配合下方“整页一屏高”，分页始终留在可视区。 */
-.settlement-list-filter { grid-template-columns: repeat(2, minmax(160px, 1fr)) auto; gap: 10px; padding: 10px; }
+.settlement-list-filter { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 10px; }
+.settlement-list-filter > :not(.primary-button) { flex: 1 1 220px; min-width: 220px; }
+.settlement-list-filter > .period-filter { flex: 1 1 180px; min-width: 180px; }
+.settlement-list-filter > .primary-button { flex: 0 0 auto; }
 .settlement-list-filter label { gap: 4px; font-size: .95rem; }
 .range-note { margin: 0; color: var(--muted); font-size: .84rem; }
+.period-filter { display: grid; gap: 4px; min-width: 0; }
+.period-filter-label { color: var(--ink); font-size: .95rem; font-weight: 700; }
+.period-filter select { width: 100%; min-height: 3.06rem; padding: 0 .6rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; }
+.brand-summary { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; color: var(--muted); font-size: .84rem; }
+.brand-summary b { color: var(--primary-dark); font-variant-numeric: tabular-nums; }
+.brand-summary-item { white-space: nowrap; }
+.list-export-button { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.list-export-button:disabled,
+.export-row-link:disabled { cursor: wait; opacity: .65; }
+.button-spinner {
+  width: .85rem;
+  height: .85rem;
+  border: 2px solid rgb(255 255 255 / 45%);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: export-spin .7s linear infinite;
+}
+@keyframes export-spin { to { transform: rotate(360deg); } }
+.export-feedback { margin: 0; color: var(--primary-dark); font-size: .88rem; font-weight: 700; }
+.export-feedback.is-error { color: var(--danger); }
+.settlement-list-page .panel-head { margin-bottom: 10px; }
 /* 表格外观统一由 components/DataTable.vue 提供，本页只负责布局与分页。 */
 .text-button { min-height: 0; padding: 2px 8px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--primary-dark); cursor: pointer; font-size: .88rem; font-weight: 700; }
 .text-button:hover { border-color: var(--primary); background: var(--primary-soft); }
@@ -478,11 +706,14 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 .export-sub.visible { display: block; }
-.export-sub a {
+.export-sub button {
   display: flex;
+  width: 100%;
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
+  border: 0;
+  background: transparent;
   color: var(--ink);
   font-size: .84rem;
   font-weight: 600;
@@ -490,9 +721,10 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   cursor: pointer;
 }
-.export-sub a:hover { background: var(--surface-soft); color: var(--primary); }
-.export-sub a svg { flex: 0 0 auto; }
-.export-sub a + a { border-top: 1px solid var(--line); }
+.export-sub button:hover:not(:disabled) { background: var(--surface-soft); color: var(--primary); }
+.export-sub button:disabled { cursor: wait; opacity: .6; }
+.export-sub button svg { flex: 0 0 auto; }
+.export-sub button + button { border-top: 1px solid var(--line); }
 .delete-row-link { color: var(--danger); }
 .delete-error { margin: 0; color: var(--danger); font-size: .88rem; font-weight: 700; }
 .delete-confirm-overlay {
@@ -604,7 +836,9 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 860px) {
-  .settlement-list-filter { grid-template-columns: 1fr; }
+  .settlement-list-filter { flex-direction: column; align-items: stretch; }
+  .settlement-list-filter > :not(.primary-button),
+  .settlement-list-filter > .period-filter { flex: 1 1 auto; min-width: 0; }
 }
 
 @media (max-width: 560px) {

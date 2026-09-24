@@ -1,7 +1,97 @@
 # HANDOFF
 
-Last updated：2026-09-21 (CST)
+Last updated：2026-09-23 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
+
+> 2026-09-23 登录后首屏与菜单响应优化（未提交）：`DateRangeFilter` 移除 Element Plus
+> DatePicker，桌面/手机统一使用两个原生 `input[type=date]`；新增 `DeferredEChart.vue`，四个
+> ECharts 图表改为异步加载并预留高度，避免图表库阻塞核心页面和产生布局跳动；
+> `OverviewView` 的核心指标、等级明细、商号候选三个请求并发启动但分别维护数据、错误与
+> loading，任一慢请求不再卡住其余板块。路由切换新增顶部进度条、目标菜单 pending 高亮和
+> `aria-live` 状态；分片恢复抽为 `routeChunkRecovery.ts`，覆盖 JS 动态导入、CSS preload
+> 和 Safari 模块加载失败，首次刷新目标页、持续失败进入 `/error`，无无限刷新。
+> 构建后 Overview 路由只预加载 1.42 KB 的延迟封装，不再静态预加载 555.92 KB 的 ECharts
+> 实现分片；Element Plus 业务共享分片由此前约 257 KB / gzip 83 KB 降为当前
+> 133.09 KB / gzip 46.77 KB。验证见 Test Status「登录后首屏与菜单响应优化」。
+
+> 2026-09-23 异步操作等待反馈（未提交）：统一补齐导出、服务端排序、商号/品牌下拉查询、
+> 手工录单暂存/保存/覆盖保存、导入复核切换/还原/提交前保存/正式提交、问题明细 CSV 下载、
+> 品牌对比更新等耗时操作的局部 loading。按钮在请求期间禁用并显示具体动作文案；排序保留旧表格，
+> 只锁定排序表头与分页控件；下载统一走 `fetch + Blob`，保留后端错误文案和文件名解析。
+> 未修改后端接口、数据口径或导出内容，未引入新依赖。新增 `frontend/src/utils/fileDownload.ts`、
+> `frontend/tests/file-download.test.ts`、`frontend/tests/async-feedback.test.mjs`，并同步补充共享组件
+> 与页面回归断言。验证见下方 Test Status「异步操作等待反馈」。
+
+> 2026-09-23 默认错误页（未提交）：现有系统已接入分层错误恢复。页面级 GET/HEAD 的
+> 500/502/503/504、网络/超时/无效响应、Vue/JS 未捕获异常、路由分片二次加载失败进入
+> `/error`；未知地址显示 404，权限不足显示 403，401 返回登录页；写请求、业务校验、
+> 冲突和通知等局部失败保留原页面。新增 `frontend/src/views/ErrorView.vue`、
+> `frontend/src/styles-error.css`、`frontend/public/error-static.html`，静态页不依赖 Vue/API，
+> 可供 Nginx `error_page 500 502 503 504` 使用。访客登录/注册/验证码 401 与 `/api/auth/me`
+> 未登录 401 均不广播全局会话过期事件，避免错误页/登录页竞态跳转；仅已建立会话后的请求
+> 401 才触发会话过期处理。53002 预览已停用，不再作为当前系统或 SPA 回退入口；错误页视觉
+> 仅沿用 53001 已确认稿的现有系统令牌。
+>
+> 验证：错误页/API/路由定向测试 **21 项通过**；`npm --prefix frontend run typecheck`
+> 通过；`npm --prefix frontend run build` 通过（保留既有 2 条 `__VITE_PUBLIC_ASSET__` 警告与
+> ECharts 大分片提示）。Chromium + 53000：1440px / 390px 的 503 错误页、404、403、静态兜底
+> 均无 console/page error，文档宽度分别为 1440/390；截图与复现记录位于
+> `.superpowers/sdd/2026-09-23-default-error-page/`。
+
+> 2026-09-23 角色菜单默认入口与极简欢迎页（未提交）：登录后只从当前角色实际分配、
+> 已启用且权限满足的菜单中，按业务端导航顺序打开第一个；未分配「卖得怎么样」时不再
+> 回落 `/overview`。所有业务页签均可关闭，同一路由重复打开只保留一个页签；关闭全部或
+> 账号无业务菜单时进入 `/welcome`，欢迎占位在打开业务菜单后自动移除。新增极简门厅页，
+> 展示品牌标识、用户名问候、操作提示；无菜单时提示联系管理员授权。验证见 Test Status。
+
+> 2026-09-23 结算单列表录单时间与排序（未提交）：`GET /api/settlements` 列表项新增
+> 可空的 `confirmed_at`，页面在「每件均价」后展示「录单时间」，手机卡片同步显示；接口新增
+> `sort_by` / `sort_order`，支持到达市场日期、总件数、A/B 果件数、销售金额、每件均价、
+> 录单时间升降序，数据库排序在分页前完成。`DataTable.vue` 增加通用可排序表头能力，
+> 当前方向通过箭头、提示文字与 `aria-sort` 同步表达；排序请求保留当前表格，仅在响应后
+> 替换行数据，不再触发首次加载骨架屏。验证见 Test Status。
+
+> 2026-09-22 布局重设计 v2 · 真实数据联调版（未提交）：新增
+> `frontend/dev-preview/redesign-20260922-v2/`（9 页 + 共享 v2.js/v2.css），沿用
+> `redesign-20260922/` 的视觉与布局，全部改为调用现网 `/api` 真实数据，**未改动任何
+> 后端逻辑**。功能与现网对齐：真实登录（`auth/login`）、看板（日期/商号筛选、KPI、
+> 趋势、等级环图、经营异常）、每一单（keyword 搜索、服务端分页、导出 xlsx）、结算单
+> 详情（hero/基础信息/等级/规格聚合/明细/结算信息/AI 同品牌分析/导出/复核/删除）、
+> 结算单对比（双柜 + 排名表）、品牌对比（勾选 ≤6 张、等级堆叠、号别细分、AI 小结）、
+> 录单/导入（多文件上传→预览→复核，草稿可改可确认可放弃，批次问题可标记处理）、
+> 手工录单（市场/品种字典、暂存恢复、409 覆盖确认、编辑已有手工单）、顺仔问答、
+> 站内通知。表单校验口径与 `EntryView.validate` 一致（基本信息全必填、品种/规格格式）。
+> 预览索引 `frontend/dev-preview/index.ts` 已登记 v2 入口。
+> 2026-09-22 v2 预览外网访问修复：用户反馈 `http://120.48.117.234:53001/dev-preview/redesign-20260922-v2`
+> 白屏，根因是 Vite 对**无尾斜杠目录**回退到主应用 index.html，Vue Router 无匹配路由导致
+> 空白。按用户指定改用已放行的 53002 端口：新增系统 nginx vhost
+> `/www/server/panel/vhost/nginx/fruits_dev_preview_53002.conf`（不在 Git 内），
+> root 指向 `frontend/`，只开放 `/dev-preview/` 静态目录与 `/api/` 反代（127.0.0.1:8000），
+> 目录无尾斜杠由 nginx 自动 301 补全，`/` 301 到 `/dev-preview/`，其余路径 404 不暴露源码。
+> 验证：no-slash 301→200、各页/v2.js/v1 css 200、`/api/auth/me` 401 反代正常、
+> `/src/main.ts` 404；Playwright 无外网白屏（未登录时 iframe 内自动跳登录页，属预期）。
+> 稳定入口：`http://120.48.117.234:53002/dev-preview/redesign-20260922-v2`（有/无尾斜杠均可）。
+>
+> 2026-09-22 v2 未登录空白修复：用户反馈“主框架显示、内容为空”，根因是 `v2.js`
+> `bootShell()` 内 `getUser()` 使用 `skipAuthRedirect`，未登录时 Promise 拒绝后既不跳登录
+> 也不渲染任何内容。已在 `bootShell` 增加 `catch → 跳 login.html?next=`。验证（53002，
+> 临时账号已删）：未登录直开 overview → 跳登录页；index iframe 落到登录页；iframe 内
+> 登录后回到 overview 并渲染 4 个 KPI 真实数据。
+
+
+> 验证：Playwright + Chromium（53001 开发实例，临时账号 tmp_preview_v2_20260922 已删）——
+> 8 页桌面/3 页移动端加载零 pageerror；真实 DeepSeek 联调（顺仔问均价、详情页 AI 分析）
+> 返回真实数字；真实 xlsx 上传→复核（5 份草稿、阻断问题真实标红）→放弃；手工单
+> 建单→详情→删除全链路通过。正式验证命令（pytest/npm test）本轮未改动应用代码，未运行。
+
+> 2026-09-22 用户端离线部署脚本全链路验证（未提交）：在 Docker 镜像清空后，用
+> `images/scripts/` 完成 `check.sh` → `configure-env.sh` → `load-images.sh` →
+> `start.sh` → `status.sh` → `stop.sh` → `start.sh` 全链路实测，并从当前源码执行
+> `build-images.sh` 重建两端镜像与 tar；`fruits-ana-offline` 两个容器均健康，
+> `http://127.0.0.1:8000/health` 返回 `{"status":"ok"}`，`http://127.0.0.1:53000/`
+> 返回 200。修复 `images/scripts/package.sh`：打包时排除
+> `images/config/.env.docker`，避免生产数据库口令 / API Key 进入部署包；
+> 重新生成的部署包已确认不含该文件，且镜像 tar 与脚本可执行权限完整。
 
 > 2026-09-21 报价单定稿推进（未提交）：报价单更新至 V0.3。工程师单价按 ¥1,500/人日，
 > 梁万琪 30 人日 × 1,500 = 45,000 元，林霆枫 30 人日 × 1,500 = 45,000 元，
@@ -1036,6 +1126,11 @@ backend/app/api/entry.py                        # 手工录单；覆盖修改写
 frontend/src/views/ImportReviewView.vue        # 多文件二次确认页
 frontend/src/views/EntryView.vue               # 手工录单；默认支持 AB/BC 原文
 frontend/src/main.ts                     # 路由与守卫（默认入口 /login）
+frontend/src/views/ErrorView.vue         # 系统级错误页（读取 sessionStorage，不请求业务 API）
+frontend/src/styles-error.css            # 错误页响应式样式与现有语义变量
+frontend/public/error-static.html        # Vue/上游不可用时的自包含静态错误页
+frontend/src/utils/errorRecovery.ts      # 错误分类、状态持久化与 fatal/auth 事件
+frontend/tests/error-page.test.mjs       # 错误页源码与静态页约束测试
 frontend/src/utils/logger.ts             # 前端统一 logger（敏感字段脱敏，2026-09-21）
 frontend/src/auth.ts                     # 前端会话状态与 safeRedirect
 frontend/src/components/AuthPortal.vue   # 登录/注册共用骨架
@@ -1104,6 +1199,93 @@ npm --prefix frontend run typecheck
 ```
 
 ## Test Status
+
+### 登录后首屏与菜单响应优化（2026-09-23）
+
+- TDD 定向：日期减重、ECharts 延迟封装、总览渐进加载、导航反馈、JS/CSS/Safari 分片恢复，
+  **23 项通过**。
+- 前端全量：`npm --prefix frontend run test`，**263 项全部通过**。
+- 类型检查：`npm --prefix frontend run typecheck`，通过。
+- 构建：`npm --prefix frontend run build`，成功（2402 modules）；保留既有 2 条
+  `__VITE_PUBLIC_ASSET__` 提示和 ECharts 独立分片 >500 KB warning。产物为
+  `BaseEChart` 555.92 KB / gzip 190.64 KB（异步）、`SearchableSelect` 133.09 KB /
+  gzip 46.77 KB；Overview 路由预加载清单不含 `BaseEChart`。
+- Chromium + 53000（API 请求拦截，不写数据库）：核心指标约 **490ms** 显示时，1.5s 的
+  等级接口仍保持独立 loading；目标分片延迟 1.2s 时，菜单点击后约 **39ms** 显示进度条和
+  目标高亮，约 1.3s 后进入目标页，console/page error 为 0。
+- JS 分片与 CSS 分片分别首次 abort，均刷新一次后进入目标页；JS 持续 abort 时共失败两次后
+  进入 `/error`，未出现无限刷新。390×844 下两个原生日期输入均可见、页面横向溢出 0，
+  菜单 pending 状态正常；`prefers-reduced-motion: reduce` 下进度条动画关闭。
+
+### 异步操作等待反馈（2026-09-23）
+
+- 前端定向：`node --experimental-strip-types --test frontend/tests/file-download.test.ts
+  frontend/tests/data-table.test.ts frontend/tests/searchable-select.test.ts
+  frontend/tests/settlement-export.test.ts frontend/tests/import-review-copy.test.mjs
+  frontend/tests/series-comparison-loading.test.mjs frontend/tests/async-feedback.test.mjs`，
+  **43 项通过**。
+- 前端全量：`npm --prefix frontend run test`，**263 项全部通过**。
+- 类型检查：`npm --prefix frontend run typecheck`，通过。
+- 构建：`npm --prefix frontend run build`，成功（2402 modules）；保留既有 2 条
+  `__VITE_PUBLIC_ASSET__` 运行时解析提示与 ECharts 大分片 warning。
+- 工作区检查：`git diff --check`，通过。当前工作区仍包含其他并行/历史未提交改动，未做清理或覆盖。
+
+### 默认错误页与统一错误恢复（2026-09-23）
+
+- 定向：错误分类、API Request ID、401 边界、路由守卫、错误页源码与静态页约束共 **21 项通过**。
+- 前端全量：`npm --prefix frontend run test` 当前 **257 项中 252 项通过、5 项失败**；失败集中在
+  共享工作区另一项异步操作反馈/列表布局在途改动（`data-table.test.ts`、
+  `import-review-copy.test.mjs`、`series-comparison-loading.test.mjs`、`settlement-export.test.ts`），
+  不涉及本次错误恢复文件。完整输出保存在 `.superpowers/sdd/2026-09-23-default-error-page/final-frontend-test.log`。
+- 类型检查：`npm --prefix frontend run typecheck` 通过。
+- 构建：`npm --prefix frontend run build` 通过；保留既有 2 条 `__VITE_PUBLIC_ASSET__` 解析
+  警告与 ECharts 大分片提示。
+- Chromium + 53000：1440px / 390px 的 503 错误页、未知地址 404、403 权限页和
+  `/error-static.html` 均无 console/page error，`document.body.scrollWidth` 分别等于视口宽度。
+  截图与脚本输出在 `.superpowers/sdd/2026-09-23-default-error-page/`。
+- 53002：预览 vhost 已停用，不再作为 SPA 回退或当前系统验证入口；53001 仅保留已确认视觉稿。
+
+### 角色菜单默认入口与极简欢迎页（2026-09-23）
+
+- 定向回归：`node --experimental-strip-types --test tests/auth-menu.test.ts
+  tests/shell-menu.test.ts tests/shell-tabs.test.ts tests/shell-header.test.ts
+  tests/welcome-view.test.mjs`，**33 项通过**。
+- `npm --prefix frontend run typecheck` 通过。
+- 前端全量：`npm --prefix frontend run test`，**240 项全部通过**。
+- 本任务实现后的首次 `npm --prefix frontend run build` 通过；最终复验时共享工作区另一项
+  「默认错误页」在途改动已在 `main.ts` 引用尚未创建的 `views/ErrorView.vue`，当前构建因此
+  被 Rollup 阻断。本任务新增的 `WelcomeView.vue` 已在前一次构建产出独立分片。
+
+### 结算单列表录单时间与排序（2026-09-23）
+
+- 后端定向：`.venv/bin/python -m pytest backend/tests/test_settlements_api.py -q
+  --basetemp=backend/.pytest-tmp-sort`，**20 项通过**；覆盖 7 个排序字段、升降序参数校验、
+  排序先于分页，以及可空的 `confirmed_at` 响应字段。
+- 后端结算单/导出回归：`.venv/bin/python -m pytest backend/tests -q
+  --basetemp=backend/.pytest-tmp-sort-regression -k 'settlement_list or settlements or exports'`，
+  **35 项通过**。
+- 后端全量：共 391 项，**382 项通过、9 项失败**；9 项均因本机缺少
+  `attachments/结算单模板样式-测试数据 1/2/3.xlsx`，集中在导入草稿、导入 API 与模板解析测试，
+  与本次列表改动无关。
+- 前端定向：`node --experimental-strip-types --test tests/analytics-client.test.ts
+  tests/data-table.test.ts tests/settlement-export.test.ts`，**30 项通过**。
+- 前端构建：`npm --prefix frontend run build` 通过；保留 2 条既有
+  `__VITE_PUBLIC_ASSET__` warning 与大分片 warning。
+- 前端全量：225 项中 **215 项通过、10 项失败**；失败集中在并行在途的默认入口、欢迎页、
+  页签与 header 改动，其中 `WelcomeView.vue` 尚不存在；与结算单列表无关，本次 30 项定向测试均通过。
+- 前端 `typecheck`：被既有 `frontend/src/auth.ts` 的 `Array.prototype.at()` 与当前
+  TypeScript `lib` 配置不匹配阻断（TS2550），本次未修改该文件。
+
+### 结算单列表品牌筛选修复（2026-09-22）
+
+- 品牌筛选与品牌汇总统一改为「适配后单号 `-` 前中文前缀」：`宝贝-001 → 宝贝`，
+  不再使用 `import_batch.brand`；`GET /api/settlements?brand=香香` 按单号前缀过滤，
+  且 `brand_totals` 与下拉值、列表列、导出的「品牌」列同一口径。
+- 后端定向验证：`.venv/bin/python -m pytest backend/tests -q --basetemp=backend/.pytest-tmp
+  -k 'settlement_list or settlement_export or settlements or exports'` **25 项通过**；
+  新增品牌过滤 / 未知品牌空结果测试。
+- 用户端前端：`npm --prefix frontend run test` **212/212 通过**；`typecheck` 通过。
+- 用户端后端已在 8000 端口重启加载新口径；管理端种子角色默认菜单修复不依赖重启。
 
 ### 手机版第四轮 / 导入上传区（2026-09-21）
 

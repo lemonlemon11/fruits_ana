@@ -57,8 +57,8 @@ test('顶部时间格式包含本地日期、星期和时分秒', () => {
   })
 })
 
-test('header 品牌图标返回销售总览并提供可访问的侧栏按钮和时间', () => {
-  assert.match(shell, /<RouterLink class="app-header-home" to="\/overview"/)
+test('header 品牌图标返回角色默认入口并提供可访问的侧栏按钮和时间', () => {
+  assert.match(shell, /<RouterLink class="app-header-home" :to="defaultHomePath"/)
   assert.match(shell, /class="sidebar-toggle"/)
   assert.match(shell, /:aria-expanded="!sidebarCollapsed"/)
   assert.match(shell, /aria-controls="primary-nav"/)

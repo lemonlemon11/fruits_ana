@@ -7,7 +7,7 @@ import { gradeLabel } from '../api/client'
 import { activeGrades, gradeColors } from '../utils/grades'
 import { echartTheme } from '../utils/echartTheme'
 import { formatNumber, formatPercent } from '../utils/format'
-import BaseEChart from './BaseEChart.vue'
+import DeferredEChart from './DeferredEChart.vue'
 
 const props = defineProps<{
   grades: GradeMetric[]
@@ -93,7 +93,7 @@ const chartOption = computed<EChartsOption>(() => ({
     </div>
     <div v-else class="pie-layout">
       <div class="pie-graphic">
-        <BaseEChart
+        <DeferredEChart
           :option="chartOption"
           height="116px"
           :aria-label="`${visibleGrades.map(gradeLabel).join('、')} 等级件数占比环形图`"

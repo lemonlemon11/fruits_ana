@@ -1,6 +1,7 @@
 import type {
   AnalyticsFilters,
   AskResult,
+  BrandTotal,
   EntryAfterSaleItem,
   EntryDraft,
   EntryFeeItem,
@@ -47,9 +48,14 @@ export function buildAnalyticsQuery(filters: SettlementListFilters): string {
   if (filters.startDate) params.set('start_date', filters.startDate)
   if (filters.endDate) params.set('end_date', filters.endDate)
   if (filters.merchantNo) params.set('merchant_no', filters.merchantNo)
+  if (filters.brand) params.set('brand', filters.brand)
   if (filters.includeAllSettlements) params.set('include_all_settlements', 'true')
   if (filters.page) params.set('page', String(filters.page))
   if (filters.pageSize) params.set('page_size', String(filters.pageSize))
+  if (filters.sortBy) {
+    params.set('sort_by', filters.sortBy)
+    params.set('sort_order', filters.sortOrder ?? 'desc')
+  }
   const query = params.toString()
   return query ? `?${query}` : ''
 }
@@ -327,6 +333,15 @@ export function normalizeSettlementList(payload: unknown): SettlementListData {
     settlements: asArray(Array.isArray(body) ? body : body.settlements ?? body.items)
       .map(normalizeSettlementListItem),
     pagination: normalizeSettlementPagination(body.pagination),
+    brandTotals: asArray(body.brand_totals ?? body.brandTotals).map(normalizeBrandTotal),
+  }
+}
+
+function normalizeBrandTotal(row: JsonRecord): BrandTotal {
+  return {
+    brand: stringOr(pick(row, 'brand'), '未识别品牌'),
+    totalQuantity: numberOr(pick(row, 'total_quantity', 'totalQuantity'), 0),
+    settlementCount: numberOr(pick(row, 'settlement_count', 'settlementCount'), 0),
   }
 }
 
@@ -350,6 +365,7 @@ function normalizeSettlementListItem(row: JsonRecord): SettlementListItem {
     merchantNoNormalized: stringOr(pick(row, 'merchant_no_normalized', 'merchantNoNormalized'), ''),
     orderNo: stringOr(pick(row, 'order_no', 'orderNo'), ''),
     orderNoNormalized: stringOr(pick(row, 'order_no_normalized', 'orderNoNormalized'), ''),
+    brand: stringOr(pick(row, 'brand'), UNKNOWN_SERIES),
     fruitType: stringOr(pick(row, 'fruit_type', 'fruitType'), '榴莲'),
     series: stringOr(pick(row, 'series'), UNKNOWN_SERIES),
     containerNo: stringOr(pick(row, 'container_no', 'containerNo'), ''),
@@ -360,6 +376,7 @@ function normalizeSettlementListItem(row: JsonRecord): SettlementListItem {
     salesAmount: numberOr(pick(row, 'sales_amount', 'salesAmount'), 0),
     totalQuantity: numberOr(pick(row, 'total_quantity', 'totalQuantity'), 0),
     averagePrice: nullableNumber(pick(row, 'average_price', 'averagePrice')),
+    confirmedAt: stringOr(pick(row, 'confirmed_at', 'confirmedAt'), ''),
     gradeQuantities: GRADES.reduce<Record<Grade, number>>(
       (result, grade) => ({ ...result, [grade]: numberOr(pick(quantities, grade, grade.toLowerCase()), 0) }),
       emptyGradeRecord(0),

@@ -40,8 +40,9 @@ test('每个图表都有图例', () => {
   }
 })
 
-test('ECharts 图表通过统一封装接入并包含图例', () => {
+test('ECharts 图表通过延迟封装接入并包含图例', () => {
   const base = read('components/BaseEChart.vue')
+  const deferred = read('components/DeferredEChart.vue')
 
   const echartsCharts = [
     'components/TrendChart.vue',
@@ -52,10 +53,15 @@ test('ECharts 图表通过统一封装接入并包含图例', () => {
 
   for (const file of echartsCharts) {
     const source = read(file)
-    assert.match(source, /import BaseEChart from/, `${file} 未接入统一 ECharts 封装`)
+    assert.match(source, /import DeferredEChart from/, `${file} 未接入延迟 ECharts 封装`)
+    assert.doesNotMatch(source, /import BaseEChart from/, `${file} 仍会静态加载 ECharts`)
     assert.match(source, /legend: \{|pie-legend/, `${file} 未配置图例`)
   }
 
+  assert.match(deferred, /defineAsyncComponent/)
+  assert.match(deferred, /import\('\.\/BaseEChart\.vue'\)/)
+  assert.match(deferred, /suspensible:\s*false/)
+  assert.match(deferred, /aria-busy/)
   assert.match(base, /echarts\/core/, 'BaseEChart 未使用 ECharts 核心包')
   assert.match(base, /CanvasRenderer/, 'BaseEChart 未启用 Canvas 渲染')
 })

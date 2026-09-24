@@ -23,7 +23,12 @@ export interface DataTableColumn<Row> {
   foot?: () => unknown
   /** 自定义取值，供按等级展开之类的动态列使用。 */
   value?: (row: Row) => unknown
+  /** 可排序列由父页面处理数据请求；组件只负责表头交互与状态展示。 */
+  sortable?: boolean
+  sortKey?: string
 }
+
+const emit = defineEmits<{ sort: [key: string] }>()
 
 const props = withDefaults(
   defineProps<{
@@ -45,6 +50,10 @@ const props = withDefaults(
     dataLabels?: boolean
     /** 窄屏（≤560px）自动把每行折成一张带列名的卡片，不再横向滚动。 */
     cardsOnNarrow?: boolean
+    activeSortKey?: string
+    sortOrder?: 'asc' | 'desc'
+    /** 服务端排序请求进行中；保留现有行，只锁定排序表头并展示局部状态。 */
+    sortBusy?: boolean
   }>(),
   {
     caption: '',
@@ -54,6 +63,9 @@ const props = withDefaults(
     footLabel: '',
     dataLabels: false,
     cardsOnNarrow: false,
+    activeSortKey: '',
+    sortOrder: 'desc',
+    sortBusy: false,
   },
 )
 
@@ -73,13 +85,34 @@ function footValue(column: DataTableColumn<Row>, index: number): unknown {
   if (index === 0 && !column.foot && props.footLabel) return props.footLabel
   return column.foot ? column.foot() : ''
 }
+
+function isActiveSort(column: DataTableColumn<Row>): boolean {
+  return props.activeSortKey === (column.sortKey ?? column.key)
+}
+
+function ariaSort(column: DataTableColumn<Row>): 'ascending' | 'descending' | 'none' | undefined {
+  if (!column.sortable) return undefined
+  if (!isActiveSort(column)) return 'none'
+  return props.sortOrder === 'asc' ? 'ascending' : 'descending'
+}
+
+function sortIndicator(column: DataTableColumn<Row>): string {
+  if (!isActiveSort(column)) return '↕'
+  if (props.sortBusy) return '…'
+  return props.sortOrder === 'asc' ? '↑' : '↓'
+}
 </script>
 
 <template>
   <div
     class="data-table"
     :class="{ 'is-bordered': props.bordered, 'cards-on-narrow': props.cardsOnNarrow }"
+    :aria-busy="props.sortBusy"
   >
+    <div v-if="props.sortBusy" class="data-table-busy" role="status" aria-live="polite">
+      <span class="data-table-busy-spinner" aria-hidden="true"></span>
+      正在排序
+    </div>
     <div class="data-table-scroll">
       <table :style="{ minWidth }">
         <caption v-if="caption" class="sr-only">{{ caption }}</caption>
@@ -89,7 +122,26 @@ function footValue(column: DataTableColumn<Row>, index: number): unknown {
               v-for="column in props.columns"
               :key="column.key"
               :style="{ width: column.width, textAlign: alignOf(column) }"
-            >{{ column.label }}</th>
+              :aria-sort="ariaSort(column)"
+            >
+              <button
+                v-if="column.sortable"
+                class="data-table-sort"
+                type="button"
+                :disabled="props.sortBusy"
+                :class="{ 'is-active': isActiveSort(column) }"
+                :style="{ justifyContent: alignOf(column) === 'right' ? 'flex-end' : 'flex-start' }"
+                :title="`${column.label}：${isActiveSort(column) ? (props.sortOrder === 'asc' ? '当前升序，点击改为降序' : '当前降序，点击改为升序') : '点击排序'}`"
+                @click="emit('sort', column.sortKey ?? column.key)"
+              >
+                <span>{{ column.label }}</span>
+                <span class="data-table-sort-indicator" aria-hidden="true">{{ sortIndicator(column) }}</span>
+                <span class="sr-only">
+                  {{ isActiveSort(column) ? (props.sortOrder === 'asc' ? '当前升序' : '当前降序') : '当前未排序' }}
+                </span>
+              </button>
+              <template v-else>{{ column.label }}</template>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -139,6 +191,7 @@ function footValue(column: DataTableColumn<Row>, index: number): unknown {
 
 <style scoped>
 .data-table {
+  position: relative;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   min-height: 0;
@@ -147,6 +200,35 @@ function footValue(column: DataTableColumn<Row>, index: number): unknown {
   border-radius: var(--radius-md);
   background: var(--surface);
 }
+.data-table-busy {
+  position: absolute;
+  z-index: 5;
+  top: .35rem;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 1.8rem;
+  padding: .2rem .65rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgb(24 49 42 / 12%);
+  color: var(--primary-dark);
+  font-size: .82rem;
+  font-weight: 800;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.data-table-busy-spinner {
+  width: .8rem;
+  height: .8rem;
+  border: 2px solid var(--primary-soft);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: data-table-spin .7s linear infinite;
+}
+@keyframes data-table-spin { to { transform: rotate(360deg); } }
 .data-table-scroll { min-height: 0; overflow: auto; }
 .data-table table { width: 100%; border-collapse: separate; border-spacing: 0; color: var(--ink); font-size: .95rem; }
 .data-table th,
@@ -162,6 +244,26 @@ function footValue(column: DataTableColumn<Row>, index: number): unknown {
   font-weight: 700;
   white-space: nowrap;
 }
+.data-table-sort {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  gap: .3rem;
+  padding: .15rem 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: inherit;
+  white-space: nowrap;
+}
+.data-table-sort:hover,
+.data-table-sort:focus-visible { color: var(--primary); }
+.data-table-sort:disabled { cursor: wait; opacity: .7; }
+.data-table-sort:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.data-table-sort-indicator { min-width: .9rem; color: var(--muted); font-size: .82rem; text-align: center; }
+.data-table-sort.is-active .data-table-sort-indicator { color: var(--primary-dark); font-weight: 800; }
 .data-table tbody tr:last-child td,
 .data-table tbody tr:last-child th { border-bottom: 0; }
 .data-table tbody th[scope='row'] { text-align: left; }

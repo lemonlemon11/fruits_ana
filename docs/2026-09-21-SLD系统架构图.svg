@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="900" viewBox="0 0 1360 900" font-family="WenQuanYi Micro Hei, WenQuanYi Zen Hei, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#64748B"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#2F6FED"/>
+    </marker>
+    <marker id="arrowPink" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#DB2777"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1360" height="900" fill="#F7F9FC"/>
+  <text x="40" y="46" font-size="28" font-weight="700" fill="#0F172A">SLD-水果市场销售分析系统架构图</text>
+  <text x="40" y="78" font-size="16" fill="#64748B">版本 V1.0 ｜ 编制日期 2026-09-21 ｜ 按已申请 / 预留服务器清单绘制</text>
+
+  <!-- 用户层 -->
+  <text x="60" y="122" font-size="15" font-weight="700" fill="#334155">用户与微信生态</text>
+  <g filter="url(#shadow)">
+    <rect x="60" y="140" width="190" height="70" rx="12" fill="#EAF2FF" stroke="#2F6FED" stroke-width="1.5"/>
+    <text x="155" y="170" text-anchor="middle" font-size="16" fill="#0F172A">PC / 手机浏览器</text>
+    <text x="155" y="192" text-anchor="middle" font-size="13" fill="#475569">用户端 / 管理端</text>
+
+    <rect x="290" y="140" width="190" height="70" rx="12" fill="#EAF2FF" stroke="#2F6FED" stroke-width="1.5"/>
+    <text x="385" y="170" text-anchor="middle" font-size="16" fill="#0F172A">微信公众号</text>
+    <text x="385" y="192" text-anchor="middle" font-size="13" fill="#475569">品牌入口 / 消息触达</text>
+
+    <rect x="520" y="140" width="190" height="70" rx="12" fill="#EAF2FF" stroke="#2F6FED" stroke-width="1.5"/>
+    <text x="615" y="170" text-anchor="middle" font-size="16" fill="#0F172A">微信小程序</text>
+    <text x="615" y="192" text-anchor="middle" font-size="13" fill="#475569">移动端业务入口</text>
+
+    <rect x="750" y="140" width="190" height="70" rx="12" fill="#EAF2FF" stroke="#2F6FED" stroke-width="1.5"/>
+    <text x="845" y="170" text-anchor="middle" font-size="16" fill="#0F172A">企业微信</text>
+    <text x="845" y="192" text-anchor="middle" font-size="13" fill="#475569">实名认证 / 协同通知</text>
+  </g>
+
+  <!-- 费用卡片 -->
+  <g filter="url(#shadow)">
+    <rect x="1010" y="140" width="310" height="210" rx="14" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/>
+    <text x="1030" y="172" font-size="15" font-weight="700" fill="#0F172A">云资源费用（外部采购）</text>
+    <text x="1030" y="202" font-size="14" fill="#334155">生产 ECS + RDS + 域名 + 安全服务</text>
+    <text x="1030" y="224" font-size="14" font-weight="700" fill="#0F172A">¥3,299.28</text>
+    <text x="1030" y="252" font-size="14" fill="#334155">预留测试服务器 4C8G</text>
+    <text x="1030" y="274" font-size="14" font-weight="700" fill="#EA8600">¥3,500.00</text>
+    <line x1="1030" y1="286" x2="1300" y2="286" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="1030" y="306" font-size="14" fill="#334155">云资源与域名合计</text>
+    <text x="1030" y="326" font-size="14" font-weight="700" fill="#0F172A">¥6,799.28</text>
+  </g>
+
+  <!-- 接入层 -->
+  <text x="60" y="272" font-size="15" font-weight="700" fill="#334155">接入与安全</text>
+  <g filter="url(#shadow)">
+    <rect x="60" y="290" width="400" height="80" rx="12" fill="#F3E8FF" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="260" y="324" text-anchor="middle" font-size="16" fill="#0F172A">域名 / DNS / SSL</text>
+    <text x="260" y="350" text-anchor="middle" font-size="13" fill="#475569">系统访问入口与 HTTPS 证书</text>
+
+    <rect x="510" y="290" width="400" height="80" rx="12" fill="#F3E8FF" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="710" y="324" text-anchor="middle" font-size="16" fill="#0F172A">WAF / 安全服务</text>
+    <text x="710" y="350" text-anchor="middle" font-size="13" fill="#475569">安全防护、访问控制与监控告警</text>
+  </g>
+
+  <!-- 生产 ECS -->
+  <text x="60" y="442" font-size="15" font-weight="700" fill="#334155">生产环境：阿里云 ECS 应用服务器</text>
+  <g filter="url(#shadow)">
+    <rect x="60" y="460" width="760" height="230" rx="16" fill="#FFFFFF" stroke="#2F6FED" stroke-width="2"/>
+    <text x="80" y="492" font-size="16" font-weight="700" fill="#0F172A">阿里云 ECS 应用服务器（生产）</text>
+    <text x="80" y="516" font-size="13" fill="#64748B">同机部署：Nginx + FastAPI + 上传文件目录</text>
+
+    <rect x="90" y="540" width="330" height="82" rx="10" fill="#EAF2FF" stroke="#2F6FED" stroke-width="1.5"/>
+    <text x="255" y="572" text-anchor="middle" font-size="16" fill="#0F172A">Nginx</text>
+    <text x="255" y="594" text-anchor="middle" font-size="13" fill="#475569">Vue 静态资源 + /api 反向代理</text>
+    <text x="255" y="612" text-anchor="middle" font-size="13" fill="#475569">端口 53000 → 127.0.0.1:8000</text>
+
+    <rect x="470" y="540" width="330" height="82" rx="10" fill="#EAF2FF" stroke="#2F6FED" stroke-width="1.5"/>
+    <text x="635" y="572" text-anchor="middle" font-size="16" fill="#0F172A">FastAPI / Uvicorn</text>
+    <text x="635" y="594" text-anchor="middle" font-size="13" fill="#475569">backend/app/main.py</text>
+    <text x="635" y="612" text-anchor="middle" font-size="13" fill="#475569">认证 / 导入 / 分析 / 顺仔问答</text>
+
+    <rect x="90" y="644" width="710" height="34" rx="8" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="445" y="666" text-anchor="middle" font-size="13" fill="#475569">上传文件目录 backend/data/uploads/（不入库、不提交 Git）</text>
+  </g>
+
+  <!-- RDS -->
+  <g filter="url(#shadow)">
+    <rect x="880" y="460" width="280" height="160" rx="16" fill="#E7F7EF" stroke="#0F9D58" stroke-width="2"/>
+    <text x="900" y="496" font-size="16" font-weight="700" fill="#0F172A">阿里云 RDS MySQL</text>
+    <text x="900" y="520" font-size="13" fill="#475569">生产业务数据库</text>
+    <text x="900" y="546" font-size="13" fill="#475569">sales / settlement</text>
+    <text x="900" y="568" font-size="13" fill="#475569">user / import</text>
+    <text x="900" y="590" font-size="13" fill="#475569">RBAC / 会话 / 草稿</text>
+  </g>
+
+  <!-- DeepSeek -->
+  <g filter="url(#shadow)">
+    <rect x="880" y="650" width="280" height="90" rx="12" fill="#FCE7F3" stroke="#DB2777" stroke-width="1.5"/>
+    <text x="900" y="682" font-size="16" font-weight="700" fill="#0F172A">DeepSeek 大模型服务</text>
+    <text x="900" y="706" font-size="13" fill="#475569">顺仔问答 / AI 分析</text>
+    <text x="900" y="726" font-size="13" fill="#DB2777">内部研发成本，不向客户列支</text>
+  </g>
+
+  <!-- 测试服务器 -->
+  <text x="60" y="772" font-size="15" font-weight="700" fill="#334155">预留测试环境</text>
+  <g filter="url(#shadow)">
+    <rect x="60" y="790" width="900" height="78" rx="14" fill="#FFF4E5" stroke="#EA8600" stroke-width="2"/>
+    <text x="80" y="822" font-size="16" font-weight="700" fill="#0F172A">预留测试服务器 4C8G（测试 / 预发布）</text>
+    <text x="80" y="848" font-size="13" fill="#475569">Vue + FastAPI + MySQL 独立部署，不与生产环境共用；预计 ¥3,500.00</text>
+  </g>
+
+  <!-- 连接线 -->
+  <line x1="155" y1="210" x2="155" y2="290" stroke="#64748B" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="385" y1="210" x2="385" y2="290" stroke="#64748B" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="615" y1="210" x2="615" y2="290" stroke="#64748B" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="845" y1="210" x2="845" y2="290" stroke="#64748B" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <line x1="260" y1="370" x2="260" y2="540" stroke="#7C3AED" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="710" y1="370" x2="710" y2="540" stroke="#7C3AED" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <line x1="420" y1="581" x2="470" y2="581" stroke="#2F6FED" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <line x1="800" y1="581" x2="880" y2="540" stroke="#0F9D58" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="635" y1="622" x2="635" y2="644" stroke="#2F6FED" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <path d="M800 581 C 830 581 850 600 880 690" fill="none" stroke="#DB2777" stroke-width="2" marker-end="url(#arrowPink)"/>
+
+  <line x1="510" y1="829" x2="60" y2="829" stroke="#EA8600" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="285" y="816" text-anchor="middle" font-size="12" fill="#EA8600">回归验证后发布至生产</text>
+</svg>

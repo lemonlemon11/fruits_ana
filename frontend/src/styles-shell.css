@@ -16,6 +16,35 @@
   grid-template-rows: auto minmax(0, 1fr);
 }
 
+.route-loading-bar {
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease;
+}
+.route-loading-bar span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.route-loading-bar.is-active { opacity: 1; }
+.route-loading-bar.is-active span { animation: route-loading-progress 1.1s ease-out infinite; }
+
+@keyframes route-loading-progress {
+  0% { transform: scaleX(.08); opacity: .7; }
+  65% { transform: scaleX(.76); opacity: 1; }
+  100% { transform: scaleX(.94); opacity: .72; }
+}
+
 /* 顶部 header：左侧品牌与当前页面，右侧当前用户与退出登录，滚动时始终可见。 */
 .app-header {
   position: sticky;
@@ -378,6 +407,11 @@
 }
 .app-sidebar nav a:hover { border-color: var(--line-strong); background: var(--surface-soft); }
 .app-sidebar nav a.router-link-active { border-color: var(--primary-dark); background: var(--primary); color: white; }
+.app-sidebar nav a.is-navigation-pending:not(.router-link-active) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
 .nav-icon { flex: 0 0 auto; }
 
 .sign-out-button {
@@ -646,6 +680,7 @@
     font-weight: 700;
   }
   .mobile-nav-panel a.router-link-active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-dark); }
+  .mobile-nav-panel a.is-navigation-pending:not(.router-link-active) { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-dark); }
 
   .mobile-tabbar {
     position: fixed;
@@ -683,6 +718,7 @@
   }
   .mobile-tabbar a.router-link-active,
   .mobile-tabbar button.is-active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-dark); }
+  .mobile-tabbar a.is-navigation-pending:not(.router-link-active) { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-dark); }
   .app-workspace > main { padding-bottom: calc(var(--mobile-tabbar-height) + env(safe-area-inset-bottom)); }
   .app-footer {
     align-items: flex-start;
@@ -697,6 +733,11 @@
     right: 14px;
     bottom: calc(var(--mobile-tabbar-height) + env(safe-area-inset-bottom) + 6px);
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-loading-bar { transition: none; }
+  .route-loading-bar.is-active span { animation: none; transform: scaleX(.72); }
 }
 
 @media (max-width: 560px) {

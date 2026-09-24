@@ -24,3 +24,9 @@ test('候选加载态在发起对比请求前结束，避免抽屉一直显示�
   assert.ok(loadingFalseAt >= 0)
   assert.ok(comparisonAt > loadingFalseAt)
 })
+
+test('应用选择后显示对比更新状态并锁定选择器', () => {
+  assert.match(source, /:loading="loadingOptions \|\| loadingComparison"/)
+  assert.match(source, /v-if="loadingComparison" class="comparison-updating" role="status"/)
+  assert.match(source, /正在更新对比结果/)
+})
