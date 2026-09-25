@@ -125,27 +125,34 @@ def _display_range(value) -> str:
     return "" if value is None else str(value).strip()
 
 
-def _spec_range(value, label: str) -> SpecRange | None:
-    """解析规格文本；解析不出来直接拒绝入库（客户口径：不猜数，由人工补全）。"""
+def _spec_range(value, label: str, *, allow_range: bool = True) -> SpecRange | None:
+    """解析规格文本；解析不出来直接拒绝入库（客户口径：不猜数，由人工补全）。
+
+    ``allow_range=False`` 用于 KG：KG 只允许单个数值，区间写法（如 ``9/10``）拒绝入库。
+    """
 
     text = "" if value is None else str(value).strip()
     if not text:
         return None
     parsed = parse_spec_range(text)
     if parsed is None:
-        raise ValueError(f"{label}无法解析，请填写数字或区间（如 3/4、9/10、10）")
+        hint = "数字或区间（如 3/4、9/10、10）" if allow_range else "单个数字（如 10）"
+        raise ValueError(f"{label}无法解析，请填写{hint}")
+    if not allow_range and parsed.minimum != parsed.maximum:
+        raise ValueError(f"{label}不能为区间，请填写单个数字（如 10）")
     return parsed
 
 
 def _sale_model(batch_id: int, item, grade: StandardGrade) -> SaleRecord:
     amount = _money(item.sales_quantity * item.unit_price)
     head_count = _spec_range(item.head_count, "规格（头数）")
-    spec_kg = _spec_range(item.spec_kg, "规格（KG）")
+    spec_kg = _spec_range(item.spec_kg, "规格（KG）", allow_range=False)
     return SaleRecord(
         import_batch_id=batch_id,
         sale_date=item.sale_date,
         fruit_type="榴莲",
-        grade_raw=(item.variety or "").upper(),
+        variety=(item.variety or "").strip() or None,
+        grade_raw=(item.grade or "").upper() or None,
         grade=grade,
         spec_raw=str(item.spec_kg or "").strip(),
         piece_count=head_count.canonical if head_count else None,
@@ -166,7 +173,7 @@ def _write_entry(db: Session, batch: ImportBatch, payload: EntryCreate) -> None:
     db.flush()
 
     for sort_order, item in enumerate(payload.sales):
-        db.add(_sale_model(batch.id, item, convert_grade(db, item.variety)))
+        db.add(_sale_model(batch.id, item, convert_grade(db, item.grade)))
     for sort_order, item in enumerate(payload.after_sales):
         db.add(
             SettlementAfterSaleItem(
@@ -225,6 +232,7 @@ def save_entry(db: Session, payload: EntryCreate, user_id: int | None = None) ->
         ("柜号", payload.container_no),
         ("单号", payload.order_no),
         ("转运公司", payload.vehicle_no),
+        ("国家", payload.country),
         ("市场", payload.market),
     ):
         if not value.strip():
@@ -289,6 +297,7 @@ def save_entry(db: Session, payload: EntryCreate, user_id: int | None = None) ->
         order_no_normalized=normalize_order_no(payload.order_no),
         container_no=payload.container_no,
         vehicle_no=payload.vehicle_no,
+        country=payload.country,
         source_type="manual",
         parse_mode="manual",
         market=match_market(db, payload.market),
@@ -378,6 +387,7 @@ def read_entry(db: Session, merchant_no: str) -> dict | None:
         "order_no": batch.order_no,
         "container_no": batch.container_no,
         "vehicle_no": batch.vehicle_no,
+        "country": batch.country,
         "market": batch.market,
         "arrival_date": batch.arrival_date,
         "arrival_quantity": batch.arrival_quantity,
@@ -385,7 +395,8 @@ def read_entry(db: Session, merchant_no: str) -> dict | None:
         "sales": [
             {
                 "sale_date": record.sale_date,
-                "variety": record.grade_raw if record.grade_raw is not None else record.grade.value,
+                "variety": record.variety or "",
+                "grade": record.grade_raw if record.grade_raw is not None else record.grade.value,
                 "head_count": _display_range(record.piece_count),
                 "spec_kg": _display_range(record.spec_kg),
                 "sales_quantity": record.quantity,

@@ -23,8 +23,8 @@ const issueColumns: DataTableColumn<ImportIssue>[] = [
   { key: 'severity', label: '级别', value: (issue) => severityLabel(issue.severity) },
   { key: 'issueType', label: '类型', value: (issue) => issueTypeLabel(issue.issueType) },
   { key: 'fieldName', label: '字段', value: (issue) => fieldLabel(issue.fieldName) },
-  { key: 'message', label: '说明' },
-  { key: 'rawValue', label: '原始值', value: (issue) => issue.rawValue || '—' },
+  { key: 'message', label: '说明', wrap: true },
+  { key: 'rawValue', label: '原始值', wrap: true, value: (issue) => issue.rawValue || '—' },
 ]
 // 导入记录逐页展示，避免批次过多时把页面撑得很长。
 const batchPage = ref(1)
@@ -556,7 +556,7 @@ onBeforeUnmount(() => {
 .quality-summary strong { overflow-wrap: anywhere; font-size: 1rem; }
 .quality-summary strong.is-alert { color: var(--danger); }
 .batch-list { gap: 12px; }
-.batch-row { grid-template-columns: minmax(200px, 1.15fr) auto minmax(230px, .85fr) auto; gap: 16px 20px; padding: 18px 20px; }
+.batch-row { grid-template-columns: minmax(200px, 1.15fr) auto minmax(230px, .85fr); gap: 16px 20px; padding: 18px 20px; }
 .batch-pagination {
   display: flex;
   flex-wrap: wrap;
@@ -580,7 +580,9 @@ onBeforeUnmount(() => {
 .batch-pagination button:disabled { cursor: not-allowed; opacity: .45; }
 .batch-counts dd.count-warning { color: var(--warning); }
 .batch-counts dd.count-error { color: var(--danger); }
-.batch-actions { gap: 10px; }
+.batch-actions { display: flex; grid-column: 1 / -1; align-items: center; flex-wrap: nowrap; justify-content: flex-start; gap: 10px; }
+.batch-actions .compact-button { flex: 0 0 auto; white-space: nowrap; }
+.batch-error { grid-column: 1 / -1; }
 /* 问题明细可能几十行：限高后滚动留在表格内部，页面不被撑长。 */
 .batch-issues :deep(.data-table) { max-height: 22rem; }
 .mobile-issue-cards { display: none; }
@@ -638,8 +640,8 @@ onBeforeUnmount(() => {
   .file-picker-panel { align-items: stretch; flex-direction: column; }
   .quality-summary > div { padding: 12px; }
   .batch-row { padding: 12px; }
-  .batch-actions { flex-wrap: wrap; }
-  .batch-actions .compact-button { flex: 1 1 130px; }
+  .batch-actions { flex-wrap: nowrap; }
+  .batch-actions .compact-button { flex: 0 0 auto; }
   .dashboard-section > .section-heading {
     position: sticky;
     z-index: 20;

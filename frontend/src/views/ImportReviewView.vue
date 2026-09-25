@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ApiError,
@@ -17,6 +17,7 @@ import {
 } from '../api/client'
 import DataTable, { type DataTableColumn } from '../components/DataTable.vue'
 import { computeEntryTotals, money } from '../utils/entryForm'
+import { cellClassFor, rowClassFor } from '../utils/importReviewIssues'
 import { createLogger } from '../utils/logger'
 import type { EntryAfterSaleItem, EntryFeeItem, EntrySaleItem } from '../api/types'
 
@@ -54,6 +55,7 @@ const toast = ref('')
 const confirmDialog = ref('')
 const confirmOpen = ref(false)
 const confirmForce = ref(false)
+const hardBlocked = ref(false)
 const marketOptions = ref<string[]>([])
 const savingMessage = computed(() => ({
   switch: '正在切换文件…',
@@ -68,6 +70,7 @@ const form = reactive<EntryPayload>({
   orderNo: '',
   containerNo: '',
   vehicleNo: '',
+  country: '',
   market: '',
   arrivalDate: '',
   arrivalQuantity: null,
@@ -80,6 +83,7 @@ const saleColumns = computed<DataTableColumn<EntrySaleItem>[]>(() => [
   { key: 'sourceRow', label: '文件行', value: (row) => row.sourceRow ?? '新增' },
   { key: 'saleDate', label: '销售日期' },
   { key: 'variety', label: '品种' },
+  { key: 'grade', label: '等级' },
   { key: 'headCount', label: '规格（头数）' },
   { key: 'specKg', label: '规格（KG）' },
   { key: 'remark', label: '备注' },
@@ -112,17 +116,47 @@ const errorIssues = computed(() => currentIssues.value.filter((item) => item.sev
 const warningIssues = computed(() => currentIssues.value.filter((item) => item.severity === 'warning'))
 const hasErrors = computed(() => errorIssues.value.length > 0)
 const hasWarnings = computed(() => warningIssues.value.length > 0)
+const hasHardSalesErrors = computed(() => currentIssues.value.some((item) => item.severity === 'error' && item.section === 'sales'))
 const firstIssue = computed(() => errorIssues.value[0] ?? warningIssues.value[0] ?? null)
 const fileSummary = computed(() => draft.value?.payload.fileSummary ?? {})
-const issueSummaryLines = computed(() => {
-  if (errorIssues.value.length) {
-    return errorIssues.value.slice(0, 6).map((item) => item.message)
-  }
-  if (warningIssues.value.length) {
-    return warningIssues.value.slice(0, 6).map((item) => item.message)
-  }
-  return []
-})
+const warningSummaryLines = computed(() => warningIssues.value.slice(0, 6).map((item) => item.message))
+const SECTION_LABELS: Record<string, string> = {
+  basic: '基本信息',
+  sales: '销售明细',
+  after_sales: '售后明细',
+  fees: '费用明细',
+  summary: '汇总',
+}
+const FIELD_LABELS: Record<string, string> = {
+  merchant_no: '商号',
+  order_no: '单号',
+  container_no: '柜号',
+  vehicle_no: '转运公司',
+  country: '国家',
+  market: '市场',
+  arrival_date: '到达市场日期',
+  arrival_quantity: '来货数量',
+  sale_date: '销售日期',
+  variety: '品种',
+  grade: '等级',
+  head_count: '规格（头数）',
+  spec_kg: '规格（KG）',
+  remark: '备注',
+  sales_quantity: '数量',
+  unit_price: '单价',
+  amount: '金额',
+  content: '售后内容',
+  name: '费用摘要',
+}
+
+function issueLocation(issue: ImportReviewIssue): string {
+  const section = SECTION_LABELS[issue.section ?? ''] ?? issue.section ?? '汇总'
+  return issue.row ? `${section} · 第 ${issue.row} 行` : section
+}
+
+function issueFieldLabel(issue: ImportReviewIssue): string {
+  return issue.field ? FIELD_LABELS[issue.field] ?? issue.field : '整行'
+}
 
 function rowSalesAmount(row: EntrySaleItem): number {
   return Number(row.salesQuantity || 0) * Number(row.unitPrice || 0)
@@ -149,22 +183,24 @@ const summaryRows = computed(() => {
   ]
 })
 
-function cellClass(section: string, rowIndex: number): string {
-  if (hasRowError(section, rowIndex)) return 'cell-error'
-  if (hasRowWarning(section, rowIndex)) return 'cell-warning'
-  return ''
+function cellClass(section: string, rowIndex: number, field?: string): string {
+  return cellClassFor(currentIssues.value, section, rowIndex, field)
 }
 
-function rowIssues(section: string, rowIndex: number): ImportReviewIssue[] {
-  return currentIssues.value.filter((issue) => issue.section === section && Number(issue.row) === rowIndex)
+function rowClass(section: string, rowIndex: number): string {
+  return rowClassFor(currentIssues.value, section, rowIndex)
 }
 
-function hasRowError(section: string, rowIndex: number): boolean {
-  return rowIssues(section, rowIndex).some((issue) => issue.severity === 'error')
+function salesRowClass(_row: EntrySaleItem, index: number): string {
+  return rowClass('sales', index + 1)
 }
 
-function hasRowWarning(section: string, rowIndex: number): boolean {
-  return !hasRowError(section, rowIndex) && rowIssues(section, rowIndex).some((issue) => issue.severity === 'warning')
+function afterSaleRowClass(_row: EntryAfterSaleItem, index: number): string {
+  return rowClass('after_sales', index + 1)
+}
+
+function feeRowClass(_row: EntryFeeItem, index: number): string {
+  return rowClass('fees', index + 1)
 }
 
 function basicFieldIssues(field: string): ImportReviewIssue[] {
@@ -187,6 +223,7 @@ function applyDraft(value: ImportReviewDraft) {
     orderNo: payload.orderNo,
     containerNo: payload.containerNo,
     vehicleNo: payload.vehicleNo,
+    country: payload.country,
     market: payload.market,
     arrivalDate: payload.arrivalDate,
     arrivalQuantity: payload.arrivalQuantity,
@@ -258,6 +295,30 @@ async function persistCurrentDraft(): Promise<ImportReviewDraft | null> {
   return value
 }
 
+let revalidateTimer: number | undefined
+
+async function revalidateDraft() {
+  if (!draft.value || isReadonly.value) return
+  try {
+    const value = await updateImportDraft(jobToken, draft.value.draftToken, payloadFromForm())
+    if (draft.value && draft.value.draftToken === value.draftToken) {
+      draft.value = value
+    }
+  } catch {
+    // 自动重校验失败时保留当前高亮，不打断用户编辑。
+  }
+}
+
+watch(
+  form,
+  () => {
+    if (!draft.value || isReadonly.value) return
+    window.clearTimeout(revalidateTimer)
+    revalidateTimer = window.setTimeout(() => { void revalidateDraft() }, 450)
+  },
+  { deep: true },
+)
+
 async function switchDraft(token: string) {
   if (saving.value) return
   if (!draft.value || draft.value.draftToken === token) return
@@ -285,6 +346,7 @@ function payloadFromForm(): EntryPayload {
     orderNo: form.orderNo,
     containerNo: form.containerNo,
     vehicleNo: form.vehicleNo,
+    country: form.country,
     market: form.market,
     arrivalDate: form.arrivalDate,
     arrivalQuantity: form.arrivalQuantity,
@@ -339,6 +401,7 @@ const reviewChanges = computed<ReviewChange[]>(() => {
     { key: 'orderNo', label: '单号', impact: '影响结算单标识' },
     { key: 'containerNo', label: '柜号', impact: '影响结算单基础信息' },
     { key: 'vehicleNo', label: '转运公司 / 车牌号', impact: '影响结算单基础信息' },
+    { key: 'country', label: '国家', impact: '影响结算单基础信息' },
     { key: 'market', label: '市场', impact: '影响市场归属与统计口径' },
     { key: 'arrivalDate', label: '到达市场日期', impact: '影响日期筛选与趋势统计' },
     { key: 'arrivalQuantity', label: '来货数量', impact: '影响数量统计与占比' },
@@ -349,7 +412,8 @@ const reviewChanges = computed<ReviewChange[]>(() => {
 
   const saleFields = [
     { key: 'saleDate', label: '销售日期', formatter: displayText, impact: '影响该行销售日期' },
-    { key: 'variety', label: '品种', formatter: displayText, impact: '影响等级与销售口径' },
+    { key: 'variety', label: '品种', formatter: displayText, impact: '影响该行销售明细' },
+    { key: 'grade', label: '等级', formatter: displayText, impact: '影响等级与销售口径' },
     { key: 'headCount', label: '规格（头数）', formatter: displayText, impact: '影响该行销售明细' },
     { key: 'specKg', label: '规格（KG）', formatter: displayText, impact: '影响该行销售明细' },
     { key: 'salesQuantity', label: '数量（件）', formatter: displayText, impact: '影响该行金额、总件数与销售金额' },
@@ -424,7 +488,7 @@ const reviewChanges = computed<ReviewChange[]>(() => {
 })
 
 function addSale() {
-  form.sales.push({ sourceRow: null, saleDate: '', variety: '', headCount: '', specKg: '', salesQuantity: 0, unitPrice: 0, amount: 0, remark: '' })
+  form.sales.push({ sourceRow: null, saleDate: '', variety: '', grade: '', headCount: '', specKg: '', salesQuantity: '', unitPrice: 0, amount: 0, remark: '' })
 }
 
 function removeSale(index: number) {
@@ -471,6 +535,7 @@ async function restoreCurrentDraft() {
       orderNo: original.orderNo,
       containerNo: original.containerNo,
       vehicleNo: original.vehicleNo,
+      country: original.country,
       market: original.market,
       arrivalDate: original.arrivalDate,
       arrivalQuantity: original.arrivalQuantity,
@@ -503,6 +568,7 @@ async function openConfirm() {
   try {
     await persistCurrentDraft()
     confirmForce.value = false
+    hardBlocked.value = false
     confirmDialog.value = ''
     confirmOpen.value = true
   } catch (caught) {
@@ -529,20 +595,30 @@ async function doSubmit(force = false) {
     if (caught instanceof ApiError && caught.status === 409) {
       try {
         const detail = typeof caught.message === 'string' ? JSON.parse(caught.message) : caught.message
-        const blockers = detail?.blockers ?? []
-        const conflicts = detail?.conflicts ?? []
-        const messages: string[] = []
-        for (const blocker of blockers) messages.push(`${blocker.file_name}：${blocker.issues.length} 个问题`)
-        for (const conflict of conflicts) messages.push(`${conflict.file_name}：商号 ${conflict.merchant_no} 已存在，继续提交将覆盖原结算单`)
-        confirmForce.value = true
-        confirmDialog.value = messages.join('\n') || '存在数据问题，是否仍要提交？'
+        const hardBlockers = detail?.hard_blockers ?? []
+        if (hardBlockers.length) {
+          confirmForce.value = false
+          hardBlocked.value = true
+          confirmDialog.value = '销售明细存在必填项未补全，不能带错提交，请先补全后再确认。'
+        } else {
+          const blockers = detail?.blockers ?? []
+          const conflicts = detail?.conflicts ?? []
+          const messages: string[] = []
+          for (const blocker of blockers) messages.push(`${blocker.file_name}：${blocker.issues.length} 个问题`)
+          for (const conflict of conflicts) messages.push(`${conflict.file_name}：商号 ${conflict.merchant_no} 已存在，继续提交将覆盖原结算单`)
+          confirmForce.value = true
+          hardBlocked.value = false
+          confirmDialog.value = messages.join('\n') || '存在数据问题，是否仍要提交？'
+        }
       } catch {
         confirmForce.value = true
+        hardBlocked.value = false
         confirmDialog.value = '存在数据问题，是否仍要提交？'
       }
       confirmOpen.value = true
     } else {
       confirmForce.value = false
+      hardBlocked.value = false
       error.value = caught instanceof Error ? caught.message : '确认提交失败'
     }
   } finally {
@@ -556,6 +632,7 @@ function closeConfirm() {
   confirmOpen.value = false
   confirmDialog.value = ''
   confirmForce.value = false
+  hardBlocked.value = false
 }
 
 function goBack() {
@@ -646,6 +723,11 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
             <input v-model="form.vehicleNo" aria-label="转运公司 / 车牌号" :disabled="isReadonly" />
             <span v-if="basicFieldHint('vehicle_no')" class="field-hint">{{ basicFieldHint('vehicle_no') }}</span>
           </label>
+          <label class="field" :class="{ error: basicFieldHasError('country') }">
+            <span>国家 *</span>
+            <input v-model="form.country" aria-label="国家" placeholder="如 越南" :disabled="isReadonly" />
+            <span v-if="basicFieldHint('country')" class="field-hint">{{ basicFieldHint('country') }}</span>
+          </label>
           <label class="field" :class="{ error: basicFieldHasError('market') }">
             <span>市场 *</span>
             <select v-if="!isReadonly" v-model="form.market" aria-label="市场">
@@ -678,6 +760,7 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
           :columns="saleColumns"
           :rows="form.sales"
           :row-key="saleRowKey"
+          :row-class="salesRowClass"
           bordered
           caption="销售明细二次确认"
           min-width="1080px"
@@ -685,25 +768,28 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
         >
           <template #cell-sourceRow="{ row }"><span class="source">{{ row.sourceRow ?? '新增' }}</span></template>
           <template #cell-saleDate="{ row }">
-            <input v-model="row.saleDate" type="date" :class="cellClass('sales', form.sales.indexOf(row) + 1)" aria-label="销售日期" :disabled="isReadonly" />
+            <input v-model="row.saleDate" type="date" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'sale_date')" aria-label="销售日期" :disabled="isReadonly" />
           </template>
           <template #cell-variety="{ row }">
-            <input v-model="row.variety" :class="cellClass('sales', form.sales.indexOf(row) + 1)" aria-label="品种" placeholder="如 A、B、AB、BC" :disabled="isReadonly" />
+            <input v-model="row.variety" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'variety')" aria-label="品种" placeholder="如 金枕" :disabled="isReadonly" />
+          </template>
+          <template #cell-grade="{ row }">
+            <input v-model="row.grade" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'grade')" aria-label="等级" placeholder="如 A、AB、BC" :disabled="isReadonly" />
           </template>
           <template #cell-headCount="{ row }">
-            <input v-model="row.headCount" :class="cellClass('sales', form.sales.indexOf(row) + 1)" aria-label="规格（头数）" placeholder="如 3/4" :disabled="isReadonly" />
+            <input v-model="row.headCount" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'head_count')" aria-label="规格（头数）" placeholder="如 3/4" :disabled="isReadonly" />
           </template>
           <template #cell-specKg="{ row }">
-            <input v-model="row.specKg" :class="cellClass('sales', form.sales.indexOf(row) + 1)" aria-label="规格（KG）" placeholder="如 10 或 9/10" :disabled="isReadonly" />
+            <input v-model="row.specKg" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'spec_kg')" aria-label="规格（KG）" placeholder="如 10" :disabled="isReadonly" />
           </template>
           <template #cell-remark="{ row }">
-            <input v-model="row.remark" aria-label="备注" :disabled="isReadonly" />
+            <input v-model="row.remark" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'remark')" aria-label="备注" :disabled="isReadonly" />
           </template>
           <template #cell-salesQuantity="{ row }">
-            <input v-model.number="row.salesQuantity" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1)" aria-label="数量（件）" :disabled="isReadonly" />
+            <input v-model.number="row.salesQuantity" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'sales_quantity')" aria-label="数量（件）" :disabled="isReadonly" />
           </template>
           <template #cell-unitPrice="{ row }">
-            <input v-model.number="row.unitPrice" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1)" aria-label="单价（元）" placeholder="空白按 0" :disabled="isReadonly" />
+            <input v-model.number="row.unitPrice" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'unit_price')" aria-label="单价（元）" placeholder="空白按 0" :disabled="isReadonly" />
           </template>
           <template #cell-amount="{ row }">
             <strong class="money-amount">{{ money(rowSalesAmount(row)) }}</strong>
@@ -727,6 +813,7 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
           :columns="afterSaleColumns"
           :rows="form.afterSales"
           :row-key="afterSaleRowKey"
+          :row-class="afterSaleRowClass"
           bordered
           caption="售后明细二次确认"
           min-width="640px"
@@ -751,6 +838,7 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
           :columns="feeColumns"
           :rows="form.fees"
           :row-key="feeRowKey"
+          :row-class="feeRowClass"
           bordered
           caption="支出费用二次确认"
           min-width="540px"
@@ -799,30 +887,33 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
     <div v-if="confirmOpen" class="overlay" role="dialog" aria-modal="true">
       <section class="dialog">
         <p class="dialog-kicker">提交前核对</p>
-        <h2>{{ hasErrors ? '仍有问题，是否带错提交？' : hasWarnings ? '存在差异，是否按当前结果提交？' : '确认提交' }}</h2>
+        <h2>{{ hardBlocked || hasHardSalesErrors ? '销售明细未补全，需补全后才能提交' : hasErrors ? '仍有问题，是否带错提交？' : hasWarnings ? '存在差异，是否按当前结果提交？' : '确认提交' }}</h2>
         <div class="confirm-list">
-          <div v-if="reviewChanges.length" class="change-list">
-            <div v-for="(change, index) in reviewChanges" :key="`${change.label}-${index}`" class="change-line">
-              <strong>{{ change.label }}</strong>
-              <span class="change-values">
-                <span class="change-before">{{ change.before }}</span>
-                <span class="change-arrow">→</span>
-                <span class="change-after">{{ change.after }}</span>
-              </span>
-              <small>{{ change.impact }}</small>
-            </div>
+          <div v-if="errorIssues.length" class="confirm-issues">
+            <p>提交校验未通过的行</p>
+            <table class="issue-table">
+              <thead>
+                <tr><th>位置</th><th>字段</th><th>问题</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="(issue, index) in errorIssues" :key="`${issue.code}-${issue.row}-${issue.field}-${index}`">
+                  <td>{{ issueLocation(issue) }}</td>
+                  <td>{{ issueFieldLabel(issue) }}</td>
+                  <td>{{ issue.message }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <p v-else class="dialog-text">当前没有对导入解析值做修改，将按系统计算值提交。</p>
-          <div v-if="issueSummaryLines.length" class="confirm-issues">
-            <p>{{ hasErrors ? '待补全项' : '待核对项' }}</p>
-            <ul><li v-for="(line, index) in issueSummaryLines" :key="`${line}-${index}`">{{ line }}</li></ul>
+          <div v-if="warningSummaryLines.length" class="confirm-issues">
+            <p>待核对项</p>
+            <ul><li v-for="(line, index) in warningSummaryLines" :key="`${line}-${index}`">{{ line }}</li></ul>
           </div>
           <p v-if="confirmDialog" class="dialog-text">{{ confirmDialog }}</p>
         </div>
         <p>继续提交将以当前填写值入库；系统金额和汇总会按自洽口径修正。</p>
         <div class="dialog-actions">
           <button class="subtle" type="button" :disabled="saving" @click="closeConfirm">返回修改</button>
-          <button class="primary" type="button" :disabled="saving" @click="doSubmit(confirmForce)">{{ savingAction === 'submit' ? '正在提交…' : '确认提交' }}</button>
+          <button class="primary" type="button" :disabled="saving || hardBlocked || hasHardSalesErrors" @click="doSubmit(confirmForce)">{{ savingAction === 'submit' ? '正在提交…' : '确认提交' }}</button>
         </div>
       </section>
     </div>
@@ -869,8 +960,11 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
 .review-table :deep(.data-table thead th) { padding: .5rem .6rem; }
 .review-table input { width: 100%; min-height: 36px; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 5px; background: #fff; color: var(--ink); font: inherit; }
 .review-table input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); outline: none; }
-.review-table input.cell-error { border-color: var(--danger); background: #fff5f5; }
+.review-table input.cell-error { border: 2px solid var(--danger); background: #fff5f5; }
 .review-table input.cell-warning { border-color: var(--warning); background: #fffbf0; }
+.review-table :deep(tbody tr.row-invalid),
+.review-table :deep(tbody tr.row-invalid:hover) { background: #ffd9d6 !important; }
+.review-table :deep(tbody tr.row-invalid) td { box-shadow: inset 0 0 0 1px #f2b0ac; }
 .source { color: var(--muted); font-size: .78rem; }
 .readonly-value, input.readonly-input { display: inline-flex; align-items: center; min-height: 2rem; color: var(--ink); white-space: nowrap; }
 .review-table input:disabled, .basic-grid input:disabled, .basic-grid select:disabled { color: var(--ink); opacity: 1; background: var(--surface-soft); }
@@ -918,6 +1012,11 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
 .confirm-issues p { margin: 0 0 6px; font-weight: 800; }
 .confirm-issues ul { margin: 0; padding-left: 18px; color: var(--danger); }
 .confirm-issues li { margin: 3px 0; line-height: 1.5; }
+.issue-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.issue-table th, .issue-table td { padding: 6px 8px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.issue-table th { background: var(--primary-soft); color: var(--primary-dark); font-weight: 800; }
+.issue-table td { color: var(--danger); }
+.issue-table td:last-child { color: var(--ink); }
 @media (max-width: 900px) {
   .basic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

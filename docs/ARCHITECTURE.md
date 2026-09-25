@@ -182,8 +182,10 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   卡片默认可见并自动以 `refresh=false` 先读缓存，命中缓存直接展示 `cached` 标记。
 - 下拉框：`SearchableSelect.vue` 对业务保持原有 props，内部使用 Element Plus
   `ElSelect` / `ElOption`；展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
-- 日期范围：五个业务页继续使用 `DateRangeFilter.vue`，桌面与手机统一渲染两个原生
-  `input[type=date]`，不再把 Element Plus DatePicker 及中文语言包带入业务页分片。
+- 日期范围：五个业务页继续使用 `DateRangeFilter.vue`，桌面与手机统一渲染单个
+  Element Plus `ElDatePicker` daterange，一个选择器同时选择开始与结束；对外
+  `v-model:start-date / end-date` 契约不变。DatePicker 与中文语言包随 Element Plus
+  共享分片加载（构建后约 256.51 KB / gzip 83.02 kB）。
 - 品牌对比选择器：`SettlementPicker.vue` 按「品类 → 品牌 → 同品牌结算单」三步选择；
   品类来自 `SettlementListItem.fruitType`，品牌仍沿用单号中文前缀口径。
 - 单号展示口径（ADR-015）：统一用适配后单号 `orderNoNormalized`，

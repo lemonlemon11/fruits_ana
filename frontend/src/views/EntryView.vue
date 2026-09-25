@@ -51,13 +51,13 @@ async function jumpToBlock(id: BlockId) {
 function onNarrowChange(event: MediaQueryListEvent) { isNarrow.value = event.matches }
 const conflictMessage = ref('')
 const marketOptions = ref<string[]>([])
-const varietyOptions = ref<string[]>(['A', 'B', 'AB', 'BC', 'C', 'D', 'E', 'F'])
 
 const form = reactive<EntryPayload>({
   merchantNo: '',
   orderNo: '',
   containerNo: '',
   vehicleNo: '',
+  country: '',
   market: '',
   arrivalDate: '',
   arrivalQuantity: null,
@@ -70,6 +70,7 @@ const form = reactive<EntryPayload>({
 const saleColumns: DataTableColumn<EntrySaleItem>[] = [
   { key: 'saleDate', label: '销售日期' },
   { key: 'variety', label: '品种' },
+  { key: 'grade', label: '等级' },
   { key: 'headCount', label: '规格（头数）' },
   { key: 'specKg', label: '规格（KG）' },
   { key: 'remark', label: '备注' },
@@ -108,6 +109,7 @@ function draftPayload(): EntryPayload {
     orderNo: form.orderNo,
     containerNo: form.containerNo,
     vehicleNo: form.vehicleNo,
+    country: form.country,
     market: form.market,
     arrivalDate: form.arrivalDate,
     arrivalQuantity: form.arrivalQuantity,
@@ -174,6 +176,7 @@ function applyDraft(draft: EntryDraft) {
     orderNo: payload.orderNo ?? '',
     containerNo: payload.containerNo ?? '',
     vehicleNo: payload.vehicleNo ?? '',
+    country: payload.country ?? '',
     market: payload.market ?? '',
     arrivalDate: payload.arrivalDate ?? '',
     arrivalQuantity: payload.arrivalQuantity ?? null,
@@ -233,18 +236,21 @@ function saleAmount(row: EntrySaleItem) {
   return money(Number(row.salesQuantity || 0) * Number(row.unitPrice || 0))
 }
 
-function invalidVariety(value: string): boolean {
-  const text = value.trim()
-  return text !== '' && !/^[A-Z]{1,3}$/.test(text)
-}
-
 function invalidSpec(value: string): boolean {
   const text = value.trim()
   return text !== '' && !parseSpecRange(text)
 }
 
+function invalidSpecKg(value: string): boolean {
+  const text = value.trim()
+  if (!text) return false
+  const parsed = parseSpecRange(text)
+  if (!parsed) return true
+  return parsed.minimum !== parsed.maximum
+}
+
 function validate() {
-  if (!form.merchantNo || !form.containerNo || !form.orderNo || !form.vehicleNo || !form.market || !form.arrivalDate || form.arrivalQuantity === null) {
+  if (!form.merchantNo || !form.containerNo || !form.orderNo || !form.vehicleNo || !form.country || !form.market || !form.arrivalDate || form.arrivalQuantity === null) {
     return '请完整填写基本信息必填项'
   }
   if (!form.sales.length) return '请至少添加一条销售明细'
@@ -252,14 +258,11 @@ function validate() {
     if (!row.saleDate || Number(row.salesQuantity) <= 0) {
       return '请填写销售日期和数量（件）'
     }
-    if (invalidVariety(row.variety)) {
-      return '品种填写时需为 1~3 个大写字母，如 A、AB、BC；不填时按其他等级统计'
-    }
     if (invalidSpec(row.headCount)) {
       return '规格（头数）填写时需为数字或区间（如 3/4、9/10、10）；不填可留空'
     }
-    if (invalidSpec(row.specKg)) {
-      return '规格（KG）填写时需为数字或区间（如 10、9/10）；不填可留空'
+    if (invalidSpecKg(row.specKg)) {
+      return '规格（KG）填写时需为单个数字（如 10）；不填可留空'
     }
     if (Number(row.unitPrice) < 0) {
       return '单价不能为负数；不填按 0 计算'
@@ -313,12 +316,8 @@ async function submit(overwrite = false) {
 }
 
 async function loadOptions() {
-  const [markets, varieties] = await Promise.all([
-    getEntryFieldOptions('market'),
-    getEntryFieldOptions('variety'),
-  ])
+  const markets = await getEntryFieldOptions('market')
   marketOptions.value = markets.map((item) => item.value)
-  if (varieties.length) varietyOptions.value = varieties.map((item) => item.value)
 }
 
 async function loadEntry() {
@@ -341,6 +340,7 @@ async function loadEntry() {
         orderNo: entry.orderNo,
         containerNo: entry.containerNo,
         vehicleNo: entry.vehicleNo,
+        country: entry.country,
         market: entry.market,
         arrivalDate: entry.arrivalDate,
         arrivalQuantity: entry.arrivalQuantity,
@@ -419,6 +419,10 @@ onMounted(() => {
             <input v-model="form.vehicleNo" aria-label="转运公司 / 车牌号" />
           </label>
           <label class="field">
+            <span>国家 *</span>
+            <input v-model="form.country" aria-label="国家" placeholder="如 越南" />
+          </label>
+          <label class="field">
             <span>市场 *</span>
             <select v-if="marketOptions.length" v-model="form.market" aria-label="市场">
               <option disabled value="">请选择</option>
@@ -456,13 +460,16 @@ onMounted(() => {
             <input v-model="row.saleDate" type="date" aria-label="销售日期" />
           </template>
           <template #cell-variety="{ row }">
-            <input v-model="row.variety" :class="{ 'spec-invalid': invalidVariety(row.variety) }" aria-label="品种" placeholder="可选，如 A、B、AB、BC" />
+            <input v-model="row.variety" aria-label="品种" placeholder="可选，如 金枕" />
+          </template>
+          <template #cell-grade="{ row }">
+            <input v-model="row.grade" aria-label="等级" placeholder="可选，如 A、AB、BC" />
           </template>
           <template #cell-headCount="{ row }">
             <input v-model="row.headCount" :class="{ 'spec-invalid': invalidSpec(row.headCount) }" placeholder="可选，如 3/4" aria-label="规格（头数）" />
           </template>
           <template #cell-specKg="{ row }">
-            <input v-model="row.specKg" :class="{ 'spec-invalid': invalidSpec(row.specKg) }" placeholder="可选，如 10 或 9/10" aria-label="规格（KG）" />
+            <input v-model="row.specKg" :class="{ 'spec-invalid': invalidSpecKg(row.specKg) }" placeholder="可选，如 10" aria-label="规格（KG）" />
           </template>
           <template #cell-remark="{ row }">
             <input v-model="row.remark" aria-label="备注" />

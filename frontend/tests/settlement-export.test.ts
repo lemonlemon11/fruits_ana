@@ -37,8 +37,8 @@ test('列表页分页：每页条数、上一页 / 下一页与页码文案', ()
 
 test('列表改用通用 DataTable，并保留移动端卡片分页', () => {
   assert.match(viewSource, /import DataTable, \{ type DataTableColumn \} from '\.\.\/components\/DataTable\.vue'/)
-  assert.match(viewSource, /<DataTable\n\s+class="settlement-table"/)
-  assert.match(viewSource, /min-width="900px"/)
+  assert.match(viewSource, /<DataTable\n\s+class="settlement-table fixed-height-list"/)
+  assert.match(viewSource, /min-width="880px"/)
   // 列定义集中在 columns 里，等级列随筛选范围动态展开。
   assert.match(viewSource, /const columns = computed<DataTableColumn<SettlementListItem>\[\]>\(\(\) => \[/)
   assert.match(viewSource, /label: `\$\{gradeLabel\(grade\)\}件数`/)
@@ -56,7 +56,7 @@ test('分页条内嵌在表格底栏，与表格是一个整体', () => {
   assert.match(viewSource, /<template #footer>[\s\S]*?<footer v-if="totalCount" class="list-pagination" aria-label="结算单分页">/)
   assert.match(viewSource, /<\/footer>\n\s*<\/template>\n\s*<\/DataTable>/)
   // 结果区只剩表格一块，不再单独排一行分页。
-  assert.match(viewSource, /\.settlement-list-results \{ display: grid; grid-template-rows: minmax\(0, 1fr\); min-height: 0; \}/)
+  assert.match(viewSource, /\.settlement-list-results \{ display: grid; grid-template-columns: minmax\(0, 1fr\); grid-template-rows: minmax\(0, 1fr\); min-height: 0; \}/)
 })
 
 test('列表在桌面端至少撑满剩余视口，行多时随页面自然向下扩展', () => {
@@ -142,7 +142,9 @@ test('列表每行都有导出入口，桌面表格与移动端卡片一致', ()
   assert.match(viewSource, /isExporting\(rowExportKey\(row, 'pdf'\)\) \? '导出中…' : 'PDF'/)
   assert.match(viewSource, /import Download from '@lucide\/vue\/dist\/esm\/icons\/download\.mjs'/)
   assert.match(viewSource, /import ListTree from '@lucide\/vue\/dist\/esm\/icons\/list-tree\.mjs'/)
-  assert.match(viewSource, /\.row-action-button\.is-primary \{ border-color: var\(--primary-dark\); background: var\(--primary\); color: white; \}/)
+  assert.match(viewSource, /class="table-action"/)
+  assert.match(viewSource, /class="table-action danger"/)
+  assert.match(viewSource, /\.table-action \{[\s\S]*?min-height: 2\.35rem;[\s\S]*?white-space: nowrap;/)
   // 移动端卡片：查看明细 + Excel / PDF + 删除放在同一动作栏，不折行。
   assert.match(viewSource, /<div class="mobile-card-actions-bar">/)
   assert.match(viewSource, /<button class="primary-button mobile-detail-button" type="button" @click="openRecords\(item\)">查看明细<\/button>/)
@@ -151,8 +153,8 @@ test('列表每行都有导出入口，桌面表格与移动端卡片一致', ()
   assert.match(viewSource, /class="text-button delete-row-link"/)
   assert.match(viewSource, /\.mobile-card-actions-bar \{\s+display: flex;/)
   assert.match(viewSource, /\.mobile-detail-button \{\s+flex: 1 1 auto;/)
-  // 操作列固定宽度，避免两按钮被挤到折行。
-  assert.match(viewSource, /\{ key: 'actions', label: '操作', align: 'right', width: '13\.5rem' \}/)
+  // 操作列交给浏览器按内容自适应，不再写死宽度。
+  assert.match(viewSource, /\{ key: 'actions', label: '操作', align: 'right' \}/)
 })
 
 test('结算单列表空状态与其他页面一致使用 prominent，且不显示 null 范围提示', () => {

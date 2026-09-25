@@ -97,7 +97,7 @@ const columns = computed<DataTableColumn<SettlementListItem>[]>(() => [
   { key: 'salesAmount', label: '销售金额', numeric: true, sortable: true, sortKey: 'sales_amount', value: (item) => formatCurrency(item.salesAmount) },
   { key: 'averagePrice', label: '每件均价', numeric: true, sortable: true, sortKey: 'average_price', value: (item) => formatPrice(item.averagePrice) },
   { key: 'confirmedAt', label: '录单时间', sortable: true, sortKey: 'confirmed_at', value: (item) => formatDateTime(item.confirmedAt) },
-  { key: 'actions', label: '操作', align: 'right', width: '13.5rem' },
+  { key: 'actions', label: '操作', align: 'right' },
 ])
 
 function mergeScopeGrades(items: SettlementListItem[]) {
@@ -480,16 +480,15 @@ onBeforeUnmount(() => {
       </div>
       <div v-else class="settlement-list-results">
         <DataTable
-          class="settlement-table"
+          class="settlement-table fixed-height-list"
           :columns="columns"
           :rows="settlements"
           :row-key="(item) => item.merchantNo"
           caption="结算单列表：每张结算单的商号、单号、柜号、到达市场日期、销售日期、各等级件数、销售金额、每件均价与录单时间"
-          min-width="900px"
+          min-width="880px"
           :active-sort-key="sortBy"
           :sort-order="sortOrder"
           :sort-busy="sorting"
-          bordered
           @sort="toggleSort"
         >
           <template #cell-merchantNo="{ row }">
@@ -498,9 +497,9 @@ onBeforeUnmount(() => {
             </span>
           </template>
           <template #cell-actions="{ row }">
-            <div class="row-actions">
+            <div class="table-actions">
               <span class="export-dropdown">
-                <button class="row-action-button" type="button" @click.prevent.stop="toggleExportMenu(row.merchantNo)">
+                <button class="table-action" type="button" @click.prevent.stop="toggleExportMenu(row.merchantNo)">
                   <Download :size="13" aria-hidden="true" />
                   导出
                 </button>
@@ -517,12 +516,12 @@ onBeforeUnmount(() => {
                   ><FileText :size="14" aria-hidden="true" /> {{ isExporting(rowExportKey(row, 'pdf')) ? '导出中…' : 'PDF' }}</button>
                 </span>
               </span>
-              <button class="row-action-button is-primary" type="button" @click="openRecords(row)">
+              <button class="table-action" type="button" @click="openRecords(row)">
                 <ListTree :size="13" aria-hidden="true" />
                 查看明细
               </button>
               <button
-                class="row-action-button is-danger"
+                class="table-action danger"
                 type="button"
                 :disabled="deletingMerchantNo === row.merchantNo"
                 @click="requestDelete(row)"
@@ -661,34 +660,35 @@ onBeforeUnmount(() => {
 .export-feedback.is-error { color: var(--danger); }
 .settlement-list-page .panel-head { margin-bottom: 10px; }
 /* 表格外观统一由 components/DataTable.vue 提供，本页只负责布局与分页。 */
+.fixed-height-list {
+  height: 31rem;
+  min-height: 31rem;
+  overflow-y: hidden;
+}
 .text-button { min-height: 0; padding: 2px 8px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--primary-dark); cursor: pointer; font-size: .88rem; font-weight: 700; }
 .text-button:hover { border-color: var(--primary); background: var(--primary-soft); }
-/* 行内操作：导出按模板出单张结算单，查看明细展开该商号的销售记录。 */
-.row-actions { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 6px; white-space: nowrap; }
-/* 行内按钮保持紧凑：高度必须控制在 20px 内，否则 10 行就放不进一屏。 */
-.row-action-button {
+/* 与管理端用户管理列表同款操作按钮：紧凑边框按钮，文案不换行。 */
+.table-actions { display: flex; flex-wrap: nowrap; gap: .35rem; }
+.table-action {
   display: inline-flex;
+  min-height: 2.35rem;
   align-items: center;
-  gap: 3px;
-  padding: 1px 7px;
+  gap: .35rem;
+  padding: 0 .59rem;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--primary-dark);
   cursor: pointer;
-  font-size: .82rem;
+  font-size: .9rem;
   font-weight: 700;
-  line-height: 1.2;
-  text-decoration: none;
+  white-space: nowrap;
 }
-.row-action-button:hover { border-color: var(--primary); background: var(--primary-soft); }
-/* 主操作（查看明细）用实心绿，和移动端卡片的“查看明细”保持同一层级。 */
-.row-action-button.is-primary { border-color: var(--primary-dark); background: var(--primary); color: white; }
-.row-action-button.is-primary:hover { background: var(--primary-dark); color: white; }
-.row-action-button.is-danger { border-color: color-mix(in srgb, var(--danger) 55%, white); color: var(--danger); }
-.row-action-button.is-danger:hover:not(:disabled) { border-color: var(--danger); background: #fbe9e7; }
-.row-action-button:disabled { opacity: .5; cursor: wait; }
-.row-action-button :deep(svg) { flex: 0 0 auto; }
+.table-action:hover:not(:disabled) { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-dark); }
+.table-action.danger { border-color: #e2bcb8; color: var(--danger); }
+.table-action.danger:hover:not(:disabled) { border-color: var(--danger); background: #fbebe9; color: var(--danger); }
+.table-action:disabled { cursor: not-allowed; opacity: .5; }
+.table-action :deep(svg) { flex: 0 0 auto; }
 .export-row-link { text-decoration: none; }
 /* 导出下拉菜单 */
 .export-dropdown { position: relative; display: inline-flex; }
@@ -823,13 +823,12 @@ onBeforeUnmount(() => {
   .settlement-list-page .panel-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; }
   .settlement-list-page .panel-head h2 { font-size: 1.2rem; }
   .settlement-list-page .panel-head span { color: var(--muted); font-size: .84rem; }
-  .settlement-list-page .panel { display: grid; flex: 1 1 auto; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+  .settlement-list-page .panel { display: grid; flex: 1 1 auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
   .settlement-list-page .panel > .skeleton-block { min-height: 0; }
   /* 分页在表内，结果区只剩表格一块，撑满剩余高度即可。 */
-  .settlement-list-results { display: grid; grid-template-rows: minmax(0, 1fr); min-height: 0; }
-  /* 行高保持好读即可，不再为“一屏塞下 10 行”压缩行高。 */
+  .settlement-list-results { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
   .settlement-table :deep(th),
-  .settlement-table :deep(td) { padding: .5rem .7rem; }
+  .settlement-table :deep(td) { padding: .75rem .82rem; }
   .settlement-table :deep(thead th) { font-size: .92rem; }
   /* 翻页控件靠左排：窗口右下角是“顺仔”悬浮入口的地盘，右侧整段留空就不会被按钮盖住。 */
   .pagination-actions { margin-left: 0; }
@@ -839,6 +838,7 @@ onBeforeUnmount(() => {
   .settlement-list-filter { flex-direction: column; align-items: stretch; }
   .settlement-list-filter > :not(.primary-button),
   .settlement-list-filter > .period-filter { flex: 1 1 auto; min-width: 0; }
+  .fixed-height-list { height: auto; min-height: 24rem; }
 }
 
 @media (max-width: 560px) {

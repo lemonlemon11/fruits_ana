@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
@@ -237,6 +236,7 @@ class SourceFileRead(ORMModel):
 class SaleRecordBase(BaseModel):
     sale_date: date
     fruit_type: str = "榴莲"
+    variety: str | None = None
     grade_raw: str | None = None
     grade: StandardGrade
     spec_raw: str | None = None
@@ -318,23 +318,16 @@ class SeriesAnalysisResponse(BaseModel):
 
 
 class EntrySaleItemCreate(BaseModel):
-    """销售明细行；头数与 KG 为文本（支持 ``3/4``、``9/10`` 区间写法）。"""
+    """销售明细行；头数支持区间（``3/4``），KG 只允许单个数值（``10``）。"""
 
     sale_date: date
-    variety: str = Field(default="", max_length=16)
+    variety: str = Field(default="", max_length=64)
+    grade: str = Field(default="", max_length=64)
     head_count: str = Field(default="", max_length=32)
     spec_kg: str = Field(default="", max_length=32)
     sales_quantity: Decimal = Field(gt=0)
     unit_price: Decimal = Field(ge=0)
     remark: str | None = None
-
-    @field_validator("variety")
-    @classmethod
-    def _check_variety(cls, value: str) -> str:
-        text = value.strip()
-        if text and not re.fullmatch(r"[A-Z]{1,3}", text):
-            raise ValueError("品种必须是 1~3 个大写字母，如 A、AB、BC；不填按其他等级统计")
-        return text
 
     @field_validator("head_count", "spec_kg")
     @classmethod
@@ -344,8 +337,11 @@ class EntrySaleItemCreate(BaseModel):
             return ""
         parsed = parse_spec_range(text)
         if parsed is None:
-            label = "规格（头数）" if info.field_name == "head_count" else "规格（KG）"
-            raise ValueError(f"{label}无法解析，请填写数字或区间（如 3/4、9/10、10）")
+            if info.field_name == "head_count":
+                raise ValueError("规格（头数）无法解析，请填写数字或区间（如 3/4、10）")
+            raise ValueError("规格（KG）无法解析，请填写单个数字（如 10）")
+        if info.field_name == "spec_kg" and parsed.minimum != parsed.maximum:
+            raise ValueError("规格（KG）不能为区间，请填写单个数字（如 10）")
         return parsed.canonical
 
 
@@ -366,6 +362,7 @@ class EntryCreate(BaseModel):
     order_no: str = Field(min_length=1, max_length=128)
     container_no: str = Field(min_length=1, max_length=128)
     vehicle_no: str = Field(min_length=1, max_length=128)
+    country: str = Field(min_length=1, max_length=64)
     market: str = Field(min_length=1, max_length=128)
     arrival_date: date
     arrival_quantity: int = Field(ge=0)
@@ -380,6 +377,7 @@ class EntrySaleItemRead(BaseModel):
 
     sale_date: date
     variety: str
+    grade: str
     head_count: str
     spec_kg: str
     sales_quantity: Decimal
@@ -392,6 +390,7 @@ class EntryRead(BaseModel):
     order_no: str | None
     container_no: str | None
     vehicle_no: str | None
+    country: str | None
     market: str | None
     arrival_date: date | None
     arrival_quantity: int | None

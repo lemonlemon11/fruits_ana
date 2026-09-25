@@ -76,12 +76,14 @@ def read_imported_entry(db: Session, merchant_no: str) -> dict | None:
         "merchant_no": merchant_no_display(batch.merchant_no, batch.merchant_no_normalized),
         "order_no": order_no_display(batch.order_no, batch.order_no_normalized),
         "container_no": batch.container_no, "vehicle_no": batch.vehicle_no,
+        "country": batch.country,
         "market": batch.market, "arrival_date": batch.arrival_date,
         "arrival_quantity": batch.arrival_quantity,
         "source_type": batch.source_type,
         "sales": [{
             "sale_date": r.sale_date,
-            "variety": r.grade_raw if r.grade_raw else r.grade.value,
+            "variety": r.variety or "",
+            "grade": r.grade_raw if r.grade_raw is not None else r.grade.value,
             "head_count": r.piece_count, "spec_kg": r.spec_kg,
             "sales_quantity": r.quantity, "unit_price": r.unit_price,
             "remark": r.remark or "",
@@ -207,7 +209,8 @@ def render_entry_workbook(entry: dict) -> bytes:
     info_grid = [
         ("商号：", entry["merchant_no"]), ("单号：", entry["order_no"]),
         ("柜号：", entry["container_no"]), ("转运公司：", entry["vehicle_no"]),
-        ("市场：", entry["market"]), ("到达日期：", _fmt(entry["arrival_date"])),
+        ("国家：", entry.get("country")), ("市场：", entry["market"]),
+        ("到达日期：", _fmt(entry["arrival_date"])),
         ("来货数量：", _fmt_int(entry["arrival_quantity"])),
     ]
     lbl_font = Font(name="微软雅黑", size=9, color=MUTED)
@@ -242,7 +245,7 @@ def render_entry_workbook(entry: dict) -> bytes:
     ws.row_dimensions[r].height = 22
 
     r = 6
-    headers = ["销售日期", "品种", "规格(头数)", "规格(KG)", "备注", "数量(件)", "单价(元)", "金额(元)"]
+    headers = ["销售日期", "品种", "等级", "规格(头数)", "规格(KG)", "备注", "数量(件)", "单价(元)", "金额(元)"]
     for ci, h in enumerate(headers, 1):
         _cell(ws, r, ci, h, font=_hdr_font(), fill=HEADER_FILL, align=_center(), border=THIN)
     ws.row_dimensions[r].height = 22
@@ -253,27 +256,28 @@ def render_entry_workbook(entry: dict) -> bytes:
         fill = EVEN_FILL if i % 2 else None
         _cell(ws, row, 1, _fmt(s["sale_date"]), font=_body_font(), align=_center(), fill=fill, border=THIN)
         _cell(ws, row, 2, s["variety"] or "", font=_body_font(), align=_center(), fill=fill, border=THIN)
-        _cell(ws, row, 3, s["head_count"] or "", font=_body_font(), align=_center(), fill=fill, border=THIN)
-        _cell(ws, row, 4, s["spec_kg"] or "", font=_body_font(), align=_center(), fill=fill, border=THIN)
-        _cell(ws, row, 5, s["remark"] or "", font=_body_font(), align=_center(), fill=fill, border=THIN)
-        _cell(ws, row, 6, _fmt_int(s["sales_quantity"]), font=_body_font(), align=_right(), fill=fill, border=THIN)
-        _cell(ws, row, 7, _fmt(s["unit_price"]), font=_body_font(), align=_right(), fill=fill, border=THIN)
+        _cell(ws, row, 3, s.get("grade") or "", font=_body_font(), align=_center(), fill=fill, border=THIN)
+        _cell(ws, row, 4, s["head_count"] or "", font=_body_font(), align=_center(), fill=fill, border=THIN)
+        _cell(ws, row, 5, s["spec_kg"] or "", font=_body_font(), align=_center(), fill=fill, border=THIN)
+        _cell(ws, row, 6, s["remark"] or "", font=_body_font(), align=_center(), fill=fill, border=THIN)
+        _cell(ws, row, 7, _fmt_int(s["sales_quantity"]), font=_body_font(), align=_right(), fill=fill, border=THIN)
+        _cell(ws, row, 8, _fmt(s["unit_price"]), font=_body_font(), align=_right(), fill=fill, border=THIN)
         amt = s["sales_quantity"] * s["unit_price"]
-        _cell(ws, row, 8, _fmt(amt), font=_body_font(bold=True), align=_right(), fill=fill, border=THIN)
+        _cell(ws, row, 9, _fmt(amt), font=_body_font(bold=True), align=_right(), fill=fill, border=THIN)
         ws.row_dimensions[row].height = 18
 
     # 合计行
     total_row = sr + len(sales)
-    for c in range(1, 9):
+    for c in range(1, 10):
         _border_line(ws, total_row, c, THIN_SIDE)
-    ws.merge_cells(f"A{total_row}:E{total_row}")
+    ws.merge_cells(f"A{total_row}:F{total_row}")
     _cell(ws, total_row, 1, f"总件数：{_fmt_int(total_qty)}", font=_body_font(bold=True, sz=10),
           fill=TOTAL_FILL, align=_left(), border=Border(top=THICK_TOP, bottom=THIN_SIDE))
-    _cell(ws, total_row, 6, _fmt_int(total_qty), font=_body_font(bold=True, sz=10, color=INK),
+    _cell(ws, total_row, 7, _fmt_int(total_qty), font=_body_font(bold=True, sz=10, color=INK),
           fill=TOTAL_FILL, align=_right(), border=Border(top=THICK_TOP, bottom=THIN_SIDE))
-    _cell(ws, total_row, 7, "销售金额：", font=_body_font(bold=True, sz=10),
+    _cell(ws, total_row, 8, "销售金额：", font=_body_font(bold=True, sz=10),
           fill=TOTAL_FILL, align=_right(), border=Border(top=THICK_TOP, bottom=THIN_SIDE))
-    _cell(ws, total_row, 8, _fmt(sales_amt), font=_body_font(bold=True, sz=10, color=INK),
+    _cell(ws, total_row, 9, _fmt(sales_amt), font=_body_font(bold=True, sz=10, color=INK),
           fill=TOTAL_FILL, align=_right(), border=Border(top=THICK_TOP, bottom=THIN_SIDE))
     ws.row_dimensions[total_row].height = 20
 
@@ -451,6 +455,7 @@ def render_entry_html(entry: dict) -> str:
         <tr{bg}>
           <td>{_fmt(s["sale_date"])}</td>
           <td>{s["variety"] or ''}</td>
+          <td>{s.get("grade") or ''}</td>
           <td>{s["head_count"] or ''}</td>
           <td>{s["spec_kg"] or ''}</td>
           <td>{s["remark"] or ''}</td>
@@ -484,6 +489,7 @@ def render_entry_html(entry: dict) -> str:
     order_no = entry["order_no"] or ""
     container = entry["container_no"] or ""
     vehicle = entry["vehicle_no"] or ""
+    country = entry.get("country") or ""
     market = entry["market"] or ""
     arrival = _fmt(entry["arrival_date"])
     arrival_qty = _fmt_int(entry["arrival_quantity"])
@@ -518,6 +524,7 @@ tr.grand td {{ background:#e1ede7 !important; font-weight:800; font-size:11pt; b
 <b>单号：</b>{order_no} &nbsp;&nbsp;|&nbsp;&nbsp;
 <b>柜号：</b>{container} &nbsp;&nbsp;|&nbsp;&nbsp;
 <b>转运公司：</b>{vehicle} &nbsp;&nbsp;|&nbsp;&nbsp;
+<b>国家：</b>{country} &nbsp;&nbsp;|&nbsp;&nbsp;
 <b>市场：</b>{market} &nbsp;&nbsp;|&nbsp;&nbsp;
 <b>到达日期：</b>{arrival} &nbsp;&nbsp;|&nbsp;&nbsp;
 <b>来货数量：</b>{arrival_qty} 件
@@ -525,12 +532,12 @@ tr.grand td {{ background:#e1ede7 !important; font-weight:800; font-size:11pt; b
 
 <table>
 <thead>
-<tr><th>销售日期</th><th>品种</th><th>规格(头数)</th><th>规格(KG)</th><th>备注</th><th>数量(件)</th><th>单价(元)</th><th>金额(元)</th></tr>
+<tr><th>销售日期</th><th>品种</th><th>等级</th><th>规格(头数)</th><th>规格(KG)</th><th>备注</th><th>数量(件)</th><th>单价(元)</th><th>金额(元)</th></tr>
 </thead>
 <tbody>
 {sales_rows}
 <tr class="total">
-  <td colspan="5" style="text-align:left; padding-left:10px;"><b>总件数：{_fmt_int(total_qty)}</b></td>
+  <td colspan="6" style="text-align:left; padding-left:10px;"><b>总件数：{_fmt_int(total_qty)}</b></td>
   <td class="num bold">{_fmt_int(total_qty)}</td>
   <td style="text-align:right;"><b>销售金额：</b></td>
   <td class="num bold">{_fmt(sales_amt)}</td>
@@ -614,10 +621,8 @@ def render_entry_pdf(entry: dict) -> bytes:
     lm, tm = 18, 18
     pw = 297 - lm - 18  # A4 landscape usable width
     row_h = 6.5
-    # 8 columns for sales, adjusted to fit
-    col_w = [46, 28, 30, 28, 26, 30, 30, sum([48,28,30,28,26,30,30,34]) - 46-28-30-28-26-30-30]
-    # Actually simpler: use percentages
-    cw_pct = [0.185, 0.105, 0.115, 0.105, 0.095, 0.115, 0.115, 0.165]  # sums to 1.0
+    # 9 columns for sales (品种 + 等级), using percentages that sum to 1.0
+    cw_pct = [0.16, 0.09, 0.08, 0.10, 0.10, 0.09, 0.11, 0.11, 0.16]
     cw = [int(pw * p) for p in cw_pct]
     # Adjust last col
     cw[-1] = pw - sum(cw[:-1])
@@ -636,7 +641,8 @@ def render_entry_pdf(entry: dict) -> bytes:
         parts = [
             f"商号：{entry['merchant_no']}", f"单号：{entry['order_no']}",
             f"柜号：{entry['container_no']}", f"转运公司：{entry['vehicle_no']}",
-            f"市场：{entry['market']}", f"到达日期：{_fmt(entry['arrival_date'])}",
+            f"国家：{entry.get('country') or ''}", f"市场：{entry['market']}",
+            f"到达日期：{_fmt(entry['arrival_date'])}",
             f"来货数量：{_fmt_int(entry['arrival_quantity'])}",
         ]
         return "  │  ".join(parts)
@@ -716,22 +722,22 @@ def render_entry_pdf(entry: dict) -> bytes:
     y += 12
 
     # ── 销售明细 ──
-    sale_headers = ["销售日期", "品种", "规格(头数)", "规格(KG)", "备注", "数量(件)", "单价(元)", "金额(元)"]
-    sale_aligns = ["C", "C", "C", "C", "C", "R", "R", "R"]
+    sale_headers = ["销售日期", "品种", "等级", "规格(头数)", "规格(KG)", "备注", "数量(件)", "单价(元)", "金额(元)"]
+    sale_aligns = ["C", "C", "C", "C", "C", "C", "R", "R", "R"]
 
     y = section_title(y, "▼ 销售明细")
     y = table_header(y, sale_headers, cw)
     for i, s in enumerate(sales):
         amt = s["sales_quantity"] * s["unit_price"]
         vals = [
-            str(s["sale_date"]), s["variety"] or "", s["head_count"] or "",
-            s["spec_kg"] or "", s["remark"] or "",
+            str(s["sale_date"]), s["variety"] or "", s.get("grade") or "",
+            s["head_count"] or "", s["spec_kg"] or "", s["remark"] or "",
             _fmt_int(s["sales_quantity"]), _fmt(s["unit_price"]), _fmt(amt)
         ]
         y = data_row(y, vals, cw, sale_aligns, is_even=(i % 2 == 1))
 
     # 销售合计
-    y = data_row(y, ["", "", "", "", "总件数/合计", _fmt_int(total_qty), "", _fmt(sales_amt)], cw, sale_aligns, bold=True)
+    y = data_row(y, ["", "", "", "", "", "总件数/合计", _fmt_int(total_qty), "", _fmt(sales_amt)], cw, sale_aligns, bold=True)
 
     # ── 售后区段 ──
     after_headers = ["序号", "内容", "摘要", "金额(元)"]

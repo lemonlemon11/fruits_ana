@@ -5,10 +5,11 @@ export const FIXED_FEES = ['代卖佣金', '运费', '车位费', '入场费', '
 export interface EntrySaleDraft {
   saleDate: string
   variety: string
+  grade: string
   /** 归一后的规格文本，支持区间写法（`3/4`、`9/10`）。 */
   headCount: string
   specKg: string
-  salesQuantity: number
+  salesQuantity: number | ''
   unitPrice: number
   remark: string
 }
@@ -38,9 +39,10 @@ export function createEmptySale(): EntrySaleDraft {
   return {
     saleDate: '',
     variety: '',
+    grade: '',
     headCount: '',
     specKg: '',
-    salesQuantity: 0,
+    salesQuantity: '',
     unitPrice: 0,
     remark: '',
   }

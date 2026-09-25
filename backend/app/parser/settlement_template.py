@@ -40,6 +40,7 @@ class SettlementTemplate:
     order_no: str | None
     container_no: str | None
     vehicle_no: str | None
+    country: str | None
     market: str | None
     arrival_date: date | None
     arrival_quantity: Decimal | None
@@ -55,6 +56,7 @@ BASIC_LABELS = {
     "商号": "merchant_no",
     "柜号": "container_no",
     "单号": "order_no",
+    "国家": "country",
     "转运公司": "vehicle_no",
     "市场": "market",
     "到达市场日期": "arrival_date",
@@ -109,6 +111,7 @@ def _header_columns(raw: pd.DataFrame) -> tuple[int, dict[str, int]]:
     targets = {
         "销售日期": "sale_date",
         "品种": "variety",
+        "等级": "grade",
         "规格头数": "head_count",
         "规格kg": "spec_kg",
         "备注": "remark",
@@ -152,6 +155,7 @@ def _sales_rows(
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     previous_date: date | None = None
+    previous_variety: str | None = None
     for row_index in range(header_index + 1, len(raw)):
         row = raw.iloc[row_index]
         left_label = _normalize_label(row.iloc[0] if len(row) else "")
@@ -181,6 +185,11 @@ def _sales_rows(
             )
 
         variety = _text(values.get("variety"))
+        grade = _text(values.get("grade"))
+        if variety:
+            previous_variety = variety
+        elif previous_variety is not None:
+            variety = previous_variety
 
         head_raw = _text(values.get("head_count"))
         head = parse_spec_range(head_raw)
@@ -205,7 +214,7 @@ def _sales_rows(
                     "error",
                     row_index + 1,
                     "spec_kg",
-                    "规格（KG）无法解析，请填写数字或区间（如 9/10、10）",
+                    "规格（KG）无法解析，请填写单个数字（如 10）",
                     spec_kg_raw,
                 )
             )
@@ -219,7 +228,7 @@ def _sales_rows(
                     "error",
                     row_index + 1,
                     "quantity",
-                    "销售数量必须大于 0 的数字",
+                    "销售数量必填",
                     quantity_raw,
                 )
             )
@@ -233,10 +242,11 @@ def _sales_rows(
                 "source_row": row_index + 1,
                 "raw_row_text": row_text,
                 "variety": variety or "",
+                "grade": grade or "",
                 "head_count": head.canonical if head else (head_raw or ""),
                 "spec_kg": spec_kg.canonical if spec_kg else (spec_kg_raw or ""),
                 "remark": _text(values.get("remark")) or "",
-                "sales_quantity": str(quantity) if quantity is not None else "0",
+                "sales_quantity": str(quantity) if quantity is not None else "",
                 "unit_price": str(unit_price),
                 "amount": str(amount),
             }
@@ -382,8 +392,11 @@ def _file_summary(raw: pd.DataFrame) -> dict[str, Any]:
 
 
 def _computed_summary(sales: list[dict], after_sales: list[dict], fees: list[dict]) -> dict[str, Decimal]:
-    sales_amount = sum((Decimal(row["sales_quantity"]) * Decimal(row["unit_price"]) for row in sales), Decimal("0"))
-    quantity = sum((Decimal(row["sales_quantity"]) for row in sales), Decimal("0"))
+    sales_amount = sum(
+        ((_decimal(row["sales_quantity"]) or Decimal("0")) * (_decimal(row["unit_price"]) or Decimal("0")) for row in sales),
+        Decimal("0"),
+    )
+    quantity = sum((_decimal(row["sales_quantity"]) or Decimal("0") for row in sales), Decimal("0"))
     after_amount = sum((Decimal(row["amount"]) for row in after_sales), Decimal("0"))
     fee_amount = sum((Decimal(row["amount"]) for row in fees), Decimal("0"))
     goods_amount = sales_amount - after_amount
@@ -466,6 +479,7 @@ def parse_settlement_template(file_path: str | Path) -> SettlementTemplate:
         order_no=basic.get("order_no"),
         container_no=basic.get("container_no"),
         vehicle_no=basic.get("vehicle_no"),
+        country=basic.get("country"),
         market=basic.get("market"),
         arrival_date=arrival_date,
         arrival_quantity=arrival_quantity,

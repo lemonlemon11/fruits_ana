@@ -1,7 +1,104 @@
 # HANDOFF
 
-Last updated：2026-09-23 (CST)
+Last updated：2026-09-25 (CST)
 Written by：Codex（内容由当前工作区实测生成，非对话记忆）
+
+> 2026-09-25 结算单列表改用 admin 用户管理列表同款形态（未提交）：`SettlementListView.vue`
+> 继续复用与管理端同源的 `DataTable`，按 `UsersView.vue` 的配置改为 `fixed-height-list` +
+> `min-width="880px"`，去掉 `bordered` / `nowrap`；行内操作改为 admin 同款 `.table-actions` /
+> `.table-action` 边框按钮。列宽交给浏览器按分辨率自动分配，超宽时表格内部滚动。响应式修复：
+> `DataTable.vue` 的 `.data-table` 增加 `grid-template-columns: minmax(0, 1fr)`，结算单页的
+> `.panel` / `.settlement-list-results` 同样补上 `minmax(0, 1fr)`，修复 grid 子项默认
+> `min-width: auto` 不收缩导致的不同 PC 分辨率下内容换行、飞出单元格、列表填不满或撑出整页
+> 横向滚动的问题。缩放/分辨率变化下仍换行的根因是业务端 `DataTable` 单元格默认会换行、操作列
+> `flex-wrap: wrap`：现对齐 admin 端 `DataTable.vue` 语义——单元格默认 `white-space: nowrap`，
+> 新增列级 `wrap` 选项供长文本列（导入问题说明/原始值）显式折行；结算单操作列
+> `.table-actions` 改为 `flex-wrap: nowrap`，按钮不再换行。桌面端自适应，手机版不处理。
+> 验证：前端全量 274 项 test、`typecheck`、`build` 均通过。
+
+> 2026-09-25 交接文档收口（未提交）：`## In Progress` 中 3 条已完成的 2026-09-24 项（导入二次确认「国家/等级」序列化丢失修复、日期筛选恢复单选择器、结算单新模板「国家/品种/等级」字段改造）从进行中移除，改为 `## Completed` 勾选项；`docs/TODO.md` 补齐第 1 项的已完成留档。仅文档状态校正，未改动任何代码。
+> 验证：复查 `docs/HANDOFF.md` 已无未勾选 `- [ ]` 条目，`docs/TODO.md` 已完成留档与顶部记录齐备。
+
+> 2026-09-25 导入二次确认问题行底色加深（未提交）：`ImportReviewView.vue` 中 `.row-invalid`
+> 整行底色由 `#fff1f0` 加深为 `#ffd9d6`，内描边由 `#ffd6d3` 调深为 `#f2b0ac`，问题行在
+> 二次确认明细表中更醒目。同步把问题行/单元格判定逻辑抽到
+> `frontend/src/utils/importReviewIssues.ts`（`rowClassFor` / `cellClassFor` /
+> `rowIssuesFor` / `SALES_FIELD_TO_CELL`），页面行为不变。新增
+> `frontend/tests/import-review-issues.test.ts`，用模拟 issue 数据覆盖同分区同行 error、
+> warning、异行/异分区、字符串行号、0 行、整行 error、字段级映射、error 优先于 warning、
+> 售后/费用整行判定与加深后样式断言。验证：前端全量 273 项 test 通过、`typecheck` 通过、
+> `build` 通过。
+
+> 2026-09-24 导入记录操作按钮排版修复（未提交）：`frontend/src/views/ImportView.vue` 中
+> 「查看问题 / 确认无误 / 下载问题明细」三个按钮此前被压在 `.batch-row` 的第 4 个 `auto`
+> 网格列里，桌面宽度下挤压换行/溢出。现将 `.batch-row` 改为三列（文件信息 / 状态徽标 /
+> 成功·警告·失败统计），`.batch-actions` 独占一整行（`grid-column: 1 / -1`），并固定
+> `flex-wrap: nowrap`、按钮 `white-space: nowrap` + `flex: 0 0 auto`，保证三按钮单行不换行；
+> `.batch-error` 同样独占整行。前端 typecheck 与 build 均通过并已重新构建 dist。
+> 说明：`styles-dashboard.css:54` 的 5 列 grid 与 `styles-responsive.css` 的同名规则因
+> scoped 属性选择器优先级更高，在 ImportView 内以组件内三列规则为准。
+
+> 2026-09-24 销售明细两种通过规则（未提交）：`validate_draft_payload` 销售行改为「正常单 /
+> 异常单」二选一。正常单：销售日期、品种、等级、头数、KG、数量、单价 7 项均非空；异常单：
+> 销售日期、品种、备注、数量、单价 5 项有值，且等级/头数/KG 必须为空。判定优先级：只要等级、
+> 头数、KG 中任一项非空就按正常单（备注仅作说明）；三者全空且备注非空才按异常单。异常单等级
+> 入库记为 OTHER（中文“其他”）。不满足任一规则逐字段 `missing_field`，二次确认页字段级高亮
+> 并禁用强制提交；确认弹窗新增表格列出所有校验未通过的行（位置/字段/问题）。原“备注行单价
+> 空→0”口径废止。二次确认页有 error 的明细整行标红（`DataTable` 新增 `rowClass`），问题输入框
+> 边框加粗红色（`cell-error` 改 2px）。口径见 ADR-046，验证见 Test Status「销售明细两种通过规则」。
+> 后端已重启。
+
+> 2026-09-24 等级列不向上继承（未提交）：`settlement_template.py` 移除 `previous_grade`
+> 与等级回填，空等级保持空字符串；`variety` 仍向下填充。正常销售行（非备注行）等级为空时，
+> 由 `validate_draft_payload` 的完整明细行规则报 `missing_field`（`field=grade`），进入
+> `hard_blockers` 阻断 `force=true`；二次确认页 `SALES_FIELD_TO_CELL` 已把 `grade` 映射到
+> 等级列做字段级高亮并禁用提交。口径见 ADR-045，验证见 Test Status「等级列不向上继承」。
+
+> 2026-09-24 销售数量必填且不得自动补 0（未提交）：前端 `EntrySaleDraft` / `EntrySaleItem`
+> 的 `salesQuantity` 改为 `number | ''`，空行默认值由 `0` 改为空字符串；`entryPayloadBody`
+> 序列化保留空值（发 `null`），去掉 `Number(item.salesQuantity) || 0`；`normalize.ts`
+> 对空数量回填 `''`。后端 `settlement_template.py` 空数量生成 `sales_quantity: ""` 而非 `"0"`，
+> `_computed_summary` 改用安全解析（空值按 0 参与汇总）。空数量仍由 `invalid_quantity`
+> 与 `sales_quantity: Decimal = Field(gt=0)` 拦截，不给强制提交。口径见 ADR-044，验证见
+> Test Status「销售数量必填且不得自动补 0」。
+
+> 2026-09-24 销售明细两条提交规则 + KG 单值口径（未提交）：`validate_draft_payload` 销售行改为
+> 二选一：完整明细行（销售日期/品种/等级/头数/KG/数量/单价全填）或备注行（备注+数量，单价空→0）；
+> 不满足 → 报错，二次确认页按字段高亮（`cellClass` 改为字段级映射），`confirm_import_job` 新增
+> `hard_blockers`，`section=sales` 的 error 即使 `force=true` 也阻断，前端据此禁用「带错提交」。
+> 品种/等级向下填充沿用解析器既有逻辑（ADR-041）。同时规格（KG）改为只允许单个数值：schema、
+> `entry_service._spec_range(allow_range=False)`、导入校验三处拒绝区间（9/10），占位与报错文案
+> 去掉 9/10 示例；`parse_spec_range` 本身不变（头数仍支持区间）。口径见 `docs/DECISIONS.md`
+> ADR-042 / ADR-043，验证见 Test Status「销售明细提交规则与 KG 单值」。
+
+> 2026-09-24 新模板导入「国家/等级」被前端序列化丢失的修复（未提交）：根因是
+> `frontend/src/api/client.ts` 的 `entryPayloadBody` 只序列化了 `variety`，漏掉顶层
+> `country` 和销售行 `grade`，导致导入二次确认保存/提交后国家与等级字段被清空，
+> 进而触发「国家不能为空」和等级为空。已补 `country: payload.country || null` 与
+> `grade: item.grade`；同时把数量校验文案「销售数量必须大于 0」改为「销售数量必填」
+> （`import_draft_service.py` 与 `settlement_template.py`）。前端 typecheck/test/build 通过，
+> 后端已重启。新增 `frontend/tests/client-entry-payload.test.mjs` 防回归。
+
+> 2026-09-24 日期筛选恢复「单选择器」（未提交）：`DateRangeFilter` 由两个原生
+> `input[type=date]`（开始日期 至 结束日期）改回单个 Element Plus `ElDatePicker`
+> daterange，一个选择器同时选择开始与结束；对外 `v-model:start-date / end-date` 契约不变，
+> 五个业务页无需改动。同步更新 `frontend/tests/date-range-filter.test.ts` 与架构文档。
+> 取舍：Element Plus DatePicker 与中文语言包重新进入业务页共享分片，构建后该分片约
+> 256.51 KB / gzip 83.02 kB（此前移除后为 133.09 KB / gzip 46.77 kB）。验证见 Test Status
+> 「日期筛选恢复单选择器」。
+
+> 2026-09-24 结算单新模板「国家 / 品种 / 等级」字段改造（未提交）：客户模板新增基础信息
+> 「国家」、销售明细新增「品种」，原「品种」改名为「等级」。后端 `import_batch` 新增
+> `country`、`sale_record` 新增 `variety`，`grade_raw` 继续保存等级原文，三层语义拆分；
+> 解析器、schema、手工录单、导入二次确认、结算单导出（XLSX/HTML/PDF）与结算单列表明细导出
+> 同步扩展；历史数据迁移脚本 `backend/scripts/add_country_variety_schema.py`（dry-run / --apply，
+> 回填国家=越南、品种=金枕）。口径决策见 `docs/DECISIONS.md` ADR-041。验证见下方 Test Status。
+>
+> 注意：1) `attachments/结算单模板样式-测试数据 1/2/3.xlsx` 三个测试夹具文件缺失，
+> `test_settlement_template.py` 与 `test_import_draft_service.py` 中依赖这些文件的后端用例
+> 无法运行（与本次改动无关，属既有缺口）。2) 后端 API 测试当前因 `starlette.testclient`
+> 与 `httpx 0.28.1` 不兼容而挂起（最小 FastAPI TestClient 也复现，`fastapi.testclient`
+> 提示安装 `httpx2`），因此仅验证了不依赖 TestClient 的服务层单测；API 层测试无法运行。
 
 > 2026-09-23 登录后首屏与菜单响应优化（未提交）：`DateRangeFilter` 移除 Element Plus
 > DatePicker，桌面/手机统一使用两个原生 `input[type=date]`；新增 `DeferredEChart.vue`，四个
@@ -693,6 +790,9 @@ FRUIT_ANALYSIS_ALLOW_DESTRUCTIVE=1 .venv/bin/python scripts/rebuild_dev_schema.p
 - [x] `d9ea10a feat(auth): 重构登录注册为门户布局`（AuthPortal 骨架 + 密码可见切换 + 就近校验）
 - [x] `3a67116 fix(config): 统一前端端口为 53000`
 - [x] `2a71d04 feat(ui): 默认入口改为登录页`（`/` → `/login`，`/preview` 仍可直达）
+- [x] 修复导入二次确认「国家 / 等级」字段序列化丢失（2026-09-24，未提交）
+- [x] 日期筛选恢复「单选择器」（daterange，2026-09-24，未提交）
+- [x] 结算单新模板「国家 / 品种 / 等级」字段改造（2026-09-24，未提交）
 
 ## In Progress
 
@@ -1199,6 +1299,73 @@ npm --prefix frontend run typecheck
 ```
 
 ## Test Status
+
+### 销售明细两种通过规则（2026-09-24）
+
+- 后端 `test_import_draft_service.py` 定向（正常单 / 异常单 / 备注+规格走正常单 / 硬阻断）：
+  **10 项通过**，退出码 0（`-k "test_validate or test_confirm_hard"`）。
+- 前端 `npm --prefix frontend run typecheck`：通过；`npm --prefix frontend run test`：265 项通过。
+- 后端服务已重启（PID 108702，`uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000`），
+  启动日志 `Application startup complete`。
+- 无法执行：依赖缺失 xlsx 夹具的文件类用例与依赖 TestClient 的 API 用例未运行（既有缺口）。
+
+### 等级列不向上继承（2026-09-24）
+
+- 后端 `test_settlement_template.py` 定向（不含缺失 xlsx 夹具的 3 项）：**6 项通过**，退出码 0；
+  新增「品种继承、等级不继承」差异用例。
+- 后端 `test_import_draft_service.py` 定向（两条规则 / 硬阻断）：**8 项通过**，退出码 0；
+  确认等级为空的正常明细行仍报 `missing_field`（`field=grade`）。
+- 无法执行：依赖缺失 xlsx 夹具的 3 项 `test_settlement_template.py` 文件类用例与依赖
+  TestClient 的 API 用例未运行（既有缺口，与本次改动无关）。
+
+### 销售数量必填且不得自动补 0（2026-09-24）
+
+- 后端 `test_settlement_template.py` 定向（不含缺失 xlsx 夹具的 3 项）：**5 项通过**，退出码 0；
+  新增「空数量保持为空字符串 + 汇总安全解析」用例。
+- 后端 `test_import_draft_service.py` 定向（两条规则 / 硬阻断）：**8 项通过**，退出码 0
+  （`-k "test_validate or test_confirm_hard"`），确认数量空仍报 `invalid_quantity`。
+- 前端全量：`npm --prefix frontend run test`，**265 项全部通过**，退出码 0。
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0。
+- 前端 `npm --prefix frontend run build`：成功（vite 6.4.3）。
+- 无法执行：依赖缺失 xlsx 夹具的 3 项 `test_settlement_template.py` 文件类用例与依赖
+  TestClient 的 API 用例未运行（既有缺口，与本次改动无关）。
+
+### 销售明细提交规则与 KG 单值（2026-09-24）
+
+- 后端 `test_import_draft_service.py` 定向（两条规则 / KG 区间 / 硬阻断）：**8 项通过**，
+  退出码 0（`-k "test_validate or test_confirm_hard"`）。
+- 后端 `test_entry_service.py`：**10 项通过**，退出码 0（含新增 KG 区间拒绝用例）。
+- 后端 `test_spec_range.py`：**47 项通过**，退出码 0（确认 `parse_spec_range` 未回归）。
+- 前端全量：`npm --prefix frontend run test`，**264 项全部通过**，退出码 0。
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0。
+- 前端 `npm --prefix frontend run build`：成功（vite 6.4.3）。
+- 无法执行：依赖缺失 xlsx 夹具的 `test_import_draft_service.py` 文件类用例与依赖 TestClient 的
+  API 用例未运行（既有缺口，与本次改动无关）。
+
+### 日期筛选恢复单选择器（2026-09-24）
+
+- 前端定向：`node --experimental-strip-types --test frontend/tests/date-range-filter.test.ts`
+  2 项通过，退出码 0。
+- 前端全量：`npm --prefix frontend run test`，**263 项全部通过**，退出码 0。
+- 类型检查：`npm --prefix frontend run typecheck`，通过，退出码 0。
+- 构建：`npm --prefix frontend run build`，成功（vite 6.4.3）；Element Plus 共享分片
+  （含 DatePicker / 中文语言包）约 256.51 KB / gzip 83.02 kB。
+
+### 结算单新模板「国家 / 品种 / 等级」字段改造（2026-09-24）
+
+- 后端服务层单测（不依赖 TestClient）：**224 项通过**，退出码 0。覆盖
+  `test_models`、`test_field_conversion`、`test_parser`、`test_spec_range`、
+  `test_analytics`、`test_entry_service`、`test_import_service`、`test_grade_detail` 等。
+- 前端 `npm --prefix frontend run test`：**42 项通过**，退出码 0。
+- 前端 `npm --prefix frontend run typecheck`：通过，退出码 0。
+- 前端 `npm --prefix frontend run build`：成功（vite 6.4.3，2402 modules，约 14.3s）。
+- 新模板解析实测：`attachments/结算单模板样式-20260923.xlsx` 补填商号 / 国家后解析得到
+  `country=越南`、销售行 `variety=金枕`、`grade=A`，空品种 / 等级行向下填充正确。
+- 无法执行 / 受限：1) 依赖 `attachments/结算单模板样式-测试数据 1/2/3.xlsx` 的
+  `test_settlement_template.py` 3 项与 `test_import_draft_service.py` 4 项因夹具缺失跳过；
+  2) 所有 API 层测试（`test_exports.py`、`test_entry_api.py`、`test_imports_api.py`、
+  `test_settlements_api.py` 等）因 `starlette.testclient` 与 `httpx 0.28.1` 不兼容而挂起
+  （最小 FastAPI TestClient 也复现），本次未能运行；已同步更新 `test_exports.py` 断言。
 
 ### 登录后首屏与菜单响应优化（2026-09-23）
 

@@ -198,6 +198,7 @@ def test_settlement_detail_records_follow_date_filter_and_include_source_ids():
             "import_batch_id": batch_id,
             "sale_date": "2026-01-02",
             "fruit_type": "榴莲",
+            "variety": None,
             "grade": "B",
             "grade_raw": "B级",
             "spec_raw": "B6",

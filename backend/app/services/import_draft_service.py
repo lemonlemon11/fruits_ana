@@ -77,6 +77,7 @@ def parsed_draft_payload(parsed: SettlementTemplate) -> dict[str, Any]:
         "order_no": parsed.order_no or "",
         "container_no": parsed.container_no or "",
         "vehicle_no": parsed.vehicle_no or "",
+        "country": parsed.country or "",
         "market": parsed.market or "",
         "arrival_date": _iso(parsed.arrival_date) or "",
         "arrival_quantity": str(parsed.arrival_quantity or "0"),
@@ -133,6 +134,7 @@ def validate_draft_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]
         ("order_no", "单号"),
         ("container_no", "柜号"),
         ("vehicle_no", "转运公司"),
+        ("country", "国家"),
         ("market", "市场"),
         ("arrival_date", "到达市场日期"),
         ("arrival_quantity", "来货数量"),
@@ -158,36 +160,51 @@ def validate_draft_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]
         issues.append(_issue("invalid_quantity", "error", "来货数量必须为数字", section="basic", field="arrival_quantity", raw_value=payload.get("arrival_quantity")))
 
     sales = payload.get("sales") or []
+    normal_fields = (
+        ("sale_date", "销售日期"),
+        ("variety", "品种"),
+        ("grade", "等级"),
+        ("head_count", "规格（头数）"),
+        ("spec_kg", "规格（KG）"),
+        ("unit_price", "单价"),
+    )
+    abnormal_required = (
+        ("sale_date", "销售日期"),
+        ("variety", "品种"),
+        ("remark", "备注"),
+        ("unit_price", "单价"),
+    )
     for index, row in enumerate(sales, start=1):
         source_row = row.get("source_row") if isinstance(row, dict) else None
-        if not str(row.get("sale_date") or "").strip():
-            issues.append(_issue("missing_field", "error", "销售日期不能为空", section="sales", row=index, field="sale_date"))
-        else:
+        sale_date_text = str(row.get("sale_date") or "").strip()
+        if sale_date_text:
             try:
-                date.fromisoformat(str(row.get("sale_date")).strip())
+                date.fromisoformat(sale_date_text)
             except ValueError:
                 issues.append(_issue("invalid_date", "error", "销售日期不是有效日期", section="sales", row=index, field="sale_date", raw_value=row.get("sale_date")))
-        variety = str(row.get("variety") or "").strip()
-        if variety and not re.fullmatch(r"[A-Z]{1,3}", variety):
-            issues.append(_issue("invalid_grade", "error", "品种必须是 1~3 个大写字母，如 A、AB、BC", section="sales", row=index, field="variety", raw_value=variety))
         head_count = str(row.get("head_count") or "").strip()
         if head_count and parse_spec_range(head_count) is None:
             issues.append(_issue("invalid_spec", "error", "规格（头数）无法解析", section="sales", row=index, field="head_count", raw_value=row.get("head_count")))
         spec_kg = str(row.get("spec_kg") or "").strip()
-        if spec_kg and parse_spec_range(spec_kg) is None:
-            issues.append(_issue("invalid_spec", "error", "规格（KG）无法解析", section="sales", row=index, field="spec_kg", raw_value=row.get("spec_kg")))
+        if spec_kg:
+            parsed_spec_kg = parse_spec_range(spec_kg)
+            if parsed_spec_kg is None:
+                issues.append(_issue("invalid_spec", "error", "规格（KG）无法解析", section="sales", row=index, field="spec_kg", raw_value=row.get("spec_kg")))
+            elif parsed_spec_kg.minimum != parsed_spec_kg.maximum:
+                issues.append(_issue("invalid_spec", "error", "规格（KG）不能为区间，请填写单个数值", section="sales", row=index, field="spec_kg", raw_value=row.get("spec_kg")))
         try:
             quantity = _quantity(row.get("sales_quantity"))
         except Exception:
             quantity = Decimal("0")
         if quantity <= 0:
-            issues.append(_issue("invalid_quantity", "error", "销售数量必须大于 0", section="sales", row=index, field="sales_quantity", raw_value=row.get("sales_quantity")))
+            issues.append(_issue("invalid_quantity", "error", "销售数量必填", section="sales", row=index, field="sales_quantity", raw_value=row.get("sales_quantity")))
+        unit_price_raw = row.get("unit_price")
         try:
-            unit_price = _money(row.get("unit_price"))
+            unit_price = _money(unit_price_raw)
         except Exception:
             unit_price = Decimal("0")
         if unit_price < 0:
-            issues.append(_issue("invalid_price", "error", "单价不能为负数", section="sales", row=index, field="unit_price", raw_value=row.get("unit_price")))
+            issues.append(_issue("invalid_price", "error", "单价不能为负数", section="sales", row=index, field="unit_price", raw_value=unit_price_raw))
         computed_amount = quantity * unit_price
         try:
             provided_amount = _money(row.get("amount"))
@@ -195,6 +212,36 @@ def validate_draft_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]
             provided_amount = computed_amount
         if abs(provided_amount - computed_amount) > MONEY_QUANTUM:
             issues.append(_issue("amount_mismatch", "warning", f"金额 {provided_amount} 与数量×单价 {computed_amount} 不一致，入库时将按系统计算值修正", section="sales", row=index, field="amount", raw_value=row.get("amount")))
+
+        remark_filled = bool(str(row.get("remark") or "").strip())
+        unit_price_filled = unit_price_raw not in (None, "") and str(unit_price_raw).strip() != ""
+        filled = {
+            "sale_date": bool(sale_date_text),
+            "variety": bool(str(row.get("variety") or "").strip()),
+            "grade": bool(str(row.get("grade") or "").strip()),
+            "head_count": bool(head_count),
+            "spec_kg": bool(spec_kg),
+            "remark": remark_filled,
+            "sales_quantity": quantity > 0,
+            "unit_price": unit_price_filled,
+        }
+        has_spec = filled["grade"] or filled["head_count"] or filled["spec_kg"]
+        if not any(filled.values()):
+            issues.append(_issue("invalid_sales_row", "error", "该行需按正常单（销售日期/品种/等级/头数/KG/数量/单价）或异常单（销售日期/品种/备注/数量/单价，等级/头数/KG留空）填写，请补全或删除", section="sales", row=index))
+            continue
+
+        if has_spec:
+            for field, label in normal_fields:
+                if not filled[field]:
+                    issues.append(_issue("missing_field", "error", f"{label}不能为空", section="sales", row=index, field=field, raw_value=row.get(field)))
+        elif remark_filled:
+            for field, label in abnormal_required:
+                if not filled[field]:
+                    issues.append(_issue("missing_field", "error", f"{label}不能为空", section="sales", row=index, field=field, raw_value=row.get(field)))
+        else:
+            for field, label in normal_fields:
+                if not filled[field]:
+                    issues.append(_issue("missing_field", "error", f"{label}不能为空", section="sales", row=index, field=field, raw_value=row.get(field)))
 
     for index, row in enumerate(payload.get("after_sales") or [], start=1):
         if not str(row.get("content") or "").strip():
@@ -431,6 +478,7 @@ def update_import_draft(
         "order_no",
         "container_no",
         "vehicle_no",
+        "country",
         "market",
         "arrival_date",
         "arrival_quantity",
@@ -487,6 +535,7 @@ def _write_batch(
         order_no_normalized=normalize_order_no(str(payload.get("order_no") or "").strip()),
         container_no=str(payload.get("container_no") or "").strip() or None,
         vehicle_no=str(payload.get("vehicle_no") or "").strip() or None,
+        country=str(payload.get("country") or "").strip() or None,
         source_type="import",
         market=match_market(db, payload.get("market")),
         arrival_date=date.fromisoformat(payload["arrival_date"]) if payload.get("arrival_date") else None,
@@ -518,14 +567,16 @@ def _write_batch(
         sales_amount += amount
         head = parse_spec_range(row.get("head_count"))
         spec_kg = parse_spec_range(row.get("spec_kg"))
-        variety = str(row.get("variety") or "").strip()
+        variety = str(row.get("variety") or "").strip() or None
+        grade_raw = str(row.get("grade") or "").strip()
         record = SaleRecord(
             import_batch_id=batch.id,
             source_file_id=source.id,
             sale_date=date.fromisoformat(row["sale_date"]),
             fruit_type="榴莲",
-            grade_raw=variety,
-            grade=convert_grade(db, variety),
+            variety=variety,
+            grade_raw=grade_raw or None,
+            grade=convert_grade(db, grade_raw),
             spec_raw=str(row.get("spec_kg") or "").strip(),
             piece_count=head.canonical if head else None,
             piece_count_min=head.minimum if head else None,
@@ -660,6 +711,7 @@ def confirm_import_job(
     blockers: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
     hard_conflicts: list[dict[str, Any]] = []
+    hard_blockers: list[dict[str, Any]] = []
     draft_payloads: list[tuple[ImportDraft, dict[str, Any], list[dict[str, Any]]]] = []
     latest_by_merchant: dict[str, ImportDraft] = {}
     latest_by_normalized: dict[str, str] = {}
@@ -683,6 +735,19 @@ def confirm_import_job(
             latest_by_merchant[merchant_no] = draft
         if any(item["severity"] == "error" for item in issues):
             blockers.append({"draft_token": draft.token, "file_name": draft.file_name, "issues": issues})
+        sales_errors = [
+            item
+            for item in issues
+            if item.get("severity") == "error" and item.get("section") == "sales"
+        ]
+        if sales_errors:
+            hard_blockers.append(
+                {
+                    "draft_token": draft.token,
+                    "file_name": draft.file_name,
+                    "issues": sales_errors,
+                }
+            )
 
         normalized = normalize_merchant_no(merchant_no)
         if normalized and normalized in latest_by_normalized and latest_by_normalized[normalized] != merchant_no:
@@ -734,10 +799,14 @@ def confirm_import_job(
             else:
                 conflicts.append({**conflict, "reason": "该商号已存在，确认后覆盖"})
 
-    if hard_conflicts:
+    if hard_conflicts or hard_blockers:
         raise ImportConfirmBlocked(
             json.dumps(
-                {"blockers": blockers, "conflicts": [*hard_conflicts, *conflicts]},
+                {
+                    "blockers": blockers,
+                    "conflicts": [*hard_conflicts, *conflicts],
+                    "hard_blockers": hard_blockers,
+                },
                 ensure_ascii=False,
             )
         )

@@ -15,6 +15,8 @@ export interface DataTableColumn<Row> {
   numeric?: boolean
   align?: 'left' | 'right'
   width?: string
+  /** 长文本列允许在单元格内折行；默认单元格不换行。 */
+  wrap?: boolean
   /** 文字列（商号、单号）加粗，作为每行的阅读起点。 */
   emphasis?: boolean
   /** 该列作为行标题（渲染 `th scope="row"`），用于“等级 / 规格”这类行主键。 */
@@ -48,6 +50,8 @@ const props = withDefaults(
     footLabel?: string
     /** 给每个单元格加 `data-label`（= 列名），供页面在窄屏把表格转成卡片。 */
     dataLabels?: boolean
+    /** 行级 class；例如导入复核用 `row-error` 标红整行。 */
+    rowClass?: (row: Row, index: number) => string
     /** 窄屏（≤560px）自动把每行折成一张带列名的卡片，不再横向滚动。 */
     cardsOnNarrow?: boolean
     activeSortKey?: string
@@ -114,7 +118,7 @@ function sortIndicator(column: DataTableColumn<Row>): string {
       正在排序
     </div>
     <div class="data-table-scroll">
-      <table :style="{ minWidth }">
+      <table :style="{ minWidth: props.minWidth }">
         <caption v-if="caption" class="sr-only">{{ caption }}</caption>
         <thead>
           <tr>
@@ -148,7 +152,11 @@ function sortIndicator(column: DataTableColumn<Row>): string {
           <tr v-if="!props.rows.length">
             <td class="data-table-empty" :colspan="props.columns.length">{{ emptyText }}</td>
           </tr>
-          <tr v-for="(row, index) in props.rows" :key="rowKey(row, index)">
+          <tr
+            v-for="(row, index) in props.rows"
+            :key="rowKey(row, index)"
+            :class="props.rowClass ? props.rowClass(row, index) : undefined"
+          >
             <component
               v-for="column in props.columns"
               :key="column.key"
@@ -156,7 +164,7 @@ function sortIndicator(column: DataTableColumn<Row>): string {
               :scope="column.rowHeader ? 'row' : undefined"
               :data-col="column.key"
               :data-label="props.dataLabels || props.cardsOnNarrow ? column.label : undefined"
-              :class="{ 'is-emphasis': column.emphasis, 'is-numeric': column.numeric }"
+              :class="{ 'is-emphasis': column.emphasis, 'is-numeric': column.numeric, 'is-wrap': column.wrap }"
               :style="{ textAlign: alignOf(column) }"
             >
               <slot :name="`cell-${column.key}`" :row="row" :value="cellValue(column, row)">
@@ -174,7 +182,7 @@ function sortIndicator(column: DataTableColumn<Row>): string {
               :scope="index === 0 ? 'row' : undefined"
               :data-col="column.key"
               :data-label="props.dataLabels || props.cardsOnNarrow ? column.label : undefined"
-              :class="{ 'is-numeric': column.numeric }"
+              :class="{ 'is-numeric': column.numeric, 'is-wrap': column.wrap }"
               :style="{ textAlign: alignOf(column) }"
             >
               <slot :name="`foot-${column.key}`" :value="footValue(column, index)">{{ footValue(column, index) }}</slot>
@@ -193,6 +201,7 @@ function sortIndicator(column: DataTableColumn<Row>): string {
 .data-table {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
   min-height: 0;
   overflow: hidden;
@@ -232,7 +241,9 @@ function sortIndicator(column: DataTableColumn<Row>): string {
 .data-table-scroll { min-height: 0; overflow: auto; }
 .data-table table { width: 100%; border-collapse: separate; border-spacing: 0; color: var(--ink); font-size: .95rem; }
 .data-table th,
-.data-table td { padding: .4rem .8rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.data-table td { padding: .4rem .8rem; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+.data-table th.is-wrap,
+.data-table td.is-wrap { white-space: normal; overflow-wrap: anywhere; }
 .data-table thead th {
   position: sticky;
   z-index: 2;

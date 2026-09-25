@@ -241,6 +241,7 @@ def _record_dict(record):
         "id": record.id,
         "source_file_id": record.source_file_id,
         "sale_date": record.sale_date.isoformat(),
+        "variety": record.variety,
         "grade": record.grade.value,
         "grade_raw": record.grade_raw,
         "spec_raw": record.spec_raw,

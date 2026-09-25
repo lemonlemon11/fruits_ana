@@ -305,10 +305,11 @@ export interface EntrySaleItem {
   sourceRow?: number | null
   saleDate: string
   variety: string
+  grade: string
   /** 归一后的规格文本，支持区间写法（`3/4`、`9/10`）。 */
   headCount: string
   specKg: string
-  salesQuantity: number
+  salesQuantity: number | ''
   unitPrice: number
   /** 导入复核时保留文件原值；手工录单不填，由系统按数量×单价计算。 */
   amount?: number
@@ -334,6 +335,7 @@ export interface EntryPayload {
   orderNo: string
   containerNo: string
   vehicleNo: string
+  country: string
   market: string
   arrivalDate: string
   arrivalQuantity: number | null

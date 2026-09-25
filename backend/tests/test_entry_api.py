@@ -201,18 +201,22 @@ def test_entry_api_create_conflict_overwrite_read_and_export(client):
 
 
 def test_entry_api_normalizes_range_spec_when_saving(client):
-    """A1~A5：区间写法落库前统一归一（`B3/B4`→`3/4`、`9-10KG`→`9/10`）。"""
+    """头数区间归一（`B3/B4`→`3/4`）；KG 只允许单个数值（`10KG`→`10`、区间拒绝）。"""
 
     _login(client, ["entry:view", "entry:create"])
     payload = _payload()
     payload["sales"][0]["head_count"] = "B3/B4"
-    payload["sales"][0]["spec_kg"] = "9-10KG"
+    payload["sales"][0]["spec_kg"] = "10KG"
 
     created = client.post("/api/entry", json=payload)
 
     assert created.status_code == 201
     assert created.json()["sales"][0]["head_count"] == "3/4"
-    assert created.json()["sales"][0]["spec_kg"] == "9/10"
+    assert created.json()["sales"][0]["spec_kg"] == "10"
+
+    payload["sales"][0]["spec_kg"] = "9-10KG"
+    ranged = client.post("/api/entry", json=payload)
+    assert ranged.status_code == 422
 
 
 def test_entry_api_allows_empty_spec_but_rejects_unparsable_spec(client):

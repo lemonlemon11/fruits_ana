@@ -34,10 +34,11 @@ def clean_db():
     yield
 
 
-def sale_item(variety="A", head_count="4", sales_quantity=20, unit_price=2.5, **kwargs):
+def sale_item(grade="A", head_count="4", sales_quantity=20, unit_price=2.5, **kwargs):
     values = {
         "sale_date": date(2026, 9, 13),
-        "variety": variety,
+        "variety": kwargs.get("variety", "金枕"),
+        "grade": grade,
         "head_count": head_count,
         "spec_kg": kwargs.get("spec_kg", "10"),
         "sales_quantity": Decimal(str(sales_quantity)),
@@ -69,6 +70,7 @@ def entry_payload(overwrite=False, sales=None, after_sales=None, fees=None, **kw
         "order_no": "宝贝-001",
         "container_no": "C001",
         "vehicle_no": "桂A0001",
+        "country": "越南",
         "market": "南宁海吉星",
         "arrival_date": date(2026, 9, 10),
         "arrival_quantity": 20,
@@ -119,7 +121,7 @@ def test_save_and_read_entry_persists_sales_after_sales_fees_and_summary():
     payload = entry_payload(
         sales=[
             sale_item("A", "4", 20, 2.5),
-            sale_item("B", "6/8", 30, 3, spec_kg="9/10"),
+            sale_item("B", "6/8", 30, 3, spec_kg="10"),
         ],
         after_sales=[after_item("坏果", "扣款", 10), after_item("补货", "", 20)],
         fees=[
@@ -141,7 +143,7 @@ def test_save_and_read_entry_persists_sales_after_sales_fees_and_summary():
     assert [record.piece_count for record in records] == ["4", "6/8"]
     assert [record.piece_count_min for record in records] == [Decimal("4"), Decimal("6")]
     assert [record.piece_count_max for record in records] == [Decimal("4"), Decimal("8")]
-    assert [record.spec_kg for record in records] == ["10", "9/10"]
+    assert [record.spec_kg for record in records] == ["10", "10"]
     assert [record.spec_kg_max for record in records] == [Decimal("10"), Decimal("10")]
     assert [record.amount for record in records] == [Decimal("50.00"), Decimal("90.00")]
     assert db.query(SettlementAfterSaleItem).count() == 2
@@ -164,12 +166,13 @@ def test_save_and_read_entry_persists_sales_after_sales_fees_and_summary():
 def test_save_entry_allows_blank_variety_spec_and_zero_price():
     db = SessionLocal()
     payload = entry_payload(
-        sales=[sale_item("", "", 5, 0, spec_kg="", remark="只填备注和数量")],
+        sales=[sale_item("", "", 5, 0, spec_kg="", remark="只填备注和数量", variety="")],
     )
     result = save_entry(db, payload)
     assert result.status == "created"
     record = db.query(SaleRecord).one()
     assert record.grade.value == "OTHER"
+    assert record.variety is None
     assert record.piece_count is None
     assert record.spec_kg is None
     assert record.unit_price == Decimal("0.00")
@@ -177,6 +180,7 @@ def test_save_entry_allows_blank_variety_spec_and_zero_price():
     entry = read_entry(db, "637")
     assert entry is not None
     assert entry["sales"][0]["variety"] == ""
+    assert entry["sales"][0]["grade"] == "OTHER"
     assert entry["sales"][0]["head_count"] == ""
     assert entry["sales"][0]["spec_kg"] == ""
     db.close()
@@ -189,6 +193,18 @@ def test_sale_item_still_rejects_non_empty_invalid_spec():
             variety="A",
             head_count="abc",
             spec_kg="",
+            sales_quantity=Decimal("5"),
+            unit_price=Decimal("0"),
+        )
+
+
+def test_sale_item_rejects_kg_range():
+    with pytest.raises(ValidationError):
+        EntrySaleItemCreate(
+            sale_date=date(2026, 9, 13),
+            variety="A",
+            head_count="4",
+            spec_kg="9/10",
             sales_quantity=Decimal("5"),
             unit_price=Decimal("0"),
         )
@@ -283,7 +299,7 @@ def test_export_handles_dynamic_rows_and_writes_only_values():
     payload = entry_payload(
         sales=[
             sale_item("A", "4", 20, 2.5),
-            sale_item("B", "6/8", 30, 3, spec_kg="9/10"),
+            sale_item("B", "6/8", 30, 3, spec_kg="10"),
             sale_item("C", "2", 10, 4),
         ],
         after_sales=[
@@ -315,7 +331,7 @@ def test_export_handles_dynamic_rows_and_writes_only_values():
     assert "到达日期：2026-09-10" in info
     assert "来货数量：20" in info
     sales_header, columns = _sales_header(ws)
-    assert {"品种", "规格(头数)", "规格(KG)", "备注", "数量(件)", "单价(元)", "金额(元)"} <= set(columns)
+    assert {"品种", "等级", "规格(头数)", "规格(KG)", "备注", "数量(件)", "单价(元)", "金额(元)"} <= set(columns)
     # 三条明细按录入顺序落行，金额一律按「数量 × 单价」重算。
     assert [
         _number(ws.cell(sales_header + offset, columns["数量(件)"]).value) for offset in (1, 2, 3)
@@ -324,8 +340,8 @@ def test_export_handles_dynamic_rows_and_writes_only_values():
         _number(ws.cell(sales_header + offset, columns["金额(元)"]).value) for offset in (1, 2, 3)
     ] == [50.0, 90.0, 40.0]
     total_row = _sheet_row_containing(ws, "总件数")
-    assert _number(ws.cell(total_row, 6).value) == 60
-    assert _number(ws.cell(total_row, 8).value) == 180
+    assert _number(ws.cell(total_row, 7).value) == 60
+    assert _number(ws.cell(total_row, 9).value) == 180
     after_total_row = _sheet_row_containing(ws, "售后合计")
     assert _number(ws.cell(after_total_row, 7).value) == 15
     goods_row = _sheet_row_containing(ws, "货款合计")
@@ -357,7 +373,7 @@ def test_export_dynamic_rows_keep_consistent_style_and_height():
     payload = entry_payload(
         sales=[
             sale_item("A", "4", 20, 2.5),
-            sale_item("B", "6/8", 30, 3, spec_kg="9/10"),
+            sale_item("B", "6/8", 30, 3, spec_kg="10"),
             sale_item("C", "2", 10, 4),
             sale_item("D", "3", 15, 5),
         ],

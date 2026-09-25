@@ -87,8 +87,15 @@ test('通用列表组件提供表内底栏插槽，用于内嵌分页 / 合计�
   assert.match(source, /<div v-if="\$slots\.footer" class="data-table-foot">/)
   assert.match(source, /<slot name="footer" \/>/)
   // 底栏固定在表格外框内、不参与数据区滚动。
-  assert.match(source, /\.data-table \{[\s\S]*?display: grid;\n  grid-template-rows: minmax\(0, 1fr\) auto;/)
+  assert.match(source, /\.data-table \{[\s\S]*?display: grid;\n  grid-template-columns: minmax\(0, 1fr\);\n  grid-template-rows: minmax\(0, 1fr\) auto;/)
   assert.match(source, /\.data-table-foot \{[\s\S]*?border-top: 1px solid var\(--line\)/)
+})
+
+test('通用列表组件默认禁止单元格换行，长文本列可显式折行', () => {
+  assert.match(source, /wrap\?: boolean/)
+  assert.match(source, /'is-wrap': column\.wrap/)
+  assert.match(source, /\.data-table th,\n\.data-table td \{ [^}]*white-space: nowrap; \}/)
+  assert.match(source, /\.data-table th\.is-wrap,\n\.data-table td\.is-wrap \{ white-space: normal; overflow-wrap: anywhere; \}/)
 })
 
 test('通用列表组件支持表尾合计行与卡片化 data-label', () => {

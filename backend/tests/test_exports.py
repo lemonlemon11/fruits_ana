@@ -187,6 +187,7 @@ def test_settlement_list_xlsx_matches_list_columns_and_metrics():
         "销售日期",
         "品种",
         "等级原文",
+        "标准等级",
         "规格原文",
         "规格（头数）",
         "规格（KG）",
@@ -195,19 +196,19 @@ def test_settlement_list_xlsx_matches_list_columns_and_metrics():
         "金额",
         "备注",
     ]
-    assert [sales.cell(2, index).value for index in (1, 2, 3, 5, 6, 7, 10, 11, 12)] == [
+    assert [sales.cell(2, index).value for index in (1, 2, 3, 5, 6, 7, 11, 12, 13)] == [
         "624",
         "宝贝-001",
         "MWCU1823691",
-        "C",
-        "BC6",
         "—",
+        "BC6",
+        "C",
         2,
         8,
         16,
     ]
     assert sales.cell(2, 4).value.date() == date(2026, 1, 2)
-    assert sales.cell(2, 8).value in (None, "")
+    assert sales.cell(2, 9).value in (None, "")
     assert workbook["售后明细"]["A2"].value == "当前筛选范围没有售后明细"
     assert workbook["支出费用明细"]["A2"].value == "当前筛选范围没有支出费用明细"
     notes = {row[0].value: row[1].value for row in workbook["说明"].iter_rows(min_row=1, max_col=2)}
@@ -238,6 +239,7 @@ def seed_manual_settlement():
             SaleRecord(
                 import_batch_id=batch.id,
                 sale_date=date(2026, 9, 13),
+                variety="金枕",
                 grade=StandardGrade.A,
                 grade_raw="A",
                 spec_raw="A4（10KG）",
@@ -251,6 +253,7 @@ def seed_manual_settlement():
             SaleRecord(
                 import_batch_id=batch.id,
                 sale_date=date(2026, 9, 14),
+                variety="金枕",
                 grade=StandardGrade.B,
                 grade_raw="B",
                 spec_raw="B3/4（9KG）",
@@ -312,6 +315,7 @@ def seed_imported_settlement_summary():
         SaleRecord(
             import_batch_id=batch.id,
             sale_date=date(2026, 9, 6),
+            variety="金枕",
             grade=StandardGrade.A,
             grade_raw="A6（19.5KG）",
             spec_raw="A6（19.5KG）",
@@ -361,11 +365,13 @@ def test_settlement_list_xlsx_exports_sales_after_sale_and_fee_details():
     assert sales.max_row == 4
     manual_sales = [row for row in sales.iter_rows(min_row=2, values_only=True) if row[0] == "637"]
     assert [row[3].date() for row in manual_sales] == [date(2026, 9, 13), date(2026, 9, 14)]
-    assert [row[4] for row in manual_sales] == ["A", "B"]
-    assert [row[7] for row in manual_sales] == ["4", "3/4"]
-    assert [row[8] for row in manual_sales] == ["10", "9"]
-    assert [float(row[11]) for row in manual_sales] == [50.0, 90.0]
-    assert manual_sales[0][12] == "早市"
+    assert [row[4] for row in manual_sales] == ["—", "—"]
+    assert [row[5] for row in manual_sales] == ["A", "B"]
+    assert [row[6] for row in manual_sales] == ["A", "B"]
+    assert [row[8] for row in manual_sales] == ["4", "3/4"]
+    assert [row[9] for row in manual_sales] == ["10", "9"]
+    assert [float(row[12]) for row in manual_sales] == [50.0, 90.0]
+    assert manual_sales[0][13] == "早市"
 
     after_sale = workbook["售后明细"]
     manual_after = [row for row in after_sale.iter_rows(min_row=2, values_only=True) if row[0] == "637"]
@@ -464,7 +470,8 @@ def test_settlement_template_xlsx_exports_manual_and_imported_rows():
     headers = {str(cell.value): cell.column for cell in manual_sheet[header_row] if cell.value}
     first_sale = manual_sheet[header_row + 1]
     assert first_sale[headers["销售日期"] - 1].value == "2026-09-13"
-    assert first_sale[headers["品种"] - 1].value == "A"
+    assert first_sale[headers["品种"] - 1].value == "金枕"
+    assert first_sale[headers["等级"] - 1].value == "A"
     assert first_sale[headers["规格(头数)"] - 1].value == "4"
     assert first_sale[headers["规格(KG)"] - 1].value == "10"
     assert first_sale[headers["备注"] - 1].value == "早市"
@@ -473,8 +480,8 @@ def test_settlement_template_xlsx_exports_manual_and_imported_rows():
     assert _number(first_sale[headers["金额(元)"] - 1].value) == 50.0
 
     manual_total = _row_containing(manual_sheet, "总件数")
-    assert _number(manual_sheet.cell(manual_total, 6).value) == 50.0
-    assert _number(manual_sheet.cell(manual_total, 8).value) == 140.0
+    assert _number(manual_sheet.cell(manual_total, 7).value) == 50.0
+    assert _number(manual_sheet.cell(manual_total, 9).value) == 140.0
     manual_after = _row_containing(manual_sheet, "售后合计")
     assert _number(manual_sheet.cell(manual_after, 7).value) == 10.0
     manual_fee_total = _row_containing(manual_sheet, "费用合计")
@@ -499,8 +506,8 @@ def test_settlement_template_xlsx_exports_manual_and_imported_rows():
     assert _number(imported_sale[imported_headers["金额(元)"] - 1].value) == 70950.0
 
     imported_total = _row_containing(imported_sheet, "总件数")
-    assert _number(imported_sheet.cell(imported_total, 6).value) == 129.0
-    assert _number(imported_sheet.cell(imported_total, 8).value) == 70950.0
+    assert _number(imported_sheet.cell(imported_total, 7).value) == 129.0
+    assert _number(imported_sheet.cell(imported_total, 9).value) == 70950.0
     imported_fee_total = _row_containing(imported_sheet, "费用合计")
     assert _number(imported_sheet.cell(imported_fee_total, 7).value) == 10300.0
 

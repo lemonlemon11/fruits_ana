@@ -220,10 +220,11 @@ export function normalizeSettlementDetail(payload: unknown, merchantNo: string):
 export function normalizeEntrySales(input: unknown): EntrySaleItem[] {
   return asArray(input).map((row) => ({
     saleDate: stringOr(pick(row, 'sale_date', 'saleDate'), ''),
-    variety: stringOr(pick(row, 'variety', 'grade_raw', 'gradeRaw'), 'A'),
+    variety: stringOr(pick(row, 'variety'), ''),
+    grade: stringOr(pick(row, 'grade', 'grade_raw', 'gradeRaw'), ''),
     headCount: specText(pick(row, 'head_count', 'piece_count', 'headCount', 'pieceCount')),
     specKg: specText(pick(row, 'spec_kg', 'specKg')),
-    salesQuantity: numberOr(pick(row, 'sales_quantity', 'quantity', 'salesQuantity'), 0),
+    salesQuantity: salesQuantityOr(pick(row, 'sales_quantity', 'quantity', 'salesQuantity')),
     unitPrice: numberOr(pick(row, 'unit_price', 'unitPrice'), 0),
     remark: stringOr(pick(row, 'remark'), ''),
   }))
@@ -252,6 +253,7 @@ export function normalizeEntryRead(payload: unknown): EntryRead {
     orderNo: stringOr(pick(body, 'order_no', 'orderNo'), ''),
     containerNo: stringOr(pick(body, 'container_no', 'containerNo'), ''),
     vehicleNo: stringOr(pick(body, 'vehicle_no', 'vehicleNo'), ''),
+    country: stringOr(pick(body, 'country'), ''),
     market: stringOr(pick(body, 'market'), ''),
     arrivalDate: stringOr(pick(body, 'arrival_date', 'arrivalDate'), ''),
     arrivalQuantity: nullableNumber(pick(body, 'arrival_quantity', 'arrivalQuantity')),
@@ -280,6 +282,7 @@ export function normalizeEntryDraft(payload: unknown): EntryDraft | null {
       orderNo: entry.orderNo,
       containerNo: entry.containerNo,
       vehicleNo: entry.vehicleNo,
+      country: entry.country,
       market: entry.market,
       arrivalDate: entry.arrivalDate,
       arrivalQuantity: entry.arrivalQuantity,
@@ -449,6 +452,7 @@ function normalizeImportReviewPayload(draft: JsonRecord): ImportReviewPayload {
     orderNo: stringOr(pick(draft, 'order_no', 'orderNo'), ''),
     containerNo: stringOr(pick(draft, 'container_no', 'containerNo'), ''),
     vehicleNo: stringOr(pick(draft, 'vehicle_no', 'vehicleNo'), ''),
+    country: stringOr(pick(draft, 'country'), ''),
     market: stringOr(pick(draft, 'market'), ''),
     arrivalDate: stringOr(pick(draft, 'arrival_date', 'arrivalDate'), ''),
     arrivalQuantity: nullableNumber(pick(draft, 'arrival_quantity', 'arrivalQuantity')),
@@ -456,9 +460,10 @@ function normalizeImportReviewPayload(draft: JsonRecord): ImportReviewPayload {
       sourceRow: nullableNumber(pick(row, 'source_row', 'sourceRow')),
       saleDate: stringOr(pick(row, 'sale_date', 'saleDate'), ''),
       variety: stringOr(pick(row, 'variety'), ''),
+      grade: stringOr(pick(row, 'grade', 'grade_raw', 'gradeRaw'), ''),
       headCount: stringOr(pick(row, 'head_count', 'headCount'), ''),
       specKg: stringOr(pick(row, 'spec_kg', 'specKg'), ''),
-      salesQuantity: numberOr(pick(row, 'sales_quantity', 'salesQuantity'), 0),
+      salesQuantity: salesQuantityOr(pick(row, 'sales_quantity', 'salesQuantity')),
       unitPrice: numberOr(pick(row, 'unit_price', 'unitPrice'), 0),
       amount: numberOr(pick(row, 'amount'), 0),
       remark: stringOr(pick(row, 'remark'), ''),
@@ -672,6 +677,12 @@ function pick(record: JsonRecord | undefined, ...keys: string[]): unknown {
 function numberOr(value: unknown, fallback: number): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function salesQuantityOr(value: unknown): number | '' {
+  if (value === null || value === undefined || value === '') return ''
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : ''
 }
 
 function nullableNumber(value: unknown): number | null {

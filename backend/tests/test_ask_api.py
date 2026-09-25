@@ -12,6 +12,7 @@ from app.models import (
     AdminRole,
     AdminRolePermission,
     AdminUserRole,
+    AskAuditLog,
     User,
 )
 from app.services.ai_analysis_service import AiCallFailed, AiNotConfigured
@@ -84,6 +85,16 @@ def test_ask_returns_answer_with_steps(client, monkeypatch):
     assert body["steps"][0]["tool"] == "list_settlements"
     assert body["model"] == "test-model"
 
+    db = SessionLocal()
+    audit = db.query(AskAuditLog).one()
+    assert audit.user_id is not None
+    assert audit.question == "最近有哪些单？"
+    assert audit.status == "success"
+    assert audit.tool_calls[0]["tool"] == "list_settlements"
+    assert audit.model == "test-model"
+    assert audit.duration_ms >= 0
+    db.close()
+
 
 def test_ask_forwards_trimmed_question_and_history(client, monkeypatch):
     _login(client, [ASK_PERMISSION])
@@ -133,6 +144,14 @@ def test_ask_maps_upstream_failure_to_502(client, monkeypatch):
 
     assert response.status_code == 502
     assert "请再问一次" in response.json()["detail"]
+
+    db = SessionLocal()
+    audit = db.query(AskAuditLog).one()
+    assert audit.question == "有几张单？"
+    assert audit.status == "failure"
+    assert audit.error_type == "AiCallFailed"
+    assert "请再问一次" in (audit.error_message or "")
+    db.close()
 
 
 @pytest.mark.parametrize(

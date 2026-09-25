@@ -1006,3 +1006,127 @@
   2) `ApiError` 增加请求元数据，后端返回的 `X-Request-ID` 可展示给用户；
   3) 新增接口时需显式判断它属于页面级读取还是局部读取，局部读取应使用 `failureMode: 'inline'`；
   4) 生产发布时需由运维把静态页纳入 Nginx `error_page` 配置，应用代码本身不修改生产 vhost。
+
+## ADR-041 — 结算单模板新增「国家 / 品种」，原「品种」字段改名为「等级」
+
+- Date：2026-09-24
+- Status：Accepted
+- Context：客户 2026-09-23 的结算单导入模板发生较大变化：基础信息新增「国家」，销售明细
+  新增「品种」列，原「品种」列改名为「等级」。旧模板的「品种」实际存的是等级原文
+  （A / AB / BC 等），新模板把「品种」让位给具体品种（如金枕），等级单独成列。为满足
+  国家与品种的筛选、统计和导出，需要新增数据库字段，不能再复用旧列语义。
+- Decision：
+  1) `import_batch` 新增 `country VARCHAR(64) NULL`：一张结算单一个值、必填、自由文本；
+     `sale_record` 新增 `variety VARCHAR(64) NULL`：销售行级品种、自由文本、一张结算单
+     可含多个品种。`sale_record.grade_raw` 继续保存等级原文（A / AB / BC 等），
+     `sale_record.grade` 继续保存转换后的标准等级（A/B/C），三层语义拆开。
+  2) 新模板解析器 `settlement_template.py` 的 `BASIC_LABELS` 增加 `国家 -> country`，
+     销售表头映射增加 `等级 -> grade`；`_sales_rows` 对 `variety`、`grade` 做向下填充，
+     空值沿用“上面非空行”的既有规则。
+  3) 历史数据迁移默认回填 `import_batch.country='越南'`、`sale_record.variety='金枕'`
+     （仅 NULL 行），不回写已有 `grade_raw`；后续只使用新模板，不兼容旧模板。
+  4) 手工录单、导入二次确认、结算单模板导出（XLSX / HTML / PDF）均增加国家与品种/等级；
+     结算单列表明细导出增加「品种」列，并把原误标为「品种」的标准等级列改名为「标准等级」，
+     保留「等级原文」。
+- Why：原「品种」字段语义是等级，若直接把新模板「品种」写入同列会造成统计口径混乱；
+  国家是一张单一个值，放 `import_batch` 天然一致；品种是一行一个值，放 `sale_record` 才能
+  支持一张单多品种并按品种筛选统计。
+- Alternatives：把品种继续塞进 `grade_raw`（不采用：无法同时保留等级原文与品种，且会污染
+  BC→C 等级映射）；把国家放 `sale_record`（不采用：一张单一个值，重复存储且必填校验难做）。
+- Consequences：1) `ImportBatch` / `SaleRecord` 及读写 schema 新增字段；2) 手工录单与导入
+  二次确认的表单、导出列同步扩展；3) 历史数据一次性回填越南 / 金枕；4) 国家对业务页面的
+  影响范围待业务后续指定，本期先完成字段与数据链路。
+
+## ADR-042 — 销售明细两条提交规则，销售段错误禁止带错提交
+
+- Date：2026-09-24
+- Status：Accepted
+- Context：导入二次确认页此前只对销售行做单字段校验（销售日期必填、数量必填、头数/KG
+  可解析），品种/等级/备注不校验，且存在错误时仍可「带错提交」。业务要求每行销售数据必须
+  满足其一：① 完整明细行：销售日期、品种、等级、头数、KG、数量、单价全部填写；② 备注行：
+  备注、数量填写（单价不填默认 0）。不满足任一规则 → 报错并高亮，且不允许带错强制提交。
+- Decision：
+  1) `validate_draft_payload` 销售行改为两条规则二选一：`备注` 优先，填了备注即按备注行
+     （数量必填、单价空→0）；否则按完整明细行（5 个明细字段 + 单价必填）。部分明细逐字段报
+     `missing_field`，完全空行报 `invalid_sales_row`。
+  2) 保留格式校验：销售日期合法、头数/KG 可解析、数量>0、单价非负、金额差异仍为 warning。
+  3) 品种/等级向下填充沿用解析器既有逻辑（ADR-041），不在校验层重复实现。
+  4) `confirm_import_job` 新增 `hard_blockers`：凡 `section=sales` 的 error 都硬阻断，
+     `force=true` 也拒绝，409 响应携带 `hard_blockers`；前端据此禁用「带错提交」。
+  5) 二次确认页 `cellClass` 改为字段级高亮（后端 `field` 映射到列），只标红缺失字段。
+- Why：明细行与备注行是两种真实录入形态；错误行必须补全而不是带错入库，否则统计口径失真。
+- Consequences：1) 后端校验与 409 契约扩展（`hard_blockers`）；2) 二次确认页逐字段高亮；
+  3) 部分历史解析行若既非完整明细也非备注会进入待补全状态，需人工补全后提交。
+
+## ADR-043 — 规格（KG）只允许单个数值，区间写法拒绝
+
+- Date：2026-09-24
+- Status：Accepted
+- Context：原 A5 口径允许 KG 区间（如 `9/10`）。业务反馈 KG 应为单个数值，区间写法不能填写；
+  头数仍允许区间（如 `3/4`）。
+- Decision：
+  1) `EntrySaleItemCreate` schema、`entry_service._spec_range`（新增 `allow_range=False`）、
+     导入 `validate_draft_payload` 三处对 KG 增加「单个数值」校验：解析失败或 `minimum != maximum`
+     都拒绝，文案改为「请填写单个数字（如 10）」。
+  2) `parse_spec_range` 本身保持不变（头数仍支持区间，解析层继续产出 min/max）；KG 区间只在
+     校验层拒绝。
+  3) 占位文案与错误示例去掉 KG 的 `9/10`。
+- Why：KG 是重量规格，区间写法会造成分桶/聚合歧义；头数区间仍是客户确认的有效口径。
+- Consequences：1) 手工录单与导入二次确认拒绝 KG 区间；2) 历史数据中已有 KG 区间不影响
+  读取，仅新写入被拒；3) 相关测试夹具由 `9/10` 改为单个数值。
+
+## ADR-044 — 销售数量必填且不得自动补 0
+
+- Date：2026-09-24
+- Status：Accepted
+- Context：录单与导入序列化、解析器生成草稿、前端空行默认值此前会把销售数量空值自动写成
+  `0`，业务要求「数量不能为空，不可以自动填 0」；空数量必须由校验拦下并提示补全。
+- Decision：
+  1) 前端录入草稿类型 `salesQuantity` 由 `number` 改为 `number | ''`，空行默认值为空字符串；
+     `entryPayloadBody` 序列化时保留空值（发送 `null`），不再 `Number(...) || 0`。
+  2) `normalizeEntrySales` / `normalizeImportReviewPayload` 对数量空值回填 `''` 而不是 `0`。
+  3) 后端解析器 `_sales_rows` 空数量生成 `sales_quantity: ""`，`_computed_summary` 用安全
+     解析（空值按 0 参与汇总）；`invalid_quantity` 错误继续在确认前硬阻断。
+- Why：数量是销售金额与总件数的直接口径来源，空值若自动变 0 会与「必填」语义冲突，且可能
+  把缺填行伪装成合法 0 件入库。
+- Consequences：1) 前端表单空数量不再预填 0；2) 提交 / 暂存 / 导入草稿对空数量保留空值；
+  3) 数量空仍由 `sales_quantity: Decimal = Field(gt=0)` 与 `validate_draft_payload` 的
+  `invalid_quantity` 拦截，不给强制提交。
+
+## ADR-045 — 等级列不向上继承，正常销售行等级必填
+
+- Date：2026-09-24
+- Status：Accepted
+- Context：原解析器对 `grade`（等级）与 `variety`（品种）都做了“空行沿用上一行非空值”的
+  向下填充。业务确认品种可以这样继承，但**等级不应该向上继承**：每行等级必须明确填写，
+  空等级属于正常销售明细行的缺失项，需要在二次确认页逐字段高亮，并且不允许带错提交。
+- Decision：
+  1) `settlement_template.py` 移除 `previous_grade` 与等级回填逻辑，等级为空时保持空字符串；
+     `variety` 继续向下填充不变。
+  2) 校验层不改：`validate_draft_payload` 的完整明细行规则已包含 `grade`，等级为空时生成
+     `missing_field`（「等级不能为空」，`field=grade`），并作为 `section=sales` 的 error
+     进入 `hard_blockers`，`force=true` 也阻断。
+  3) 前端二次确认页 `SALES_FIELD_TO_CELL` 已把 `grade` 映射到等级列，空等级高亮且禁用提交。
+- Why：等级是 A/B/C 口径的来源，向上继承会掩盖真实缺失并造成统计口径偏差；品种可继承是
+  因为同一结算单内品种通常按段连续书写。
+- Consequences：1) 导入解析后，空等级行会进入待补全状态；2) 校验与高亮行为不新增代码，
+  复用 ADR-042 的完整明细行规则；3) 相关回归测试补充“品种继承、等级不继承”的差异用例。
+
+## ADR-046 — 销售明细两种通过规则（正常单 / 异常单）
+
+- Date：2026-09-24
+- Status：Accepted
+- Context：业务最终明确录单校验只有两种通过形态，替代此前“完整明细行 + 备注行（单价空→0）”
+  的规则。字段里的“金额”指单价（`unit_price`）；销售金额 `amount` 仍由数量×单价计算。
+- Decision：
+  1) **正常单**：销售日期、品种、等级、头数、KG、数量、单价 7 个字段均不为空才通过。
+  2) **异常单**：销售日期、品种、备注、数量、单价 5 个字段必须有值，且等级、头数、KG
+     必须为空；等级入库时记为 `OTHER`（中文“其他”）。
+  3) 判定优先级：只要等级、头数、KG 中任一项非空就按**正常单**校验（备注仅作说明，不影响
+     判定）；三者全空且备注非空才按**异常单**校验。异常单等级/头数/KG 已由该判定天然为空。
+  4) 两种规则不满足时逐字段报 `missing_field`，二次确认页按字段高亮并禁用强制提交。
+- Why：正常单与异常单是两种互斥录入形态；异常单本质是备注型记录，等级/头数/KG 不应出现，
+  且统一归入 OTHER 以保持 A/B/C 统计口径稳定。
+- Consequences：1) `validate_draft_payload` 销售行校验重写；2) 入库 `convert_grade` 对空等级
+  已返回 OTHER，无需额外映射；3) 原 ADR-042 的
+  “备注行单价空→0”口径废止，异常单单价也必填。

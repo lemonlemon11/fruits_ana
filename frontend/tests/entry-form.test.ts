@@ -15,9 +15,10 @@ test('手工录单固定六项支出与空行默认值保持一致', () => {
   assert.deepEqual(createEmptySale(), {
     saleDate: '',
     variety: '',
+    grade: '',
     headCount: '',
     specKg: '',
-    salesQuantity: 0,
+    salesQuantity: '',
     unitPrice: 0,
     remark: '',
   })

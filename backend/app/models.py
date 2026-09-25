@@ -16,6 +16,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     Numeric,
     String,
     Text,
@@ -343,6 +344,8 @@ class ImportBatch(Base):
         String(16), default="import", server_default=text("'import'"), nullable=False
     )
     market: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # 国家：整张结算单一个值（如「越南」），自由文本，必填。
+    country: Mapped[str | None] = mapped_column(String(64), nullable=True)
     arrival_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     arrival_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # 品牌＝导入时人工选的「品种」（香香 / 宝贝 / 晴牌），分析按它聚合，不再靠单号猜。
@@ -449,6 +452,8 @@ class SaleRecord(Base):
     )
     sale_date: Mapped[date] = mapped_column(Date, nullable=False)
     fruit_type: Mapped[str] = mapped_column(String(64), default="榴莲", nullable=False)
+    # 品种：销售行级具体品种（如「金枕」），自由文本，一张结算单可含多个品种。
+    variety: Mapped[str | None] = mapped_column(String(64), nullable=True)
     grade_raw: Mapped[str | None] = mapped_column(String(64), nullable=True)
     grade: Mapped[StandardGrade] = mapped_column(
         SqlEnum(
@@ -461,7 +466,7 @@ class SaleRecord(Base):
         nullable=False,
     )
     spec_raw: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    # 规格（头数 / KG）统一存归一后的文本（``3/4``、``9/10``），派生 min/max 供聚合与索引。
+    # 规格（头数 / KG）统一存归一后的文本（头数可区间如 ``3/4``，KG 只存单个数值），派生 min/max 供聚合与索引。
     piece_count: Mapped[str | None] = mapped_column(String(32), nullable=True)
     piece_count_min: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
     piece_count_max: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
@@ -892,6 +897,31 @@ class AdminNotificationRecipient(Base):
     )
 
 
+class AskAuditLog(Base):
+    """顺仔问答调用审计：记录用户、问题、工具调用、模型与耗时，不做频控。"""
+
+    __tablename__ = "ask_audit_log"
+    __table_args__ = (
+        Index("ix_ask_audit_log_user_id", "user_id"),
+        Index("ix_ask_audit_log_created_at", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+    question: Mapped[str] = mapped_column(String(512), nullable=False)
+    tool_calls: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        PRECISE_DATETIME, default=utc_now, nullable=False
+    )
+
+
 __all__ = [
     "AdminPermission",
     "AdminRole",
@@ -900,6 +930,7 @@ __all__ = [
     "AdminNotification",
     "AdminNotificationRecipient",
     "AiAnalysis",
+    "AskAuditLog",
     "AdminFieldConversionRule",
     "DataIssue",
     "EntryDraft",

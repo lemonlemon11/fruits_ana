@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
 
 from app.parser.settlement_template import (
+    _computed_summary,
     _header_columns,
     _parse_after_sales,
     _sales_rows,
@@ -74,6 +76,43 @@ def test_sales_rows_allows_blank_variety_spec_and_price():
     assert not any(
         issue.field_name in {"variety", "head_count", "spec_kg"} for issue in issues
     )
+
+
+def test_sales_rows_keeps_blank_quantity_empty_instead_of_zero():
+    raw = pd.DataFrame(
+        [
+            ["销售日期", "品种", "规格头数", "规格KG", "备注", "数量件", "单价元", "金额元"],
+            ["2026-09-13", "A", "4", "10", "", "", "2.5", ""],
+        ]
+    )
+    header_index, columns = _header_columns(raw)
+    issues = []
+
+    rows = _sales_rows(raw, header_index, columns, issues)
+
+    assert rows[0]["sales_quantity"] == ""
+    assert any(issue.issue_type == "invalid_quantity" for issue in issues)
+    summary = _computed_summary(rows, [], [])
+    assert summary["sales_quantity"] == Decimal("0")
+
+
+def test_sales_rows_backfills_variety_but_not_grade():
+    raw = pd.DataFrame(
+        [
+            ["销售日期", "品种", "等级", "规格头数", "规格KG", "备注", "数量件", "单价元", "金额元"],
+            ["2026-09-13", "金枕", "A", "4", "10", "", "5", "2.5", ""],
+            ["2026-09-14", "", "", "4", "10", "", "5", "2.5", ""],
+        ]
+    )
+    header_index, columns = _header_columns(raw)
+    issues = []
+
+    rows = _sales_rows(raw, header_index, columns, issues)
+
+    assert rows[0]["variety"] == "金枕"
+    assert rows[0]["grade"] == "A"
+    assert rows[1]["variety"] == "金枕"
+    assert rows[1]["grade"] == ""
 
 
 def test_sales_rows_still_rejects_non_empty_invalid_spec():
