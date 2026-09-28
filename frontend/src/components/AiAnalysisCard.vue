@@ -102,7 +102,6 @@ async function generate(refresh = false) {
     <header class="section-heading ai-heading">
       <div>
         <h2 :id="titleId">{{ title }}</h2>
-        <p class="section-note">{{ note }}</p>
       </div>
       <div class="ai-heading-side">
         <span class="ai-badge">AI 解读</span>

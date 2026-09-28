@@ -80,9 +80,6 @@ function showBucketTooltip(event: MouseEvent, row: GradeDetailBucket) {
     <header class="section-heading">
       <div>
         <h2 id="grade-detail-title">按等级号别看价格</h2>
-        <p class="section-note">
-          把等级再拆成号别。带斜杠的（如 B6/7）是一段区间，原样保留，不拆分；条形长度代表每件均价。
-        </p>
       </div>
       <ChartLegend :items="legendItems" />
     </header>

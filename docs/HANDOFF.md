@@ -3,6 +3,98 @@
 Last updated：2026-09-29 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-29 清理区块标题下的静态辅助说明（已提交）：应用户要求移除标题旁的
+> `section-note` 类辅助描述，共清理 9 个稳定文件——GradeSummary（每件均价公式）、
+> SettlementGradeBreakdown（sectionNote 计算属性 + 区块/规格表两处说明）、
+> MarketSalesAnalysis（柜数口径）、DailySalesTrendChart（汇总说明）、GradePieChart
+> （按件数占比）、AiAnalysisCard（标题下 `{{ note }}` 行）、ImportView 导入记录头
+> （只在需要时展开问题明细）、SeriesGradeTables（各等级独立核算）、SeriesGradeDetail
+> （号别口径长文）。**保留**：加载中 / 空态 / 计数 / notice 等状态类 `section-note`
+> （ImportView 问题明细状态、SeriesComparisonView notice、SettlementPicker 步骤提示、
+> AiAnalysisCard「点一次就能看到结论」按钮提示），`styles*.css` 的 `.section-note`
+> 样式因状态类仍在用而保留。`AiAnalysisCard` 的 `note` prop 保留声明（调用方含在途的
+> SeriesComparisonView，避免动它的文件；现仅不再渲染）。**未动 4 个并行会话在途文件**
+> （SeriesGradePriceChart / SeriesOverviewTable / SettlementDailyPriceChart /
+> SeriesComparisonView），其中同类标题说明由该会话顺手清理。测试：
+> `farmer-ui-copy.test.mjs` 新增「辅助说明已清理」防回归用例（8 处 doesNotMatch）。
+> 验证：前端 **302 项 test**、typecheck、build 通过，dist 已重建（53000 preview 直接生效）；
+> 首轮全量出现过 1 项瞬态失败（并行会话写文件竞态），复跑均 302/302。
+
+> 2026-09-29 「卖得怎么样」每日销售金额标题加**稳定 id**（未提交，应用户要求）：
+> `DailySalesTrendChart.vue`（并行会话当日新组件）根容器补
+> `aria-labelledby="daily-sales-trend-title"`、h3 补 `id="daily-sales-trend-title"`——
+> 与 `settlement-grade-breakdown-title` 同款「容器 aria-labelledby + 标题 id」约定，
+> id 固定不随 金额/件数 切换变化（切换只改标题文案）。注意该组件与
+> `overview-filters.test.ts` 均为并行会话在途文件，编辑时撞上对方同刻新增的
+> `<h3>每日{{ metricLabel }}</h3>` 旧写法断言，已同步为带 id 的新写法。
+> 验证：前端 302 项 test、typecheck、build 通过，dist 已重建；Playwright（临时账号
+> 已清理）实测 `/overview` 渲染出 `#daily-sales-trend-title`（H3「每日销售金额」）、
+> 容器 aria-labelledby 接线生效。
+
+> 2026-09-29 「品牌对比 · 等级独立对比（grade-tables）」图表化评估 demo（未提交，待
+> 用户选方案后落地）：用户新需求——`SeriesGradeTables.vue` 的五列表格想换图表展示。
+> 产出静态评估稿 `frontend/dev-preview/grade-tables-chart-demo.html`（+ 同名 css/js，
+> 已登记 dev-preview/README 页面表）：同一份虚构数据（香香 4 单 × A/B/C，香香-002 无
+> C 果演示断点）三种方案——**A 分面小图（推荐，每等级一卡：柱=件数左轴 + 折线=每件
+> 均价右轴，可切统一/各自刻度）**、B 分组柱状图（横轴=结算单短单号）、C 量价散点
+> （气泡=金额）。echarts 引自本地 `node_modules`，令牌与正式页一致。落地口径已写进
+> 页面：沿用 activeGrades/gradeColors，「其他」建议与均价图一致隐藏，原表格折叠进
+> 「查看数据表」，纯前端无后端改动。验证：node --check、53004 下 4 个 URL 全 200；
+> Playwright 桌面 1440/手机 390 渲染（5 canvas、无控制台错误、overflow=0、刻度切换
+> 无错）；视觉验收三轮修复后双页通过（C 图 x 轴名裁切→grid bottom 34、散点标签
+> 重叠→labelLayout.hideOverlap、B 图手机标签碰撞→短单号、最高点标签出区→y 轴
+> max+60 余量），截图 `tmp/grade-tables-chart-demo/`。
+
+> 2026-09-29 视觉伴侣新增**方案 G「侧栏精修 · 用户端」**（`redesign-20260929/variant-g.html`，
+> 未提交）：应用户「菜单在左边、先做用户端、找回之前设计的那套」要求，从 md 记录
+> 定位到 **demo-menu-redesign 方案 A「侧栏精修版」**（2026-09-28 HANDOFF 记录，
+> `demo-menu-redesign/variant-a.html`，当时挂 54002 待选型）并沿用其布局语言：
+> 58px 深墨绿 header（logo+面包屑+时钟+通知+头像）→ 页签栏 → **232px 左侧白侧栏**
+> （分组标题字距 2px、导航项 10px 圆角、选中浅绿底+左 3px 绿指示条、角标、底部
+> 用户与收起）→ 内容区 14px 圆角卡片（KPI 卡含深绿 hero 变体、rows 行卡、等级
+> 环图）→ 右下顺仔机器人+回顶部悬浮球；配色墨绿 #1f2923 + 品牌绿 #2f7a4f +
+> 暖红 #9b3029 基因原样。内容为 53000 实测真实五页（销售总览/结算单列表/
+> 结算单详情单650/录单·导入/品牌对比），含手机模式（侧栏隐藏+底部五格 tabbar，
+> header 收窄）。选型页已将 G 置首。验证：8 文件链接/标签平衡 0 错误、53004 全 200。
+
+> 2026-09-29 导出等待遮罩收口（未提交）：排查全站「点击后需等待」操作——数据导入已有
+> 整块 `uploading-mask`（不动）、导入页问题明细 CSV / 卖得怎么样查询 / 品牌对比均有
+> 按钮级或骨架屏反馈（不动）；补齐两处缺失：① `SettlementListView.vue`（每一单）导出
+> 列表 xlsx 与行内 Excel/PDF 进行中时，整个结算单列表 panel 盖 `list-export-mask`
+> 遮罩（白色半透明+毛玻璃+spinner+「正在导出 N 个文件，请稍候」，`aria-busy` 同步），
+> 挡住重复点击与排序/翻页/删除等误触；② `SettlementView.vue`（销售详情）导出模板时
+> 整页内容盖同款 `export-mask`。样式复用 ImportView `.uploading-mask` 的成熟模式。
+> `async-feedback.test.mjs` 新增防回归断言（遮罩标记 + 定位样式）。验证：前端 301 项
+> test、typecheck、build 通过，dist 已重建（53000 直接生效）；本会话无浏览器后端，
+> 未做在线点击截图（样式结构照搬已验证的遮罩模式 + 静态断言覆盖）。后端无改动。
+
+> 2026-09-29 按日均价走势图改为**柱线组合（量+价）**（未提交，承接同日换样式条目；
+> 用户在四个方案 demo 中选定）：浅色圆角柱＝当日件数（左轴「件」，
+> `withAlpha(primary, 0.28)`、barWidth 44、圆角 [5,5,0,0]），平滑折线+圆点＝
+> 每件均价（右轴「元/件」，主线 3px + 价格标注，z:3 压柱上层）；双轴均 min 0、
+> 右轴不画网格线避免刻度错位；tooltip 同给 日期/当日件数/每件均价；面积渐变
+> （areaStyle）随换样式移除；区块标题仍「X 按日均价走势」、说明单行与对齐不变，
+> aria-label 改「当日件数柱状与每件均价折线组合图」。`farmer-ui-copy` 断言改为
+> type: 'bar' / yAxisIndex: 1 / name: '元/件'。验证：前端 300 项 test、typecheck、
+> build 通过，dist 已重建；Playwright（临时账号已清理）组合图渲染 + 单行说明 +
+> 标题区底边差 0px + 与表等高 + 390px 无溢出 全过，单650 柱高比 1246/400/331、
+> 线点 ¥286/¥307/¥274 与库内一致；截图 `tmp/daily-price-chart/combo-desktop-650.png`、
+> `combo-mobile-390.png`，AI 视觉验收通过。
+
+> 2026-09-29 视觉伴侣新增**方案 F「真实系统布局 Demo」**（`redesign-20260929/variant-f.html`，
+> 未提交）：应用户「不要凭空想，先看 53000 系统（test/12345678）再写布局 demo」要求，
+> 先经 API 实测真实内容（登录 test 账号拉取 /api/auth/me 菜单、analytics/overview、
+> trend、settlements 及其 brand_totals、settlements/单650 详情、entry/field-options、
+> notifications），再按真实内容重排五页 demo：**真实菜单**（销售总览/结算单列表/
+> 结算单详情/录单·导入/品牌对比）、**真实字段**（商号/单号/品牌/柜号/车号/市场/
+> 到货/件数/记录数/应付金额等）、**真实数据**（29,771 件 ¥8,008,442.99 均 269.00；
+> A 63.5%/B 36.3%/OTHER 0.15%；15 张结算单全量清单；单650 完整结算口径
+> 569,120→536,890；市场字典海吉星/江南、品种 A-F；香香 14 柜 vs 晴牌 1 柜；
+> 导入批次 0 的真实空态）。视觉沿用方案 E 专业分析台语言（深青蓝/终端条/报告头/
+> 环比基准/平时水平线/合计行/单位灰化表头），支持桌面/手机模式切换；选型页已将
+> F 置首。会话 cookie 与临时 json 已清理。验证：7 文件链接/标签平衡 0 错误、
+> 53004 全部 200。
+
 > 2026-09-29 「市场销售分析」移到「等级销售分析」上方（已提交）：`OverviewView.vue`
 > 模板内两个区块调序，页面顺序变为 销售情况 → **市场销售分析** → 等级销售分析（含每日
 > 销售折线图）；数据流、props、接口均不变。`overview-filters.test.ts` 顺序断言由

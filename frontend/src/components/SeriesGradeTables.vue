@@ -65,7 +65,6 @@ function columnsFor(grade: Grade): DataTableColumn<SeriesComparisonItem>[] {
     <header class="section-heading">
       <div>
         <h2 id="series-grade-title">等级独立对比</h2>
-        <p class="section-note">各等级独立核算</p>
       </div>
     </header>
 

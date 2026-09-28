@@ -99,11 +99,10 @@ const ariaLabel = computed(() =>
 </script>
 
 <template>
-  <div class="daily-sales-chart">
+  <div class="daily-sales-chart" aria-labelledby="daily-sales-trend-title">
     <header class="daily-sales-heading">
       <div>
-        <h3>每日{{ metricLabel }}</h3>
-        <p>按销售日期汇总当日{{ metricLabel }}，悬停查看具体数值</p>
+        <h3 id="daily-sales-trend-title">每日{{ metricLabel }}</h3>
       </div>
       <div class="daily-mode-toggle" role="group" aria-label="切换每日销售指标">
         <button

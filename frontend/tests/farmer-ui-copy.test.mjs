@@ -126,6 +126,34 @@ test('销售详情区块标题带单号前缀，等级表现更名为销售表�
   assert.doesNotMatch(detailView, /等级表现|等级图表/)
 })
 
+test('销售详情新增按日均价走势折线图，跟随等级筛选与单号前缀', () => {
+  const detailView = fs.readFileSync(path.join(root, 'views', 'SettlementView.vue'), 'utf8')
+  assert.match(detailView, /import SettlementDailyPriceChart from '\.\.\/components\/SettlementDailyPriceChart\.vue'/)
+  assert.match(detailView, /:records="detail\?\.records \?\? \[\]"/)
+  assert.match(detailView, /:grade-order="visibleGradeOrder"/)
+  assert.match(detailView, /:title="`\$\{sectionTitlePrefix\} 按日均价走势`"/)
+  // 按日均价走势与规格件数与均价同行展示（图左窄、表右宽、等高拉伸），窄屏回落单列；
+  // 与上方「销售表现」的间隔由 margin-top 提供（面板内区块分隔线已清零）。
+  assert.match(detailView, /class="detail-row-layout"/)
+  assert.match(detailView, /\.detail-row-layout \{ display: grid; grid-template-columns: minmax\(260px, \.6fr\) minmax\(0, 1\.4fr\)/)
+  assert.match(detailView, /align-items: stretch/)
+  assert.match(detailView, /margin-top: 24px/)
+  assert.match(detailView, /@media \(max-width: 1079px\)[\s\S]*?\.detail-row-layout \{ grid-template-columns: minmax\(0, 1fr\); \}/)
+  const chart = fs.readFileSync(path.join(root, 'components', 'SettlementDailyPriceChart.vue'), 'utf8')
+  // 均价按当日金额÷当日件数加权，排除未选等级的记录；说明固定一行（多天=口径、单天=提示），
+  // 保证与右侧「规格件数与均价」的标题区对齐。
+  assert.match(chart, /dailyGradeOrder\.value\.includes\(record\.grade\)/)
+  assert.match(chart, /point\.amount \/ point\.quantity/)
+  assert.match(chart, /'本单销售集中在 1 天' : '每件均价 = 当日金额 ÷ 当日件数'/)
+  // 样式：柱线组合（量+价）——浅色圆角柱=当日件数（左轴），折线+圆点=每件均价（右轴）。
+  assert.match(chart, /type: 'bar'/)
+  assert.match(chart, /yAxisIndex: 1/)
+  assert.match(chart, /name: '元\/件'/)
+  // 图高随右侧规格表等高撑满（height 100% + flex），单列/移动端回落 280px 兜底。
+  assert.match(chart, /height="100%"/)
+  assert.match(chart, /\.daily-price-figure \{ display: flex; flex: 1 1 auto; min-height: 280px; \}/)
+})
+
 test('销售详情经营指标挪入销售表现区，单号后展示国家', () => {
   const detailView = fs.readFileSync(path.join(root, 'views', 'SettlementView.vue'), 'utf8')
   assert.match(detailView, /const settlementMetrics = computed/)
@@ -255,4 +283,21 @@ test('结算单详情只在同品牌还有别的结算单时才请求同品牌�
   const card = fs.readFileSync(path.join(root, 'components', 'AiAnalysisCard.vue'), 'utf8')
   assert.match(card, /emptyTitle: '先勾选结算单'/)
   assert.match(card, /<strong>\{\{ emptyTitle \}\}<\/strong>/)
+})
+
+test('区块标题下的辅助说明文案已清理（状态类提示保留）', () => {
+  // 用户要求移除标题旁的静态辅助描述；加载中 / 空态 / 计数等状态文案不在清理范围。
+  const sweptNotes = [
+    ['components/GradeSummary.vue', /每件均价 = 销售金额 ÷ 销量/],
+    ['components/SettlementGradeBreakdown.vue', /sectionNote/],
+    ['components/MarketSalesAnalysis.vue', /柜数按市场、品牌统计/],
+    ['components/DailySalesTrendChart.vue', /按销售日期汇总当日/],
+    ['components/GradePieChart.vue', /按件数占比/],
+    ['components/SeriesGradeTables.vue', /各等级独立核算/],
+    ['components/SeriesGradeDetail.vue', /把等级再拆成号别/],
+    ['views/ImportView.vue', /只在需要时展开问题明细/],
+  ]
+  for (const [file, pattern] of sweptNotes) {
+    assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), pattern, `${file} 仍含标题辅助说明`)
+  }
 })

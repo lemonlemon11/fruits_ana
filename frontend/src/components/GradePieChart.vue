@@ -85,7 +85,6 @@ const chartOption = computed<EChartsOption>(() => ({
       <div>
         <h2 id="grade-pie-title">等级件数结构</h2>
       </div>
-      <p class="section-note">按件数占比</p>
     </header>
 
     <div v-if="loading" class="pie-skeleton skeleton-block" aria-live="polite">正在加载等级结构</div>

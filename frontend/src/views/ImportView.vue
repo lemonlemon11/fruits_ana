@@ -422,7 +422,7 @@ onBeforeUnmount(() => {
 
     <div v-show="detailOpen" id="import-mobile-history" class="import-mobile-history">
       <section class="dashboard-section" aria-labelledby="history-title">
-        <header class="section-heading"><div><h2 id="history-title">导入记录</h2><p class="section-note">只在需要时展开问题明细</p></div><button class="secondary-button" type="button" :disabled="loading" @click="loadBatches">重新加载</button></header>
+        <header class="section-heading"><div><h2 id="history-title">导入记录</h2></div><button class="secondary-button" type="button" :disabled="loading" @click="loadBatches">重新加载</button></header>
         <p v-if="issueDownloadError" class="form-message error" role="alert">{{ issueDownloadError }}</p>
         <p v-else-if="issueDownloadNotice" class="form-message success" role="status" aria-live="polite">{{ issueDownloadNotice }}</p>
         <div v-if="loading" class="history-skeleton skeleton-block">正在加载导入记录</div>

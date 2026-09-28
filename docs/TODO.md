@@ -3,6 +3,39 @@
 > 规则：只保留尚未完成的事项；完成后删除条目并在此留下简短留档。
 > 最后更新：2026-09-29
 
+> 已完成（2026-09-29）：清理区块标题下的静态辅助说明（section-note 类，9 个稳定文件）；
+> 状态类提示（加载/空态/计数/notice）与样式保留；4 个并行在途文件的同类说明由该会话清理。
+> 前端 302 项 test、typecheck、build 通过。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：「卖得怎么样」每日销售金额标题加稳定 id
+> `daily-sales-trend-title`（根容器 aria-labelledby + h3 id，同
+> settlement-grade-breakdown-title 约定，不随金额/件数切换变化）；同步并行会话的
+> overview-filters 断言。前端 302 test/typecheck/build 通过；Playwright 实测 id 与
+> 接线生效。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+## 进行中
+
+- [ ] 「品牌对比 · 等级独立对比」图表化：评估 demo 已出
+  （`frontend/dev-preview/grade-tables-chart-demo.html`，推荐 A 分面小图：柱=件数 +
+  折线=每件均价），**待用户在 A/B/C 三方案中拍板**后替换 `SeriesGradeTables.vue`
+  表格主体（原表折叠进「查看数据表」；「其他」等级建议与均价图一致隐藏）。
+
+> 已完成（2026-09-29）：「品牌对比 · 等级独立对比（grade-tables）」图表化评估 demo——
+> 三方案静态稿（A 分面小图 推荐 / B 分组柱状 / C 量价散点，同份虚构数据可对照，
+> A 支持统一/各自刻度切换）；已登记 dev-preview/README；node --check + 4 URL 200 +
+> Playwright 双端渲染 + 视觉验收三轮修复后双页通过，截图 `tmp/grade-tables-chart-demo/`。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：导出等待遮罩收口——「每一单」导出 xlsx/PDF 期间整个结算单列表盖
+> 遮罩防重复点击，「销售详情」导出模板整页内容盖同款遮罩；其余等待点（导入遮罩/问题明细
+> 下载/查询骨架屏）排查后已达标。前端 301 项 test、typecheck、build 通过，dist 已重建。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：按日均价走势图改为**柱线组合（量+价）**——浅色圆角柱=当日
+> 件数（左轴），平滑折线+圆点+价格标注=每件均价（右轴）；tooltip 同给两值，面积渐变
+> 移除，标题/单行说明/等高对齐不变。前端 300 test/typecheck/build 通过；Playwright
+> 验证全过（柱高比与线点价与库内一致）。详见 `docs/HANDOFF.md` 顶部同日记录。
+
 > 已完成（2026-09-29）：「市场销售分析」块移到「等级销售分析」上方（页面顺序：销售情况 →
 > 市场销售分析 → 等级销售分析）。仅模板调序，数据流不变；前端 300 项 test、typecheck、
 > build 通过。详见 `docs/HANDOFF.md` 顶部同日记录。

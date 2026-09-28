@@ -271,7 +271,6 @@ const barAriaLabel = computed(() =>
     <header class="section-heading">
       <div>
         <h2 id="market-sales-title">市场销售分析</h2>
-        <p class="section-note">柜数按市场、品牌统计结算单（商号）数量，跟随顶部市场筛选</p>
       </div>
     </header>
 

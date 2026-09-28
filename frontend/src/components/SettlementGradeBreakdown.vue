@@ -26,11 +26,6 @@ const priceGradeOrder = computed(() => props.gradeOrder ?? activeGrades(props.gr
 const specGradeOrder = computed(() => props.gradeOrder ?? activeGrades(props.records))
 
 const sectionTitle = computed(() => props.title ?? '等级图表')
-const sectionNote = computed(() =>
-  isOverview.value
-    ? '饼图看件数结构，下方按品牌+等级+头数+KG+备注统计件数与均价；各品牌柜数见「市场销售分析」'
-    : '按品牌+等级+头数+KG+备注统计件数与均价（相同组合合并统计）',
-)
 
 const totalQuantity = computed(() =>
   props.records.reduce((total, record) => total + record.quantity, 0),
@@ -141,7 +136,6 @@ const GRADE_BADGE_BACKGROUNDS: Record<Grade, string> = {
     <header class="section-heading">
       <div>
         <h2 id="settlement-grade-breakdown-title">{{ sectionTitle }}</h2>
-        <p class="section-note">{{ sectionNote }}</p>
       </div>
     </header>
 
@@ -167,7 +161,6 @@ const GRADE_BADGE_BACKGROUNDS: Record<Grade, string> = {
           <header v-if="isOverview" class="block-heading">
             <div>
               <h3 id="grade-spec-title">规格件数与均价</h3>
-              <p>一行 = 品牌+等级+头数+KG+备注（相同组合合并统计）；小计/合计的每件均价按金额加权</p>
             </div>
           </header>
 
