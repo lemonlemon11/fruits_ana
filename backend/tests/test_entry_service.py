@@ -187,21 +187,91 @@ def test_save_entry_allows_blank_variety_spec_and_zero_price():
     db.close()
 
 
-def test_workbook_converts_to_pdf_via_libreoffice():
-    """PDF 由 xlsx 经 LibreOffice 另存：与 Excel 同一工作簿，%PDF 头且横向页面。"""
-    import shutil as _shutil
+def test_entry_renders_to_pdf_without_external_tools():
+    """PDF 由 PIL 渲染图片生成（不依赖 LibreOffice）：%PDF 头、A4 横向单页。"""
+    import re
 
-    if not (_shutil.which("soffice") or _shutil.which("libreoffice")):
-        pytest.skip("本机未安装 LibreOffice，跳过 PDF 另存验证")
-    from app.services.entry_export import render_entry_pdf_from_workbook
+    from app.services.entry_export import build_settlement_template_pdf
 
     db = SessionLocal()
     save_entry(db, entry_payload(sales=[sale_item()]))
-    content = build_entry_workbook(db, "637")
+    pdf = build_settlement_template_pdf(db, "637")
     db.close()
-    pdf = render_entry_pdf_from_workbook(content)
     assert pdf[:4] == b"%PDF"
     assert len(pdf) > 1000
+    # A4 横向：842×595pt
+    assert b"842.0 595.0" in pdf or b"842 595" in pdf
+    assert len(re.findall(rb"/Type /Page\b", pdf)) == 1
+
+
+def test_entry_pdf_paginates_long_sales_list():
+    """销售明细跨页时自动分页（每页 842×595pt），且新页重画表头。"""
+    import re
+
+    from app.services.entry_export import build_settlement_template_pdf
+
+    db = SessionLocal()
+    payload = entry_payload(
+        arrival_quantity=600,
+        # 单价逐行递增：保证 25 行在「同日/同规格/同KG/同单价合并」口径下互不相同，
+        # 才能验证长明细分页。
+        sales=[sale_item(unit_price=2 + i * 0.1) for i in range(25)],
+    )
+    save_entry(db, payload)
+    pdf = build_settlement_template_pdf(db, "637")
+    db.close()
+    assert pdf[:4] == b"%PDF"
+    assert len(re.findall(rb"/Type /Page\b", pdf)) >= 2
+
+
+def test_exports_contain_watermark():
+    """xlsx 与 PDF 都带「顺立达SLD」水印：xlsx 内嵌水印 PNG，PDF 每页合成水印图层。"""
+    import zipfile
+
+    from app.services.entry_export import (
+        WATERMARK_TEXT,
+        _watermark_stamp,
+        build_settlement_template_pdf,
+        render_entry_workbook,
+    )
+
+    stamp = _watermark_stamp(64)
+    assert stamp.width > 0 and stamp.height > 0 and stamp.getbbox() is not None
+
+    payload = entry_payload(sales=[sale_item()])
+    content = render_entry_workbook(payload.model_dump())
+    names = zipfile.ZipFile(BytesIO(content)).namelist()
+    assert any(name.startswith("xl/media/") for name in names), "xlsx 未嵌入水印图片"
+
+    db = SessionLocal()
+    save_entry(db, payload)
+    pdf = build_settlement_template_pdf(db, "637")
+    db.close()
+    assert pdf[:4] == b"%PDF"
+    assert len(pdf) > 1000
+
+
+def test_export_merges_same_day_spec_kg_price_rows():
+    """xlsx 导出：同一天+同规格（头数）+同 KG+同单价（品种/等级/备注一致）的行合并，数量汇总。"""
+    from app.services.entry_export import _merge_sales_rows, render_entry_workbook
+
+    payload = entry_payload(overwrite=True, sales=[
+        sale_item(sales_quantity=20, unit_price=2.5),
+        sale_item(sales_quantity=15, unit_price=2.5),                # 同键 → 合并为 35 件
+        sale_item(sales_quantity=10, unit_price=3),                  # 单价不同 → 保留
+        sale_item(sales_quantity=5, unit_price=2.5, remark="尾果"),   # 备注不同 → 保留
+    ])
+    data = payload.model_dump()
+
+    merged = _merge_sales_rows(data["sales"])
+    assert len(merged) == 3
+    assert merged[0]["sales_quantity"] == Decimal("35")
+
+    wb = load_workbook(BytesIO(render_entry_workbook(data)))
+    sale_rows = [row for row in wb.active.iter_rows(values_only=True) if row and row[0] == "2026-09-13"]
+    assert len(sale_rows) == 3, "销售明细应合并为 3 行"
+    assert {row[6] for row in sale_rows} == {"35", "10", "5"}
+    assert "87.50" in {row[8] for row in sale_rows}, "合并行金额应为 35 × 2.5"
 
 
 def test_save_entry_rejects_sales_total_exceeding_arrival():

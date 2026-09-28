@@ -3,6 +3,47 @@
 Last updated：2026-09-29 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-29 结算单导出（xlsx/PDF）同键行合并（已提交）：应用户要求，「每一单」行导出与
+> 手工录单导出的销售明细中 **同一天 + 同规格（头数）+ 同重量（KG）+ 同单价**（且品种/
+> 等级/备注一致，避免不同备注被误并）的行合并为一行，数量汇总、金额随数量汇总，合计
+> 不变。实现：`entry_export._merge_sales_rows`，在 `render_entry_workbook`（xlsx）与
+> `render_entry_pdf`（PDF）入口统一应用——PDF 与 xlsx 同口径。测试：新增
+> `test_export_merges_same_day_spec_kg_price_rows`（同键合并 35 件 / 单价不同保留 /
+> 备注不同保留，工作簿层断言 3 行、金额 87.50）；在途的
+> `test_entry_pdf_paginates_long_sales_list` 夹具改为单价递增（原 25 行同键会被合并
+> 成 2 行，无法再验证分页，属预期口径变化）。验证：`test_entry_service + test_exports`
+> 24 项通过（1 项失败为既有品种列基线）；8000 已重启；真实库直查 **单650 52 行→32 行、
+> 单653 46 行→22 行**，xlsx 行数与合并数一致、PDF 输出正常。注意：本次提交的
+> `entry_export.py` 同时包含并行会话已完成的在途改动（「顺立达SLD」水印 + PIL 直渲染
+> PDF，15 项测试绿）；`exports.py` 的 docstring 在途改动仍在工作区未提交。
+
+> 2026-09-29 「品牌对比 · 等级均价对比」**Y 轴不再从 0 开始**（未提交，应用户要求）：
+> `SeriesGradePriceChart.vue` 删 `min: 0`，新增 `priceAxisBounds`——取全部（非 OTHER）
+> 等级均价的最小/最大各放宽 15%（跨度为 0 时按值 8%），取整到 5 的倍数保证刻度为
+> 整数、下限不越过 0，接入 yAxis min/max。`series-grade-price-chart.test.mjs` 新增
+> 防回归断言（不再出现 `min: 0,`、含 15% 放宽与接线）。验证：前端 303 项 test、
+> typecheck、build 通过，dist 已重建；Playwright（临时账号已清理）
+> `?selected=单629,单633,单634` 实测 Y 轴 **190~290**（数据 201.81~277.01，与
+> 15% 放宽取整预期一致），截图 `tmp/daily-price-chart/axis-series-price.png`，
+> AI 视觉验收通过。
+
+> 2026-09-29 视觉伴侣新增**「方向罗盘」选向板**（`redesign-20260929/compass.html`，
+> 未提交）：应用户「摒弃现在所有思路重新设计」要求，A~G 七版全部推翻后改为
+> 一次性铺开**六个全新方向**（不沿用任何旧思路；全部亮色、左侧菜单、同一屏
+> 「销售总览」真实数据同屏对比）：**1 蓝鲸·企业 BI**（蓝主色标准后台）/
+> **2 瑞士极简·黑白红**（无卡片、粗规则线、超大数字）/**3 晨报·编辑风**
+> （报纸排版、衬线大数字、双细线、导读段落）/**4 掌柜·清爽金融 App**
+> （蓝渐变 hero 金额卡+白卡圆角）/**5 台账·报表打印风**（全表格线、零装饰、
+> 最高密度）/**6 展台·大数字现代 SaaS**（细字重超大数字、极少边框、靛紫点缀）。
+> 每向附「像什么」说明；请业务指方向/组合/给参照产品后，再按所选方向全量
+> 展开成完整设计稿。选型页 index 已加罗盘入口。验证：compass.html 53004 返回 200。
+
+> 2026-09-29 「卖得怎么样」区块标题「等级销售分析」改名为「销售分析」（未提交）：
+> `OverviewView.vue` 传给 `SettlementGradeBreakdown` 的 `title` prop 改文案，
+> `overview-filters.test.ts` 同步断言；销售详情页同名组件标题（等级图表）不受影响，
+> 手册/ADR 中的历史名称按规则不改写。前端 303 项 test、typecheck、build 通过，
+> dist 已重建（53000 直接生效）。后端无改动。
+
 > 2026-09-29 清理区块标题下的静态辅助说明（已提交）：应用户要求移除标题旁的
 > `section-note` 类辅助描述，共清理 9 个稳定文件——GradeSummary（每件均价公式）、
 > SettlementGradeBreakdown（sectionNote 计算属性 + 区块/规格表两处说明）、

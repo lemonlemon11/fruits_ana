@@ -1,20 +1,22 @@
-"""结算单 xlsx / pdf 导出；xlsx 为财务表格样式，PDF 由 xlsx 经 LibreOffice 另存。"""
+"""结算单 xlsx / pdf 导出；xlsx 为财务表格样式，PDF 由 PIL 渲染图片直接生成（无外部依赖）。"""
 
 from __future__ import annotations
 
-import shutil
-import subprocess
-import tempfile
+import os
 from datetime import datetime, date
 from decimal import Decimal
 from io import BytesIO
-from pathlib import Path
 from typing import Any
 
 from openpyxl import Workbook
+from openpyxl.drawing.image import Image as XLImage
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.utils.units import pixels_to_EMU
 from openpyxl.worksheet.page import PageMargins
+from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -102,6 +104,23 @@ def load_entry(db: Session, merchant_no: str) -> dict:
     if entry is None:
         raise ValueError("没有找到该商号的结算单")
     return entry
+
+
+def _merge_sales_rows(sales: list[dict]) -> list[dict]:
+    """导出合并：同一天 / 同规格（头数）/ 同重量（KG）/ 同单价，且品种、等级、备注一致的
+    行合并为一行，数量汇总（金额 = 数量 × 单价，随数量汇总，合计不变）。"""
+    merged: dict[tuple, dict] = {}
+    for row in sales:
+        key = (
+            row.get("sale_date"), row.get("variety"), row.get("grade"),
+            row.get("head_count"), row.get("spec_kg"), row.get("unit_price"),
+            row.get("remark"),
+        )
+        if key in merged:
+            merged[key]["sales_quantity"] += row["sales_quantity"]
+        else:
+            merged[key] = dict(row)
+    return list(merged.values())
 
 
 # ──────────────────────────────────────────────
@@ -256,11 +275,43 @@ def _center():
 def _center_wrap():
     return Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-def _left():
-    return Alignment(horizontal="left", vertical="center")
 
-def _right():
-    return Alignment(horizontal="right", vertical="center")
+def _find_offset(sizes: list[float], target: float) -> tuple[int, float]:
+    """在累积尺寸序列里定位 target 落点：返回 (索引, 段内偏移)。"""
+    remaining = target
+    for idx, size in enumerate(sizes):
+        if remaining < size:
+            return idx, max(remaining, 0.0)
+        remaining -= size
+    return len(sizes) - 1, 0.0
+
+
+def _add_xlsx_watermark(ws, widths_units: list[float]) -> None:
+    """在表格内容区域中央叠加「顺立达SLD」半透明斜向水印（PNG 图片浮于单元格上方）。
+
+    行列像素按列宽单位 / 行高 pt 近似换算，水印只需视觉居中，不要求像素级精确。
+    缺中文字体时跳过水印（不影响 xlsx 本身导出）。
+    """
+    col_px = [w * 7 + 5 for w in widths_units]
+    row_px = []
+    for r in range(1, ws.max_row + 1):
+        pt = ws.row_dimensions[r].height or 15.0
+        row_px.append(pt * 96 / 72)
+    try:
+        target_w = min(max(sum(col_px) * 0.45, 260), 640)
+        stamp = _watermark_stamp(max(26, round(target_w * 2 / _watermark_units())))
+    except RuntimeError:
+        return
+    buffer = BytesIO()
+    stamp.save(buffer, format="PNG")
+    col_idx, x_off = _find_offset(col_px, (sum(col_px) - stamp.width) / 2)
+    row_idx, y_off = _find_offset(row_px, (sum(row_px) - stamp.height) / 2)
+    img = XLImage(buffer)
+    img.anchor = OneCellAnchor(
+        _from=AnchorMarker(col=col_idx, colOff=pixels_to_EMU(x_off), row=row_idx, rowOff=pixels_to_EMU(y_off)),
+        ext=XDRPositiveSize2D(pixels_to_EMU(stamp.width), pixels_to_EMU(stamp.height)),
+    )
+    ws.add_image(img)
 
 
 def render_entry_workbook(entry: dict) -> bytes:
@@ -276,7 +327,8 @@ def render_entry_workbook(entry: dict) -> bytes:
     ws.page_setup.fitToHeight = 0
     ws.page_margins = PageMargins(left=0.35, right=0.35, top=0.5, bottom=0.5)
 
-    sales = entry["sales"]
+    # 同一天/同规格/同重量/同单价的行先合并再渲染（用户要求；合计口径不变）。
+    sales = _merge_sales_rows(entry["sales"])
     after_sales = entry["after_sales"]
     fees = entry["fees"]
     fixed_rows = _fixed_fee_rows(fees)
@@ -304,7 +356,7 @@ def render_entry_workbook(entry: dict) -> bytes:
     # ════════════════ 销售明细 ════════════════
     r = 6
     _merge(ws, r, 1, r, 9, "▼ 销售明细", font=Font(name="微软雅黑", bold=True, size=11, color=INK),
-           fill=SECTION_FILL, align=_left(), border=THIN)
+           fill=SECTION_FILL, align=_center(), border=THIN)
     ws.row_dimensions[r].height = 22
 
     r = 7
@@ -330,16 +382,16 @@ def render_entry_workbook(entry: dict) -> bytes:
         amt = s["sales_quantity"] * s["unit_price"]
         _cell(ws, row, 9, _fmt(amt), font=_body_font(bold=True), align=_center(), fill=fill, border=THIN)
 
-    # 合计行：数值由数量/金额列统计，标签只写文字并靠右，紧邻数值。
+    # 合计行：数值由数量/金额列统计，标签与数值均居中（用户要求全表内容居中）。
     total_row = sr + len(sales)
     _merge(ws, total_row, 1, total_row, 6, "总件数",
-           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
+           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
     _cell(ws, total_row, 7, _fmt_int(total_qty), font=_body_font(bold=True, sz=10, color=INK),
-          fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
+          fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
     _cell(ws, total_row, 8, "销售金额", font=_body_font(bold=True, sz=10),
           fill=TOTAL_FILL, align=_center_wrap(), border=TOTAL_BORDER)
     _cell(ws, total_row, 9, _fmt(sales_amt), font=_body_font(bold=True, sz=10, color=INK),
-          fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
+          fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
     ws.row_dimensions[total_row].height = 26
 
     # ════════════════ 售后（与销售明细同宽，对齐到 I 列） ════════════════
@@ -348,7 +400,7 @@ def render_entry_workbook(entry: dict) -> bytes:
     r += 1
 
     _merge(ws, r, 1, r, 9, "▼ 售  后", font=Font(name="微软雅黑", bold=True, size=11, color=INK),
-           fill=SECTION_FILL, align=_left(), border=THIN)
+           fill=SECTION_FILL, align=_center(), border=THIN)
     ws.row_dimensions[r].height = 22
 
     r += 1
@@ -363,26 +415,26 @@ def render_entry_workbook(entry: dict) -> bytes:
         row = ar + i
         fill = EVEN_FILL if i % 2 else None
         _cell(ws, row, 1, i + 1, font=_body_font(), align=_center(), fill=fill, border=THIN)
-        _merge(ws, row, 2, row, 3, a["content"], font=_body_font(), align=_left(), fill=fill, border=THIN)
-        _merge(ws, row, 4, row, 6, a["summary"], font=_body_font(), align=_left(), fill=fill, border=THIN)
-        _merge(ws, row, 7, row, 9, _fmt(a["amount"]), font=_body_font(bold=True), align=_right(), fill=fill, border=THIN)
+        _merge(ws, row, 2, row, 3, a["content"], font=_body_font(), align=_center(), fill=fill, border=THIN)
+        _merge(ws, row, 4, row, 6, a["summary"], font=_body_font(), align=_center(), fill=fill, border=THIN)
+        _merge(ws, row, 7, row, 9, _fmt(a["amount"]), font=_body_font(bold=True), align=_center(), fill=fill, border=THIN)
         ws.row_dimensions[row].height = 18
 
     after_total_row = ar + max(len(after_sales), 1)
     _merge(ws, after_total_row, 1, after_total_row, 6, "售后合计：",
-           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
+           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
     _merge(ws, after_total_row, 7, after_total_row, 9, _fmt(after_amt),
-           font=_body_font(bold=True, sz=10, color=INK), fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
+           font=_body_font(bold=True, sz=10, color=INK), fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
     ws.row_dimensions[after_total_row].height = 20
 
     # 货款合计
     goods_row = after_total_row + 1
     _merge(ws, goods_row, 1, goods_row, 5, "扣减售后",
-           font=_body_font(sz=10), align=_right(), border=SUBTLE_BORDER)
+           font=_body_font(sz=10), align=_center(), border=SUBTLE_BORDER)
     _merge(ws, goods_row, 6, goods_row, 7, "货款合计：",
-           font=_body_font(bold=True, sz=10), align=_right(), border=SUBTLE_BORDER)
+           font=_body_font(bold=True, sz=10), align=_center(), border=SUBTLE_BORDER)
     _merge(ws, goods_row, 8, goods_row, 9, _fmt(goods_amt),
-           font=_body_font(bold=True, sz=10, color=INK), align=_right(), border=SUBTLE_BORDER)
+           font=_body_font(bold=True, sz=10, color=INK), align=_center(), border=SUBTLE_BORDER)
     ws.row_dimensions[goods_row].height = 20
 
     # ════════════════ 支出费用（对齐到 I 列） ════════════════
@@ -391,7 +443,7 @@ def render_entry_workbook(entry: dict) -> bytes:
     r += 1
 
     _merge(ws, r, 1, r, 9, "▼ 支出费用", font=Font(name="微软雅黑", bold=True, size=11, color=INK),
-           fill=SECTION_FILL, align=_left(), border=THIN)
+           fill=SECTION_FILL, align=_center(), border=THIN)
     ws.row_dimensions[r].height = 22
 
     r += 1
@@ -404,15 +456,15 @@ def render_entry_workbook(entry: dict) -> bytes:
     for i, f in enumerate(fixed_rows):
         row = fr + i
         fill = EVEN_FILL if i % 2 else None
-        _merge(ws, row, 1, row, 6, f["name"], font=_body_font(), align=_left(), fill=fill, border=THIN)
-        _merge(ws, row, 7, row, 9, _fmt(f["amount"]), font=_body_font(bold=True), align=_right(), fill=fill, border=THIN)
+        _merge(ws, row, 1, row, 6, f["name"], font=_body_font(), align=_center(), fill=fill, border=THIN)
+        _merge(ws, row, 7, row, 9, _fmt(f["amount"]), font=_body_font(bold=True), align=_center(), fill=fill, border=THIN)
         ws.row_dimensions[row].height = 18
 
     fee_total_row = fr + len(fixed_rows)
     _merge(ws, fee_total_row, 1, fee_total_row, 6, "费用合计",
-           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
+           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
     _merge(ws, fee_total_row, 7, fee_total_row, 9, _fmt(fee_amt),
-           font=_body_font(bold=True, sz=10, color=INK), fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
+           font=_body_font(bold=True, sz=10, color=INK), fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
     ws.row_dimensions[fee_total_row].height = 20
 
     # ════════════════ 应付总额 ════════════════
@@ -421,10 +473,10 @@ def render_entry_workbook(entry: dict) -> bytes:
     r += 1
 
     _merge(ws, r, 1, r, 6, "应付贵方总金额（RMB）",
-           font=_body_font(bold=True, sz=11, color=INK), fill=GRAND_FILL, align=_right(), border=GRAND_BORDER)
+           font=_body_font(bold=True, sz=11, color=INK), fill=GRAND_FILL, align=_center(), border=GRAND_BORDER)
     _merge(ws, r, 7, r, 9, _fmt(payable),
            font=Font(name="微软雅黑", bold=True, size=16, color=INK),
-           fill=GRAND_FILL, align=_left(), border=GRAND_BORDER)
+           fill=GRAND_FILL, align=_center(), border=GRAND_BORDER)
     ws.row_dimensions[r].height = 32
 
     # 列宽只按表格内容自适应（跳过信息行）；备注列按 4 个汉字宽度封顶；
@@ -457,6 +509,9 @@ def render_entry_workbook(entry: dict) -> bytes:
             _merge(ws, rr, c1, rr, c2, text, font=info_font, align=info_align,
                    fill=SECTION_FILL, border=THIN)
         ws.row_dimensions[rr].height = 24
+
+    # 水印居中叠在全部内容之上（列宽已在手，行高按已设值 + 默认 15pt 估算）。
+    _add_xlsx_watermark(ws, widths)
 
     output = BytesIO()
     wb.save(output)
@@ -649,33 +704,377 @@ tr.grand td {{ background:#e1ede7 !important; font-weight:800; font-size:11pt; b
     return html
 
 
-def render_entry_pdf_from_workbook(content: bytes) -> bytes:
-    """把结算单 xlsx 用 LibreOffice 另存为 PDF：与 Excel 版式完全一致。
+# ──────────────────────────────────────────────
+# PDF 导出（PIL 渲染图片 → PDF，无需 LibreOffice / 外部命令）
+# ──────────────────────────────────────────────
 
-    每次调用使用独立临时目录与 LibreOffice 用户 profile，避免并发转换互相阻塞。
+# 1pt = 2px（144dpi）；A4 横向 842×595pt。PIL 存 PDF 时按 resolution 把像素折算成页面尺寸。
+PDF_SCALE = 2
+PDF_DPI = 72 * PDF_SCALE
+PDF_PAGE_W, PDF_PAGE_H = 842 * PDF_SCALE, 595 * PDF_SCALE
+PDF_MARGIN_X, PDF_MARGIN_TOP, PDF_MARGIN_BOTTOM = 50, 64, 56
+PDF_TABLE_W = PDF_PAGE_W - PDF_MARGIN_X * 2
+
+PDF_INK = (26, 60, 52)             # #1A3C34
+PDF_HEADER = (43, 94, 74)          # #2B5E4A
+PDF_WHITE = (255, 255, 255)
+PDF_SECTION = (238, 244, 241)      # #EEF4F1
+PDF_TOTAL = (240, 245, 243)        # #F0F5F3
+PDF_GRAND = (225, 237, 231)        # #E1EDE7
+PDF_EVEN = (248, 250, 249)         # #F8FAF9
+PDF_LINE = (221, 229, 225)         # #DDE5E1
+PDF_DIVIDER_END = (176, 204, 192)  # #B0CCC0
+
+# 部署机字体位置（yum 装的 google-noto-cjk-fonts 在第一个目录）。
+_FONT_DIRS = (
+    "/usr/share/fonts/google-noto-cjk",
+    "/usr/share/fonts/opentype/noto",
+    "/usr/share/fonts/noto-cjk",
+)
+
+
+def _pdf_font(bold: bool, size_pt: float) -> ImageFont.FreeTypeFont:
+    """Noto Sans CJK（ttc 内 index=2 为简体）；缺字体时给出可操作的报错。"""
+    name = "NotoSansCJK-Bold.ttc" if bold else "NotoSansCJK-Regular.ttc"
+    for directory in _FONT_DIRS:
+        path = os.path.join(directory, name)
+        if os.path.exists(path):
+            return ImageFont.truetype(path, round(size_pt * PDF_SCALE), index=2)
+    raise RuntimeError("服务器缺少中文字体（Noto Sans CJK），无法生成 PDF；请安装 google-noto-cjk-fonts")
+
+
+# ── 水印：xlsx 与 PDF 共用「顺立达SLD」斜向半透明文字 ──
+WATERMARK_TEXT = "顺立达SLD"
+WATERMARK_COLOR = (96, 122, 110)  # 与主题绿同族的浅灰绿
+WATERMARK_ALPHA = 48
+WATERMARK_ANGLE = 28  # 逆时针旋转角度（PIL rotate 即逆时针）：文字自左下向右上倾斜
+
+
+def _watermark_units() -> float:
+    """水印文字宽度估算单位：CJK 全宽、ASCII 约 1.15 倍（Noto Bold 数字/字母略宽）。"""
+    return sum(2 if ord(ch) > 0x2E80 else 1.15 for ch in WATERMARK_TEXT)
+
+
+def _watermark_stamp(font_px: int) -> Image.Image:
+    """生成旋转后的水印字图（RGBA、低透明度、按内容裁边），供 PDF 合成与 xlsx 嵌入共用。"""
+    font = _pdf_font(True, font_px / PDF_SCALE)
+    probe = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    bbox = probe.textbbox((0, 0), WATERMARK_TEXT, font=font)
+    text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    canvas = Image.new("RGBA", (int(text_w * 1.7) + 4, int(text_h * 2.2) + 4), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
+    draw.text(
+        ((canvas.width - text_w) / 2 - bbox[0], (canvas.height - text_h) / 2 - bbox[1]),
+        WATERMARK_TEXT, font=font, fill=(*WATERMARK_COLOR, WATERMARK_ALPHA),
+    )
+    rotated = canvas.rotate(WATERMARK_ANGLE, resample=Image.BICUBIC)
+    return rotated.crop(rotated.getbbox())
+
+
+def _with_pdf_watermark(page: Image.Image) -> Image.Image:
+    """页面中央合成一张约 42% 页宽的水印（不遮挡阅读，多页每页都有）。
+
+    `_watermark_units` 以「半角宽」为单位（1 单位 = 字号一半），目标宽换算字号要乘 2。
     """
-    soffice = shutil.which("soffice") or shutil.which("libreoffice")
-    if not soffice:
-        raise RuntimeError("服务器未安装 LibreOffice，无法把结算单另存为 PDF")
-    with tempfile.TemporaryDirectory() as tmp:
-        source = Path(tmp) / "settlement.xlsx"
-        source.write_bytes(content)
-        profile = Path(tmp) / "lo-profile"
-        completed = subprocess.run(
-            [
-                soffice, "--headless",
-                f"-env:UserInstallation=file://{profile}",
-                "--convert-to", "pdf:calc_pdf_Export",
-                "--outdir", tmp, str(source),
-            ],
-            capture_output=True,
-            timeout=60,
+    stamp = _watermark_stamp(max(48, round(page.width * 0.42 * 2 / _watermark_units())))
+    layer = Image.new("RGBA", page.size, (0, 0, 0, 0))
+    layer.paste(stamp, ((page.width - stamp.width) // 2, (page.height - stamp.height) // 2), stamp)
+    return Image.alpha_composite(page.convert("RGBA"), layer).convert("RGB")
+
+
+def _pdf_wrap(draw: ImageDraw.ImageDraw, text: Any, font: ImageFont.FreeTypeFont, max_w: float) -> list[str]:
+    """按像素宽换行：CJK 逐字断行，连续 ASCII（数字、日期、金额）视作一个词不拆开。"""
+    text = "" if text is None else str(text)
+    if not text or draw.textlength(text, font=font) <= max_w:
+        return [text]
+    tokens: list[str] = []
+    buf = ""
+    for ch in text:
+        if ord(ch) > 0x2E80 or ch == " ":
+            if buf:
+                tokens.append(buf)
+                buf = ""
+            if ch != " ":
+                tokens.append(ch)
+        else:
+            buf += ch
+    if buf:
+        tokens.append(buf)
+    lines: list[str] = []
+    line = ""
+    for token in tokens:
+        candidate = f"{line}{token}"
+        if line and draw.textlength(candidate, font=font) > max_w:
+            lines.append(line)
+            line = token
+        else:
+            line = candidate
+    if line:
+        lines.append(line)
+    return lines
+
+
+class _PdfCanvas:
+    """A4 横向分页画布：内容越界自动换页，换页时按需重画表头。"""
+
+    def __init__(self) -> None:
+        self.pages: list[Image.Image] = []
+        self._new_page()
+
+    def _new_page(self) -> None:
+        self.image = Image.new("RGB", (PDF_PAGE_W, PDF_PAGE_H), "white")
+        self.draw = ImageDraw.Draw(self.image)
+        self.pages.append(self.image)
+        self.y = PDF_MARGIN_TOP
+
+    def ensure(self, height: float, repeat=None) -> None:
+        """剩余高度不足时换页；``repeat`` 在新页顶部重画（如表头）。"""
+        if self.y + height > PDF_PAGE_H - PDF_MARGIN_BOTTOM:
+            self._new_page()
+            if repeat is not None:
+                repeat()
+
+    def finish(self) -> bytes:
+        output = BytesIO()
+        pages = [_with_pdf_watermark(page) for page in self.pages]
+        pages[0].save(
+            output,
+            format="PDF",
+            save_all=True,
+            append_images=pages[1:],
+            resolution=PDF_DPI,
+            quality=95,
         )
-        target = Path(tmp) / "settlement.pdf"
-        if completed.returncode != 0 or not target.exists():
-            detail = (completed.stderr or completed.stdout).decode("utf-8", "ignore")[:200]
-            raise RuntimeError(f"LibreOffice 转换 PDF 失败：{detail}")
-        return target.read_bytes()
+        return output.getvalue()
+
+
+def _pdf_row(canvas: _PdfCanvas, xs: list[float], height: float, cells: list[tuple], top: str | None = None) -> None:
+    """画一行表格格。cell = (起始列, 结束列, 文本, 对齐, 字体, 填充, 字色)。
+
+    ``top``："thick" 画合计行粗顶线、"double" 画应付行双顶线，颜色同表头深绿。
+    """
+    y0, y1 = canvas.y, canvas.y + height
+    for c1, c2, text, align, font, fill, color in cells:
+        x0, x1 = xs[c1 - 1], xs[c2]
+        if fill:
+            canvas.draw.rectangle((x0, y0, x1 - 1, y1 - 1), fill=fill)
+        anchor = {"left": "lm", "center": "mm", "right": "rm"}[align]
+        tx = {"left": x0 + 8, "center": (x0 + x1) / 2, "right": x1 - 8}[align]
+        lines = _pdf_wrap(canvas.draw, text, font, x1 - x0 - 16)
+        line_h = font.size + 6
+        ty = y0 + (height - line_h * len(lines)) / 2 + line_h / 2
+        for ln in lines:
+            canvas.draw.text((tx, ty), ln, font=font, fill=color or PDF_INK, anchor=anchor)
+            ty += line_h
+    for c1, c2, *_rest in cells:
+        x0, x1 = xs[c1 - 1], xs[c2]
+        canvas.draw.rectangle((x0, y0, x1 - 1, y1 - 1), outline=PDF_LINE, width=1)
+    if top == "thick":
+        canvas.draw.line((xs[0], y0, xs[-1] - 1, y0), fill=PDF_HEADER, width=3)
+    elif top == "double":
+        canvas.draw.line((xs[0], y0, xs[-1] - 1, y0), fill=PDF_HEADER, width=2)
+        canvas.draw.line((xs[0], y0 + 4, xs[-1] - 1, y0 + 4), fill=PDF_HEADER, width=2)
+    canvas.y = y1
+
+
+def _pdf_row_height(canvas: _PdfCanvas, xs: list[float], cells: list[tuple], base: float = 36) -> float:
+    """按换行后的最多行数撑高行，保证长备注 / 摘要不被裁掉。"""
+    max_lines = 1
+    for c1, c2, text, _align, font, _fill, _color in cells:
+        max_lines = max(max_lines, len(_pdf_wrap(canvas.draw, text, font, xs[c2] - xs[c1 - 1] - 16)))
+    return max(base, max_lines * (cells[0][4].size + 6) + 10)
+
+
+def render_entry_pdf(entry: dict) -> bytes:
+    """结算单画成图片后输出 A4 横向 PDF：版式与 xlsx 财务样式同款，内容多时自动分页。"""
+    # 与 xlsx 相同的行合并口径，保证两份导出内容一致。
+    sales = _merge_sales_rows(entry["sales"])
+    after_sales = entry["after_sales"]
+    fees = entry["fees"]
+    fixed_rows = _fixed_fee_rows(fees)
+
+    total_qty = sum(s["sales_quantity"] for s in sales)
+    sales_amt = sum(s["sales_quantity"] * s["unit_price"] for s in sales)
+    after_amt = sum(a["amount"] for a in after_sales)
+    goods_amt = sales_amt - after_amt
+    fee_amt = sum(f["amount"] for f in fees)
+    payable = goods_amt - fee_amt
+
+    f_title = _pdf_font(True, 20)
+    f_section = _pdf_font(True, 11)
+    f_hdr = _pdf_font(True, 10)
+    f_info = _pdf_font(True, 10)
+    f_body = _pdf_font(False, 10)
+    f_bold = _pdf_font(True, 10)
+    f_grand = _pdf_font(True, 16)
+
+    canvas = _PdfCanvas()
+
+    # 列宽：与 xlsx _auto_fit_columns 同思路（中文表头按两行折半估宽、备注列封顶 4 汉字宽），
+    # 再按权重撑满表宽（对应 xlsx 的 fitToWidth=1）。
+    headers = ["销售日期", "品种", "等级", "规格(头数)", "规格(KG)", "备注", "数量(件)", "单价(元)", "金额(元)"]
+    needs = [(_text_units(h) + 1) // 2 + 3 for h in headers]
+    for s in sales:
+        values = [
+            _fmt(s["sale_date"]), s["variety"] or "", s.get("grade") or "",
+            s["head_count"] or "", s["spec_kg"] or "", s["remark"] or "",
+            _fmt_int(s["sales_quantity"]), _fmt(s["unit_price"]),
+            _fmt(s["sales_quantity"] * s["unit_price"]),
+        ]
+        for ci, value in enumerate(values):
+            units = _text_units(value) + 3
+            if ci == 5:
+                units = min(units, 8.5)  # 备注列封顶，超宽靠换行
+            needs[ci] = max(needs[ci], units)
+    needs[6] = max(needs[6], _text_units(_fmt_int(total_qty)) + 3)
+    needs[8] = max(needs[8], _text_units(_fmt(sales_amt)) + 3)
+    weights = [min(n, 30.0) for n in needs]
+    cols = [PDF_TABLE_W * w / sum(weights) for w in weights]
+    xs = [PDF_MARGIN_X]
+    for w in cols:
+        xs.append(xs[-1] + w)
+
+    def hdr_cell(c1: int, c2: int, text: str) -> tuple:
+        return (c1, c2, text, "center", f_hdr, PDF_HEADER, PDF_WHITE)
+
+    def body_cell(c1: int, c2: int, text: Any, align: str = "center", font=None, fill=None, bold=False) -> tuple:
+        return (c1, c2, "" if text is None else str(text), align, font or (f_bold if bold else f_body), fill, PDF_INK)
+
+    def divider() -> None:
+        canvas.ensure(14)
+        y0 = canvas.y
+        for x in range(PDF_MARGIN_X, PDF_MARGIN_X + PDF_TABLE_W):
+            t = (x - PDF_MARGIN_X) / PDF_TABLE_W
+            color = tuple(round(a + (b - a) * t) for a, b in zip(PDF_HEADER, PDF_DIVIDER_END))
+            canvas.draw.line((x, y0, x, y0 + 5), fill=color)
+        canvas.y += 14
+
+    def section(text: str) -> None:
+        canvas.ensure(44)
+        _pdf_row(canvas, xs, 44, [body_cell(1, 9, text, "center", f_section, PDF_SECTION)])
+
+    # ── 标题（仅首页） ──
+    canvas.ensure(92)
+    canvas.draw.text(((xs[0] + xs[-1]) / 2, canvas.y + 46), "结  算  单", font=f_title, fill=PDF_INK, anchor="mm")
+    canvas.y += 92
+
+    # ── 基本信息：两行 × 每行 4 个字段，跨列分配与 xlsx _info_spans 同算法 ──
+    info_rows = [
+        [
+            ("商号", entry["merchant_no"]),
+            ("单号", entry["order_no"]),
+            ("国家", entry.get("country")),
+            ("市场", entry["market"]),
+        ],
+        [
+            ("到达日期", _fmt(entry["arrival_date"])),
+            ("来货数量", _fmt_int(entry["arrival_quantity"])),
+            ("柜号", entry["container_no"]),
+            ("转运公司", entry["vehicle_no"]),
+        ],
+    ]
+    for fields in info_rows:
+        texts = [f"{label}：{val if val not in (None, '') else '—'}" for label, val in fields]
+        needs_px = [_text_units(t) * 9.5 + 20 for t in texts]
+        cells = [
+            body_cell(c1, c2, text, "center", f_info, PDF_SECTION)
+            for text, (c1, c2) in zip(texts, _info_spans(cols, needs_px))
+        ]
+        canvas.ensure(46)
+        _pdf_row(canvas, xs, 46, cells)
+
+    # ════════════════ 销售明细 ════════════════
+    divider()
+    section("▼ 销售明细")
+
+    def draw_sales_header() -> None:
+        _pdf_row(canvas, xs, 56, [hdr_cell(ci, ci, h) for ci, h in enumerate(headers, 1)])
+
+    draw_sales_header()
+    for i, s in enumerate(sales):
+        fill = PDF_EVEN if i % 2 else None
+        cells = [
+            body_cell(1, 1, _fmt(s["sale_date"]), fill=fill),
+            body_cell(2, 2, s["variety"] or "", fill=fill),
+            body_cell(3, 3, s.get("grade") or "", fill=fill),
+            body_cell(4, 4, s["head_count"] or "", fill=fill),
+            body_cell(5, 5, s["spec_kg"] or "", fill=fill),
+            body_cell(6, 6, s["remark"] or "", fill=fill),
+            body_cell(7, 7, _fmt_int(s["sales_quantity"]), fill=fill),
+            body_cell(8, 8, _fmt(s["unit_price"]), fill=fill),
+            body_cell(9, 9, _fmt(s["sales_quantity"] * s["unit_price"]), bold=True, fill=fill),
+        ]
+        height = _pdf_row_height(canvas, xs, cells)
+        canvas.ensure(height, repeat=draw_sales_header)
+        _pdf_row(canvas, xs, height, cells)
+
+    canvas.ensure(52)
+    _pdf_row(canvas, xs, 52, [
+        body_cell(1, 6, "总件数", "center", f_bold, PDF_TOTAL),
+        body_cell(7, 7, _fmt_int(total_qty), "center", f_bold, PDF_TOTAL),
+        body_cell(8, 8, "销售金额", "center", f_bold, PDF_TOTAL),
+        body_cell(9, 9, _fmt(sales_amt), "center", f_bold, PDF_TOTAL),
+    ], top="thick")
+
+    # ════════════════ 售后 ════════════════
+    divider()
+    section("▼ 售  后")
+    canvas.ensure(40)
+    _pdf_row(canvas, xs, 40, [
+        hdr_cell(1, 1, "序号"), hdr_cell(2, 3, "内容"), hdr_cell(4, 6, "摘要"), hdr_cell(7, 9, "金额(元)"),
+    ])
+    for i, a in enumerate(after_sales):
+        fill = PDF_EVEN if i % 2 else None
+        cells = [
+            body_cell(1, 1, i + 1, fill=fill),
+            body_cell(2, 3, a["content"], "center", fill=fill),
+            body_cell(4, 6, a["summary"], "center", fill=fill),
+            body_cell(7, 9, _fmt(a["amount"]), "center", bold=True, fill=fill),
+        ]
+        height = _pdf_row_height(canvas, xs, cells)
+        canvas.ensure(height)
+        _pdf_row(canvas, xs, height, cells)
+    canvas.ensure(40)
+    _pdf_row(canvas, xs, 40, [
+        body_cell(1, 6, "售后合计：", "center", f_bold, PDF_TOTAL),
+        body_cell(7, 9, _fmt(after_amt), "center", f_bold, PDF_TOTAL),
+    ], top="thick")
+    canvas.ensure(40)
+    _pdf_row(canvas, xs, 40, [
+        body_cell(1, 5, "扣减售后", "center"),
+        body_cell(6, 7, "货款合计：", "center", f_bold),
+        body_cell(8, 9, _fmt(goods_amt), "center", f_bold),
+    ])
+
+    # ════════════════ 支出费用 ════════════════
+    divider()
+    section("▼ 支出费用")
+    canvas.ensure(40)
+    _pdf_row(canvas, xs, 40, [hdr_cell(1, 6, "费用项目"), hdr_cell(7, 9, "金额(元)")])
+    for i, f in enumerate(fixed_rows):
+        fill = PDF_EVEN if i % 2 else None
+        cells = [
+            body_cell(1, 6, f["name"], "center", fill=fill),
+            body_cell(7, 9, _fmt(f["amount"]), "center", bold=True, fill=fill),
+        ]
+        height = _pdf_row_height(canvas, xs, cells)
+        canvas.ensure(height)
+        _pdf_row(canvas, xs, height, cells)
+    canvas.ensure(40)
+    _pdf_row(canvas, xs, 40, [
+        body_cell(1, 6, "费用合计", "center", f_bold, PDF_TOTAL),
+        body_cell(7, 9, _fmt(fee_amt), "center", f_bold, PDF_TOTAL),
+    ], top="thick")
+
+    # ════════════════ 应付总额 ════════════════
+    divider()
+    canvas.ensure(64)
+    _pdf_row(canvas, xs, 64, [
+        body_cell(1, 6, "应付贵方总金额（RMB）", "center", f_section, PDF_GRAND),
+        body_cell(7, 9, _fmt(payable), "center", f_grand, PDF_GRAND),
+    ], top="double")
+
+    return canvas.finish()
 
 
 
@@ -697,14 +1096,14 @@ def build_settlement_template_workbook(db: Session, merchant_no: str) -> bytes:
 
 
 def build_settlement_template_pdf(db: Session, merchant_no: str) -> bytes:
-    """结算单 PDF：与 Excel 同一工作簿，经 LibreOffice 另存，版式完全一致。"""
-    content = build_settlement_template_workbook(db, merchant_no)
-    return render_entry_pdf_from_workbook(content)
+    """结算单 PDF：PIL 按 xlsx 同款财务版式渲染图片后输出，A4 横向自动分页。"""
+    entry = load_entry(db, merchant_no)
+    return render_entry_pdf(entry)
 
 
 __all__ = [
     "build_entry_workbook", "build_settlement_template_workbook",
     "build_settlement_template_pdf", "read_imported_entry",
-    "render_entry_workbook", "render_entry_pdf_from_workbook",
+    "render_entry_workbook", "render_entry_pdf",
     "render_entry_html", "load_entry",
 ]
