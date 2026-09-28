@@ -68,8 +68,9 @@ test('卖得怎么样区块改名并启用 overview 版式等级图表', () => {
   assert.match(view, /title="等级销售分析"/)
   assert.match(view, /variant="overview"/)
 
-  // overview 版式：不渲染等级均价图。
-  assert.match(breakdown, /v-if="!isOverview"[\s\S]*?等级均价/)
+  // 等级均价图已整体删除；饼图（等级件数结构）仅 overview 保留，结算单详情不渲染。
+  assert.doesNotMatch(breakdown, /等级均价/)
+  assert.match(breakdown, /v-if="isOverview" class="chart-block pie-chart-block"/)
   // 规格表（方案A）：一行 = 品牌+等级+头数+KG+备注（相同组合合并统计），七列全部居中。
   assert.match(breakdown, /<table class="spec-table">[\s\S]*?<th>品牌<\/th>\s*<th>等级<\/th>\s*<th>头数<\/th>\s*<th>KG<\/th>\s*<th>备注<\/th>\s*<th>总件数<\/th>\s*<th>每件均价<\/th>/)
   assert.match(breakdown, /const key = `\$\{brand\}::\$\{grade\}::\$\{head\}::\$\{kg\}::\$\{remark\}`/)
@@ -83,9 +84,10 @@ test('卖得怎么样区块改名并启用 overview 版式等级图表', () => {
   assert.match(breakdown, /\.breakdown-grid--overview \.pie-chart-block \{ grid-row: 1; \}/)
   assert.match(breakdown, /\.breakdown-grid--overview \.spec-block \{ grid-column: 1 \/ -1; grid-row: 2; \}/)
   assert.doesNotMatch(breakdown, /销售柜数统计|brandContainers/)
-  // 默认（结算单详情）版式保持不变：按 等级+规格 聚合，不含备注维度。
+  // 结算单详情版式：等级件数结构/等级均价图已删，规格区与 overview 共用同一张七列表格。
   assert.match(breakdown, /sectionTitle = computed\(\(\) => props\.title \?\? '等级图表'\)/)
-  assert.match(breakdown, /const key = `\$\{grade\}::\$\{spec}`\n/)
+  assert.doesNotMatch(breakdown, /const key = `\$\{grade\}::\$\{spec}`/)
+  assert.doesNotMatch(breakdown, /spec-list|spec-row/)
 })
 
 test('市场销售分析块跟随市场筛选，全部市场同图分组、单市场按档口展示', () => {

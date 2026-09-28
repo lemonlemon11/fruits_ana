@@ -3,6 +3,46 @@
 Last updated：2026-09-28 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-28 「销售详情」页面再调整五项（已提交；本条覆盖同日「规格表按件数降序」
+> 条目中「结算单详情页 specRows 排序不变」的说法——specRows 已随本次整体移除）：
+> ① **settlement-banner 整体删除**，商号（适配后写法，`displayMerchantNo`）收进
+> `settlement-fact-grid` **第一位**（共 8 项：商号/市场/单号/国家/到达市场日期/销售日期/
+> 柜号/转运公司）；banner 里手工录单的「修改录单 / 导出模板」按钮保留，改为信息条下方
+> 右对齐操作行 `.manual-entry-bar`（移动端铺满一行），导出状态提示随行；`periodLabel`
+> 计算属性随 banner 删除。② **经营指标条（metric-strip）移到「X 销售表现」标题正下方**：
+> `GradeSummary` 新增具名插槽 `<slot name="after-heading" />`（标题与等级卡片之间），
+> SettlementView 用 `<template #after-heading>` 传入，间距改 `margin: 2px 0 14px`。
+> ③ 详情版**删除「等级件数结构」饼图**（`pie-chart-block` 加 `v-if="isOverview"`，
+> 仅卖得怎么样保留）与**「等级均价」图**（整块删除）；④ **规格件数与均价改用与
+> 卖得怎么样同一张七列表格**（品牌/等级/头数/KG/备注/总件数/每件均价，含 品牌×等级
+> 小计与表底合计，全部内容居中），原「等级+规格聚合 + 悬浮提示 + 移动端两行式」的
+> div 列表（specRows/spec-list/ChartTooltip）整体移除，两版式共用 `overviewSpecGroups`；
+> ⑤ 详情区块标题 `X 等级图表` 改为 `X 规格件数与均价`（图删完后原名义不副实），组件
+> 默认标题兜底 `等级图表` 字符串保留。测试：`overview-filters.test.ts` 改为断言 等级均价
+> 整体不存在 / 饼图仅 overview / 旧 `${grade}::${spec}` 分组键与 spec-list 不存在；
+> `farmer-ui-copy.test.mjs` 更新区块标题、metric-strip 插槽位置、facts 顺序
+> （商号→市场→单号→国家）、banner 已删 + manual-entry-bar 存在。验证：前端 **287 项
+> test、typecheck、build** 通过，dist 已重建（53000 vite preview 直接生效）。后端无改动。
+> 注意：同文件存在并行会话的在途改动（每一单筛选栏顺序，SettlementListView.vue），
+> 未卷入本次提交。
+
+> 2026-09-28 「卖得怎么样」规格表按件数降序（未提交）：`SettlementGradeBreakdown.vue`
+> 的 `overviewSpecGroups`（方案A 规格件数与均价表）排序调整——类别（品牌×等级分组）
+> 按小计件数从多到少，类别内行按总件数从多到少，件数相同时回退原有字典序
+> （品牌→等级→头数→KG→备注）保证稳定；结算单详情页的 `specRows` 排序不变。验证：前端
+> 287 项 test、typecheck、build 通过。后端无改动。
+
+> 2026-09-28 「销售详情」页筛选栏顺序调整（未提交）：`SettlementView.vue`（原「结算单
+> 详情」）筛选区「销售日期」（DateRangeFilter）移到第一位，顺序变为 销售日期 → 品牌 →
+> 商号 → 查看结果；仅模板内元素位置调整，无逻辑 / 样式 / API 改动，与同日「每一单」
+> 的同型调整保持一致。验证：前端 287 项 test、typecheck、build 通过，dist 已重建
+> （53000 preview 直接生效）。后端无改动。
+
+> 2026-09-28 「每一单」页筛选栏顺序调整（未提交）：`SettlementListView.vue` 筛选区
+> 「销售日期」（DateRangeFilter）移到第一位，顺序变为 销售日期 → 商号 → 品牌 → 查看结果；
+> 仅模板内元素位置调整，无逻辑 / 样式 / API 改动。验证：前端 287 项 test、typecheck、
+> build 通过。后端无改动。
+
 > 2026-09-28 修复「各品牌分市场柜数对比」tooltip 与图例颜色（已提交未推送）：多市场分组
 > 柱图的市场色此前只设在**逐数据项** `itemStyle.color`，而 ECharts 的 tooltip marker 与
 > 图例只取**系列级**颜色，未设时回落到默认色板，导致提示圆点 / 顶部图例与柱体、饼图的

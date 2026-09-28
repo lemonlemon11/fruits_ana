@@ -61,7 +61,6 @@ const activeMerchantLabel = computed(() =>
 const sectionTitlePrefix = computed(() =>
   displayOrderNo(selectedOption.value ?? detail.value ?? {}) || '当前结算单',
 )
-const periodLabel = computed(() => detail.value?.startDate && detail.value?.endDate ? `${detail.value.startDate} 至 ${detail.value.endDate}` : '当前筛选范围暂无销售日期')
 const aiResetKey = computed(() => `${activeMerchantNo.value}|${filters.series}|${filters.startDate}|${filters.endDate}`)
 /** 后端要求「同品牌至少还有一张结算单」才可生成对比分析；不满足时不发请求。 */
 const sameBrandPeerCount = computed(() =>
@@ -120,6 +119,7 @@ const settlementFacts = computed(() => {
   if (!current) return []
   const salePeriod = current.startDate && current.endDate ? `${current.startDate} 至 ${current.endDate}` : '暂无'
   return [
+    { label: '商号', value: displayMerchantNo(current) || '未登记' },
     { label: '市场', value: current.market || '未登记' },
     { label: '单号', value: current.orderNoNormalized || current.orderNo || '未登记' },
     { label: '国家', value: current.country || '未登记' },
@@ -209,6 +209,13 @@ onBeforeUnmount(() => {
 <template>
   <div class="settlement-dashboard">
     <form class="filter-bar" @submit.prevent="refresh">
+      <DateRangeFilter
+        v-model:start-date="filters.startDate"
+        v-model:end-date="filters.endDate"
+        :years="quickYears"
+        :months="quickMonths"
+        @change="refresh"
+      />
       <SearchableSelect
         v-model="filters.series"
         :options="brandSelectOptions"
@@ -227,38 +234,25 @@ onBeforeUnmount(() => {
         :loading="loading"
         @change="refresh"
       />
-      <DateRangeFilter
-        v-model:start-date="filters.startDate"
-        v-model:end-date="filters.endDate"
-        :years="quickYears"
-        :months="quickMonths"
-        @change="refresh"
-      />
       <button class="primary-button" type="submit" :disabled="loading || !filters.merchantNo">{{ loading ? '正在查询' : '查看结果' }}</button>
     </form>
     <div v-if="error" class="error-banner" role="alert"><span><strong>结算单数据没有加载成功</strong>请检查网络后重新查询。{{ error }}</span><button type="button" @click="refresh">重新查询</button></div>
     <div v-if="!loading && !options.length" class="empty-state prominent"><strong>暂无结算单数据</strong><span>目前没有可查看的结算单。请从左侧菜单进入“数据导入”，先导入结算单。</span></div>
     <template v-else>
-      <section class="settlement-banner">
-        <div class="settlement-identity">
-          <strong>{{ selectedOption ? settlementOptionLabel(selectedOption) : activeMerchantNo }}</strong>
-          <small>商号 {{ activeMerchantLabel }} · {{ detail?.containerNo ? `柜号 ${detail.containerNo}` : '未登记柜号' }} · 销售日期：{{ periodLabel }}</small>
-        </div>
-        <div v-if="canEditManualEntry || canExportManualEntry" class="manual-entry-actions">
-          <button v-if="canEditManualEntry" class="ghost-button" type="button" @click="editManualEntry">修改录单</button>
-          <button v-if="canExportManualEntry" class="primary-button" type="button" :disabled="manualExporting" @click="exportManualEntry">
-            {{ manualExporting ? '导出中…' : '导出模板' }}
-          </button>
-        </div>
-      </section>
-      <p v-if="manualExportError" class="manual-export-status is-error" role="alert">{{ manualExportError }}</p>
-      <p v-else-if="manualExportNotice" class="manual-export-status" role="status" aria-live="polite">{{ manualExportNotice }}</p>
       <section class="settlement-fact-grid" aria-label="结算单基础信息">
         <article v-for="item in settlementFacts" :key="item.label" class="settlement-fact">
           <span>{{ item.label }}</span>
           <strong>{{ item.value }}</strong>
         </article>
       </section>
+      <div v-if="canEditManualEntry || canExportManualEntry" class="manual-entry-bar">
+        <button v-if="canEditManualEntry" class="ghost-button" type="button" @click="editManualEntry">修改录单</button>
+        <button v-if="canExportManualEntry" class="primary-button" type="button" :disabled="manualExporting" @click="exportManualEntry">
+          {{ manualExporting ? '导出中…' : '导出模板' }}
+        </button>
+      </div>
+      <p v-if="manualExportError" class="manual-export-status is-error" role="alert">{{ manualExportError }}</p>
+      <p v-else-if="manualExportNotice" class="manual-export-status" role="status" aria-live="polite">{{ manualExportNotice }}</p>
       <section class="panel grade-summary-panel">
         <GradeFilterBar
           v-if="availableGradeOrder.length"
@@ -272,19 +266,22 @@ onBeforeUnmount(() => {
           :title="`${sectionTitlePrefix} 销售表现`"
           :grade-order="visibleGradeOrder"
           hide-total-strip
-        />
-        <section v-if="settlementMetrics.length" class="settlement-fact-grid metric-strip" aria-label="结算单经营指标">
-          <article v-for="item in settlementMetrics" :key="item.label" class="settlement-fact">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-          </article>
-        </section>
+        >
+          <template #after-heading>
+            <section v-if="settlementMetrics.length" class="settlement-fact-grid metric-strip" aria-label="结算单经营指标">
+              <article v-for="item in settlementMetrics" :key="item.label" class="settlement-fact">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
+            </section>
+          </template>
+        </GradeSummary>
         <SettlementGradeBreakdown
           :grades="detail?.grades ?? []"
           :records="detail?.records ?? []"
           :loading="loading"
           :grade-order="visibleGradeOrder"
-          :title="`${sectionTitlePrefix} 等级图表`"
+          :title="`${sectionTitlePrefix} 规格件数与均价`"
         />
       </section>
       <AiAnalysisCard
@@ -305,17 +302,12 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .settlement-dashboard { display: grid; gap: 18px; }
-.settlement-banner,
 .panel,
 .settlement-fact-grid { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
-.settlement-banner { padding: 14px 16px; border-left: 4px solid var(--primary); }
-.settlement-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.settlement-identity { display: grid; gap: 5px; }
-.settlement-identity strong { overflow-wrap: anywhere; font-size: 1.05rem; }
-.settlement-identity small { color: var(--muted); font-size: .85rem; line-height: 1.5; }
-.manual-entry-actions { display: flex; gap: 8px; flex: 0 0 auto; }
-.manual-entry-actions button { min-height: 36px; padding: 0 12px; border-radius: 9px; font-weight: 800; }
-.manual-entry-actions button:disabled { cursor: wait; opacity: .65; }
+/* 手工录单操作行：banner 已删，按钮右对齐收在基础信息条下方。 */
+.manual-entry-bar { display: flex; justify-content: flex-end; gap: 8px; }
+.manual-entry-bar button { min-height: 36px; padding: 0 12px; border-radius: 9px; font-weight: 800; }
+.manual-entry-bar button:disabled { cursor: wait; opacity: .65; }
 .manual-export-status { margin: -8px 0 0; color: var(--primary-dark); font-size: .88rem; font-weight: 700; }
 .manual-export-status.is-error { color: var(--danger); }
 .settlement-fact-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -324,8 +316,8 @@ onBeforeUnmount(() => {
 .settlement-fact strong { overflow-wrap: anywhere; font-size: .92rem; font-variant-numeric: tabular-nums; }
 .panel { min-width: 0; padding: 16px; }
 .grade-summary-panel :deep(.dashboard-section) { padding-top: 0; border-top: 0; }
-/* 经营指标条随「销售表现」展示：6 项按 3 列排布，与等级卡片留出间距。 */
-.metric-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 14px; }
+/* 经营指标条插在「销售表现」标题与等级卡片之间：6 项按 3 列排布。 */
+.metric-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 2px 0 14px; }
 
 @media (max-width: 920px) {
   .settlement-fact-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -333,12 +325,8 @@ onBeforeUnmount(() => {
 
 @media (max-width: 560px) {
   .settlement-dashboard { gap: 6px; }
-  .settlement-banner { padding: 6px 8px; border-left-width: 3px; align-items: flex-start; flex-direction: column; }
-  .manual-entry-actions { width: 100%; }
-  .manual-entry-actions button { flex: 1; }
-  .settlement-identity { gap: 2px; }
-  .settlement-identity strong { font-size: .92rem; line-height: 1.25; }
-  .settlement-identity small { font-size: .7rem; line-height: 1.3; }
+  .manual-entry-bar { justify-content: stretch; }
+  .manual-entry-bar button { flex: 1; }
   .settlement-fact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .settlement-fact { gap: 3px; padding: 9px 8px; }
   .settlement-fact span { font-size: .7rem; line-height: 1.2; }

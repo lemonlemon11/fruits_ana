@@ -3,6 +3,26 @@
 > 规则：只保留尚未完成的事项；完成后删除条目并在此留下简短留档。
 > 最后更新：2026-09-28
 
+> 已完成（2026-09-28）：「销售详情」页面再调整五项——settlement-banner 删除（商号收进
+> 基础信息条第一位、手工录单按钮改为信息条下方操作行）、经营指标条移到「销售表现」标题
+> 正下方（GradeSummary after-heading 插槽）、删除等级件数结构饼图与等级均价图、规格件数
+> 与均价改用与卖得怎么样同一张七列居中表格（品牌/等级/头数/KG/备注/总件数/每件均价）、
+> 区块标题「等级图表」改「规格件数与均价」。前端 287 项 test、typecheck、build 通过。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-28）：「卖得怎么样」规格件数与均价表按件数降序——类别（品牌×等级）按
+> 小计件数、类别内行按总件数从多到少排，同件数回退原字典序。仅
+> `SettlementGradeBreakdown.vue` 排序逻辑；前端 287 项 test、typecheck、build 通过。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-28）：「销售详情」页筛选栏「销售日期」移到第一位（销售日期 → 品牌 → 商号）。
+> 仅 `SettlementView.vue` 模板内元素顺序调整；前端 287 项 test、typecheck、build 通过。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-28）：「每一单」页筛选栏「销售日期」移到第一位（销售日期 → 商号 → 品牌）。
+> 仅 `SettlementListView.vue` 模板内元素顺序调整；前端 287 项 test、typecheck、build 通过。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
 > 已完成（2026-09-28）：修复「各品牌分市场柜数对比」tooltip 与图例颜色。市场色由数据级
 > itemStyle 提升到系列级（tooltip marker / 图例只认系列颜色），补防回归断言；前端 287 项
 > test、typecheck、build 通过，dist 已重建。详见 `docs/HANDOFF.md` 顶部同日记录。

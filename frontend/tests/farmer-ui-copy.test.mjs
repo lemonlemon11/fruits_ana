@@ -121,9 +121,9 @@ test('销售详情区块标题带单号前缀，等级表现更名为销售表�
   assert.match(detailView, /const sectionTitlePrefix = computed\(\(\) =>/)
   assert.match(detailView, /displayOrderNo\(selectedOption\.value \?\? detail\.value \?\? \{\}\)/)
   assert.match(detailView, /`\$\{sectionTitlePrefix\} 销售表现`/)
-  assert.match(detailView, /`\$\{sectionTitlePrefix\} 等级图表`/)
+  assert.match(detailView, /`\$\{sectionTitlePrefix\} 规格件数与均价`/)
   assert.match(detailView, /:title="`\$\{sectionTitlePrefix\} 同品牌经营分析`"/)
-  assert.doesNotMatch(detailView, /等级表现/)
+  assert.doesNotMatch(detailView, /等级表现|等级图表/)
 })
 
 test('销售详情经营指标挪入销售表现区，单号后展示国家', () => {
@@ -133,12 +133,17 @@ test('销售详情经营指标挪入销售表现区，单号后展示国家', ()
   for (const label of ['来货数量（件）', '销量', '销售金额', '售后金额/售后比', '市场费用', '应付贵方金额']) {
     assert.match(detailView, new RegExp(`label: '${label}'`))
   }
+  // 经营指标条插在「销售表现」标题与等级卡片之间（GradeSummary 的 after-heading 插槽）。
+  assert.match(detailView, /<template #after-heading>/)
   // 基础信息条只保留登记类字段，国家紧跟单号。
   const factsMatch = detailView.match(/const settlementFacts = computed\(\(\) => \{[\s\S]*?\n\}\)/)
   assert.ok(factsMatch, 'settlementFacts not found')
-  assert.match(factsMatch[0], /label: '单号'[\s\S]*?label: '国家'/)
+  assert.match(factsMatch[0], /label: '商号'[\s\S]*?label: '市场'[\s\S]*?label: '单号'[\s\S]*?label: '国家'/)
   assert.doesNotMatch(factsMatch[0], /来货数量|售后金额\/售后比|应付贵方金额|市场费用/)
   assert.match(detailView, /hide-total-strip/)
+  // banner 已删除，商号收进基础信息条第一位；手工录单操作改为信息条下方的操作行。
+  assert.doesNotMatch(detailView, /settlement-banner|settlement-identity/)
+  assert.match(detailView, /class="manual-entry-bar"/)
 })
 
 test('筛选字段用商号取值、按「商号（单号）」展示', () => {

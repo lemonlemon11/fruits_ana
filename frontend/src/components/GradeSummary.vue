@@ -45,6 +45,8 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
       <h2 id="grade-summary-title">{{ title ?? '等级销售情况' }}</h2>
       <p v-if="!hideGradeCards" class="section-note">每件均价 = 销售金额 ÷ 销量（件）</p>
     </header>
+    <!-- 销售详情用：经营指标条插在区块标题与等级卡片之间（用户要求）。 -->
+    <slot name="after-heading" />
 
     <div v-if="loading && hideGradeCards" class="summary-skeleton skeleton-block" aria-live="polite" aria-busy="true">
       <span class="sr-only">正在加载汇总数据</span>
