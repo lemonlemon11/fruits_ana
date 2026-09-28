@@ -41,3 +41,10 @@ test('搜索下拉支持查询中的转圈与防重复选择', () => {
   assert.match(componentSource, /:disabled="disabled \|\| loading"/)
   assert.match(componentSource, /:aria-busy="loading"/)
 })
+
+test('下拉聚焦时隐藏提示语，失焦后恢复', () => {
+  assert.match(componentSource, /const focused = ref\(false\)/)
+  assert.match(componentSource, /:placeholder="focused \? '' : placeholder"/)
+  assert.match(componentSource, /@focus="focused = true"/)
+  assert.match(componentSource, /@blur="focused = false"/)
+})

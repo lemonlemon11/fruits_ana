@@ -47,3 +47,13 @@ export function rowClassFor(
     ? 'row-invalid'
     : ''
 }
+
+/** 硬阻断问题：销售区 error 与「销售数量合计超来货数量」，不允许带错强制提交。 */
+export function isHardBlockIssue(issue: ImportReviewIssue): boolean {
+  return issue.severity === 'error'
+    && (issue.section === 'sales' || issue.code === 'sales_exceed_arrival')
+}
+
+export function hasHardBlockIssue(issues: ImportReviewIssue[]): boolean {
+  return issues.some(isHardBlockIssue)
+}

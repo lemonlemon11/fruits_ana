@@ -98,7 +98,12 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 职责：总览指标、各等级趋势、结算单对比、结算单摘要与明细。
 - `analytics_service` 为兼容门面；`analytics_core` 提供筛选与指标，`settlement_analytics_service`
   提供对比/详情/异常，`overview_service`、`settlement_detail_service` 负责具体聚合。
-- 查询维度：`merchant_no`；柜号不再是查询条件。
+- 查询维度：`merchant_no`、品牌（`brand` 列优先，回退单号中文前缀，见 `batch_brand`）、
+  国家 `country`、市场 `market`（ADR-049）；柜号不再是查询条件。
+- `GET /api/analytics/filter-options` 提供品牌/国家/市场选项（窗口内结算单计数）与
+  有销售记录的年度/月度；年/月扫全量销售日期，不受默认窗口截断。
+- `GET /api/analytics/grade-breakdown` 附带 `brand_containers`（各品牌柜数，
+  口径＝结算单/商号数，一柜两单不折减，ADR-049）。
 - 指标口径见 `README.md`，任何口径变化必须记入 `DECISIONS.md`。
 
 ### Series Analytics（`backend/app/api/analytics.py`、`services/series_analytics_service.py`）
@@ -201,8 +206,16 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   避免图表分片下载期间的布局跳动。路由页面只预加载轻量封装，`BaseEChart` 实现分片在图表
   实际渲染时再请求。
 - 业务图表组件对外 props 保持不变；页面与 API 契约不变。
-- `OverviewView.vue` 的 overview、grade-breakdown、settlement-comparison 三个请求并发启动，
-  但分别维护 loading / error / 数据提交；商号候选或等级明细变慢、失败时，不阻塞核心指标显示。
+- `OverviewView.vue`（卖得怎么样，ADR-049）筛选条为国家 + 市场（不再有商号下拉），
+  「销售情况」区块只保留总柜数/销售金额汇总条（等级卡片已移除，`GradeSummary` 的
+  `hideGradeCards` 仅总览启用，结算单详情保留卡片），等级项（饼图 / 规格表）不展示
+  AB 与 OTHER，总量仍按全量；其 overview、
+  grade-breakdown 两个请求并发启动但分别维护 loading / error / 数据提交，
+  filter-options 只加载一次提供下拉选项与快捷年月，任一请求变慢、失败时不阻塞核心指标。
+- `SettlementGradeBreakdown.vue` 由「卖得怎么样」与「结算单详情」共用，以 `variant`
+  区分：`overview` 版式删「等级均价」图、规格表（含备注列，列序 等级/规格/备注/
+  每件均价/总件数/件数分布/占比）与「等级件数结构」饼图同行、追加「销售柜数统计」
+  （品牌柜数占比饼图 + 对比柱图，柱顶标注数量与单位）；默认（结算单详情）版式保持原样。
 - 手写进度条、卡片、表格继续使用自研组件；`ChartLegend.vue` + `ChartTooltip.vue` 与
   `utils/chartTooltip.ts` 仍用于未迁移的手写可视化组件，`frontend/tests/chart-tooltip.test.ts`
   分别校验手写图表与 ECharts 图表。

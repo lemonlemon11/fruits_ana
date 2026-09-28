@@ -4,27 +4,33 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
   getOverview,
   getGradeBreakdown,
-  getSettlementComparison,
+  getFilterOptions,
   type AnalyticsFilters,
+  type FilterOptionsData,
+  type Grade,
   type GradeBreakdownData,
   type OverviewData,
-  type SettlementComparisonItem,
 } from '../api/client'
 import GradeSummary from '../components/GradeSummary.vue'
 import SettlementGradeBreakdown from '../components/SettlementGradeBreakdown.vue'
+import MarketSalesAnalysis from '../components/MarketSalesAnalysis.vue'
 import DateRangeFilter from '../components/DateRangeFilter.vue'
 import SearchableSelect from '../components/SearchableSelect.vue'
-import { settlementOptionLabel } from '../utils/settlementComparison'
+import { activeGrades } from '../utils/grades'
+import { yearBounds } from '../utils/salePeriods.ts'
 
-const filters = reactive({ startDate: '', endDate: '', merchantNo: '' })
+const filters = reactive({ startDate: '', endDate: '', country: '', market: '' })
 const overview = ref<OverviewData | null>(null)
 const gradeBreakdown = ref<GradeBreakdownData | null>(null)
-// 下拉框候选始终是筛选范围内的全部结算单，避免选中后无法切回。
-const settlementOptions = ref<SettlementComparisonItem[]>([])
+// 国家/市场选项与日期快捷选项：接口刻意不受这些筛选取值影响，加载一次即可。
+const filterOptions = ref<FilterOptionsData | null>(null)
+const filterOptionsLoading = ref(true)
+// 日期快速筛选选项：有销售记录的年度/月度；加载失败不阻塞页面，可继续手动选择日期。
+const quickYears = ref<number[]>([])
+const quickMonths = ref<string[]>([])
 const overviewLoading = ref(true)
 const gradeBreakdownLoading = ref(true)
-const settlementOptionsLoading = ref(true)
-const requestErrors = reactive({ overview: '', gradeBreakdown: '', settlementOptions: '' })
+const requestErrors = reactive({ overview: '', gradeBreakdown: '', filterOptions: '' })
 const validationError = ref('')
 const alertPage = ref(1)
 const alertPageSize = 5
@@ -32,23 +38,39 @@ let requestVersion = 0
 let activeController: AbortController | null = null
 
 const queryLoading = computed(() => (
-  overviewLoading.value || gradeBreakdownLoading.value || settlementOptionsLoading.value
+  overviewLoading.value || gradeBreakdownLoading.value
 ))
 const error = computed(() => [
   validationError.value,
   requestErrors.overview && `核心指标：${requestErrors.overview}`,
   requestErrors.gradeBreakdown && `等级明细：${requestErrors.gradeBreakdown}`,
-  requestErrors.settlementOptions && `商号列表：${requestErrors.settlementOptions}`,
+  requestErrors.filterOptions && `国家/市场选项：${requestErrors.filterOptions}`,
 ].filter(Boolean).join('；'))
-const merchantSelectOptions = computed(() =>
-  [
-    { value: '', label: '全部结算单' },
-    ...settlementOptions.value.map((item) => ({
-      value: item.merchantNo,
-      label: settlementOptionLabel(item),
-    })),
-  ],
-)
+
+const countrySelectOptions = computed(() => [
+  { value: '', label: '全部国家' },
+  ...(filterOptions.value?.countries ?? []).map((item) => ({
+    value: item.name,
+    label: item.name,
+  })),
+])
+const marketSelectOptions = computed(() => [
+  { value: '', label: '全部市场' },
+  ...(filterOptions.value?.markets ?? []).map((item) => ({
+    value: item.name,
+    label: item.name,
+  })),
+])
+
+// 「卖得怎么样」等级项不展示 AB / OTHER（总量仍按全量计算）。
+const HIDDEN_OVERVIEW_GRADES = new Set<Grade>(['AB', 'OTHER'])
+
+function visibleGradeOrder(rows: ReadonlyArray<{ grade?: unknown }>): Grade[] {
+  return activeGrades(rows).filter((grade) => !HIDDEN_OVERVIEW_GRADES.has(grade))
+}
+
+const breakdownGradeOrder = computed(() => visibleGradeOrder(gradeBreakdown.value?.grades ?? []))
+
 const totalAlertPages = computed(() => Math.max(1, Math.ceil((overview.value?.operatingAnomalies.length ?? 0) / alertPageSize)))
 const pagedAnomalies = computed(() => {
   const anomalies = overview.value?.operatingAnomalies ?? []
@@ -94,19 +116,6 @@ async function loadGradeBreakdownData(query: AnalyticsFilters, version: number, 
   }
 }
 
-async function loadSettlementOptions(query: AnalyticsFilters, version: number, controller: AbortController) {
-  settlementOptionsLoading.value = true
-  requestErrors.settlementOptions = ''
-  try {
-    const nextSettlements = await getSettlementComparison({ ...query, includeAllSettlements: true }, { signal: controller.signal })
-    if (version === requestVersion) settlementOptions.value = nextSettlements
-  } catch (caught) {
-    if (!controller.signal.aborted && version === requestVersion) requestErrors.settlementOptions = errorMessage(caught)
-  } finally {
-    if (version === requestVersion) settlementOptionsLoading.value = false
-  }
-}
-
 async function refresh() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
     validationError.value = '销售日期起不能晚于销售日期止'
@@ -121,11 +130,35 @@ async function refresh() {
   await Promise.allSettled([
     loadOverviewData(query, version, controller),
     loadGradeBreakdownData(query, version, controller),
-    loadSettlementOptions(query, version, controller),
   ])
 }
 
-onMounted(refresh)
+async function loadFilterOptions() {
+  filterOptionsLoading.value = true
+  requestErrors.filterOptions = ''
+  try {
+    const options = await getFilterOptions()
+    filterOptions.value = options
+    quickYears.value = options.years
+    quickMonths.value = options.months
+  } catch (caught) {
+    requestErrors.filterOptions = errorMessage(caught)
+  } finally {
+    filterOptionsLoading.value = false
+  }
+}
+
+onMounted(() => {
+  // 默认展示今年的数据（仅卖得怎么样，用户要求）；
+  // 时间方式默认停在「自定义时间」，不因预填当年起止被回显成「按年度」（用户要求）。
+  if (!filters.startDate && !filters.endDate) {
+    const bounds = yearBounds(new Date().getFullYear())
+    filters.startDate = bounds.start
+    filters.endDate = bounds.end
+  }
+  void loadFilterOptions()
+  void refresh()
+})
 onBeforeUnmount(() => {
   requestVersion += 1
   activeController?.abort()
@@ -138,14 +171,27 @@ onBeforeUnmount(() => {
       <DateRangeFilter
         v-model:start-date="filters.startDate"
         v-model:end-date="filters.endDate"
+        :years="quickYears"
+        :months="quickMonths"
+        :auto-match-mode="false"
+        @change="refresh"
       />
       <SearchableSelect
-        v-model="filters.merchantNo"
-        :options="merchantSelectOptions"
-        label="商号"
-        aria-label="商号"
-        placeholder="全部结算单"
-        :loading="settlementOptionsLoading"
+        v-model="filters.country"
+        :options="countrySelectOptions"
+        label="国家"
+        aria-label="国家"
+        placeholder="全部国家"
+        :loading="filterOptionsLoading"
+        @change="refresh"
+      />
+      <SearchableSelect
+        v-model="filters.market"
+        :options="marketSelectOptions"
+        label="市场"
+        aria-label="市场"
+        placeholder="全部市场"
+        :loading="filterOptionsLoading"
         @change="refresh"
       />
       <button class="primary-button" type="submit" :disabled="queryLoading">{{ queryLoading ? '正在查询' : '查看结果' }}</button>
@@ -161,12 +207,24 @@ onBeforeUnmount(() => {
         :grades="overview?.grades ?? []"
         :total="overview?.total ?? { salesQuantity: 0, salesAmount: 0, weightedAvgPrice: null }"
         :loading="overviewLoading"
+        title="销售情况"
+        :hide-grade-cards="true"
       />
     </div>
 
     <SettlementGradeBreakdown
       :grades="gradeBreakdown?.grades ?? []"
       :records="gradeBreakdown?.records ?? []"
+      :loading="gradeBreakdownLoading"
+      title="等级销售分析"
+      variant="overview"
+      :grade-order="breakdownGradeOrder"
+    />
+
+    <MarketSalesAnalysis
+      :rows="gradeBreakdown?.marketBrandContainers ?? []"
+      :start-date="filters.startDate"
+      :end-date="filters.endDate"
       :loading="gradeBreakdownLoading"
     />
 
@@ -175,7 +233,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .page-stack { gap: 18px; }
-.overview-filter { grid-template-columns: repeat(2, minmax(160px, 1fr)) auto; }
+.overview-filter { grid-template-columns: minmax(280px, 1.5fr) minmax(140px, 1fr) minmax(140px, 1fr) auto; }
 .overview-trend-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -235,6 +293,10 @@ onBeforeUnmount(() => {
 .alert-pagination button:disabled { cursor: not-allowed; opacity: .45; }
 .mobile-detail-toggle { display: none; }
 .overview-detail-sections { display: grid; gap: 18px; }
+
+@media (max-width: 1180px) {
+  .overview-filter { grid-template-columns: minmax(240px, 1.4fr) minmax(130px, 1fr) minmax(130px, 1fr) auto; }
+}
 
 @media (max-width: 1020px) {
   .overview-trend-layout { grid-template-columns: 1fr; }

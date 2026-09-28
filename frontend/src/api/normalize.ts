@@ -8,6 +8,8 @@ import type {
   EntryFieldOption,
   EntryRead,
   EntrySaleItem,
+  FilterOptionCount,
+  FilterOptionsData,
   GradeDetailData,
   GradeMetric,
   GradeBreakdownData,
@@ -49,6 +51,8 @@ export function buildAnalyticsQuery(filters: SettlementListFilters): string {
   if (filters.endDate) params.set('end_date', filters.endDate)
   if (filters.merchantNo) params.set('merchant_no', filters.merchantNo)
   if (filters.brand) params.set('brand', filters.brand)
+  if (filters.country) params.set('country', filters.country)
+  if (filters.market) params.set('market', filters.market)
   if (filters.includeAllSettlements) params.set('include_all_settlements', 'true')
   if (filters.page) params.set('page', String(filters.page))
   if (filters.pageSize) params.set('page_size', String(filters.pageSize))
@@ -117,6 +121,43 @@ export function normalizeGradeBreakdown(payload: unknown): GradeBreakdownData {
   return {
     grades: normalizeGradeMetrics(body.grades ?? body.grade_summary),
     records: normalizeSettlementRecords(body.records ?? body.sale_records),
+    marketBrandContainers: asArray(body.market_brand_containers ?? body.marketBrandContainers)
+      .map((row) => {
+        const record = asRecord(row)
+        return {
+          market: stringOr(pick(record, 'market', 'market_name'), ''),
+          brand: stringOr(pick(record, 'brand', 'name'), ''),
+          containerCount: numberOr(pick(record, 'container_count', 'containerCount', 'count'), 0),
+        }
+      })
+      .filter((row) => row.market && row.brand),
+  }
+}
+
+export function normalizeFilterOptions(payload: unknown): FilterOptionsData {
+  const body = unwrap(payload)
+  const normalizeCounts = (value: unknown): FilterOptionCount[] =>
+    asArray(value)
+      .map((row) => {
+        const record = asRecord(row)
+        return {
+          name: stringOr(pick(record, 'name', 'brand', 'country'), ''),
+          settlementCount: numberOr(pick(record, 'settlement_count', 'settlementCount', 'count'), 0),
+        }
+      })
+      .filter((row) => row.name)
+  return {
+    brands: normalizeCounts(body.brands),
+    countries: normalizeCounts(body.countries),
+    markets: normalizeCounts(body.markets),
+    // years/months 是原始标量数组（数字 / 'YYYY-MM'），不能走 asArray——
+    // 它会把非对象元素清成 {}，导致年/月选项全部丢失。
+    years: (Array.isArray(body.years) ? body.years : [])
+      .map((row) => numberOr(row, 0))
+      .filter((year) => year > 0),
+    months: (Array.isArray(body.months) ? body.months : [])
+      .map((row) => stringOr(row, ''))
+      .filter((month) => /^\d{4}-\d{2}$/.test(month)),
   }
 }
 
@@ -198,6 +239,7 @@ export function normalizeSettlementDetail(payload: unknown, merchantNo: string):
     merchantNoNormalized: stringOr(pick(body, 'merchant_no_normalized', 'merchantNoNormalized'), ''),
     orderNo: stringOr(pick(body, 'order_no', 'orderNo'), ''),
     orderNoNormalized: stringOr(pick(body, 'order_no_normalized', 'orderNoNormalized'), ''),
+    country: stringOr(pick(body, 'country'), ''),
     containerNo: stringOr(pick(body, 'container_no', 'containerNo'), ''),
     vehicleNo: stringOr(pick(body, 'vehicle_no', 'vehicleNo'), ''),
     sourceType: pick(body, 'source_type', 'sourceType') === 'manual' ? 'manual' : 'import',
@@ -308,10 +350,12 @@ export function normalizeSettlementRecords(input: unknown): SettlementRecord[] {
     sourceFileId: nullableId(pick(row, 'source_file_id', 'sourceFileId')),
     saleDate: stringOr(pick(row, 'sale_date', 'saleDate'), ''),
     fruitType: stringOr(pick(row, 'fruit_type', 'fruitType'), '榴莲'),
+    brand: stringOr(pick(row, 'brand'), ''),
     gradeRaw: stringOr(pick(row, 'grade_raw', 'gradeRaw'), ''),
     grade: normalizeGrade(row.grade),
     specRaw: stringOr(pick(row, 'spec_raw', 'specRaw'), ''),
     headCount: stringOr(pick(row, 'head_count', 'piece_count', 'headCount', 'pieceCount'), ''),
+    specKg: stringOr(pick(row, 'spec_kg', 'specKg'), ''),
     quantity: numberOr(row.quantity, 0),
     unitPrice: numberOr(pick(row, 'unit_price', 'unitPrice'), 0),
     amount: numberOr(row.amount, 0),

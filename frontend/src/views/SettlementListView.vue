@@ -31,13 +31,12 @@ import {
   getCachedSettlements,
   invalidateSettlementCandidateCache,
 } from '../utils/settlementCandidateCache'
+import { useQuickPeriods } from '../utils/quickPeriods'
 
 const filters = reactive({ startDate: '', endDate: '', merchantNo: '', brand: '' })
 const settlements = ref<SettlementListItem[]>([])
 const options = ref<SettlementListItem[]>([])
 const brandTotals = ref<BrandTotal[]>([])
-type PeriodPreset = 'custom' | 'this_month' | 'this_quarter' | 'this_year' | 'last_month' | 'last_quarter' | 'last_year'
-const periodPreset = ref<PeriodPreset>('custom')
 const dateRange = ref<{ startDate: string; endDate: string; isDefault: boolean } | null>(null)
 const loading = ref(true)
 const sorting = ref(false)
@@ -131,16 +130,6 @@ const brandSelectOptions = computed(() => {
   ]
 })
 
-const periodOptions: Array<{ value: PeriodPreset; label: string }> = [
-  { value: 'custom', label: '自定义' },
-  { value: 'this_month', label: '本月' },
-  { value: 'this_quarter', label: '本季度' },
-  { value: 'this_year', label: '本年' },
-  { value: 'last_month', label: '上月' },
-  { value: 'last_quarter', label: '上季度' },
-  { value: 'last_year', label: '去年' },
-]
-
 const listExportUrl = computed(() => settlementListExportUrl({ ...filters }))
 
 function salesPeriod(item: SettlementListItem): string {
@@ -148,47 +137,6 @@ function salesPeriod(item: SettlementListItem): string {
   return item.saleDateStart === item.saleDateEnd
     ? item.saleDateStart
     : `${item.saleDateStart} 至 ${item.saleDateEnd}`
-}
-
-function toDateInput(value: Date): string {
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function periodBounds(preset: Exclude<PeriodPreset, 'custom'>): [string, string] {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth()
-  if (preset === 'this_month') {
-    return [toDateInput(new Date(year, month, 1)), toDateInput(new Date(year, month + 1, 0))]
-  }
-  if (preset === 'last_month') {
-    return [toDateInput(new Date(year, month - 1, 1)), toDateInput(new Date(year, month, 0))]
-  }
-  if (preset === 'this_quarter' || preset === 'last_quarter') {
-    const quarterStartMonth = Math.floor(month / 3) * 3 + (preset === 'last_quarter' ? -3 : 0)
-    return [
-      toDateInput(new Date(year, quarterStartMonth, 1)),
-      toDateInput(new Date(year, quarterStartMonth + 3, 0)),
-    ]
-  }
-  const targetYear = preset === 'last_year' ? year - 1 : year
-  return [toDateInput(new Date(targetYear, 0, 1)), toDateInput(new Date(targetYear, 11, 31))]
-}
-
-function applyPeriodPreset(preset: PeriodPreset) {
-  periodPreset.value = preset
-  if (preset === 'custom') return
-  const [startDate, endDate] = periodBounds(preset)
-  filters.startDate = startDate
-  filters.endDate = endDate
-  void refresh({ resetPage: true })
-}
-
-function onPeriodChange(event: Event) {
-  applyPeriodPreset((event.target as HTMLSelectElement).value as PeriodPreset)
 }
 
 /** 当前展开导出菜单的商号（桌面端） */
@@ -204,8 +152,11 @@ function onDocumentClick() {
   openExportMenu.value = ''
 }
 
+const { quickYears, quickMonths, loadQuickPeriods } = useQuickPeriods()
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
+  void loadQuickPeriods()
 })
 
 onBeforeUnmount(() => {
@@ -431,15 +382,10 @@ onBeforeUnmount(() => {
       <DateRangeFilter
         v-model:start-date="filters.startDate"
         v-model:end-date="filters.endDate"
-        @update:start-date="periodPreset = 'custom'"
-        @update:end-date="periodPreset = 'custom'"
+        :years="quickYears"
+        :months="quickMonths"
+        @change="refresh({ resetPage: true })"
       />
-      <label class="period-filter">
-        <span class="period-filter-label">统计周期</span>
-        <select :value="periodPreset" :disabled="loading || sorting" @change="onPeriodChange">
-          <option v-for="option in periodOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-        </select>
-      </label>
       <button class="primary-button" type="submit" :disabled="loading || sorting">{{ loading ? '正在查询' : sorting ? '正在排序' : '查看结果' }}</button>
     </form>
 
@@ -634,13 +580,9 @@ onBeforeUnmount(() => {
 /* 顶部区块收紧，把高度让给列表：配合下方“整页一屏高”，分页始终留在可视区。 */
 .settlement-list-filter { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 10px; }
 .settlement-list-filter > :not(.primary-button) { flex: 1 1 220px; min-width: 220px; }
-.settlement-list-filter > .period-filter { flex: 1 1 180px; min-width: 180px; }
 .settlement-list-filter > .primary-button { flex: 0 0 auto; }
 .settlement-list-filter label { gap: 4px; font-size: .95rem; }
 .range-note { margin: 0; color: var(--muted); font-size: .84rem; }
-.period-filter { display: grid; gap: 4px; min-width: 0; }
-.period-filter-label { color: var(--ink); font-size: .95rem; font-weight: 700; }
-.period-filter select { width: 100%; min-height: 3.06rem; padding: 0 .6rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; }
 .brand-summary { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; color: var(--muted); font-size: .84rem; }
 .brand-summary b { color: var(--primary-dark); font-variant-numeric: tabular-nums; }
 .brand-summary-item { white-space: nowrap; }
@@ -836,8 +778,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 860px) {
   .settlement-list-filter { flex-direction: column; align-items: stretch; }
-  .settlement-list-filter > :not(.primary-button),
-  .settlement-list-filter > .period-filter { flex: 1 1 auto; min-width: 0; }
+  .settlement-list-filter > :not(.primary-button) { flex: 1 1 auto; min-width: 0; }
   .fixed-height-list { height: auto; min-height: 24rem; }
 }
 

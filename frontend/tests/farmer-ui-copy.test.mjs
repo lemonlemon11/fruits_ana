@@ -29,7 +29,7 @@ test('移动端用底部大按钮导航，完整功能收进「更多」', () =>
   assert.match(shell, /class="mobile-tabbar"/)
   assert.match(shell, /mobile-tabbar-more/)
   assert.match(shell, /const moreNavItems(:\s*\w+\[])? = \[[\s\S]*?\]/)
-  for (const label of ['结算单详情', '结算单对比', '品牌对比']) {
+  for (const label of ['销售详情', '品牌对比']) {
     const match = shell.match(/const moreNavItems(?::\s*\w+\[])? = \[([\s\S]*?)\]/)
     assert.ok(match, 'moreNavItems definition not found')
     assert.match(match[1], new RegExp(label))
@@ -37,7 +37,7 @@ test('移动端用底部大按钮导航，完整功能收进「更多」', () =>
 })
 
 test('页面内部不出现跨菜单跳转入口', () => {
-  const pageFiles = ['OverviewView.vue', 'SettlementComparisonView.vue']
+  const pageFiles = ['OverviewView.vue']
     .map((file) => path.join(root, 'views', file))
   const pageSource = pageFiles.map((file) => fs.readFileSync(file, 'utf8')).join('\n')
   assert.doesNotMatch(pageSource, /RouterLink|router\.push|router\.replace/)
@@ -58,28 +58,33 @@ test('页面内部不出现跨菜单跳转入口', () => {
   assert.doesNotMatch(settlementView, /RouterLink|router\.replace/)
 })
 
-test('结算单列表只展示当前页面的对比结果', () => {
-  const comparison = fs.readFileSync(path.join(root, 'components', 'SettlementComparison.vue'), 'utf8')
-  assert.doesNotMatch(comparison, /RouterLink|router\.push|router\.replace/)
-  assert.doesNotMatch(comparison, /查看详情|前往详情|进入详情/)
-})
-
-test('所有商号下拉在切换后自动查询，日期筛选仍需点击按钮', () => {
+test('商号/国家/市场下拉与日期快捷筛选在切换后自动查询，手动日期仍需点击按钮', () => {
   const autoQuery = /@change\s*=\s*["'][^"']*(refresh|loadBatches)[^"']*["']/g
-  const merchantSelectViews = ['OverviewView.vue', 'SettlementView.vue', 'SettlementListView.vue']
+  const merchantSelectViews = ['SettlementView.vue', 'SettlementListView.vue']
   for (const file of files) {
     const content = fs.readFileSync(file, 'utf8')
     const matches = content.match(autoQuery) ?? []
     const name = path.basename(file)
-    if (merchantSelectViews.includes(name)) {
+    if (name === 'OverviewView.vue') {
+      // 卖得怎么样：日期快捷筛选 + 国家 + 市场三处切换即查询；商号下拉已下线。
+      assert.deepEqual(
+        matches,
+        ['@change="refresh"', '@change="refresh"', '@change="refresh"'],
+        'OverviewView 日期快捷/国家/市场切换后应自动查询',
+      )
+      assert.match(content, /<SearchableSelect[\s\S]*?v-model="filters\.country"[\s\S]*?@change="refresh/)
+      assert.match(content, /<SearchableSelect[\s\S]*?v-model="filters\.market"[\s\S]*?@change="refresh/)
+      assert.doesNotMatch(content, /filters\.merchantNo/)
+      assert.doesNotMatch(content, /type="date"[^>]*@change/)
+    } else if (merchantSelectViews.includes(name)) {
       const expected = name === 'SettlementView.vue'
-        ? ['@change="refresh"', '@change="refresh"']
-        : name === 'SettlementListView.vue'
-          // 列表页有分页：切换商号 / 品牌都要回到第 1 页再查询。
-          ? ['@change="refresh({ resetPage: true })"', '@change="refresh({ resetPage: true })"']
-          : ['@change="refresh"']
-      assert.deepEqual(matches, expected, `${name} 商号/品牌下拉应在切换后自动查询`)
+        // 详情页：日期快捷 + 商号 + 品牌三处切换即查询。
+        ? ['@change="refresh"', '@change="refresh"', '@change="refresh"']
+        // 列表页有分页：日期快捷 / 商号 / 品牌都要回到第 1 页再查询。
+        : ['@change="refresh({ resetPage: true })"', '@change="refresh({ resetPage: true })"', '@change="refresh({ resetPage: true })"']
+      assert.deepEqual(matches, expected, `${name} 日期快捷/商号/品牌下拉应在切换后自动查询`)
       assert.match(content, /<SearchableSelect[\s\S]*?v-model="filters\.merchantNo"[\s\S]*?@change="refresh/)
+      assert.match(content, /<DateRangeFilter[\s\S]*?:months="quickMonths"[\s\S]*?@change/)
       assert.doesNotMatch(content, /type="date"[^>]*@change/)
     } else {
       assert.deepEqual(matches, [], `${name} 不应在 change 时自动查询`)
@@ -101,17 +106,44 @@ test('结算单详情只使用最近一次成功查询的商号展示结果', ()
   assert.doesNotMatch(detailView, /销售周期：\{\{ filters\.merchantNo/)
 })
 
-test('结算单详情使用同期其他结算单作为价格基线并保留链接日期', () => {
+test('销售详情保留链接日期回填，趋势/同期对比/异常提醒/结算明细抽屉已删除', () => {
   const detailView = fs.readFileSync(path.join(root, 'views', 'SettlementView.vue'), 'utf8')
-  assert.match(detailView, /buildOtherSettlementGradeBaseline/)
-  assert.match(detailView, /其他结算单/)
   assert.match(detailView, /route\.query\.start_date/)
   assert.match(detailView, /route\.query\.end_date/)
-  assert.doesNotMatch(detailView, /getOverview/)
+  assert.doesNotMatch(detailView, /getOverview|getTrend|TrendChart/)
+  assert.doesNotMatch(detailView, /buildOtherSettlementGradeBaseline|同期均价对比/)
+  assert.doesNotMatch(detailView, /需要关注|formatAnomalyValue/)
+  assert.doesNotMatch(detailView, /查看结算与明细|secondary-drawer/)
+})
+
+test('销售详情区块标题带单号前缀，等级表现更名为销售表现', () => {
+  const detailView = fs.readFileSync(path.join(root, 'views', 'SettlementView.vue'), 'utf8')
+  assert.match(detailView, /const sectionTitlePrefix = computed\(\(\) =>/)
+  assert.match(detailView, /displayOrderNo\(selectedOption\.value \?\? detail\.value \?\? \{\}\)/)
+  assert.match(detailView, /`\$\{sectionTitlePrefix\} 销售表现`/)
+  assert.match(detailView, /`\$\{sectionTitlePrefix\} 等级图表`/)
+  assert.match(detailView, /:title="`\$\{sectionTitlePrefix\} 同品牌经营分析`"/)
+  assert.doesNotMatch(detailView, /等级表现/)
+})
+
+test('销售详情经营指标挪入销售表现区，单号后展示国家', () => {
+  const detailView = fs.readFileSync(path.join(root, 'views', 'SettlementView.vue'), 'utf8')
+  assert.match(detailView, /const settlementMetrics = computed/)
+  assert.match(detailView, /class="settlement-fact-grid metric-strip" aria-label="结算单经营指标"/)
+  for (const label of ['来货数量（件）', '销量', '销售金额', '售后金额/售后比', '市场费用', '应付贵方金额']) {
+    assert.match(detailView, new RegExp(`label: '${label}'`))
+  }
+  // 基础信息条只保留登记类字段，国家紧跟单号。
+  const factsMatch = detailView.match(/const settlementFacts = computed\(\(\) => \{[\s\S]*?\n\}\)/)
+  assert.ok(factsMatch, 'settlementFacts not found')
+  assert.match(factsMatch[0], /label: '单号'[\s\S]*?label: '国家'/)
+  assert.doesNotMatch(factsMatch[0], /来货数量|售后金额\/售后比|应付贵方金额|市场费用/)
+  assert.match(detailView, /hide-total-strip/)
 })
 
 test('筛选字段用商号取值、按「商号（单号）」展示', () => {
-  for (const view of ['OverviewView.vue', 'SettlementView.vue', 'SettlementListView.vue']) {
+  // 卖得怎么样已改为国家/市场筛选，不在商号下拉清单内。
+  for (const view of ['SettlementView.vue', 'SettlementListView.vue']) {
     const content = fs.readFileSync(path.join(root, 'views', view), 'utf8')
     assert.match(content, /aria-label="商号"/)
     assert.match(content, /settlementOptionLabel/)
@@ -190,7 +222,7 @@ test('登录和注册页面支持邮箱', () => {
 })
 
 test('业务页面不再显示旧的两步查看说明', () => {
-  for (const view of ['OverviewView.vue', 'SettlementComparisonView.vue', 'SettlementView.vue', 'SettlementListView.vue', 'SeriesComparisonView.vue', 'ImportView.vue']) {
+  for (const view of ['OverviewView.vue', 'SettlementView.vue', 'SettlementListView.vue', 'SeriesComparisonView.vue', 'ImportView.vue']) {
     const content = fs.readFileSync(path.join(root, 'views', view), 'utf8')
     assert.doesNotMatch(content, /class="how-to"/)
     assert.doesNotMatch(content, /怎么查看/)

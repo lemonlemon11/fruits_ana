@@ -21,7 +21,6 @@ const ROUTE_PERMISSIONS = [
   { path: '/overview', permission: 'overview:view' },
   { path: '/settlements', permission: 'settlement:list' },
   { path: '/settlement-detail', permission: 'settlement:detail' },
-  { path: '/settlement-comparison', permission: 'settlement:comparison' },
   { path: '/series-comparison', permission: 'series:comparison' },
   { path: '/imports', permission: 'import:view' },
   { path: '/import-review', permission: 'import:view' },
@@ -35,7 +34,6 @@ const DEFAULT_ROUTE_ORDER = [
   '/settlements',
   '/imports',
   '/settlement-detail',
-  '/settlement-comparison',
   '/series-comparison',
 ] as const
 

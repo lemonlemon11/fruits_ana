@@ -247,16 +247,20 @@ def test_resolve_merchant_no_accepts_display_writing():
     db.close()
 
 
-def test_compare_settlements_rejects_too_many_merchants():
+def test_compare_settlements_allows_more_than_six_merchants():
     db = SessionLocal()
     seed_settlements(db)
 
+    # 上限已放开（ADR-047）：传入超过 6 个商号（重复别名）不再被拦截，去重后正常对比。
     result, summary = run_tool(
-        db, "compare_settlements", {"merchant_nos": [str(index) for index in range(9)]}
+        db,
+        "compare_settlements",
+        {"merchant_nos": ["633", "香香003", "香香-003", "634"] * 3},
     )
 
-    assert "一次最多对比" in result["error"]
-    assert "一次最多对比" in summary
+    assert "error" not in result
+    assert len(result["所选结算单"]) == 2
+    assert "一次最多对比" not in summary
     db.close()
 
 

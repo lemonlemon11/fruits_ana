@@ -51,7 +51,23 @@ export interface AnalyticsFilters {
   startDate?: string
   endDate?: string
   merchantNo?: string
+  country?: string
+  market?: string
   includeAllSettlements?: boolean
+}
+
+/** 筛选条选项：品牌/国家/市场为窗口内有销售的结算单计数；年度/月度为有销售记录的期间（降序）。 */
+export interface FilterOptionCount {
+  name: string
+  settlementCount: number
+}
+
+export interface FilterOptionsData {
+  brands: FilterOptionCount[]
+  countries: FilterOptionCount[]
+  markets: FilterOptionCount[]
+  years: number[]
+  months: string[]
 }
 
 /** 结算单列表支持分页；页码参数只对 `/settlements` 生效。 */
@@ -111,9 +127,17 @@ export interface OverviewData {
   operatingAnomalies: OperatingAnomaly[]
 }
 
+/** 各市场×品牌柜数（口径：结算单/商号数，柜号有一柜两单不可用），供「卖得怎么样」市场销售分析。 */
+export interface BrandMarketContainerStat {
+  market: string
+  brand: string
+  containerCount: number
+}
+
 export interface GradeBreakdownData {
   grades: GradeMetric[]
   records: SettlementRecord[]
+  marketBrandContainers: BrandMarketContainerStat[]
 }
 
 export interface SettlementComparisonItem extends MetricTotal {
@@ -147,10 +171,12 @@ export interface SettlementRecord {
   sourceFileId: number | string | null
   saleDate: string
   fruitType: string
+  brand: string
   gradeRaw: string
   grade: Grade | null
   specRaw: string
   headCount: string
+  specKg: string
   quantity: number
   unitPrice: number
   amount: number
@@ -163,6 +189,7 @@ export interface SettlementDetail extends OverviewData {
   merchantNoNormalized: string
   orderNo: string
   orderNoNormalized: string
+  country: string
   containerNo: string
   vehicleNo: string
   sourceType: 'import' | 'manual'

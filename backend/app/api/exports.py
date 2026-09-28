@@ -18,7 +18,7 @@ from ..models import ImportBatch, SaleRecord, SourceFile
 from ..services.analytics_service import get_grade_summary
 from ..services.order_no_naming import order_no_display
 from ..services.merchant_no_naming import merchant_no_display
-from ..services.entry_export import build_settlement_template_workbook, render_entry_pdf, load_entry
+from ..services.entry_export import build_settlement_template_pdf, build_settlement_template_workbook, load_entry
 from ..services.field_conversion import grade_mapping_note
 from ..services.settlement_list_export import (
     build_settlements_workbook,
@@ -271,13 +271,12 @@ def _spreadsheet_safe(value):
 
 @router.get("/settlements/{merchant_no}/template.pdf")
 def export_settlement_template_pdf(merchant_no: str, db: Session = Depends(get_db)):
-    """按财务报表样式导出 PDF（WeasyPrint 渲染）。"""
+    """结算单 PDF：与 Excel 同一工作簿经 LibreOffice 另存，版式一致。"""
 
     try:
-        entry = load_entry(db, merchant_no)
+        payload = build_settlement_template_pdf(db, merchant_no)
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
-    payload = render_entry_pdf(entry)
     batch = db.query(ImportBatch).filter_by(merchant_no=merchant_no).first()
     display = order_no_display(
         getattr(batch, "order_no", None), getattr(batch, "order_no_normalized", None)

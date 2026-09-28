@@ -325,3 +325,54 @@ def test_confirm_hard_sales_error_blocks_even_with_force():
         confirm_import_job(db, job.token, force=True, user_id=None)
     detail = blocked.value.args[0]
     assert "hard_blockers" in detail
+
+
+def test_validate_sales_total_exceeding_arrival_is_error():
+    payload = _sales_payload([
+        _full_sale_row(),
+        _full_sale_row(sales_quantity="16", amount="200"),
+    ])
+    issues, computed = validate_draft_payload(payload)
+    matched = [item for item in issues if item["code"] == "sales_exceed_arrival"]
+    assert matched
+    issue = matched[0]
+    assert issue["severity"] == "error"
+    assert issue["section"] == "basic"
+    assert issue["field"] == "arrival_quantity"
+    assert Decimal(computed["sales_quantity"]) == Decimal("21.00")
+
+
+def test_validate_sales_total_equal_or_below_arrival_has_no_issue():
+    payload = _sales_payload([
+        _full_sale_row(sales_quantity="15", amount="187.5"),
+    ])
+    issues, _ = validate_draft_payload(payload)
+    assert not any(item["code"] == "sales_exceed_arrival" for item in issues)
+
+
+def test_confirm_sales_exceeding_arrival_blocks_even_with_force():
+    db = SessionLocal()
+    job = ImportJob(token=uuid4().hex, status="pending", file_count=1, draft_count=1)
+    db.add(job)
+    db.flush()
+    payload = _sales_payload([
+        _full_sale_row(sales_quantity="11", amount="137.5"),
+        _full_sale_row(sales_quantity="11", amount="137.5"),
+    ])
+    draft = ImportDraft(
+        import_job_id=job.id,
+        token=uuid4().hex,
+        version=1,
+        file_name="a.xlsx",
+        status="pending",
+        payload=json.dumps(payload, ensure_ascii=False),
+        issue_count=0,
+    )
+    db.add(draft)
+    db.commit()
+
+    with pytest.raises(ValueError) as blocked:
+        confirm_import_job(db, job.token, force=True, user_id=None)
+    detail = blocked.value.args[0]
+    assert "hard_blockers" in detail
+    assert "sales_exceed_arrival" in detail

@@ -40,8 +40,6 @@ from .settlement_list_service import list_settlements
 MAX_TOOL_RESULT_CHARS = 6000
 # 兜底截断时列表保留的条目数；精简载荷通常远小于这个数量。
 MAX_LIST_ITEMS = 20
-# 一次最多对比的结算单数量，与页面勾选上限保持一致。
-MAX_COMPARE_SETTLEMENTS = 6
 
 _LOOSE = re.compile(r"[\s\-_—–~～·．.、/\\]+")
 
@@ -200,8 +198,6 @@ def _compare_settlements(db: Session, args: dict) -> Any:
     values = args.get("merchant_nos") or []
     if not isinstance(values, list) or not values:
         raise ToolError("merchant_nos 需要是商号数组，先用 list_settlements 查商号")
-    if len(values) > MAX_COMPARE_SETTLEMENTS:
-        raise ToolError(f"一次最多对比 {MAX_COMPARE_SETTLEMENTS} 张结算单")
     merchant_nos = list(
         dict.fromkeys(resolve_merchant_no(db, str(value)) for value in values)
     )
@@ -284,7 +280,6 @@ def run_tool(db: Session, name: str, arguments: dict) -> tuple[Any, str]:
 
 
 __all__ = [
-    "MAX_COMPARE_SETTLEMENTS",
     "TOOL_IMPLEMENTATIONS",
     "ToolError",
     "dump_tool_result",

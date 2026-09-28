@@ -8,7 +8,6 @@ const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'sr
 const views = [
   'OverviewView.vue',
   'SettlementListView.vue',
-  'SettlementComparisonView.vue',
   'SettlementView.vue',
   'SeriesComparisonView.vue',
   'ImportView.vue',

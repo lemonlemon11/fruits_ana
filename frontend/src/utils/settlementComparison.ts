@@ -4,9 +4,6 @@ import { displayOrderNo } from './orderNo.ts'
 import { displayMerchantNo } from './merchantNo.ts'
 import { UNKNOWN_SERIES } from '../api/normalize.ts'
 
-export const MAX_COMPARISON_SETTLEMENTS = 3
-export const MIN_COMPARISON_SETTLEMENTS = 2
-
 /** 下拉框以商号作为唯一取值，并按「商号（单号）」展示，避免重复柜号或重复单号造成误选。 */
 export function settlementOptionLabel(item: {
   merchantNo?: string | null
@@ -50,16 +47,6 @@ export function filterSettlementsByMerchant(
   merchantNo: string,
 ): SettlementComparisonItem[] {
   return merchantNo ? items.filter((item) => item.merchantNo === merchantNo) : items
-}
-
-export function toggleComparisonSelection(selectedIds: string[], settlementId: string): string[] {
-  if (selectedIds.includes(settlementId)) return selectedIds.filter((id) => id !== settlementId)
-  if (selectedIds.length >= MAX_COMPARISON_SETTLEMENTS) return selectedIds
-  return [...selectedIds, settlementId]
-}
-
-export function initialComparisonSelection(items: SettlementComparisonItem[]): string[] {
-  return items.slice(0, MAX_COMPARISON_SETTLEMENTS - 1).map((item) => item.merchantNo)
 }
 
 export function buildOtherSettlementGradeBaseline(

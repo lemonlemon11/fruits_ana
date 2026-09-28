@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { ElOption, ElSelect } from 'element-plus'
 import 'element-plus/es/components/option/style/css'
 import 'element-plus/es/components/select/style/css'
@@ -33,6 +34,9 @@ function onUpdate(value: string) {
 function onChange(value: string) {
   emit('change', value)
 }
+
+// 聚焦（点击）时隐藏提示语，失焦未选择后恢复；已选值的展示不受影响
+const focused = ref(false)
 </script>
 
 <template>
@@ -40,7 +44,7 @@ function onChange(value: string) {
     <label v-if="label" class="searchable-select-label">{{ label }}</label>
     <ElSelect
       :model-value="modelValue"
-      :placeholder="placeholder"
+      :placeholder="focused ? '' : placeholder"
       :disabled="disabled || loading"
       :loading="loading"
       loading-text="正在加载"
@@ -50,6 +54,8 @@ function onChange(value: string) {
       class="searchable-select-control"
       @update:model-value="onUpdate"
       @change="onChange"
+      @focus="focused = true"
+      @blur="focused = false"
     >
       <ElOption
         v-for="option in options"

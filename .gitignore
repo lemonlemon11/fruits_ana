@@ -29,3 +29,30 @@ frontend/dev-preview/.preview-20260914/
 
 # 本地运行日志（后端 uvicorn 输出），不提交
 backend/*.log
+
+# 本地运行产物与临时目录：验证脚本 / 日志 / 截图，含真实经营数据
+tmp/
+.vite/
+.demo/
+.mimosa/
+problem/
+
+# 演示 demo 产物（页面内已填充真实库数据，不入库）
+demo-enterprise/
+demo-menu-redesign/
+demo-spec-table/
+
+# 离线部署镜像 tar 与生产口令（scripts / 部署手册 / compose 模板可入库）
+images/*.tar
+images/*.tar.gz
+images/config/.env.docker
+
+# 配置备份文件
+*.bak-*
+
+# 视觉伴侣截图输出：含真实经营数据，禁止入库（泛化历史 .preview-20260914/ 规则）
+frontend/dev-preview/.preview-*/
+frontend/dev-preview/**/*.png
+
+# 客户回传的结算单模板原件（业务附件，与 attachments/ 同性质）
+docs/结算单模板样式-*.xlsx

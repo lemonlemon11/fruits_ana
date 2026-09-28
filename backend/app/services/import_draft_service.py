@@ -150,6 +150,7 @@ def validate_draft_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]
             date.fromisoformat(arrival_date)
         except ValueError:
             issues.append(_issue("invalid_date", "error", "到达市场日期不是有效日期", section="basic", field="arrival_date", raw_value=arrival_date))
+    arrival_quantity: Decimal | None = None
     try:
         arrival_quantity = _quantity(payload.get("arrival_quantity"))
         if arrival_quantity < 0:
@@ -157,6 +158,7 @@ def validate_draft_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]
         elif arrival_quantity != arrival_quantity.to_integral_value():
             issues.append(_issue("invalid_quantity", "error", "来货数量必须为整数", section="basic", field="arrival_quantity", raw_value=payload.get("arrival_quantity")))
     except Exception:
+        arrival_quantity = None
         issues.append(_issue("invalid_quantity", "error", "来货数量必须为数字", section="basic", field="arrival_quantity", raw_value=payload.get("arrival_quantity")))
 
     sales = payload.get("sales") or []
@@ -261,6 +263,24 @@ def validate_draft_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]
             issues.append(_issue("invalid_price", "error", "费用金额必须为数字", section="fees", row=index, field="amount", raw_value=row.get("amount")))
 
     computed = _computed_totals(payload)
+    if (
+        arrival_quantity is not None
+        and arrival_quantity >= 0
+        and computed["sales_quantity"] > arrival_quantity
+    ):
+        issues.append(
+            _issue(
+                "sales_exceed_arrival",
+                "error",
+                (
+                    f"销售数量合计 {computed['sales_quantity']} 件大于来货数量 {arrival_quantity} 件，"
+                    "请核对销售明细或来货数量后再提交"
+                ),
+                section="basic",
+                field="arrival_quantity",
+                raw_value=payload.get("arrival_quantity"),
+            )
+        )
     file_summary = payload.get("file_summary") or {}
     labels = {
         "sales_quantity": "总件数",
@@ -735,17 +755,18 @@ def confirm_import_job(
             latest_by_merchant[merchant_no] = draft
         if any(item["severity"] == "error" for item in issues):
             blockers.append({"draft_token": draft.token, "file_name": draft.file_name, "issues": issues})
-        sales_errors = [
+        hard_errors = [
             item
             for item in issues
-            if item.get("severity") == "error" and item.get("section") == "sales"
+            if item.get("severity") == "error"
+            and (item.get("section") == "sales" or item.get("code") == "sales_exceed_arrival")
         ]
-        if sales_errors:
+        if hard_errors:
             hard_blockers.append(
                 {
                     "draft_token": draft.token,
                     "file_name": draft.file_name,
-                    "issues": sales_errors,
+                    "issues": hard_errors,
                 }
             )
 

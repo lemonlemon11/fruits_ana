@@ -14,6 +14,10 @@ const props = defineProps<{
   loading?: boolean
   title?: string
   gradeOrder?: Grade[]
+  /** 「卖得怎么样」用：隐藏等级卡片，只保留总柜数/销售金额汇总条。 */
+  hideGradeCards?: boolean
+  /** 「销售详情」用：隐藏总柜数/销售金额汇总条（经营指标由页面自己展示）。 */
+  hideTotalStrip?: boolean
 }>()
 
 const { tooltip, showTooltip, moveTooltip, hideTooltip } = useChartTooltip()
@@ -30,7 +34,7 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
       { label: '销售金额', value: formatCurrency(item.salesAmount) },
       { label: '每件均价', value: formatPrice(item.weightedAvgPrice) },
     ],
-    note: '占比 = 该等级销量 ÷ 总销量',
+    note: '占比 = 该等级销量 ÷ 总柜数',
   })
 }
 </script>
@@ -39,19 +43,22 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
   <section class="dashboard-section" aria-labelledby="grade-summary-title">
     <header class="section-heading">
       <h2 id="grade-summary-title">{{ title ?? '等级销售情况' }}</h2>
-      <p class="section-note">每件均价 = 销售金额 ÷ 销量（件）</p>
+      <p v-if="!hideGradeCards" class="section-note">每件均价 = 销售金额 ÷ 销量（件）</p>
     </header>
 
-    <div v-if="loading" class="grade-grid" aria-live="polite" aria-busy="true">
+    <div v-if="loading && hideGradeCards" class="summary-skeleton skeleton-block" aria-live="polite" aria-busy="true">
+      <span class="sr-only">正在加载汇总数据</span>
+    </div>
+    <div v-else-if="loading" class="grade-grid" aria-live="polite" aria-busy="true">
       <div v-for="index in skeletonCount" :key="index" class="grade-card skeleton-block">
         <span class="sr-only">正在加载等级数据</span>
       </div>
     </div>
 
     <template v-else>
-      <div class="total-strip" aria-label="筛选范围汇总">
+      <div v-if="!hideTotalStrip" class="total-strip" aria-label="筛选范围汇总">
         <div>
-          <span>总销量</span>
+          <span>总柜数</span>
           <strong>{{ formatNumber(total.salesQuantity) }}</strong>
         </div>
         <div>
@@ -60,7 +67,7 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
         </div>
       </div>
 
-      <div v-if="visibleItems.length" class="grade-grid">
+      <div v-if="!hideGradeCards && visibleItems.length" class="grade-grid">
         <article
           v-for="item in visibleItems"
           :key="item.grade"
@@ -100,7 +107,7 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
           </dl>
         </article>
       </div>
-      <div v-else class="empty-state compact">
+      <div v-else-if="!hideGradeCards" class="empty-state compact">
         <strong>暂未选择要展示的等级</strong>
         <span>请至少勾选一个等级后再查看。</span>
       </div>
@@ -116,6 +123,8 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
   overflow-x: auto;
   padding-bottom: .35rem;
 }
+
+.summary-skeleton { min-height: 64px; }
 
 .grade-card {
   flex: 1 1 240px;

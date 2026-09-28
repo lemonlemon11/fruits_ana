@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url'
 
 import {
   cellClassFor,
+  hasHardBlockIssue,
+  isHardBlockIssue,
   rowClassFor,
   SALES_FIELD_TO_CELL,
 } from '../src/utils/importReviewIssues.ts'
@@ -23,6 +25,30 @@ function issue(overrides: Partial<ImportReviewIssue> = {}): ImportReviewIssue {
     ...overrides,
   }
 }
+
+test('hasHardBlockIssue 识别销售区 error 与销售合计超来货数量，其余不算硬阻断', () => {
+  assert.equal(isHardBlockIssue(issue()), true)
+  assert.equal(
+    isHardBlockIssue(issue({
+      code: 'sales_exceed_arrival',
+      section: 'basic',
+      row: null,
+      field: 'arrival_quantity',
+    })),
+    true,
+  )
+  assert.equal(isHardBlockIssue(issue({ severity: 'warning' })), false)
+  assert.equal(isHardBlockIssue(issue({ code: 'missing_field', section: 'basic', field: 'market' })), false)
+  assert.equal(isHardBlockIssue(issue({ code: 'summary_mismatch', severity: 'warning', section: 'summary', row: null })), false)
+  assert.equal(
+    hasHardBlockIssue([
+      issue({ code: 'missing_field', section: 'basic', field: 'market' }),
+      issue({ code: 'sales_exceed_arrival', section: 'basic', row: null, field: 'arrival_quantity' }),
+    ]),
+    true,
+  )
+  assert.equal(hasHardBlockIssue([]), false)
+})
 
 test('rowClassFor 只有同分区同行存在 error 时标红，warning 或异行不标红', () => {
   const cases: Array<{ issues: ImportReviewIssue[]; expected: string }> = [

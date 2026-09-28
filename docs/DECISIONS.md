@@ -1130,3 +1130,92 @@
 - Consequences：1) `validate_draft_payload` 销售行校验重写；2) 入库 `convert_grade` 对空等级
   已返回 OTHER，无需额外映射；3) 原 ADR-042 的
   “备注行单价空→0”口径废止，异常单单价也必填。
+
+
+## ADR-047 — 品牌对比结算单勾选张数不设上限
+
+- Date：2026-09-28
+- Status：Accepted（取代 ADR-013 第 4 条与 ADR-019 第 4 条中的 6 张上限）
+- Context：用户反馈品牌对比页「选择结算单」只能勾选 6 个，单品牌结算单超过 6 张时
+  无法整批对比；图表颜色按等级区分、表格按行渲染，不以结算单张数为约束，
+  6 张上限已无必要。
+- Decision：
+  1) 品牌对比页选择器放开张数上限，可勾选任意张同品牌结算单，「全选本品牌」不再截断。
+  2) `GET /api/analytics/series-comparison` 移除「一次最多对比 6 张」的 422 校验。
+  3) AI 分析（`POST /api/analytics/series-comparison/analysis` 与
+     `POST /api/analytics/grade-detail/analysis`，即 `_analysis_scope` 共用校验）同步移除
+     6 张上限，仅保留「至少 2 张」下限（用户已确认）。
+  4) 顺仔问答 `compare_settlements` 工具原先「与页面勾选上限保持一致」的 6 张拦截一并移除。
+  5) 「只能在同一品牌内对比」的前后端校验全部保留不变（ADR-019 第 3 条）。
+- Why：上限最初为保证图表可读，实际渲染不随张数劣化；用户明确要求放开，
+  并确认 AI 分析上限同步放开。
+- Consequences：1) 前端 `SettlementPicker` 移除 `max` 属性与「已选 N / 6」等上限提示，
+  `seriesComparison.ts` / `settlementPicker.ts` 勾选函数去掉 max 参数；
+  2) 地址栏 `selected=` 与分享链接不再截断到 6 张；3) AI 分析张数很多时生成耗时与
+  token 费用随张数增长，由用户自行控制选择数量。
+- Alternatives：把上限提高到固定值如 20（不采用：用户要求放开，固定值迟早再次受限）；
+  AI 分析维持 6 张（不采用：勾选放开后选 7 张以上点分析即报错，体验割裂，用户确认同步放开）。
+
+
+## ADR-048 — 销售数量合计不得超过来货数量
+
+- Date：2026-09-28
+- Status：Accepted
+- Context：用户要求录单（手工录单）与导单（文件导入二次确认）提交时比较到货数量与
+  销售量：销售量大于到货数量属于数据错误，必须在二次确认页面标红提示、不允许提交，
+  提交动作本身也要拦截。
+- Decision：
+  1) 比较口径：`来货数量（arrival_quantity）` 为单据头部字段，`销售量` 为全部销售明细行
+     数量之和（即「总件数」，正常单与异常单都计入）；**等于放行，严格大于才拦截**。
+  2) 导单：`validate_draft_payload` 在来货数量可解析且非负时比较，超出则产出
+     `sales_exceed_arrival` error issue（section=basic、field=arrival_quantity，
+     文案带合计与来货数量数值）；`confirm_import_job` 将该 code 与销售区 error 一并计入
+     `hard_blockers`——**force=true（带错提交）也无法通过**，与销售明细必填项同级阻断。
+  3) 录单：`entry_service.save_entry` 同口径校验，违反抛
+     `ValueError("销售数量合计 N 件不能大于来货数量 M 件…")`，POST /api/entry 与
+     PUT /api/entry/{merchant_no} 均返回 422 与文案。
+  4) 前端两层提示：导入二次确认页复用 basic 字段错误机制（来货数量输入框标红 + 红字
+     提示，编辑后 450ms 防抖重校验实时刷新），销售明细「总件数」行同步标红；
+     确认弹窗对硬阻断问题禁用「确认提交」按钮。手工录单页对来货数量字段与总件数同样
+     标红提示，`validate()` 拦截并 toast。
+  5) 来货数量本身缺失 / 非数字 / 负数时沿用既有错误，不叠加本规则（避免同一问题双报）。
+- Why：销售量大于到货数量在业务上不可能成立（多为录错行或漏改到货数量），属于必须
+  人工修正的数据错误，不应提供「带错提交」逃生口。
+- Consequences：1) 前后端共享判定抽为 `entryForm.salesExceedsArrival` 与
+  `importReviewIssues.hasHardBlockIssue`；2) 历史上已入库数据不受影响（只在保存/确认入口
+  校验）；3) 既有测试夹具中合计超来货数量的数据已改为自洽数值；4) 若后续业务出现
+  合法超出场景（如补录历史差异），需修订本 ADR 并放开为 warning。
+
+
+## ADR-049 — 「卖得怎么样」页面改版口径（国家/市场筛选、隐藏 AB/OTHER、柜数按商号统计、规格表备注列）
+
+- Date：2026-09-28
+- Status：Accepted
+- Context：用户对「卖得怎么样」页提出改版：区块改名（「等级销售情况」→「销售情况」、
+  「等级图表」→「等级销售分析」）、删除「等级均价」图、等级项不展示 AB 与「其他」、
+  筛选条件商号改为国家并新增市场、规格表移到与「等级件数结构」同行并新增备注列、
+  新增「销售柜数统计」两个图表。其中柜数口径存在「一柜两单」（柜号 EMCU5364147 同属
+  晴牌/香香各一张结算单），用户明确：不能用柜号做统计，按商号统计。
+- Decision：
+  1) 筛选：总览页商号下拉替换为国家下拉并新增市场下拉；分析接口 `_filters` 新增
+     `country` / `market` 参数（`brand` 为在途能力沿用）；`GET /filter-options`
+     返回 `markets`；总览页不再支持按单商号筛看板（结算单详情/列表不受影响）。
+  2) 等级项不展示 AB 与 OTHER；「销售情况」区块随后按用户追加要求**整个移除等级卡片**
+     （`GradeSummary` 增加 `hideGradeCards` 参数，仅总览页启用，结算单详情保留卡片），
+     只保留总柜数/销售金额汇总条；总柜数/销售金额仍按筛选范围全量计算，
+     不因隐藏等级剔除（用户确认）。
+  3) 柜数口径：各品牌「柜数」＝该品牌结算单（商号）数量。柜号存在一柜两单，
+     按柜号去重会丢柜、按单计不重不漏；`GET /grade-breakdown` 追加
+     `brand_containers`（brand + container_count），品牌口径 `batch_brand` 不变。
+  4) 规格表备注列：同一「等级+规格」组内销售行备注**完全一致**才展示文本（用户确认）；
+     不一致显示「多个」（悬浮查看全部去重备注）；全组无备注显示「—」。列序为
+     等级、规格、备注、每件均价、总件数、件数分布、占比。
+  5) 共用组件 `SettlementGradeBreakdown.vue` 以 `variant="overview"` 区分版式：
+     「结算单详情」页保持原样（标题「等级图表」、「等级均价」图、原规格表列序），
+     只有「卖得怎么样」启用新版式（删均价图、规格表与饼图同行、追加销售柜数统计）。
+- Why：改版需求逐条来自用户；柜数与备注口径经用户在确认问答中拍板。
+- Consequences：1) 前端 `AnalyticsFilters` 增加 `country` / `market`，
+   `buildAnalyticsQuery` 同步序列化；2) `normalizeGradeBreakdown` 增加
+   `brandContainers`；3) `overview-merchant-filter.test.ts` 重写为
+   `overview-filters.test.ts`；4) `filter-options` 的年/月选项改为扫全量销售日期
+   （修复在途快捷年月任务被默认「最近一个销售月」窗口截断的问题）。

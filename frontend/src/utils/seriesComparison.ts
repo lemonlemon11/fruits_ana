@@ -2,9 +2,6 @@ import type { Grade, GradeMetric, SeriesComparisonItem } from '../api/types'
 import { displayOrderNo } from './orderNo.ts'
 import { UNKNOWN_SERIES } from '../api/normalize.ts'
 
-/** 一次最多勾选的结算单数量，保证图表可读；后端不做数量限制。 */
-export const MAX_SERIES_COMPARISON = 6
-
 export interface SeriesGroup<T> {
   series: string
   items: T[]
@@ -22,28 +19,19 @@ export function groupBySeries<T extends { series: string }>(items: T[]): SeriesG
     .map(([series, grouped]) => ({ series, items: grouped }))
 }
 
-/** 勾选或取消一张结算单；超过上限时保持原选择不变。 */
-export function toggleSelection(
-  selected: string[],
-  merchantNo: string,
-  max: number = MAX_SERIES_COMPARISON,
-): string[] {
+/** 勾选或取消一张结算单。 */
+export function toggleSelection(selected: string[], merchantNo: string): string[] {
   if (selected.includes(merchantNo)) {
     return selected.filter((item) => item !== merchantNo)
   }
-  if (selected.length >= max) return selected
   return [...selected, merchantNo]
 }
 
-/** 追加同一品牌的结算单，按上限截断并去重。 */
-export function selectWholeSeries(
-  selected: string[],
-  seriesMerchantNos: string[],
-  max: number = MAX_SERIES_COMPARISON,
-): string[] {
+/** 追加同一品牌的结算单并去重。 */
+export function selectWholeSeries(selected: string[], seriesMerchantNos: string[]): string[] {
   const merged = [...selected]
   seriesMerchantNos.forEach((merchantNo) => {
-    if (!merged.includes(merchantNo) && merged.length < max) merged.push(merchantNo)
+    if (!merged.includes(merchantNo)) merged.push(merchantNo)
   })
   return merged
 }

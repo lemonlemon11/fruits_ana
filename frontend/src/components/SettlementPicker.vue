@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import type { SettlementListItem } from '../api/types'
 import { formatNumber, formatPrice } from '../utils/format'
-import { groupBySeries, MAX_SERIES_COMPARISON } from '../utils/seriesComparison'
+import { groupBySeries } from '../utils/seriesComparison'
 import { settlementOptionLabel } from '../utils/settlementComparison'
 import {
   addWholeSeries,
@@ -26,7 +26,6 @@ import './SettlementPicker.css'
 const props = defineProps<{
   options: SettlementListItem[]
   selected: string[]
-  max?: number
   loading?: boolean
 }>()
 
@@ -40,7 +39,6 @@ const draft = ref<string[]>([])
 const categoryKeyword = ref('')
 const brandKeyword = ref('')
 const keyword = ref('')
-const limitHit = ref(false)
 const page = ref(1)
 const pageSize = 6
 const categorySearchInput = ref<HTMLInputElement | null>(null)
@@ -48,13 +46,11 @@ const brandSearchInput = ref<HTMLInputElement | null>(null)
 const settlementSearchInput = ref<HTMLInputElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
 
-const maxSelect = computed(() => props.max ?? MAX_SERIES_COMPARISON)
 const selectedItems = computed(() =>
   props.selected
     .map((merchantNo) => props.options.find((item) => item.merchantNo === merchantNo))
     .filter((item): item is SettlementListItem => Boolean(item)),
 )
-const atLimit = computed(() => draft.value.length >= maxSelect.value)
 
 const categoryGroups = computed(() => {
   const groups = groupByCategory(props.options)
@@ -98,12 +94,11 @@ function lockScroll(locked: boolean) {
 
 function openPicker() {
   draft.value = props.selected.length
-    ? normalizeSameSeriesSelection(props.options, props.selected, maxSelect.value)
+    ? normalizeSameSeriesSelection(props.options, props.selected)
     : []
   categoryKeyword.value = ''
   brandKeyword.value = ''
   keyword.value = ''
-  limitHit.value = false
   page.value = 1
   activeCategory.value = ''
   activeSeries.value = ''
@@ -127,7 +122,6 @@ function chooseCategory(category: string) {
   brandKeyword.value = ''
   keyword.value = ''
   page.value = 1
-  limitHit.value = false
   step.value = 'brand'
   void nextTick(() => brandSearchInput.value?.focus())
 }
@@ -139,7 +133,6 @@ function chooseSeries(series: string) {
   activeSeries.value = series
   keyword.value = ''
   page.value = 1
-  limitHit.value = false
   step.value = 'settlement'
   void nextTick(() => settlementSearchInput.value?.focus())
 }
@@ -173,21 +166,16 @@ function clearDraft() {
 }
 
 function toggleDraft(merchantNo: string) {
-  const result = toggleDraftSelection(draft.value, merchantNo, maxSelect.value)
-  draft.value = result.next
-  limitHit.value = result.limited
+  draft.value = toggleDraftSelection(draft.value, merchantNo)
 }
 
 function toggleActiveSeries() {
   const merchantNos = groupMerchantNos(activeBrandItems.value)
   if (isWholeSeriesSelected(draft.value, merchantNos)) {
     draft.value = draft.value.filter((merchantNo) => !merchantNos.includes(merchantNo))
-    limitHit.value = false
     return
   }
-  const result = addWholeSeries(draft.value, merchantNos, maxSelect.value)
-  draft.value = result.next
-  limitHit.value = result.limited
+  draft.value = addWholeSeries(draft.value, merchantNos)
 }
 
 function removeSelected(merchantNo: string) {
@@ -251,7 +239,7 @@ onBeforeUnmount(() => {
       <div>
         <h2 id="settlement-picker-title">选择结算单</h2>
         <p class="section-note">
-          已选 {{ selected.length }} / {{ maxSelect }}，先选品类，再选品牌，最后挑同品牌结算单
+          已选 {{ selected.length }} 张，先选品类，再选品牌，最后挑同品牌结算单
         </p>
       </div>
       <div class="picker-trigger-actions">
@@ -308,16 +296,15 @@ onBeforeUnmount(() => {
                       ? '第二步：再选品牌。'
                       : '第三步：在当前品牌内挑单。'
                 }}
-                对比只允许同一品牌，最多选 {{ maxSelect }} 张
+                对比只允许同一品牌
               </p>
             </div>
             <button type="button" class="text-button" :disabled="loading" @click="closePicker">关闭</button>
           </header>
 
           <div class="picker-status" aria-live="polite">
-            <strong>已选 {{ draft.length }} / {{ maxSelect }}</strong>
-            <span v-if="limitHit" class="picker-limit">已选满 {{ maxSelect }} 张，先取消一张再选</span>
-            <span v-else-if="step === 'settlement'" class="section-note">
+            <strong>已选 {{ draft.length }} 张</strong>
+            <span v-if="step === 'settlement'" class="section-note">
               当前品牌 {{ filteredActiveItems.length }} 张
             </span>
             <span v-else-if="step === 'brand'" class="section-note">
@@ -458,7 +445,6 @@ onBeforeUnmount(() => {
                     type="checkbox"
                     :value="item.merchantNo"
                     :checked="draft.includes(item.merchantNo)"
-                    :disabled="atLimit && !draft.includes(item.merchantNo)"
                     @change="toggleDraft(item.merchantNo)"
                   >
                   <span class="series-option-name">{{ settlementOptionLabel(item) }}</span>

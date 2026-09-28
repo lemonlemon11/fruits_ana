@@ -20,14 +20,15 @@ import GradeDetailAiAnalysis from '../components/GradeDetailAiAnalysis.vue'
 import SettlementPicker from '../components/SettlementPicker.vue'
 import DateRangeFilter from '../components/DateRangeFilter.vue'
 import { friendlyErrorMessage } from '../utils/seriesAnalysis'
-import { MAX_SERIES_COMPARISON } from '../utils/seriesComparison'
 import {
   normalizeSameSeriesSelection,
   parseSelectedParam,
   serializeSelectedParam,
 } from '../utils/settlementPicker'
 import { getCachedSettlements } from '../utils/settlementCandidateCache'
+import { useQuickPeriods } from '../utils/quickPeriods'
 
+const { quickYears, quickMonths, loadQuickPeriods } = useQuickPeriods()
 const DEFAULT_SELECTION = 3
 
 const route = useRoute()
@@ -37,9 +38,7 @@ const filters = reactive({ startDate: '', endDate: '' })
 const view = ref<'series' | 'grade'>('series')
 const options = ref<SettlementListItem[]>([])
 // 地址栏带 selected 时按分享链接还原，方便把同一组对比直接发给别人。
-const selected = ref<string[]>(
-  parseSelectedParam(route.query.selected, MAX_SERIES_COMPARISON),
-)
+const selected = ref<string[]>(parseSelectedParam(route.query.selected))
 // 手机端默认只保留“选择 + 总览”，详细分析按需展开；桌面端始终显示详细分析。
 const detailOpen = ref(false)
 const result = ref<SeriesComparisonData>(emptyComparison())
@@ -161,7 +160,10 @@ function syncSelectedQuery() {
   void router.replace({ query })
 }
 
-onMounted(loadOptions)
+onMounted(() => {
+  void loadQuickPeriods()
+  void loadOptions()
+})
 onBeforeUnmount(() => {
   optionsRequestVersion += 1
   requestVersion += 1
@@ -176,6 +178,9 @@ onBeforeUnmount(() => {
       <DateRangeFilter
         v-model:start-date="filters.startDate"
         v-model:end-date="filters.endDate"
+        :years="quickYears"
+        :months="quickMonths"
+        @change="loadOptions"
       />
       <button class="primary-button" type="submit" :disabled="loadingOptions">
         {{ loadingOptions ? '正在查询' : '查看结算单' }}
@@ -190,7 +195,6 @@ onBeforeUnmount(() => {
     <SettlementPicker
       :options="options"
       :selected="selected"
-      :max="MAX_SERIES_COMPARISON"
       :loading="loadingOptions || loadingComparison"
       @apply="applySelection"
     />

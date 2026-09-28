@@ -94,6 +94,11 @@ export function arrivalPiecesDiff(arrivalQuantity: number | null, totalPieces: n
   return arrivalQuantity === null ? null : arrivalQuantity - totalPieces
 }
 
+/** 销售数量合计不得超过来货数量：超出即标红并阻断提交（手工录单与导入二次确认共用口径）。 */
+export function salesExceedsArrival(arrivalQuantity: number | null, totalPieces: number): boolean {
+  return arrivalQuantity !== null && totalPieces > arrivalQuantity
+}
+
 export function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }

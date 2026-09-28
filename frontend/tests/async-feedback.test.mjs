@@ -32,7 +32,8 @@ test('问题明细下载提供批次级等待状态', () => {
 
 test('排序期间锁定筛选操作并保留排序状态提示', () => {
   const source = read('views/SettlementListView.vue')
-  assert.match(source, /:disabled="loading \|\| sorting" @change="onPeriodChange"/)
+  // 统计周期组件已删除；销售日期快捷筛选与查询按钮在排序期间锁定。
+  assert.doesNotMatch(source, /period-filter|onPeriodChange|PeriodPreset/)
   assert.match(source, /:disabled="loading \|\| sorting">\{\{ loading \? '正在查询' : sorting \? '正在排序' : '查看结果' \}\}/)
 })
 

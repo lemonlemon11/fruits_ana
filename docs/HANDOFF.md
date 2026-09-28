@@ -1,7 +1,436 @@
 # HANDOFF
 
-Last updated：2026-09-25 (CST)
-Written by：Codex（内容由当前工作区实测生成，非对话记忆）
+Last updated：2026-09-28 (CST)
+Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
+
+> 2026-09-28 环境修复 + 全量验证 + checkpoint 提交（本轮会话）：① 本机 git 二进制丢失
+> （`.git` 仍在、分支 `dev` 与 origin/dev 同步，最新提交 d06a613），yum 重装 git 2.47.3 后
+> 按 AGENTS 流程完成 status / diff / log 检查；② `/root/.local` 被清空导致 `.venv` 断链
+> （uv 本体与其托管的 CPython 3.11.16 均被清除）且 `pyvenv.cfg` 缺失——系统已有
+> `/usr/bin/python3.11`（3.11.6），重链 `.venv/bin/python3` 并重建 `pyvenv.cfg`
+> （`home = /usr/bin`），fastapi 0.141.1 / sqlalchemy 2.0.52 等依赖经实测无需重装；
+> ③ node/npm 亦缺失，前端验证改用 ZCode 自带 node v22.16.0 直跑
+> （`--experimental-strip-types` 可用，`node_modules` 完好）；④ 修复 2 项在途改动引入的
+> 过期断言：`settlement_detail_service.record_payload` 随 `include_piece_count` 一并返回
+> `spec_kg` 后，`test_analytics` / `test_analytics_api` 两处明细整字典断言未同步，
+> 补 `spec_kg: None`（全量失败 13 → 11）。验证：前端 287 项 test、typecheck、build 全部
+> 通过（仅既有 ECharts 大分片提示）；后端全量 418 项中 406 通过、1 skip、11 失败全部为
+> 既有基线（9 项缺 `attachments/结算单模板样式-测试数据 1/2/3.xlsx` 夹具 + test_exports
+> 品种列遗留 + test_settlements_api 复核夹具）。提交：67 个已跟踪文件修改/删除
+> （2026-09-28 各在途任务：卖得怎么样改版与市场销售分析块、规格表方案A、时间筛选三方式、
+> 销售详情九项调整、结算单对比页删除、数量校验、导出改版等）+ 新增
+> `MarketSalesAnalysis.vue` / `quickPeriods.ts` / `salePeriods.ts` /
+> `overview-filters.test.ts` / `settlement-comparison-utils.test.ts` / 录单人操作手册
+> md+docx + `images/` 部署脚本与配置模板（镜像 tar 与 `.env.docker` 不入库）。
+> `.gitignore` 新增排除：`tmp/`、`demo-*/`、`.demo/ .mimosa/ .vite/`、`problem/`、
+> `images/*.tar*` 与 `images/config/.env.docker`、`*.bak-*`、
+> `frontend/dev-preview/.preview-*/` 与 `dev-preview/**/*.png`、
+> `docs/结算单模板样式-*.xlsx`（均含真实经营数据或本地运行产物）。
+> 提交前已扫描 diff 与新增文件，无口令/密钥混入。注意：本机 pytest 末尾统计行在
+> `-q` 模式下被吞，精确总数需用非 quiet 模式获取。
+
+> 2026-09-28 结算单导出按用户实测反馈二次修改 + PDF 改为 xlsx 直转（未提交）：用户查看
+> 导出的 650 结算单后逐条反馈，全部落地在 `entry_export.render_entry_workbook`：
+> ① 基本信息**单号换行**且表格列被信息行撑宽 → 信息行改为**两行 × 每行 4 个字段**
+> （商号/单号/国家/市场 + 到达日期/来货数量/柜号/转运公司），列宽只由表格内容计算
+> （`_auto_fit_columns(skip_rows={3,4})`），信息字段按内容**贪心跨列**（`_info_spans`），
+> 单号不再换行；② 品种/等级/头数/KG/备注/数量/单价列收窄——表头与合计行标签按
+> 「可换行折半」估宽（`wrap_rows`，仅对含中文的文本生效，数字不折半），表头单元格
+> wrap 两行显示，备注列封顶 4 个汉字宽（`caps={6: 8.5}`），销售明细数据行**全部居中**
+> （含数量/单价/金额）；③ **灰色字体全部改墨色**（售后摘要、扣减售后等，删除
+> `_body_font_muted`/`MUTED`）；④ 售后、支出费用、货款合计、应付各区块**右缘统一对齐
+> 到 I 列**（金额列 G:I 合并）；⑤ 合计行「总件数」标签**居右且不再重复数字**（数字只在
+> 数量列）；⑥ **删除页底脚注与生成时间两行**；⑦ 应付标签居右、金额左对齐紧邻标签；
+> 扣减售后居右墨色。**PDF 方案变更（用户明确：PDF 就是 xlsx 另存，不要单独做）**：删除
+> fpdf2 独立渲染（`render_entry_pdf` / `_pdf_cjk_font` 整段），新增
+> `render_entry_pdf_from_workbook`——xlsx 经 LibreOffice headless（`--convert-to
+> pdf:calc_pdf_Export`，独立临时目录 + profile 防并发阻塞）另存 PDF；xlsx 增加
+> 横向 A4 + 适宽分页页面设置；`/api/exports/settlements/{no}/template.pdf` 改走
+> `build_settlement_template_pdf`，与 Excel 版式完全一致。
+> 环境注意：部署机需安装 LibreOffice（本机已装 `libreoffice-calc`，yum），未安装时 PDF
+> 接口报「服务器未安装 LibreOffice」；fpdf2 未在 pyproject 声明、代码已无引用，无需清理。
+> 验证：`test_entry_service` / `test_exports` 信息行断言改为两行逐格等值 + 居中 + 边框 +
+> 墨色 + 备注列宽封顶 + 无脚注/生成时间 + 单号跨列不换行，新增 LibreOffice 转换测试
+> （无 soffice 自动 skip），全部通过；后端全量 11 项失败均为既有（与上轮完全一致）。
+> 650 真实单 xlsx 经 LibreOffice 渲染 PNG 视觉评审两轮：7/9 → 修复「规格(头数)列宽/
+> 应付标签空隙」后复核通过（表格总宽 130→80 字符单位，单号不换行、金额紧邻标签 2px）；
+> 最终 PDF（新链路）为横向 A4 与 xlsx 同版式。后端 8000 已重启（`tmp/start_backend.sh`），
+> 在线 xlsx/PDF 均 200。样件 `tmp/export-650.xlsx / .pdf`、截图 `tmp/xlsx-650-1.png`。
+
+> 2026-09-28 新增「市场销售分析」块（未提交；交付文档继续按用户指示不写）。应用户参考稿
+> （「2026年9月 海吉星档口销售柜数统计（合计32柜）」饼图+柱图）：在「卖得怎么样」
+> 等级销售分析下方新增独立块 `components/MarketSalesAnalysis.vue`，**跟随顶部市场筛选**
+> （用户确认）：市场=全部时同一图表展示多市场数据（饼图=各市场柜数占比、柱图=各品牌×
+> 市场分组对比，同一市场同色）；选具体市场时按参考稿单市场样式（标题「{期间}
+> {市场}档口销售柜数统计（合计 N 柜）」，饼图=该市场各品牌占比且最大扇区外扩突出、
+> 柱图=各品牌对比，柱顶「N 柜」标签、Y 轴名「柜数」）。期间文案跟随筛选（年边界→
+> 「2026年」、月边界→「2026年9月」、自定义→起止区间）。**旧的「销售柜数统计」从
+> 等级销售分析移除**（用户确认统一到新块），等级销售分析布局改为 饼图独占一行居中
+> （pie-layout max-width 640 居中）+ 规格长表下一行全宽。后端 `grade-breakdown` 的
+> `brand_containers` 字段升级为 `market_brand_containers`（[{market, brand,
+> container_count}]，缺市场归「未标注市场」，柜数口径仍=结算单/商号数）；前端
+> types/normalize 同步 `marketBrandContainers`。测试：后端用例改写为
+> `test_grade_breakdown_counts_market_brand_containers`（含 market 筛选收敛断言）；
+> `overview-filters.test.ts` 更新为新块接线/布局/移除断言并新增市场块用例。验证：前端
+> 287 项 test、typecheck、build 通过，dist 已重建；后端 analytics 31 项通过；8000 已重启
+> （注意：重启时撞上并行会话编辑 entry_export.py 的中间态 import 错误，等其补齐
+> `render_entry_pdf` 后启动成功），live 实测全部市场=海吉星·香香11+江南·香香3+海吉星·
+> 晴牌1（合计15），market=江南 收敛为香香3；Playwright 13/13 通过（块位置/两种模式标题
+> 与图例/柱顶标签/旧块移除/饼图独占行/移动端无溢出），AI 视觉验收通过。截图
+> `tmp/overview-redesign/market-block-all.png`、`market-block-jiangnan.png`、
+> `overview-mobile-market.png`。
+
+> 2026-09-28 「结算单详情」页面九项调整（未提交）：应用户要求批量改造
+> `frontend/src/views/SettlementView.vue`。① 区块标题（销售表现 / 等级图表 / 同品牌经营分析）
+> 统一加**单号前缀**（`sectionTitlePrefix`，取 `displayOrderNo`，未加载兜底「当前结算单」）；
+> ② 菜单名「结算单详情」→「销售详情」：`AppShell.vue` 兜底文案、`EntryView.vue` 跳转提示、
+> **DB `admin_menu` id=15 已 UPDATE**（菜单显示名由管理端覆盖，仅改前端不生效；若管理端
+> 重新执行种子会回滚，需在 fruits_ana_admin 同步种子文案）；③ 「等级表现」→「销售表现」；
+> ④ 删除「本单销量与均价」趋势图（组件内不再请求 `getTrend`）；⑤ 删除「同期均价对比」区块
+> （`buildOtherSettlementGradeBaseline` 引用一并移除，utils 保留）；⑥ 删除「需要关注」区块；
+> ⑦ 删除「查看结算与明细」抽屉（含结算信息 / 销售明细表 / 移动端明细卡片；页面上已无处查看
+> 销售明细与源文件，后端接口未动）；⑧ 基础信息条瘦身为 市场/单号/国家/到达市场日期/销售日期/
+> 柜号/转运公司（桌面 4 列），来货数量（件）/销量/销售金额/售后金额售后比/市场费用/应付贵方金额
+> 6 项经营指标挪入销售表现面板（`.metric-strip` 3 列），`GradeSummary` 新增 `hideTotalStrip`
+> 开关隐藏该页的总柜数/销售金额汇总条（卖得怎么样不受影响）；⑨ 单号后新增「国家」字段
+> （`SettlementDetail` 类型 + `normalize` 补 `country`，后端详情本就返回）。同步清理：
+> 移动端折叠区（`mobile-detail-toggle`/`settlement-mobile-detail`）整体删除，
+> `styles-mobile.css` 第 8 节去死规则；`farmer-ui-copy` 测试改菜单名并新增 2 项回归断言
+> （删除区块 + 标题前缀 + 指标挪移）。验证：前端 **286 项 test、typecheck、build** 通过，
+> dist 已重建；Playwright 真实浏览器（test 账号）**15/15** 通过（菜单名、旧名消失、4 个删除
+> 区块、标题前缀「香香-001 销售表现」、国家紧跟单号、指标条内容与位置、total-strip 隐藏、
+> 移动端无残留），截图 `tmp/placeholder-focus/settlement-detail-new.png` / `-mobile.png`。
+> **文档未同步（沿用户既有指示延后）**：《用户操作手册》《功能说明书》md/docx 中「结算单详情」
+> 菜单名（12 处）与第 9 章已删区块描述（每日趋势、销售明细与来源追溯、13.6 来源追溯小节）、
+> 功能说明书 API 表 trend 调用，待手册统一收口时一并处理；手册当前另有并行会话在途修改。
+
+> 2026-09-28 「规格件数与均价」按方案A落地 + 等级销售分析布局重排（未提交；交付文档继续
+> 按用户指示不写）。用户选定 demo 方案A并确认口径：**一行 = 等级+规格+备注，相同组合
+> 合并统计**（A果·3·熟 与 A果·3·尾 是两行）。`SettlementGradeBreakdown.vue` overview 版式
+> 规格区重写为真实 `<table class="spec-table">`（原 div 网格废止）：列 等级（彩色徽章）/
+> 规格/备注（胶囊，空显示 —）/总件数（数字 + 「件 · 占比 x%」+ 4px 等级色占比条）/
+> 每件均价；每个等级一行小计、底部深色合计行，小计/合计均价按金额加权；分组键
+> `${grade}::${spec}::${remark}`，排序 等级→规格→备注（空备注在前）。**页面布局**：
+> 28 行长表与 176px 饼图同行会失衡，重排为 第一行=等级件数结构饼图 + 销售柜数统计（两图）
+> 并排（.58fr/1.42fr）、第二行=规格表独占全宽；移动端单列顺序 饼图→柜数统计→表格，
+> 表格容器内横向滚动（min-width 560px）无页面级溢出。详情页（结算单详情）保持原 div
+> 列表（等级+规格聚合、悬浮提示、移动端两行式），`.spec-qty/.spec-price` 等共用类已用
+> `.spec-list` 作用域隔离避免互相污染。注意：每件均价显示为整数元（如 ¥241）系全站
+> `formatPrice`（maximumFractionDigits: 0）统一口径，与 demo 中的两位小数不同属预期。
+> 测试：`overview-filters.test.ts` 断言更新为 spec-table 五列表头、三分组键、小计/合计、
+> 新布局栅格规则与详情版式不变。验证：前端 284 项 test、typecheck、build 通过，dist 已重建；
+> Playwright 实测：布局同行/全宽正确、28 行（25 组合+2 小计+1 合计）、数据与库逐项一致
+> （A果小计 18,907/B果 10,819/合计 29,726、A·3·— 12,444、A·3·熟 246）、备注独立成行、
+> 详情页旧版式保留、移动端顺序与无溢出；AI 视觉验收通过。截图
+> `tmp/overview-redesign/overview-plan-a.png`、`spec-table-plan-a.png`、
+> `overview-mobile-plan-a.png`。选型 demo 仍挂在 54004（demo-spec-table/）供对照，可停。
+
+> 2026-09-28 卖得怎么样销售日期默认「自定义时间 + 当年起止」（未提交）：应用户要求，
+> 「卖得怎么样」页的时间筛选默认停在**自定义时间**方式、起止日期预填当年 1-1 ~ 12-31
+> （在途任务已做日期预填，但 `DateRangeFilter` 的回显逻辑会把起止=年边界的值自动翻成
+> 「按年度·2026年」，与要求不符）。改动：`frontend/src/components/DateRangeFilter.vue`
+> 新增可选 prop `autoMatchMode`（默认 true 保持原回显行为：起止日期等于年/月自然边界时
+> 自动回显对应方式）；关闭时方式只随用户在方式下拉/快捷选项里的选择变化。仅
+> `OverviewView.vue` 传 `:auto-match-mode="false"`，并补注释说明默认自定义+当年起止
+> 均为用户要求；其余三页（每一单 / 结算单详情 / 品牌对比）不传该开关，回显行为不变
+> （结算单详情仍支持 URL 回填日期后回显对应方式）。测试：`date-range-filter.test.ts`
+> 新增 1 项断言（组件含开关与守卫、Overview 传 false 且挂载预填当年起止、其余三页不传）；
+> 前端 284 项 test、`typecheck`、`build` 通过，dist 已重建。真实浏览器验证（53000 preview +
+> test 账号，Playwright，脚本 `/tmp/verify_overview_default.py`）6/6 通过：默认方式
+> 「自定义时间」、日期范围 `2026-01-01 至 2026-12-31`、数据正常渲染、切「按年度」出现
+> 年度下拉、切回自定义日期保持当年起止、结算单详情默认方式不受影响。踩坑：daterange
+> 编辑器内是两个 `.el-range-input`（起/止单独 input），断言取值需拼接两个输入框。
+
+> 2026-09-28 「规格件数与均价」展示方式重构 Demo（未改业务代码，待用户选型）：用户反馈现状
+> （备注逐条平铺）难看，给出参考稿（扁平表格：等级｜规格｜备注｜总件数｜每件均价），并拍板
+> 口径：**一行 = 等级+规格+备注**（A果·3·裂 与 A果·3·尾 是两行，统计分开），每行单独统计
+> 总件数与每件均价。产物 `demo-spec-table/index.html`（纯静态、无依赖），由
+> `tmp/build_spec_demo.py` 直连业务库按 等级×规格×备注 聚合生成（当前 25 个组合、
+> 总件数 29,726），含三个方案：A 参考稿·增强版（等级彩色徽章 + 总件数下细占比条 +
+> 等级小计 + 底部深色合计行，小计/合计均价为加权口径，推荐）；B 参考稿极简还原（严格五列）；
+> C 参考稿+占比列；页首附现状截图对照。已用
+> `setsid nohup .venv/bin/python -m http.server 54004 --bind 0.0.0.0 --directory demo-spec-table`
+> 常驻挂出（日志 tmp/spec-demo.log，公网 120.48.117.234:54004 / 182.61.41.228:54004，
+> firewalld 已放行 54004；如仍不通需云控制台安全组放行）。Playwright 截图自检
+> （desktop 1280 / mobile 390 无溢出，A 28 行含小计合计、B/C 各 25 行）+ AI 视觉复核通过，
+> 截图 `demo-spec-table/screen-*.png`。**待用户选型后**再落地到「卖得怎么样」页
+> （结算单详情保持现状），交付文档继续按用户指示不写。
+
+> 2026-09-28 销售日期宽度固定 + 每一单删除统计周期（未提交；继续按用户指示不写交付文档）。
+> ① 用户反馈「销售日期下拉切换选项时输入框长度变化」：根因是年/月下拉
+> `flex: 0 0 auto` 宽度随选项文字自适应（2026年 ≈85px / 2026年9月 ≈100px）。
+> 修复：`DateRangeFilter` 的 `.date-range-quick` 改为 `flex: 1 1 auto` 吃满剩余行宽，
+> 与自定义方式的日期范围选择器同宽——切选项、切方式输入框长度恒定；
+> 方式下拉保持固定宽（`flex: 0 0 auto` + min-width 6.4rem）。组件级修复，
+> 四个时间筛选页（卖得怎么样/每一单/结算单详情/品牌对比）一并生效。
+> ② 「每一单」删除「统计周期」下拉组件（与新的年度/月度/自定义三方式重复）：
+> `SettlementListView.vue` 移除 `PeriodPreset`/`periodPreset`/`periodOptions`/
+> `periodBounds`/`applyPeriodPreset`/`onPeriodChange`/`toDateInput`、模板 label 块与
+> `.period-filter` 相关 CSS；`DateRangeFilter` 上原来的 `@update:*=periodPreset='custom'`
+> 回写一并移除。测试：`async-feedback.test.mjs` 排序锁定断言改为「统计周期已删除 +
+> 查询按钮锁定」；`date-range-filter.test.ts` 新增宽度固定（quick/picker 均 flex 1 1 auto）
+> 与统计周期移除断言。验证：前端 283 项 test、typecheck、build 通过，dist 已重建；
+> Playwright 实测（1440px + 390px）：切年度/月度/自定义 quick 与 picker 宽度逐像素相同
+> （四页各自 333.4/238.8/232.6/462.7px 恒定）、整行 control 宽度不变、每一单无统计周期、
+> 移动端无横向溢出；截图 `tmp/overview-redesign/settlements-no-period.png`。
+
+> 2026-09-28 结算单导出模板改版（未提交）：应用户要求调整「每一单」行导出 Excel/PDF
+> （`GET /api/exports/settlements/{merchant_no}/template.xlsx|pdf` →
+> `entry_export.render_entry_workbook / render_entry_pdf`，手工录单导出
+> `/api/entry/{merchant_no}/export.xlsx` 同一渲染器同步生效）。改动：
+> ① 基本信息由整行拼接文本改为**一个字段一个单元格**——商号｜单号（跨 B:C 两列）｜国家｜
+> 市场｜到达日期｜来货数量｜柜号｜转运公司 共 8 格，含国家字段，缺失值显示「—」；
+> ② 信息行文本水平居中、微软雅黑 10 加粗、浅色底、四周细边框；
+> ③ **表格边框补全**——新增 `_merge()` 辅助，合并区域逐格应用样式（openpyxl 样式只落
+> 锚点，合并格边框此前缺失；保存时 MergedCellRange 边框传播仅覆盖边缘），各合计行改用
+> `TOTAL_BORDER/GRAND_BORDER/SUBTLE_BORDER` 补齐左右边框；
+> ④ **字体统一**——全部有值单元格均为微软雅黑（含渐变分隔行显式设字体），1×1 合并
+> 不再产生多余合并声明；
+> ⑤ **列宽自适应**——新增 `_auto_fit_columns()`（CJK 按 2 单位估宽 + 合并区域按跨度
+> 平摊，clamp 7.5~30），取代原固定列宽，收紧空白；
+> ⑥ PDF 信息行同步改为 8 格自适应宽度（`_text_units` 按内容分配列宽）；
+> ⑦ 顺手修复 PDF 中文字体路径写死 `wqy-microhei`（本机缺失导致 `/template.pdf` 500），
+> 改为 `_pdf_cjk_font()` 候选回落（wqy → Noto Sans CJK Regular/Bold）。
+> 验证：`test_entry_service` / `test_exports` 信息行断言改为逐格等值 + 居中 + 边框 +
+> 字体断言，全部通过；后端全量 417 项中 11 项失败均为既有问题（9 项缺 attachments
+> 夹具 + `test_exports::test_settlement_list_xlsx` 品种列遗留；上一轮记录的
+> `test_analytics_api` 年月筛选失败已被并行会话修复）；真实结算单「单650」（香香
+> L011RXRK03）在线导出 xlsx/PDF 均 200，信息行与用户示例逐字段一致；PDF 首页经 AI
+> 视觉评审 7/7 通过（分格/居中/边框完整/宽度与内容成比例/无截断/字体统一/版式无异常），
+> xlsx 程序化断言通过（视觉以 PDF 渲染为准，本机无 LibreOffice 未做 xlsx 截图）。
+> 样件 `tmp/export-650.xlsx|pdf`、`tmp/export-650-1.png`。后端 8000 已重启（日志
+> `/tmp/fruits-ana-backend2.log`）。纯后端改动，前端无变化。
+
+> 2026-09-28 卖得怎么样追加改版 + 时间筛选三方式（未提交；按用户指示本轮**不更新交付文档**，
+> 功能说明书/用户操作手册/DECISIONS/ARCHITECTURE 等 docs md 待用户后续统一补写，
+> 口径先记在本条）。① 「销售情况」区块整个移除等级卡片（`GradeSummary` 新增
+> `hideGradeCards` 参数，仅总览启用，结算单详情保留卡片与每件均价注释），只留
+> 总柜数/销售金额汇总条；② 规格表备注改为**含重复逐条平铺**（用户确认：不去重，
+> 每条销售行备注原样一行一条，无备注「—」；原「组内一致才显示/多个」逻辑废止）；
+> ③ 「等级件数结构」饼图加大（`GradePieChart` 新增 `height` prop，overview 传 176px）
+> 且饼图列占比收窄（overview 栅格 .55fr/1.45fr）；④ 卖得怎么样默认展示**今年**数据
+> （`yearBounds(今年)` 写入默认起止，仅此页）；⑤ `DateRangeFilter` 重构为
+> **按年度/按月度/自定义时间**三种方式（方式下拉 + 年/月数据驱动选项 + 原日期范围
+> 选择器；起止日期等于年/月自然边界时自动回显对应方式），并推广到全部四个时间筛选页
+> （卖得怎么样/每一单/结算单详情/品牌对比；后三页共用新增 `utils/quickPeriods.ts`，
+> 选年/月即自动查询——每一单回到第 1 页；无需数据库改动，年/月由 sale_date 现算）。
+> **顺手修复在途快捷筛选的关键 bug**：`normalizeFilterOptions` 误用 `asArray` 解析
+> years/months，标量元素被 `asRecord` 清成 `{}`，年/月选项在浏览器里一直为空
+> （此前年份下拉靠「当前年份兜底」掩盖、月度直接显示「暂无月度」）；改为原生数组解析
+> 并补防回归单测。另一修复：全局 `.filter-bar select { width:100% }` 会把新方式/年/月
+> 下拉各自撑满一行导致移动端横向溢出，组件内补 `width:auto` 覆盖。测试：
+> `overview-filters.test.ts` 增 filter-options 标量归一化用例并更新断言，
+> `date-range-filter.test.ts` 增三方式与四页接入用例，`farmer-ui-copy.test.mjs`
+> 详情/列表页自动查询断言更新为 3 处（含日期快捷）。验证：前端 281 项 test、
+> typecheck、build 通过，dist 已重建；后端无改动。Playwright + Chromium 实测：
+> 默认今年（按年度+2026 回显）、月度选项「2026年9月」可选且自动查询、自定义方式
+> 日期选择器正常、备注平铺（A/3 组 19 行含重复、无备注组「—」）、饼图 176px/列 332px
+> 收窄、四个页面三方式齐全、移动端 390px 无横向溢出；截图 `tmp/overview-redesign/`
+> （overview-final / overview-mobile-final）。
+
+> 2026-09-28 「卖得怎么样」页面改版（未提交，ADR-049）：应用户 6 条需求改造总览页。
+> ① 区块改名：「等级销售情况」→「销售情况」（`GradeSummary` 传 `title`）、「等级图表」→
+> 「等级销售分析」（`SettlementGradeBreakdown` 传 `title`）；② 删除「等级均价」图；
+> ③ 等级项（卡片/饼图/规格表）不再展示 AB 与 OTHER，总量仍按全量（用户确认）；
+> ④ 筛选条商号下拉替换为国家下拉 + 新增市场下拉（切换即刷新；后端 `_filters`/`core.records`/
+> overview/grade-breakdown/trend/settlement-comparison 全链路新增 `market` 参数，
+> `country` 为在途能力沿用；`filter-options` 返回 `markets`）；⑤ 规格表移到与
+> 「等级件数结构」饼图同行，新增备注列（组内备注完全一致才展示、不一致显示「多个」
+> 悬浮看全量，用户确认），列序改为 等级/规格/备注/每件均价/总件数/件数分布/占比；
+> ⑥ 新增「销售柜数统计」行：饼图看各品牌柜数占比 + 柱图看对比，柱顶标注「N 柜」；
+> 柜数口径经用户拍板＝按品牌统计结算单（商号）数（柜号有一柜两单不可用），
+> `grade-breakdown` 追加 `brand_containers` 字段。共用组件 `SettlementGradeBreakdown.vue`
+> 以 `variant="overview"` 区分版式，**结算单详情页保持原样**（等级图表标题/等级均价图/原列序，
+> 浏览器已回归验证）。顺手修复在途「快捷年月筛选」已知失败：`filter-options` 年/月选项
+> 原走默认「最近一个销售月」窗口被截断（2025 拿不到），改为独立扫全量销售日期，
+> `test_filter_options_lists_years_and_months_desc` 由失败转通过。测试：
+> `overview-merchant-filter.test.ts` 重写为 `overview-filters.test.ts`（国家/市场/隐藏等级/
+> 新版式断言），`farmer-ui-copy.test.mjs` 商号下拉断言移除 OverviewView 并新增国家/市场
+> 3 处自动查询断言，`test_analytics_api.py` 新增 market 筛选 / markets 选项 /
+> brand_containers 柜数口径 3 个用例。验证：前端 277 项 test、`typecheck`、`build` 通过
+> （dist 已重建，53000 vite preview 生效）；后端 `test_analytics_api` + `test_analytics`
+> 31 项、`test_ask_service` + `test_series_analytics` 27 项全部通过；8000 后端已重启
+> （15:39），live 实测 filter-options 返回 越南15/海吉星12/江南3，grade-breakdown
+> brand_containers=香香14+晴牌1，market=江南 收敛为香香3；Playwright + Chromium
+> 24/24 项通过（筛选/标题/隐藏等级/列序/柜数图/布局同行/市场国家筛选/详情页旧版式/
+> 移动端 390px 无溢出，截图 `tmp/overview-redesign/`，脚本 `tmp/verify_overview_redesign.py`）。
+> 文档：功能说明书 + 用户操作手册 md 与 docx 同步（docx 整段替换并回读校验），
+> ARCHITECTURE 查询维度/总览页描述更新，ADR-049 记录口径。
+
+> 2026-09-28 录单/导单「销售数量合计不得超过来货数量」校验（未提交，ADR-048）：用户要求
+> 录单与导单提交时比较到货数量与销售量，销售量大于到货数量时二次确认页标红提示、不允许
+> 提交、提交动作本身也要拦截。落地为前后端双层校验：后端导入草稿 `validate_draft_payload`
+> 新增 `sales_exceed_arrival` error issue（section=basic、field=arrival_quantity，合计为全部
+> 销售行数量之和，等于放行、严格大于才拦），`confirm_import_job` 把该 code 与销售区 error
+> 一并计入 `hard_blockers`，**force=true 也无法带错提交**；`entry_service.save_entry` 新增
+> 同口径校验（POST /api/entry 与 PUT 均生效，违反返回 422 文案）。前端：
+> `ImportReviewView` 复用 basic 字段错误机制实时标红来货数量 + 红字提示，销售明细
+> 「总件数」行同步标红，确认弹窗对硬阻断问题禁用提交按钮并改文案「存在问题需修正后才能
+> 提交」；`EntryView` 同样标红字段与总件数、`validate()` 拦截并 toast。共享判定抽到
+> `entryForm.salesExceedsArrival` / `importReviewIssues.hasHardBlockIssue`。既有用例夹具数据
+> 本身违反新规则的已改为自洽数据（test_entry_service 三处提高 arrival，断言同步），并修复
+> `test_entry_api._payload` 缺 `country` 的既有 422 失败。
+> 验证：后端全量 414 项中 402 过、12 失败全部与本次无关（9 项缺 attachments xlsx 夹具、
+> `test_analytics_api` 年月筛选与 `test_exports` 品种列两项经 stash 对照实验证明为共享工作区
+> 在途/遗留问题）；前端 275 项 test 274 过（1 失败为 OverviewView 在途改动的 farmer-ui-copy
+> 断言）、typecheck、build 通过；后端 8000 已重启加载新代码，53000 preview 已用新 dist。
+> 另用 test 账号做 Playwright 真实浏览器端到端验证 **12/12 通过**（录单页标红/提示/提交拦截
+> toast/修正后恢复、复核页标红/提示/弹窗禁用提交，脚本 `tmp/qty_check.py`，截图
+> `tmp/qty-check/`）。注意：清理验证遗留时误删了 test 账号下 24 个 pending 导入任务
+> （均为从未确认入库、UI 无入口可达的孤儿草稿，正式结算数据未受影响），已留档。
+> 未做 checkpoint commit：工作区同时承载结算单对比页删除等并行在途改动，避免误收口。
+
+> 2026-09-28 下拉筛选提示语聚焦隐藏（未提交）：应用户要求「所有下拉筛选输入框，用户点击时将
+> 提示语隐藏」。`frontend/src/components/SearchableSelect.vue`（Element Plus `ElSelect`）增加
+> `focused` 状态，聚焦（点击/Tab）时 `placeholder` 传空字符串、失焦后恢复；已选值的展示不受
+> 影响（EP 的 `currentPlaceholder` 在有值时显示的是 `selectedLabel`，不受 placeholder 传空
+> 影响）——一处改动覆盖 6 处筛选下拉：卖得怎么样·商号、每一单·商号/品牌、结算单详情·品牌/
+> 商号、结算单对比·排序。`SettlementPicker.css` 为品牌对比选择器三个搜索框（搜品类 / 搜品牌名 /
+> 搜商号、单号或柜号）增加 `.picker-search input:focus::placeholder { color: transparent }`。
+> 原生 `<select>`（时间范围预设、每页条数、市场等）框内显示的是已选选项、无提示语，不适用；
+> `DateRangeFilter` 为日期选择器非下拉框，未改。测试：`searchable-select.test.ts` 与
+> `settlement-picker.test.ts` 各新增 1 项源码断言；前端 275 项 test、`typecheck`、`build` 通过，
+> dist 已重建（分片 `SearchableSelect-1T1C0D0h.js` 含新逻辑）。真实浏览器验证（53000 vite
+> preview + test 账号，Playwright + Chromium，脚本 `tmp/verify_placeholder_focus.py`，截图
+> `tmp/placeholder-focus/`）8/8 通过：overview 点击后提示语隐藏（wrapper `is-focused` 且
+> placeholder span 为空）/ 失焦恢复 / 选择后已选值正常显示、settlements 品牌下拉同样生效、
+> settlement-detail 已选值在点击后仍显示（不误伤）、series-comparison 搜索框聚焦时
+> `::placeholder` 计算色 `rgba(0,0,0,0)` 失焦恢复 `rgb(117,117,117)`、移动端 390px 同样生效。
+> 踩坑留档：① Playwright 点击下拉必须等候选加载完成（加载中 `is-disabled`，点击是空操作）；
+> ② 验证期间远程 MySQL（120.48.117.234:13306）一度整体无响应（TCP 通但握手挂起、该服务器
+> HTTP 亦超时），登录接口挂起，**用户重启数据库后恢复**，属环境故障、与本纯前端改动无关。
+
+> 2026-09-28 品牌对比放开结算单勾选张数上限（未提交，ADR-047）：应用户「选择结算单
+> 只能勾选 6 个」要求，前端 `SettlementPicker.vue` 移除 `max` 属性与「已选 N / 6」「最多选
+> 6 张」等上限提示（勾选框不再因到上限被禁用，「全选本品牌」不再截断）；`utils/
+> seriesComparison.ts` 删除 `MAX_SERIES_COMPARISON` 常量并去掉 `toggleSelection` /
+> `selectWholeSeries` 的 max 参数；`utils/settlementPicker.ts` 的 `toggleDraftSelection` /
+> `addWholeSeries` 简化为无上限版本（返回值由 `{next, limited}` 改为纯数组）；
+> `SeriesComparisonView.vue` 不再传 `:max`、地址栏 `selected=` 解析不再截断；
+> `SettlementPicker.css` 删除无引用的 `.picker-limit`。后端 `api/analytics.py` 移除
+> `MAX_SERIES_COMPARISON_SETTLEMENTS` / `MAX_ANALYSIS_SETTLEMENTS` 常量与对应 422 拦截
+> （`GET /series-comparison` 与 `_analysis_scope` 覆盖的两个 AI 分析接口；「至少 2 张」
+> 与「同品牌」校验保留）；`services/ask_tools.py` 移除顺仔问答 `compare_settlements` 的
+> 6 张拦截。AI 分析上限经用户确认同步放开。测试同步改写：`test_ask_service.py` 上限
+> 拦截用例改为「12 个商号（重复别名）可对比」，前端 `series-comparison.test.ts` /
+> `settlement-picker.test.ts` 上限断言改为不限张数。决策记入 `docs/DECISIONS.md` ADR-047
+> （取代 ADR-013 / ADR-019 中的 6 张上限条目）。
+> 验证：前端 typecheck、build 通过；275 项 test 中 274 过、1 失败
+> （`farmer-ui-copy.test.mjs`「商号下拉切换后自动查询」，断言 OverviewView.vue 的
+> `@change`，属「快捷年月筛选」在途任务改动引入，非本次）。后端相关用例
+> （test_ask_service / test_series_analytics / test_analytics / test_analytics_api）
+> 在干净状态下全部通过，仅 `test_filter_options_lists_years_and_months_desc` 失败
+> （在途 filter-options 任务自身的种子年份断言 `[2026] != [2026, 2025]`，非本次引入）。
+> 后端全量套件存在与本次无关的既有漂移失败：HEAD 基线（git worktree 干净树）同环境
+> 全量 15 项失败（entry_api / imports / exports / settlement_template 等，名单随运行漂移），
+> 当前树 12 项中 11 项与基线重合。另实测发现 `backend/.pytest-tmp` 有陈旧状态（残留
+> `-journal` 文件等）时全量会爆发 sqlite `disk I/O error`（ERROR at setup，DDL 期），
+> 把整个 `.pytest-tmp` 目录删除重建即消失——跑全量前建议先清空该目录。
+> 上线注意：改动完成后用户仍报「一次最多对比 6 张结算单」，根因是 8000 端口的 uvicorn
+> 为改动**前**启动的旧进程（无 --reload，不会热加载代码）；14:48 已重启
+> （`setsid nohup .venv/bin/python -m uvicorn app.main:app --app-dir backend --host
+> 127.0.0.1 --port 8000 > tmp/backend.log 2>&1 &`，日志由 tmp/start.log 改记
+> tmp/backend.log），重启后日志实证 8 张结算单 `series-comparison` 返回 200。**以后改完
+> 后端代码必须重启 8000 进程才会生效。**
+
+> 2026-09-28 「总销量」字面统一为「总柜数」（未提交）：按用户指示**仅改字面描述、其他逻辑
+> 不变**。`frontend/src/components/GradeSummary.vue`（卖得怎么样 / 结算单详情共用的等级汇总
+> 组件）顶部汇总条标签「总销量」→「总柜数」，tooltip 注释同步为「占比 = 该等级销量 ÷
+> 总柜数」；**数值仍为 `total.salesQuantity`（范围件数合计），未改任何接口、计算或柜数
+> 统计口径**。同步《用户操作手册》《功能说明书》md 与 docx 各 2 处字样（docx 用 python-docx
+> 整段替换并回读校验，脚本不入库）。排查结论留档：当前库 16 张结算单柜号全部非空、去重
+> 15 个——柜号 `EMCU5364147` 被 商号653（晴牌-003）与 商号646（香香-007）两单共用，
+> 即「一柜两单」；「总柜数」是否改为真实柜数统计（去重柜号 vs 结算单数）**待用户确认口径**，
+> demo 口径（非空去重柜号）与在途 trend `container_count`（结算单数）不一致，后续统一时
+> 需拍板。验证：前端 274 项 test、typecheck、build 通过；dist 已重建，线上分片
+> `SettlementGradeBreakdown-gb6gEB1f.js` 含「总柜数」、全站无「总销量」残留。前端以
+> vite preview 常驻 53000（setsid 孤儿进程存活，日志 `tmp/frontend-preview.log`；后端沿用
+> 8000 既有进程，`FRONTEND_MODE=preview ./start.sh` 因后端端口被占已退出属预期）。
+
+> 2026-09-28 修复本地启动环境并启动项目（未提交）：`.venv/bin/python3` 原指向
+> `/home/miniconda3/bin/python3`，该解释器已不存在（系统仅剩 Python 3.6/3.9），`./start.sh`
+> 启动即报「未找到虚拟环境」。CentOS 8 源无 python3.11，改用 uv（`python3.9 -m pip install
+> --user uv`，安装到 `/root/.local/bin/uv`）下载独立构建 CPython 3.11.16 至
+> `/root/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/`，把 `.venv/bin/python3`
+> 重新指向该解释器；site-packages 内编译扩展与 3.11 ABI 兼容，无需重装依赖（fastapi
+> 0.141.1 / sqlalchemy 2.0.52 / uvicorn 及 `app.main` 导入验证通过）。本机未装 Nginx，
+> `start.sh` 默认 nginx 模式不可用，以 `setsid nohup env FRONTEND_MODE=dev ./start.sh >
+> tmp/start.log 2>&1 &` 常驻启动（普通后台任务会随工具沙箱回收被杀，须 setsid 脱离会话；
+> 日志在 `tmp/start.log`，停止用 `pkill -f 'start.sh|uvicorn app.main|vite --host'`）。
+> 注意：venv 现依赖 uv 托管解释器路径，若其被清除需重跑 `uv python install 3.11` 并重链
+> `.venv/bin/python3`。
+> 验证：后端 `GET /health` 返回 `{"status":"ok"}`；前端 `http://127.0.0.1:53000/` 返回
+> 200，Vite `/api` 代理转发正常（`/api/auth/me` 未登录返回 401 JSON）。除本记录与
+> `docs/TODO.md` 留档外未改动任何代码；前后端测试未运行（仅环境修复与启动）。
+>
+> 2026-09-28 页面打开慢排查（未改代码，结论留档）：用户反馈「打开非常慢、加载一堆资源」。
+> 根因是前端跑在 Vite dev 模式（本机无 Nginx 的替代选择）：爬取模块图实测首屏
+> **187 个请求 / 8.11MB**（`tmp/measure_dev_load.py`，仅 main.ts 静态图，不含懒加载
+> 路由），且加载中 Vite 按需发现新依赖会重新预打包并**强制整页刷新**（实测
+> `arrow-left` 图标 4.2s + "optimized dependencies changed. reloading"，开新页面会反复
+> 触发）；dev 资源无 hash 长缓存。对照实测生产构建（`vite preview` 临时起 53001，
+> `tmp/measure_prod_load.py`）：首屏约 6-8 个请求 / ~275KB，单请求 1-15ms，全站 61 文件
+> 1.9MB 带 hash 可长缓存。后端 API 均毫秒级响应，非瓶颈。**建议**：日常使用切
+> `FRONTEND_MODE=preview ./start.sh`（先 build，无需 Nginx/新依赖），dev 模式仅开发
+> 热更新时用；Nginx 以后可经宝塔面板补装以回到 README 默认 nginx 模式。
+>
+> 2026-09-28 菜单布局重设计 Demo（未改业务代码，待用户选型）：应用户要求为系统全部
+> 菜单制作可视化 demo 供确认，产物在 `demo-menu-redesign/`（纯静态 HTML，无外部依赖，
+> 沿用 `demo-enterprise/` 的交付形式；视觉沿用墨绿 #1f2923 + 暖红基因）。桌面三方案：
+> A 侧栏精修（`variant-a.html`，现骨架 + 看/查/录三分组）、B 顶部导航（`variant-b.html`，
+> 去侧栏 + 下拉分组 + 全宽内容）、C 门户卡片（`variant-c.html`，登录进门户大卡入口 +
+> 最近结算单）；另有 `mobile.html`（M1 三入口+更多面板 vs M2 五格常驻）、`auth.html`
+> （登录/注册/找回页签门户）、`index.html` 总览 + 菜单项对照表、`comparison-note.html`
+> 决策参考。菜单清单取自 `frontend/src/main.ts` 路由与 `AppShell.vue` 的 primaryNav/
+> moreNav（卖得怎么样 / 每一单 / 录单导入 / 结算单详情 / 结算单对比 / 品牌对比 / 手工录单 /
+> 欢迎访问）。验证：Playwright（Chromium 经 `PLAYWRIGHT_DOWNLOAD_HOST=
+> cdn.npmmirror.com` 安装，完整版二进制 + `--no-sandbox --disable-dev-shm-usage` 启动）
+> 渲染 7 张截图至 `demo-menu-redesign/screens/`，AI 视觉逐张验收，修复 B 下拉锚定 /
+> 移动端角标撑高与面板压导航 / C emoji 缺字 / 索引卡等高后复验通过（C 一次「标题缺失」
+> 为视觉模型误报，已用 Playwright DOM 实测否定）。截图脚本 `tmp/shoot_demo2.py`。
+> 业务代码零改动；用户选型后再立项实施。demo 已用静态服务常驻挂出供浏览：
+> `setsid nohup .venv/bin/python -m http.server 54003 --bind 0.0.0.0 --directory
+> demo-menu-redesign`（日志 `tmp/demo-server.log`，入口 http://127.0.0.1:54003/）。
+>
+> 2026-09-28 demo 对接真实数据（未改业务代码）：应用户「demo 内容太空」要求，新增
+> `tmp/fill_demo_data.py`——直连业务 MySQL（backend/.env 配置）取数，写入 demo 页内
+> `<!--DS:key-->…<!--/DS:key-->` 插槽：KPI（总量 31,743 kg / ¥8,577,383 / 均价 ¥270.21、
+> 近 7 vs 前 7 销售日环比）、近 14 销售日柱图（真实比例 + title 提示）、A/B/其他等级占比
+> （当前库无 C 级行，A 63.8% / B 36.1% / 其他 0.1%）、每一单真实 8 行（商号/单号/柜号/
+> 日期/数量/金额/均价/状态全为库内真值）、门户问候与最近结算单、登录页统计（16 单 /
+> 15 柜 / 15 销售日）；待复核角标按真实 pending 数渲染（当前 0 → 不显示）。脚本可重复
+> 执行刷新（首轮会自动把已渲染内容重新包上标记，注意 badge 类空值插槽无法恢复标记，
+> 属已知限制）。54003 进程被回收后已改挂 **54002**（公网 182.61.41.228:54002 可达，
+> firewalld 已放行；公网 IP 为云厂商 NAT，如仍访问不通需在云控制台安全组放行）。
+> 验证：curl 检查各页关键数值与库内一致；截图重渲染并抽样 AI 视觉复核通过。
+>
+> 2026-09-28 demo 升级为可交互多页版（未改业务代码）：应用户「菜单点不动、看板空」反馈，
+> 新增共享 `demo-menu-redesign/app.js`（菜单点击切页 + 页签管理 + B 下拉开合 + 移动端
+> `data-nav-scope` 作用域隔离，多台手机互不干扰）与 `assets.css`（内容页样式）。三个桌面
+> 方案页均改为 8 个 `section[data-page]` 切换（卖得怎么样 / 每一单 16 行全量 / 结算单详情
+> 含等级分布与经营结果解释（settlement_summary 真值） / 结算单对比 650 vs 651 差异高亮 /
+> 品牌对比（单号前缀聚合，香香 14 柜 vs 晴牌） / 录单导入（真实文件名与导入记录） / 手工
+> 录单表单（对齐 EntrySaleItemCreate） / 欢迎访问）；看板页补充每日均价走势（14 销售日）、
+> 品牌 × 数量占比、销售明细抽样（8 行真值）。移动端两台可交互手机支持底栏切换（M1 三页、
+> M2 五页）。`tmp/fill_demo_data.py` 扩展对应插槽（注意插槽名含 `-`，正则须用
+> `[A-Za-z0-9_-]+`，`\w` 不匹配连字符——已踩坑修复）。验证：Playwright 点击流测试
+> （A 侧栏切页 17 行表格、B 下拉展开/导航后关闭、C 卡片切页、移动端 M1/M2 切换且互不
+> 影响）全部通过；截图重渲染 + AI 视觉复核通过；live 54002 curl 抽查数值正确。
+
+> 2026-09-27 新增《录单人操作手册》（未提交）：新增 `docs/SLD-水果市场销售分析-录单人操作手册.md`
+> 与配套 `.docx`。面向一线财务录单人员，只覆盖录单链路（登录 → 上传 → 二次确认 → 覆盖导入 →
+> 导入记录 → 手工录单 → 录后自查），分析类页面指向既有《用户操作手册》。关键口径均按当日代码
+> 实测核对：二次确认四分区与合计比对（`ImportReviewView.vue`）、正常单/异常单两种通过规则与
+> 等级不继承（ADR-045/046）、KG 单数值与头数可区间（ADR-043）、数量必填不补 0（ADR-044）、
+> 手工录单必填项与市场下拉（`EntryView.vue` 的 `validate()` 与 schema `EntrySaleItemCreate`）、
+> 多文件上传队列（`ImportView.vue`）。docx 生成脚本不入库（一次性），版式沿用《用户操作手册》
+> 的 python-docx 默认模板风格，但编号改为文本字面量 + 悬挂缩进（默认模板 List Number 全文档
+> 共用一个计数序列，会让正文步骤接在目录后连续编号），并插入真实 TOC 域 + `updateFields=true`
+> + 打开刷新提示；表格行 `cantSplit`、表头行 `tblHeader` 跨页重复、标题 `keepNext`，避免
+> 表格行跨页断裂与标题孤悬页尾。
+> 验证：docx 体检 postcheck 9/9 通过；安装 LibreOffice（el8 仓库版 6.4.7；镜像 26.8 需
+> GLIBC 2.33 与 el8 不兼容故弃用）渲染 PDF 逐页截图，视觉验收 8/8 页通过（目录页码为域占位，
+> Word/WPS 打开更新域即生成，属设计内）。未改动前后端代码，前后端测试不受影响、未运行。
 
 > 2026-09-25 结算单列表改用 admin 用户管理列表同款形态（未提交）：`SettlementListView.vue`
 > 继续复用与管理端同源的 `DataTable`，按 `UsersView.vue` 的配置改为 `fixed-height-list` +
@@ -1299,6 +1728,46 @@ npm --prefix frontend run typecheck
 ```
 
 ## Test Status
+
+### 结算单导出模板改版（2026-09-28）
+
+- 后端定向：`pytest backend/tests/test_entry_service.py backend/tests/test_exports.py
+  -q --basetemp=backend/.pytest-tmp-qty`：信息行断言改为逐格等值（A3=商号：637、
+  B3=单号、D3=国家、…、I3=转运公司）+ 居中 + 四边边框 + 微软雅黑字体 + B3:C3 合并，
+  全部通过；仅 `test_settlement_list_xlsx_exports_sales_after_sale_and_fee_details`
+  一项失败（品种列「金枕/—」历史遗留，与本改动无关，stash 对照已证）。
+- 后端全量：417 项中 406 通过、11 失败，全部为既有问题（缺 attachments 夹具 9 项 +
+  上述品种列遗留 1 项 + settlements_api 复核夹具 1 项）。
+- 在线冒烟：重启 8000 后以 test 账号请求 `template.xlsx` / `template.pdf`（商号 单650）
+  均 200；xlsx 信息行与用户示例逐字段一致，PDF 可正常生成（字体回落 Noto CJK）。
+- 视觉验收：PDF 首页 PNG（pdftoppm 渲染，`tmp/export-650-1.png`）经 AI 视觉评审
+  **7/7 通过**；xlsx 无渲染工具（本机无 LibreOffice），以 openpyxl 程序化断言覆盖
+  居中/边框/字体/列宽自适应。
+
+### 销售数量合计不得超过来货数量（2026-09-28）
+
+- 后端定向：`pytest backend/tests/test_import_draft_service.py backend/tests/test_entry_service.py
+  backend/tests/test_entry_api.py -q --basetemp=backend/.pytest-tmp-qty`：新增
+  `sales_exceed_arrival` 校验 / 等于放行 / force 仍硬阻断 / 录单超限 422 / 等于放行共 5 项
+  用例全部通过；夹具缺失的 4 项既有失败除外。
+- 后端全量：`pytest backend/tests -q --basetemp=backend/.pytest-tmp-qty`：414 项中 402 通过、
+  12 失败——9 项为本机缺 `attachments/结算单模板样式-测试数据 1/2/3.xlsx`（导入草稿 / 导入
+  API / 模板解析，既有缺口），`test_analytics_api::test_filter_options_lists_years_and_months_desc`
+  与 `test_exports::test_settlement_list_xlsx_exports_sales_after_sale_and_fee_details` 两项
+  经 stash 对照实验（移除本次 diff 后复跑仍失败）确认为共享工作区在途 / 历史遗留问题。
+- 踩坑留档：全量套件与 conftest 的 sqlite 测试库（`backend/.pytest-tmp/fruit-analysis-test.
+  sqlite3`）共用目录，`--basetemp` 若指向同一目录会在会话中途被 pytest 清理导致
+  `sqlite3.OperationalError: disk I/O error` 大面积假失败；两个 pytest 进程并发跑同一测试库
+  同样会互相污染——全量运行务必用独立 basetemp 且避免并发。
+- 前端：`npm --prefix frontend run test` 275 项中 274 通过（1 失败为 `farmer-ui-copy.test.mjs`
+  对 OverviewView 商号下拉的断言，属并行在途改动）；定向 `entry-form.test.ts` /
+  `import-review-issues.test.ts` / `import-review-copy.test.mjs` / `async-feedback.test.mjs`
+  27 项全部通过；`typecheck`、`build` 通过。
+- 浏览器端到端（53000 preview + 8000 新代码，test 账号，Playwright + Chromium，
+  `tmp/qty_check.py`，截图 `tmp/qty-check/`）：**12/12 通过**——录单页字段标红 / 红字提示 /
+  总件数标红 / 提交拦截 toast / 未发起请求 / 修正后红色消失；导入复核页字段标红 / 红字提示 /
+  顶部问题面板 / 弹窗「存在问题需修正后才能提交」/ 提交按钮禁用 / 问题表含来货数量行。
+  验证产生的导入草稿与 entry_draft 已清理恢复。
 
 ### 销售明细两种通过规则（2026-09-24）
 

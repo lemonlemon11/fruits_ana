@@ -82,6 +82,8 @@ def record_payload(record: SaleRecord, *, include_piece_count: bool = False) -> 
     }
     if include_piece_count:
         payload["piece_count"] = record.piece_count
+        # 头数与 KG 是并列的规格维度（ADR-042/043）；一并返回供「卖得怎么样」规格表拆列。
+        payload["spec_kg"] = record.spec_kg
     return payload
 
 

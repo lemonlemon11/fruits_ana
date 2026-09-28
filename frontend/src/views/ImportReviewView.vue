@@ -16,8 +16,8 @@ import {
   type ImportReviewIssue,
 } from '../api/client'
 import DataTable, { type DataTableColumn } from '../components/DataTable.vue'
-import { computeEntryTotals, money } from '../utils/entryForm'
-import { cellClassFor, rowClassFor } from '../utils/importReviewIssues'
+import { computeEntryTotals, money, salesExceedsArrival } from '../utils/entryForm'
+import { cellClassFor, hasHardBlockIssue, rowClassFor } from '../utils/importReviewIssues'
 import { createLogger } from '../utils/logger'
 import type { EntryAfterSaleItem, EntryFeeItem, EntrySaleItem } from '../api/types'
 
@@ -116,7 +116,10 @@ const errorIssues = computed(() => currentIssues.value.filter((item) => item.sev
 const warningIssues = computed(() => currentIssues.value.filter((item) => item.severity === 'warning'))
 const hasErrors = computed(() => errorIssues.value.length > 0)
 const hasWarnings = computed(() => warningIssues.value.length > 0)
-const hasHardSalesErrors = computed(() => currentIssues.value.some((item) => item.severity === 'error' && item.section === 'sales'))
+/** 硬阻断问题（销售区 error / 销售合计超来货数量）：不允许带错提交。 */
+const hasHardBlockErrors = computed(() => hasHardBlockIssue(currentIssues.value))
+/** 本地实时判定销售合计是否已超来货数量，与服务端 issues 的高亮互为补充。 */
+const salesExceedArrival = computed(() => salesExceedsArrival(form.arrivalQuantity, totals.value.totalPieces))
 const firstIssue = computed(() => errorIssues.value[0] ?? warningIssues.value[0] ?? null)
 const fileSummary = computed(() => draft.value?.payload.fileSummary ?? {})
 const warningSummaryLines = computed(() => warningIssues.value.slice(0, 6).map((item) => item.message))
@@ -599,7 +602,11 @@ async function doSubmit(force = false) {
         if (hardBlockers.length) {
           confirmForce.value = false
           hardBlocked.value = true
-          confirmDialog.value = '销售明细存在必填项未补全，不能带错提交，请先补全后再确认。'
+          const hardMessages = hardBlockers.flatMap((blocker: { issues: { message: string }[] }) =>
+            blocker.issues.map((issue) => issue.message))
+          confirmDialog.value = hardMessages.length
+            ? `${hardMessages.join('；')}。以上问题不能带错提交，请修正后再确认。`
+            : '存在不能带错提交的问题，请修正后再确认。'
         } else {
           const blockers = detail?.blockers ?? []
           const conflicts = detail?.conflicts ?? []
@@ -798,7 +805,7 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
           <template #cell-actions="{ row }"><button v-if="!isReadonly" class="delete-row" type="button" @click="removeSale(form.sales.indexOf(row))">删除</button></template>
         </DataTable>
         <div class="section-foot">
-          <span>总件数 <strong>{{ formatQuantity(totals.totalPieces) }}</strong> 件</span>
+          <span :class="{ 'exceed-error': salesExceedArrival }">总件数 <strong>{{ formatQuantity(totals.totalPieces) }}</strong> 件<span v-if="salesExceedArrival"> · 已超出来货数量{{ isReadonly ? '' : '，不能提交' }}</span></span>
           <span>销售金额 <strong>{{ money(totals.salesAmount) }}</strong> 元</span>
         </div>
         </div>
@@ -887,7 +894,7 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
     <div v-if="confirmOpen" class="overlay" role="dialog" aria-modal="true">
       <section class="dialog">
         <p class="dialog-kicker">提交前核对</p>
-        <h2>{{ hardBlocked || hasHardSalesErrors ? '销售明细未补全，需补全后才能提交' : hasErrors ? '仍有问题，是否带错提交？' : hasWarnings ? '存在差异，是否按当前结果提交？' : '确认提交' }}</h2>
+        <h2>{{ hardBlocked || hasHardBlockErrors ? '存在问题需修正后才能提交' : hasErrors ? '仍有问题，是否带错提交？' : hasWarnings ? '存在差异，是否按当前结果提交？' : '确认提交' }}</h2>
         <div class="confirm-list">
           <div v-if="errorIssues.length" class="confirm-issues">
             <p>提交校验未通过的行</p>
@@ -913,7 +920,7 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
         <p>继续提交将以当前填写值入库；系统金额和汇总会按自洽口径修正。</p>
         <div class="dialog-actions">
           <button class="subtle" type="button" :disabled="saving" @click="closeConfirm">返回修改</button>
-          <button class="primary" type="button" :disabled="saving || hardBlocked || hasHardSalesErrors" @click="doSubmit(confirmForce)">{{ savingAction === 'submit' ? '正在提交…' : '确认提交' }}</button>
+          <button class="primary" type="button" :disabled="saving || hardBlocked || hasHardBlockErrors" @click="doSubmit(confirmForce)">{{ savingAction === 'submit' ? '正在提交…' : '确认提交' }}</button>
         </div>
       </section>
     </div>
@@ -974,6 +981,7 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
 .review-table :deep(.data-table td:last-child) { white-space: nowrap; }
 .section-foot { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 16px; margin-top: 10px; color: var(--muted); font-size: .84rem; }
 .section-foot strong { color: var(--ink); }
+.section-foot .exceed-error, .section-foot .exceed-error strong { color: var(--danger); font-weight: 800; }
 .summary-table { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .summary-head, .summary-line { display: grid; grid-template-columns: 1.15fr 1fr 1fr; align-items: center; gap: 15px; padding: 11px 15px; border-bottom: 1px solid var(--line); }
 .summary-head { background: var(--surface-soft); color: var(--muted); font-size: .78rem; font-weight: 800; }

@@ -10,6 +10,7 @@ import {
   normalizeEntryDraft,
   normalizeEntryFieldOptions,
   normalizeEntryRead,
+  normalizeFilterOptions,
   normalizeGradeBreakdown,
   normalizeOverview,
   normalizeSettlementComparison,
@@ -31,6 +32,7 @@ import type {
   EntryFieldOption,
   EntryPayload,
   EntryRead,
+  FilterOptionsData,
   GradeBreakdownData,
   ImportBatch,
   ImportConfirmResult,
@@ -161,6 +163,10 @@ export async function askQuestion(payload: {
   history: AskHistoryMessage[]
 }): Promise<AskResult> {
   return normalizeAskResult(await request(`${API_ROOT}/ask`, jsonRequest(payload)))
+}
+
+export async function getFilterOptions(options: FetchApiOptions = {}): Promise<FilterOptionsData> {
+  return normalizeFilterOptions(await request(`${API_ROOT}/analytics/filter-options`, { signal: options.signal }))
 }
 
 export async function getOverview(filters: AnalyticsFilters = {}, options: FetchApiOptions = {}): Promise<OverviewData> {

@@ -18,7 +18,7 @@ import {
 } from '../api/client'
 import { hasEntryDraftContent } from '../utils/entryDraft'
 import DataTable, { type DataTableColumn } from '../components/DataTable.vue'
-import { FIXED_FEES, computeEntryTotals, createEmptyAfterSale, createEmptySale, createCustomFee, money } from '../utils/entryForm'
+import { FIXED_FEES, computeEntryTotals, createEmptyAfterSale, createEmptySale, createCustomFee, money, salesExceedsArrival } from '../utils/entryForm'
 import { parseSpecRange } from '../utils/specRange'
 
 const route = useRoute()
@@ -96,7 +96,8 @@ const feeRowKey = (row: EntryFeeItem, index: number) => `fee-${row.name}-${index
 
 const totals = computed(() => computeEntryTotals(form.sales, form.afterSales, form.fees, form.arrivalQuantity))
 
-const piecesDiff = computed(() => form.arrivalQuantity === null ? null : form.arrivalQuantity - totals.value.totalPieces)
+/** 销售数量合计超过来货数量：表单标红并阻断提交。 */
+const salesExceedArrival = computed(() => salesExceedsArrival(form.arrivalQuantity, totals.value.totalPieces))
 
 /** 草稿写到后端数据库；防抖避免每次按键都请求，保存成功后彻底清掉。 */
 const DRAFT_DEBOUNCE_MS = 800
@@ -268,6 +269,9 @@ function validate() {
       return '单价不能为负数；不填按 0 计算'
     }
   }
+  if (salesExceedArrival.value) {
+    return `销售数量合计 ${totals.value.totalPieces} 件不能大于来货数量 ${form.arrivalQuantity} 件，请核对销售明细或来货数量`
+  }
   return ''
 }
 
@@ -298,7 +302,7 @@ async function submit(overwrite = false) {
     draftEnabled = false
     void clearDraft()
     restoredDraft.value = false
-    showToast('已保存，正在打开结算单详情')
+    showToast('已保存，正在打开销售详情')
     window.setTimeout(() => {
       void router.push({ path: '/settlement-detail', query: { merchant_no: saved.merchantNo } })
     }, 350)
@@ -434,9 +438,10 @@ onMounted(() => {
             <span>到达市场日期 *</span>
             <input v-model="form.arrivalDate" type="date" aria-label="到达市场日期" />
           </label>
-          <label class="field">
+          <label class="field" :class="{ error: salesExceedArrival }">
             <span>来货数量（件） *</span>
             <input v-model.number="form.arrivalQuantity" type="number" min="0" step="1" aria-label="来货数量（件）" />
+            <span v-if="salesExceedArrival" class="field-hint">销售数量合计 {{ totals.totalPieces }} 件已超过来货数量 {{ form.arrivalQuantity }} 件，请核对后再保存</span>
           </label>
         </div>
         </div>
@@ -488,7 +493,7 @@ onMounted(() => {
           </template>
         </DataTable>
         <div class="section-foot">
-          <span>总件数 <strong>{{ totals.totalPieces }}</strong> 件</span>
+          <span :class="{ 'exceed-error': salesExceedArrival }">总件数 <strong>{{ totals.totalPieces }}</strong> 件<span v-if="salesExceedArrival"> · 已超出来货数量，不能提交</span></span>
           <span>销售金额 <strong>{{ money(totals.salesAmount) }}</strong> 元</span>
         </div>
         </div>
@@ -618,6 +623,9 @@ onMounted(() => {
 .field { display: flex; flex-direction: column; min-width: 0; gap: 6px; color: var(--muted); font-size: .78rem; font-weight: 700; }
 .field input, .field select { width: 100%; min-height: 38px; padding: 6px 9px; border: 1px solid var(--line-strong); border-radius: 6px; background: #fff; color: var(--ink); font: inherit; }
 .field input:focus, .field select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); outline: none; }
+.field.error input { border-color: var(--danger); background: #fff5f5; }
+.field-hint { color: var(--danger); font-size: .72rem; font-weight: 400; }
+.section-foot .exceed-error, .section-foot .exceed-error strong { color: var(--danger); font-weight: 800; }
 .review-table :deep(.data-table td) { padding: .38rem .5rem; }
 .review-table :deep(.data-table thead th) { padding: .5rem .6rem; }
 .review-table input { width: 100%; min-height: 36px; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 5px; background: #fff; color: var(--ink); font: inherit; }

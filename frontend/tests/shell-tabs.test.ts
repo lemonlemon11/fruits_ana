@@ -16,7 +16,6 @@ const KNOWN = new Set([
   '/settlements',
   '/imports',
   '/settlement-detail',
-  '/settlement-comparison',
   '/series-comparison',
 ])
 

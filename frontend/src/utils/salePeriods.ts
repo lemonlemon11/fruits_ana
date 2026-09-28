@@ -1,0 +1,55 @@
+/**
+ * 销售日期快速筛选：年度/月度选项的编码与起止日期计算。
+ *
+ * 选项值约定：`year:2026` / `month:2026-09`；对应起止日期为该年/月的
+ * 自然边界（年 1-1~12-31，月 1 日~月末）。纯函数，不依赖接口。
+ */
+
+export interface SalePeriodBounds {
+  start: string
+  end: string
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+function dayKey(year: number, month: number, day: number): string {
+  return `${year}-${pad(month)}-${pad(day)}`
+}
+
+export function yearBounds(year: number): SalePeriodBounds {
+  return { start: `${year}-01-01`, end: `${year}-12-31` }
+}
+
+export function monthBounds(month: string): SalePeriodBounds | null {
+  const match = /^(\d{4})-(\d{2})$/.exec(month)
+  if (!match) return null
+  const year = Number(match[1])
+  const monthIndex = Number(match[2])
+  if (monthIndex < 1 || monthIndex > 12) return null
+  const lastDay = new Date(year, monthIndex, 0).getDate()
+  return { start: dayKey(year, monthIndex, 1), end: dayKey(year, monthIndex, lastDay) }
+}
+
+/** 解析下拉选项值（`year:2026` / `month:2026-09`）为起止日期；非快捷选项返回 null。 */
+export function periodBoundsForOption(optionValue: string): SalePeriodBounds | null {
+  if (optionValue.startsWith('year:')) {
+    const year = Number(optionValue.slice(5))
+    return Number.isInteger(year) && year > 0 ? yearBounds(year) : null
+  }
+  if (optionValue.startsWith('month:')) {
+    return monthBounds(optionValue.slice(6))
+  }
+  return null
+}
+
+export function yearOptionLabel(year: number): string {
+  return `${year}年`
+}
+
+export function monthOptionLabel(month: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(month)
+  if (!match) return month
+  return `${match[1]}年${Number(match[2])}月`
+}

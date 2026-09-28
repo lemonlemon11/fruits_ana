@@ -50,6 +50,7 @@ def _payload(overwrite=False):
         "order_no": "宝贝-001",
         "container_no": "C001",
         "vehicle_no": "桂A0001",
+        "country": "越南",
         "market": "南宁海吉星",
         "arrival_date": "2026-09-10",
         "arrival_quantity": 20,

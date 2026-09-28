@@ -148,10 +148,12 @@ def test_trend_comparison_and_settlement_detail_routes(client):
             "import_batch_id": batch_id,
             "sale_date": "2026-01-01",
             "fruit_type": "榴莲",
+            "variety": None,
             "grade": "A",
             "grade_raw": "A",
             "spec_raw": None,
             "piece_count": None,
+            "spec_kg": None,
             "quantity": 2.0,
             "unit_price": 10.0,
             "amount": 20.0,
@@ -212,6 +214,222 @@ def test_settlement_detail_sales_period_follows_date_filter(client):
         "end_date": "2026-01-01",
     }
     assert response.json()["total"]["sales_quantity"] == 2.0
+
+
+def test_trend_reports_daily_container_count(client):
+    with SessionLocal() as db:
+        add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M2", date(2026, 1, 1), StandardGrade.B, 1, 5)
+        add_sale(db, "M1", date(2026, 1, 2), StandardGrade.A, 3, 10)
+        db.commit()
+
+    trend = client.get("/api/analytics/trend").json()["trend"]
+
+    assert [(item["sale_date"], item["container_count"]) for item in trend] == [
+        ("2026-01-01", 2),
+        ("2026-01-02", 1),
+    ]
+
+
+def test_trend_and_overview_filter_by_country(client):
+    with SessionLocal() as db:
+        add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M2", date(2026, 1, 1), StandardGrade.B, 1, 5)
+        db.query(ImportBatch).filter_by(merchant_no="M1").update(
+            {"order_no": "宝贝01", "country": "越南"}
+        )
+        db.query(ImportBatch).filter_by(merchant_no="M2").update(
+            {"order_no": "香香01", "country": "泰国"}
+        )
+        db.commit()
+
+    trend = client.get(
+        "/api/analytics/trend", params={"country": "越南"}
+    ).json()["trend"]
+    overview = client.get(
+        "/api/analytics/overview", params={"country": "越南"}
+    ).json()
+
+    assert len(trend) == 1
+    assert trend[0]["sales_quantity"] == 2.0
+    assert trend[0]["container_count"] == 1
+    assert overview["total"]["sales_quantity"] == 2.0
+    assert [item["merchant_no"] for item in overview["settlements"]] == ["M1"]
+
+
+def test_trend_filter_by_brand_prefers_column_over_order_no_prefix(client):
+    with SessionLocal() as db:
+        # M1 只能靠单号前缀识别为「宝贝」；M2 的 brand 列覆盖了同前缀单号。
+        add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M2", date(2026, 1, 1), StandardGrade.B, 1, 5)
+        db.query(ImportBatch).filter_by(merchant_no="M1").update(
+            {"order_no": "宝贝01", "country": "越南"}
+        )
+        db.query(ImportBatch).filter_by(merchant_no="M2").update(
+            {"order_no": "宝贝02", "country": "越南", "brand": "晴牌"}
+        )
+        db.commit()
+
+    by_prefix = client.get(
+        "/api/analytics/trend", params={"brand": "宝贝"}
+    ).json()["trend"]
+    by_column = client.get(
+        "/api/analytics/trend", params={"brand": "晴牌"}
+    ).json()["trend"]
+
+    assert len(by_prefix) == 1
+    assert by_prefix[0]["sales_quantity"] == 2.0
+    assert by_prefix[0]["container_count"] == 1
+    assert len(by_column) == 1
+    assert by_column[0]["sales_quantity"] == 1.0
+
+
+def test_filter_options_list_brands_and_countries(client):
+    with SessionLocal() as db:
+        add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M2", date(2026, 1, 2), StandardGrade.B, 1, 5)
+        add_sale(db, "M3", date(2026, 1, 3), StandardGrade.C, 1, 5)
+        db.query(ImportBatch).filter_by(merchant_no="M1").update(
+            {"order_no": "宝贝01", "country": "越南"}
+        )
+        db.query(ImportBatch).filter_by(merchant_no="M2").update(
+            {"order_no": "香香01", "country": "越南"}
+        )
+        db.query(ImportBatch).filter_by(merchant_no="M3").update(
+            {"order_no": "宝贝02", "country": "泰国"}
+        )
+        db.commit()
+
+    body = client.get("/api/analytics/filter-options").json()
+
+    assert body["brands"] == [
+        {"name": "宝贝", "settlement_count": 2},
+        {"name": "香香", "settlement_count": 1},
+    ]
+    assert body["countries"] == [
+        {"name": "越南", "settlement_count": 2},
+        {"name": "泰国", "settlement_count": 1},
+    ]
+    assert body["years"] == [2026]
+    assert body["months"] == ["2026-01"]
+
+
+def test_filter_options_lists_years_and_months_desc(client):
+    with SessionLocal() as db:
+        add_sale(db, "M1", date(2026, 9, 2), StandardGrade.A, 1, 5)
+        add_sale(db, "M1", date(2025, 12, 31), StandardGrade.B, 1, 5)
+        add_sale(db, "M2", date(2026, 8, 15), StandardGrade.C, 1, 5)
+        db.commit()
+
+    body = client.get("/api/analytics/filter-options").json()
+
+    assert body["years"] == [2026, 2025]
+    assert body["months"] == ["2026-09", "2026-08", "2025-12"]
+
+
+def test_grade_breakdown_scopes_by_brand_and_country(client):
+    with SessionLocal() as db:
+        add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M2", date(2026, 1, 1), StandardGrade.B, 3, 5)
+        db.query(ImportBatch).filter_by(merchant_no="M1").update(
+            {"order_no": "宝贝01", "country": "越南"}
+        )
+        db.query(ImportBatch).filter_by(merchant_no="M2").update(
+            {"order_no": "香香01", "country": "泰国"}
+        )
+        db.commit()
+
+    response = client.get(
+        "/api/analytics/grade-breakdown",
+        params={"brand": "宝贝", "country": "越南"},
+    )
+
+    assert [item["grade"] for item in response.json()["grades"]] == ["A"]
+
+
+def test_overview_and_grade_breakdown_filter_by_market(client):
+    with SessionLocal() as db:
+        add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M2", date(2026, 1, 1), StandardGrade.B, 3, 5)
+        db.query(ImportBatch).filter_by(merchant_no="M1").update(
+            {"market": "海吉星"}
+        )
+        db.query(ImportBatch).filter_by(merchant_no="M2").update(
+            {"market": "江南"}
+        )
+        db.commit()
+
+    overview = client.get(
+        "/api/analytics/overview", params={"market": "海吉星"}
+    ).json()
+    breakdown = client.get(
+        "/api/analytics/grade-breakdown", params={"market": "海吉星"}
+    ).json()
+
+    assert overview["total"]["sales_quantity"] == 2.0
+    assert [item["merchant_no"] for item in overview["settlements"]] == ["M1"]
+    assert [item["grade"] for item in breakdown["grades"]] == ["A"]
+
+
+def test_filter_options_list_markets(client):
+    with SessionLocal() as db:
+        add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M2", date(2026, 1, 2), StandardGrade.B, 1, 5)
+        add_sale(db, "M3", date(2026, 1, 3), StandardGrade.C, 1, 5)
+        db.query(ImportBatch).filter_by(merchant_no="M1").update(
+            {"market": "海吉星"}
+        )
+        db.query(ImportBatch).filter_by(merchant_no="M2").update(
+            {"market": "江南"}
+        )
+        db.query(ImportBatch).filter_by(merchant_no="M3").update(
+            {"market": "海吉星"}
+        )
+        db.commit()
+
+    body = client.get("/api/analytics/filter-options").json()
+
+    assert body["markets"] == [
+        {"name": "海吉星", "settlement_count": 2},
+        {"name": "江南", "settlement_count": 1},
+    ]
+
+
+def test_grade_breakdown_counts_market_brand_containers(client):
+    """柜数口径：按市场×品牌统计结算单（商号）数——共用柜号不折减，缺柜号也计入；
+    缺市场归入「未标注市场」，跟随 market 筛选。"""
+
+    with SessionLocal() as db:
+        add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
+        add_sale(db, "M2", date(2026, 1, 1), StandardGrade.B, 3, 5)
+        add_sale(db, "M3", date(2026, 1, 2), StandardGrade.A, 1, 10)
+        db.query(ImportBatch).filter_by(merchant_no="M1").update(
+            {"order_no": "香香01", "container_no": "EMCU1", "market": "海吉星"}
+        )
+        db.query(ImportBatch).filter_by(merchant_no="M2").update(
+            {"order_no": "香香02", "container_no": "EMCU1", "market": "海吉星"}
+        )
+        db.query(ImportBatch).filter_by(merchant_no="M3").update(
+            {"order_no": "晴牌03", "container_no": None}
+        )
+        db.commit()
+
+    body = client.get("/api/analytics/grade-breakdown").json()
+
+    assert body["market_brand_containers"] == [
+        {"market": "海吉星", "brand": "香香", "container_count": 2},
+        {"market": "未标注市场", "brand": "晴牌", "container_count": 1},
+    ]
+    scoped = client.get(
+        "/api/analytics/grade-breakdown", params={"market": "海吉星"}
+    ).json()
+    assert scoped["market_brand_containers"] == [
+        {"market": "海吉星", "brand": "香香", "container_count": 2},
+    ]
+    missing = client.get(
+        "/api/analytics/grade-breakdown", params={"market": "不存在"}
+    ).json()
+    assert missing["market_brand_containers"] == []
 
 
 def test_unknown_settlement_returns_404(client):

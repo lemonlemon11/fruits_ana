@@ -8,6 +8,7 @@ import {
   computeEntryTotals,
   createEmptySale,
   money,
+  salesExceedsArrival,
 } from '../src/utils/entryForm.ts'
 
 test('手工录单固定六项支出与空行默认值保持一致', () => {
@@ -50,6 +51,14 @@ test('录单金额按销售数量乘单价自动汇总，售后和费用为减�
   assert.equal(totals.payable, 95)
   assert.equal(arrivalPiecesDiff(20, totals.totalPieces), -30)
   assert.equal(arrivalPiecesDiff(null, totals.totalPieces), null)
+})
+
+test('salesExceedsArrival 只在销售合计严格大于来货数量时判定为超出', () => {
+  assert.equal(salesExceedsArrival(20, 21), true)
+  assert.equal(salesExceedsArrival(20, 20), false)
+  assert.equal(salesExceedsArrival(20, 19.5), false)
+  assert.equal(salesExceedsArrival(null, 30), false)
+  assert.equal(salesExceedsArrival(0, 0), false)
 })
 
 test('money 始终展示两位小数并按分四舍五入', () => {

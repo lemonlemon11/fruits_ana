@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 import type { SettlementListItem } from '../src/api/types.ts'
 import {
@@ -79,26 +82,19 @@ test('groupByCategory 按品类分组，缺失品类归入未识别品类', () =
   )
 })
 
-test('toggleDraftSelection 支持勾选、取消与上限保护', () => {
-  const first = toggleDraftSelection([], '626', 2)
-  assert.deepEqual(first, { next: ['626'], limited: false })
+test('toggleDraftSelection 支持勾选与取消，不设张数上限', () => {
+  assert.deepEqual(toggleDraftSelection([], '626'), ['626'])
+  assert.deepEqual(toggleDraftSelection(['626'], '单637'), ['626', '单637'])
 
-  const second = toggleDraftSelection(first.next, '单637', 2)
-  assert.deepEqual(second, { next: ['626', '单637'], limited: false })
+  const many = Array.from({ length: 12 }, (_, index) => `商号${index}`)
+  assert.deepEqual(toggleDraftSelection(many, '新增'), [...many, '新增'])
 
-  const blocked = toggleDraftSelection(second.next, '888', 2)
-  assert.deepEqual(blocked, { next: ['626', '单637'], limited: true })
-
-  const removed = toggleDraftSelection(second.next, '626', 2)
-  assert.deepEqual(removed, { next: ['单637'], limited: false })
+  assert.deepEqual(toggleDraftSelection(['626', '单637'], '626'), ['单637'])
 })
 
-test('addWholeSeries 追加去重并按上限截断', () => {
-  const result = addWholeSeries(['888'], ['626', '单637', '888'], 2)
-  assert.deepEqual(result, { next: ['888', '626'], limited: true })
-
-  const all = addWholeSeries([], ['626', '单637'], 6)
-  assert.deepEqual(all, { next: ['626', '单637'], limited: false })
+test('addWholeSeries 追加去重，不设张数上限', () => {
+  assert.deepEqual(addWholeSeries(['888'], ['626', '单637', '888']), ['888', '626', '单637'])
+  assert.deepEqual(addWholeSeries([], ['626', '单637']), ['626', '单637'])
 })
 
 test('isWholeSeriesSelected 只在整组都选中时返回 true', () => {
@@ -158,4 +154,12 @@ test('normalizeSameSeriesSelection 收敛跨品牌历史选择', () => {
   assert.deepEqual(normalizeSameSeriesSelection(OPTIONS, ['单637', '888'], 3), ['626', '单637'])
   assert.deepEqual(normalizeSameSeriesSelection(OPTIONS, ['888'], 3), ['626', '单637'])
   assert.deepEqual(normalizeSameSeriesSelection(OPTIONS, [], 3), ['626', '单637'])
+})
+
+test('选择器搜索框聚焦时隐藏提示语', () => {
+  const cssSource = fs.readFileSync(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'components', 'SettlementPicker.css'),
+    'utf8',
+  )
+  assert.match(cssSource, /\.picker-search input:focus::placeholder\s*\{\s*color:\s*transparent/)
 })

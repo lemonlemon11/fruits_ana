@@ -243,6 +243,15 @@ def save_entry(db: Session, payload: EntryCreate, user_id: int | None = None) ->
         raise ValueError("来货数量不能为空")
     if payload.arrival_quantity < 0:
         raise ValueError("来货数量不能为负数")
+    total_sales_quantity = sum(
+        (_quantity(item.sales_quantity) for item in payload.sales),
+        Decimal("0"),
+    )
+    if total_sales_quantity > Decimal(payload.arrival_quantity):
+        raise ValueError(
+            f"销售数量合计 {total_sales_quantity} 件不能大于来货数量 {payload.arrival_quantity} 件，"
+            "请核对销售明细或来货数量"
+        )
     if any(not item.content.strip() for item in payload.after_sales):
         raise ValueError("售后内容不能为空")
     if any(not item.name.strip() for item in payload.fees):

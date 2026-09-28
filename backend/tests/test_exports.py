@@ -461,10 +461,23 @@ def test_settlement_template_xlsx_exports_manual_and_imported_rows():
 
     manual_sheet = openpyxl.load_workbook(BytesIO(manual.content), data_only=False)["结算单"]
     assert manual_sheet["A1"].value == "结 算 单"
-    manual_info = manual_sheet["A3"].value
-    assert "商号：637" in manual_info
-    assert "单号：宝贝-001" in manual_info
-    assert "柜号：C001" in manual_info
+
+    def _info_texts(sheet, row):
+        return [c.value for c in sheet[row] if c.value not in (None, "")]
+
+    # 基本信息两行 × 每行 4 个字段，一个字段一个单元格（不再整行拼接）。
+    assert _info_texts(manual_sheet, 3) == ["商号：637", "单号：宝贝-001", "国家：—", "市场：—"]
+    assert _info_texts(manual_sheet, 4) == ["到达日期：—", "来货数量：—", "柜号：C001", "转运公司：—"]
+    for row in (3, 4):
+        for cell in manual_sheet[row]:
+            if cell.value in (None, ""):
+                continue
+            assert "│" not in str(cell.value)
+            assert cell.alignment.horizontal == "center"
+            assert cell.border.left.style and cell.border.right.style
+            assert cell.border.top.style and cell.border.bottom.style
+            assert cell.font.name == "微软雅黑"
+            assert cell.font.color.rgb == "001A3C34"
 
     header_row = _row_containing(manual_sheet, "销售日期")
     headers = {str(cell.value): cell.column for cell in manual_sheet[header_row] if cell.value}
@@ -490,9 +503,8 @@ def test_settlement_template_xlsx_exports_manual_and_imported_rows():
     assert _number(manual_sheet.cell(manual_payable, 7).value) == 122.0
 
     imported_sheet = openpyxl.load_workbook(BytesIO(imported.content), data_only=False)["结算单"]
-    imported_info = imported_sheet["A3"].value
-    assert "商号：624" in imported_info
-    assert "单号：宝贝-001" in imported_info
+    assert _info_texts(imported_sheet, 3) == ["商号：624", "单号：宝贝-001", "国家：—", "市场：—"]
+    assert _info_texts(imported_sheet, 4) == ["到达日期：—", "来货数量：—", "柜号：MWCU1823691", "转运公司：—"]
 
     imported_header = _row_containing(imported_sheet, "销售日期")
     imported_headers = {

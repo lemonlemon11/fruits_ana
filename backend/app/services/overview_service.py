@@ -30,6 +30,9 @@ def get_overview(
     start_date: date | None = None,
     end_date: date | None = None,
     merchant_no: str | None = None,
+    brand: str | None = None,
+    country: str | None = None,
+    market: str | None = None,
     thresholds: AnomalyThresholds = DEFAULT_THRESHOLDS,
 ) -> dict:
     effective_start, effective_end, _ = resolve_date_window(
@@ -40,17 +43,31 @@ def get_overview(
         start_date=effective_start,
         end_date=effective_end,
         merchant_no=merchant_no,
+        brand=brand,
+        country=country,
+        market=market,
     )
     batches = settlement_map(db, filtered)
     by_day: dict[date, list] = defaultdict(list)
     for record in filtered:
         by_day[record.sale_date].append(record)
     grouped = group_by_merchant(filtered, batches)
-    if merchant_no is None:
+    if (
+        merchant_no is None
+        and brand is None
+        and country is None
+        and market is None
+    ):
         baseline, baseline_batches = filtered, batches
     else:
+        # 异常检测的基线保持同一品牌/国家/市场口径，只放开商号维度。
         baseline = records(
-            db, start_date=effective_start, end_date=effective_end
+            db,
+            start_date=effective_start,
+            end_date=effective_end,
+            brand=brand,
+            country=country,
+            market=market,
         )
         baseline_batches = settlement_map(db, baseline)
     anomalies = []

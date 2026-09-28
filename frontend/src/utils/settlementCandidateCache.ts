@@ -70,7 +70,7 @@ export function getCachedSettlements(
   return withAbort(promise, options.signal)
 }
 
-/** 短时缓存全量结算单对比候选，避免详情页与看板重复拉全量。 */
+/** 短时缓存全量结算单候选（对比接口），避免详情页与看板重复拉全量。 */
 export function getCachedSettlementComparison(
   filters: AnalyticsFilters = {},
   options: SettlementCandidateRequestOptions = {},

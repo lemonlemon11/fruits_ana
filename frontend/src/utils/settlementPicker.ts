@@ -42,42 +42,21 @@ export function filterSettlementOptions(
   )
 }
 
-export interface DraftToggleResult {
-  next: string[]
-  /** 是否因为已经选满上限而没有选上。 */
-  limited: boolean
-}
-
-/** 草稿勾选：已选则取消；未选且没到上限才加入。 */
-export function toggleDraftSelection(
-  draft: string[],
-  merchantNo: string,
-  max: number,
-): DraftToggleResult {
+/** 草稿勾选：已选则取消；未选则加入。 */
+export function toggleDraftSelection(draft: string[], merchantNo: string): string[] {
   if (draft.includes(merchantNo)) {
-    return { next: draft.filter((item) => item !== merchantNo), limited: false }
+    return draft.filter((item) => item !== merchantNo)
   }
-  if (draft.length >= max) return { next: draft, limited: true }
-  return { next: [...draft, merchantNo], limited: false }
+  return [...draft, merchantNo]
 }
 
-/** 追加整组结算单，按上限截断；返回是否被上限截断。 */
-export function addWholeSeries(
-  draft: string[],
-  seriesMerchantNos: string[],
-  max: number,
-): DraftToggleResult {
+/** 追加整组结算单并去重。 */
+export function addWholeSeries(draft: string[], seriesMerchantNos: string[]): string[] {
   const next = [...draft]
-  let limited = false
   for (const merchantNo of seriesMerchantNos) {
-    if (next.includes(merchantNo)) continue
-    if (next.length >= max) {
-      limited = true
-      break
-    }
-    next.push(merchantNo)
+    if (!next.includes(merchantNo)) next.push(merchantNo)
   }
-  return { next, limited }
+  return next
 }
 
 /** 该品牌是否已经全部选中，用于切换「全选本品牌 / 取消本品牌」文案。 */

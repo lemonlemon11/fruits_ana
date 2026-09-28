@@ -108,12 +108,14 @@ def test_daily_trend_aggregates_by_sale_date():
             "sales_quantity": 3.0,
             "sales_amount": 40.0,
             "weighted_avg_price": 13.3333,
+            "container_count": 1,
         },
         {
             "sale_date": "2026-01-02",
             "sales_quantity": 4.0,
             "sales_amount": 20.0,
             "weighted_avg_price": 5.0,
+            "container_count": 1,
         },
     ]
 
@@ -203,6 +205,7 @@ def test_settlement_detail_records_follow_date_filter_and_include_source_ids():
             "grade_raw": "B级",
             "spec_raw": "B6",
             "piece_count": None,
+            "spec_kg": None,
             "quantity": 2.0,
             "unit_price": 15.0,
             "amount": 30.0,

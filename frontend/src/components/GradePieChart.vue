@@ -13,6 +13,8 @@ const props = defineProps<{
   grades: GradeMetric[]
   loading?: boolean
   gradeOrder?: Grade[]
+  /** 图表高度，默认 116px；需要更大的饼图时由页面传入。 */
+  height?: string
 }>()
 
 const visibleGrades = computed(() => props.gradeOrder ?? activeGrades(props.grades))
@@ -91,11 +93,11 @@ const chartOption = computed<EChartsOption>(() => ({
       <strong>暂无等级销量数据</strong>
       <span>导入销售明细后即可查看结构。</span>
     </div>
-    <div v-else class="pie-layout">
+    <div v-else class="pie-layout" :style="{ minHeight: height ?? '116px' }">
       <div class="pie-graphic">
         <DeferredEChart
           :option="chartOption"
-          height="116px"
+          :height="height ?? '116px'"
           :aria-label="`${visibleGrades.map(gradeLabel).join('、')} 等级件数占比环形图`"
         />
       </div>

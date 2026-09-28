@@ -6,7 +6,6 @@ import Boxes from '@lucide/vue/dist/esm/icons/boxes.mjs'
 import ChartColumn from '@lucide/vue/dist/esm/icons/chart-column.mjs'
 import ClipboardPen from '@lucide/vue/dist/esm/icons/clipboard-pen.mjs'
 import Clock3 from '@lucide/vue/dist/esm/icons/clock-3.mjs'
-import GitCompareArrows from '@lucide/vue/dist/esm/icons/git-compare-arrows.mjs'
 import LogOut from '@lucide/vue/dist/esm/icons/log-out.mjs'
 import Leaf from '@lucide/vue/dist/esm/icons/leaf.mjs'
 import Menu from '@lucide/vue/dist/esm/icons/menu.mjs'
@@ -110,8 +109,7 @@ const primaryNavItems: ShellNavItem[] = [
   { path: '/imports', label: '录单 / 导入', icon: Upload, matches: ['/entry', '/import-review'], permission: 'import:view' },
 ]
 const moreNavItems: ShellNavItem[] = [
-  { path: '/settlement-detail', label: '结算单详情', icon: PackageSearch, permission: 'settlement:detail' },
-  { path: '/settlement-comparison', label: '结算单对比', icon: GitCompareArrows, permission: 'settlement:comparison' },
+  { path: '/settlement-detail', label: '销售详情', icon: PackageSearch, permission: 'settlement:detail' },
   { path: '/series-comparison', label: '品牌对比', icon: Boxes, permission: 'series:comparison' },
 ]
 // 只用于页签命名，不进侧栏：手工录单保留一个独立页签。
@@ -137,7 +135,6 @@ const SHELL_ICONS: Record<string, unknown> = {
   ClipboardPen,
   Upload,
   PackageSearch,
-  GitCompareArrows,
   Boxes,
 }
 const resolveShellIcon = (name: string | null): unknown | null =>

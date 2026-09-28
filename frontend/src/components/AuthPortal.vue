@@ -6,7 +6,7 @@ import BrandMark from './BrandMark.vue'
  * 主图来自国内 CC零素材网的可商用图片，授权记录见 docs/IMAGE_CREDITS.md。
  */
 
-const features = ['销售分析', '数据明细', '结算单对比', '数据导入']
+const features = ['销售分析', '数据明细', '品牌对比', '数据导入']
 
 withDefaults(defineProps<{ showFacts?: boolean }>(), { showFacts: true })
 

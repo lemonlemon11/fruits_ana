@@ -18,6 +18,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models import ImportBatch, SaleRecord, StandardGrade
+from .order_no_naming import series_name
 
 
 GRADES = tuple(StandardGrade)
@@ -67,6 +68,17 @@ def resolve_date_window(
     return one_month_before(latest), latest, True
 
 
+def batch_brand(batch: ImportBatch | None) -> str | None:
+    """统一品牌口径：``brand`` 列优先，历史空值回退单号中文前缀。
+
+    与结算列表的品牌筛选保持同一套识别规则，避免同名品牌对不上。
+    """
+
+    if batch is None:
+        return None
+    return batch.brand or series_name(batch.order_no)
+
+
 def records(
     db: Session,
     *,
@@ -74,8 +86,15 @@ def records(
     end_date: date | None = None,
     merchant_no: str | None = None,
     merchant_nos: Sequence[str] | None = None,
+    brand: str | None = None,
+    country: str | None = None,
+    market: str | None = None,
 ) -> list[SaleRecord]:
-    """按日期与商号筛选销售记录；``merchant_nos`` 用于一次筛选多张结算单。"""
+    """按日期、商号、品牌、国家与市场筛选销售记录。
+
+    ``merchant_nos`` 用于一次筛选多张结算单；品牌按 :func:`batch_brand`
+    口径在取回后过滤（数据量小，且单号前缀规则无法可靠下推到 SQL）。
+    """
 
     start_date, end_date, _ = resolve_date_window(db, start_date, end_date)
     query = db.query(SaleRecord)
@@ -88,11 +107,29 @@ def records(
         query = query.join(
             ImportBatch, SaleRecord.import_batch_id == ImportBatch.id
         ).filter(ImportBatch.merchant_no.in_(wanted))
+    else:
+        batch_filters = []
+        if country is not None:
+            batch_filters.append(ImportBatch.country == country)
+        if market is not None:
+            batch_filters.append(ImportBatch.market == market)
+        if batch_filters:
+            query = query.join(
+                ImportBatch, SaleRecord.import_batch_id == ImportBatch.id
+            ).filter(*batch_filters)
     if start_date is not None:
         query = query.filter(SaleRecord.sale_date >= start_date)
     if end_date is not None:
         query = query.filter(SaleRecord.sale_date <= end_date)
-    return query.order_by(SaleRecord.sale_date, SaleRecord.id).all()
+    result = query.order_by(SaleRecord.sale_date, SaleRecord.id).all()
+    if brand is None:
+        return result
+    batches = settlement_map(db, result)
+    return [
+        record
+        for record in result
+        if batch_brand(batches.get(record.import_batch_id)) == brand
+    ]
 
 
 def settlement_map(
@@ -317,6 +354,7 @@ __all__ = [
     "AnomalyThresholds",
     "DEFAULT_THRESHOLDS",
     "GRADES",
+    "batch_brand",
     "daily_quantity_anomalies",
     "grade_contribution",
     "grade_metrics",

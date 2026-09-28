@@ -119,6 +119,7 @@ def _number(value):
 def test_save_and_read_entry_persists_sales_after_sales_fees_and_summary():
     db = SessionLocal()
     payload = entry_payload(
+        arrival_quantity=50,
         sales=[
             sale_item("A", "4", 20, 2.5),
             sale_item("B", "6/8", 30, 3, spec_kg="10"),
@@ -137,7 +138,7 @@ def test_save_and_read_entry_persists_sales_after_sales_fees_and_summary():
     assert batch.source_type == "manual"
     assert batch.market == "南宁海吉星"
     assert batch.arrival_date == date(2026, 9, 10)
-    assert batch.arrival_quantity == 20
+    assert batch.arrival_quantity == 50
     records = db.query(SaleRecord).order_by(SaleRecord.id).all()
     assert [record.grade.value for record in records] == ["A", "B"]
     assert [record.piece_count for record in records] == ["4", "6/8"]
@@ -183,6 +184,41 @@ def test_save_entry_allows_blank_variety_spec_and_zero_price():
     assert entry["sales"][0]["grade"] == "OTHER"
     assert entry["sales"][0]["head_count"] == ""
     assert entry["sales"][0]["spec_kg"] == ""
+    db.close()
+
+
+def test_workbook_converts_to_pdf_via_libreoffice():
+    """PDF 由 xlsx 经 LibreOffice 另存：与 Excel 同一工作簿，%PDF 头且横向页面。"""
+    import shutil as _shutil
+
+    if not (_shutil.which("soffice") or _shutil.which("libreoffice")):
+        pytest.skip("本机未安装 LibreOffice，跳过 PDF 另存验证")
+    from app.services.entry_export import render_entry_pdf_from_workbook
+
+    db = SessionLocal()
+    save_entry(db, entry_payload(sales=[sale_item()]))
+    content = build_entry_workbook(db, "637")
+    db.close()
+    pdf = render_entry_pdf_from_workbook(content)
+    assert pdf[:4] == b"%PDF"
+    assert len(pdf) > 1000
+
+
+def test_save_entry_rejects_sales_total_exceeding_arrival():
+    db = SessionLocal()
+    payload = entry_payload(sales=[sale_item(sales_quantity=15), sale_item(sales_quantity=10)])
+    with pytest.raises(ValueError) as caught:
+        save_entry(db, payload)
+    assert "不能大于来货数量" in str(caught.value)
+    assert db.query(ImportBatch).count() == 0
+    db.close()
+
+
+def test_save_entry_allows_sales_total_equal_to_arrival():
+    db = SessionLocal()
+    payload = entry_payload(sales=[sale_item(sales_quantity=12), sale_item(sales_quantity=8)])
+    result = save_entry(db, payload)
+    assert result.status == "created"
     db.close()
 
 
@@ -297,6 +333,7 @@ def test_field_options_only_return_active_rows_in_order():
 def test_export_handles_dynamic_rows_and_writes_only_values():
     db = SessionLocal()
     payload = entry_payload(
+        arrival_quantity=60,
         sales=[
             sale_item("A", "4", 20, 2.5),
             sale_item("B", "6/8", 30, 3, spec_kg="10"),
@@ -325,11 +362,40 @@ def test_export_handles_dynamic_rows_and_writes_only_values():
     wb = load_workbook(BytesIO(content))
     ws = wb["结算单"]
     assert ws["A1"].value == "结 算 单"
-    info = ws["A3"].value
-    assert "商号：637" in info
-    assert "市场：南宁海吉星" in info
-    assert "到达日期：2026-09-10" in info
-    assert "来货数量：20" in info
+    # 基本信息两行 × 每行 4 个字段，一个字段一个单元格（跨列自适应，不依赖固定坐标）。
+    def info_texts(row):
+        return [c.value for c in ws[row] if c.value not in (None, "")]
+
+    assert info_texts(3) == ["商号：637", "单号：宝贝-001", "国家：越南", "市场：南宁海吉星"]
+    assert info_texts(4) == ["到达日期：2026-09-10", "来货数量：60", "柜号：C001", "转运公司：桂A0001"]
+    info_cells = [c for r in (3, 4) for c in ws[r] if c.value not in (None, "")]
+    assert all(c.alignment.horizontal == "center" for c in info_cells)
+    assert all(c.font.name == "微软雅黑" and c.font.color.rgb == "001A3C34" for c in info_cells)
+
+    # 单号单元格跨列宽度足以容纳内容，不会换行；信息行所有字段都不超出表格（A..I 列）。
+    from openpyxl.utils import get_column_letter as _gcl
+
+    for rng in ws.merged_cells.ranges:
+        if rng.min_row in (3, 4):
+            assert rng.max_col <= 9, f"信息字段越界到第 {rng.max_col} 列"
+            anchor = ws.cell(rng.min_row, rng.min_col)
+            if anchor.value and "单号" in str(anchor.value):
+                span_width = sum(
+                    ws.column_dimensions[_gcl(c)].width for c in range(rng.min_col, rng.max_col + 1)
+                )
+                units = sum(2 if ord(ch) > 0x2E80 else 1 for ch in str(anchor.value))
+                assert span_width >= units
+
+    # 表格列收窄：备注列按 4 个汉字宽度封顶。
+    assert ws.column_dimensions["F"].width <= 8.5 + 0.01
+    # 全表无灰色字体（表头白字与墨色除外），脚注与生成时间行已删除。
+    for row in ws.iter_rows():
+        for c in row:
+            if c.value in (None, ""):
+                continue
+            assert c.font.color.rgb in (None, "001A3C34", "00FFFFFF")
+            assert "生成时间" not in str(c.value)
+            assert "−" not in str(c.value)
     sales_header, columns = _sales_header(ws)
     assert {"品种", "等级", "规格(头数)", "规格(KG)", "备注", "数量(件)", "单价(元)", "金额(元)"} <= set(columns)
     # 三条明细按录入顺序落行，金额一律按「数量 × 单价」重算。
@@ -371,6 +437,7 @@ def test_export_dynamic_rows_keep_consistent_style_and_height():
 
     db = SessionLocal()
     payload = entry_payload(
+        arrival_quantity=75,
         sales=[
             sale_item("A", "4", 20, 2.5),
             sale_item("B", "6/8", 30, 3, spec_kg="10"),

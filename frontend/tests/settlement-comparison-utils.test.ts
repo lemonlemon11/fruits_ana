@@ -4,19 +4,7 @@ import test from 'node:test'
 import { normalizeSettlementComparison } from '../src/api/normalize.ts'
 import * as comparisonUtils from '../src/utils/settlementComparison.ts'
 
-const { initialComparisonSelection, settlementOptionLabel, toggleComparisonSelection } = comparisonUtils
-
-test('defaults to two settlements and caps selection at three', () => {
-  const items = [{ merchantNo: 'A' }, { merchantNo: 'B' }, { merchantNo: 'C' }, { merchantNo: 'D' }] as never[]
-  assert.deepEqual(initialComparisonSelection(items), ['A', 'B'])
-  assert.deepEqual(toggleComparisonSelection(['A', 'B'], 'C'), ['A', 'B', 'C'])
-  assert.deepEqual(toggleComparisonSelection(['A', 'B', 'C'], 'D'), ['A', 'B', 'C'])
-})
-
-test('allows deselection and re-selection without duplicates', () => {
-  assert.deepEqual(toggleComparisonSelection(['A', 'B'], 'A'), ['B'])
-  assert.deepEqual(toggleComparisonSelection(['B'], 'A'), ['B', 'A'])
-})
+const { settlementOptionLabel } = comparisonUtils
 
 test('下拉框按「商号（单号）」展示，取值仍是商号', () => {
   assert.equal(settlementOptionLabel({ orderNo: '宝贝L004', merchantNo: '640' }), '商号 640（宝贝L004）')

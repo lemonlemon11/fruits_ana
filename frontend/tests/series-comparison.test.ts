@@ -3,7 +3,6 @@ import test from 'node:test'
 
 import { normalizeSeriesComparison, normalizeSettlementList } from '../src/api/normalize.ts'
 import {
-  MAX_SERIES_COMPARISON,
   deselectSeries,
   gradeRow,
   groupBySeries,
@@ -87,20 +86,19 @@ test('groupBySeries 按品牌分组，品牌内保持原顺序', () => {
   assert.deepEqual(groups[0].items.map((item) => item.merchantNo), ['单624', '626'])
 })
 
-test('toggleSelection 支持勾选、取消与上限保护', () => {
+test('toggleSelection 支持勾选与取消，不设张数上限', () => {
   assert.deepEqual(toggleSelection(['单624'], '626'), ['单624', '626'])
   assert.deepEqual(toggleSelection(['单624', '626'], '626'), ['单624'])
 
-  const full = Array.from({ length: MAX_SERIES_COMPARISON }, (_, index) => `商号${index}`)
-  assert.deepEqual(toggleSelection(full, '新增'), full)
+  const many = Array.from({ length: 12 }, (_, index) => `商号${index}`)
+  assert.deepEqual(toggleSelection(many, '新增'), [...many, '新增'])
 })
 
-test('selectWholeSeries 追加去重并按上限截断', () => {
+test('selectWholeSeries 追加去重，不设张数上限', () => {
   assert.deepEqual(selectWholeSeries(['单624'], ['单624', '626']), ['单624', '626'])
 
-  const full = Array.from({ length: MAX_SERIES_COMPARISON }, (_, index) => `商号${index}`)
-  assert.equal(selectWholeSeries(full, ['新增']).length, MAX_SERIES_COMPARISON)
-  assert.deepEqual(selectWholeSeries(full, ['新增']), full)
+  const many = Array.from({ length: 12 }, (_, index) => `商号${index}`)
+  assert.deepEqual(selectWholeSeries(many, ['新增']), [...many, '新增'])
 })
 
 test('deselectSeries 移除整组选择', () => {
