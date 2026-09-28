@@ -16,7 +16,7 @@ import {
 import GradeSummary from '../components/GradeSummary.vue'
 import SettlementGradeBreakdown from '../components/SettlementGradeBreakdown.vue'
 import MarketSalesAnalysis from '../components/MarketSalesAnalysis.vue'
-import DailyAmountTrendChart from '../components/DailyAmountTrendChart.vue'
+import DailySalesTrendChart from '../components/DailySalesTrendChart.vue'
 import DateRangeFilter from '../components/DateRangeFilter.vue'
 import SearchableSelect from '../components/SearchableSelect.vue'
 import { activeGrades } from '../utils/grades'
@@ -242,7 +242,7 @@ onBeforeUnmount(() => {
       :grade-order="breakdownGradeOrder"
     >
       <template #overview-aside>
-        <DailyAmountTrendChart :points="dailyTrend" :loading="dailyTrendLoading" />
+        <DailySalesTrendChart :points="dailyTrend" :loading="dailyTrendLoading" />
       </template>
     </SettlementGradeBreakdown>
 

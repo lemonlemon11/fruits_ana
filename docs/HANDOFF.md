@@ -3,6 +3,38 @@
 Last updated：2026-09-29 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-29 每日销售折线图增加「金额 / 件数」切换（已提交）：应用户要求在折线图右上角
+> 加分段切换（参考稿样式：胶囊容器 + 激活项深底白字 #1f2923，`aria-pressed` 可达性）。
+> 点「件数」整图切换为当日销售件数（`salesQuantity`），标题/说明/悬停/aria 随之变为
+> 「每日销售件数 / N 件」（金额仍是 `formatCurrency`）；默认停在「金额」。组件由
+> `DailyAmountTrendChart.vue` **改名 `DailySalesTrendChart.vue`**（原名 Amount 已不副实，
+> 文件未推送，改名无影响），OverviewView import 与 `overview-filters.test.ts` 断言同步
+> （切换按钮、模式取值 `isAmount ? salesAmount : salesQuantity`、双格式化）。
+> 验证：前端 300 项 test、typecheck、build 通过，dist 已重建（53000 preview 直接生效）。
+
+> 2026-09-29 按日均价走势图**换样式 + 提示语压一行**（未提交，承接同日等高/间距
+> 条目）：① 样式改为**平滑曲线 + 渐变面积填充**（`smooth: true`、lineStyle 3px、
+> `areaStyle` 线性渐变 primary 26%→2% 透明，`withAlpha` 辅助把主题色转 rgba），等高
+> 画布视觉更饱满；② 原两三行说明（按销售日期汇总每件均价…跟随上方等级筛选…）压成
+> **固定一行**——多天单显示口径「每件均价 = 当日金额 ÷ 当日件数」、单天单显示
+> 「本单销售集中在 1 天」，保证与右侧「规格件数与均价」标题区对齐（跟随等级筛选的
+> 说明移除，口径仍在悬浮提示）。`farmer-ui-copy` 断言同步（新提示语 / smooth /
+> areaStyle）。验证：前端 300 项 test、typecheck、build 通过，dist 已重建；
+> Playwright（临时账号已清理）：两种单说明均单行（note 高=行高 21.9px）、图/表
+> 标题区底边差 **0px**、390px 无溢出；截图 `tmp/daily-price-chart/style-desktop-650.png`、
+> `style-mobile-390.png`，AI 视觉验收通过（渐变面积 + 三点 ¥286/¥307/¥274 清晰）。
+
+> 2026-09-29 结算单导出 xlsx 与 PDF 加「顺立达SLD」水印（未提交）：`entry_export.py` 新增
+> 共用水印模块——`_watermark_stamp`（PIL 生成 28° 斜向、浅灰绿 RGB(96,122,110)、alpha 48
+> 的粗体「顺立达SLD」字图，按内容裁边）；PDF 在 `_PdfCanvas.finish` 对每页中央合成约
+> 42% 页宽水印（`_with_pdf_watermark`，alpha_composite）；xlsx 在
+> `render_entry_workbook` 末尾嵌入同款 PNG（`_add_xlsx_watermark`，OneCellAnchor 按
+> 列宽/行高近似换算居中锚定，宽度取表格 45% 封顶 640px），缺字体时跳过不阻断 xlsx。
+> 注意字号换算：`_watermark_units` 以半角宽为单位，目标宽→字号需乘 2（已修）。验证：
+> `test_entry_service` 15 项通过（新增 `test_exports_contain_watermark`：xlsx zip 内含
+> xl/media 图片 + stamp 非空）；AI 视觉验收水印清晰不遮数据；在线 单GZ-003 xlsx/PDF 均
+> 200 且 PDF 页面图确认水印居中可辨；8000 已重启生效。
+
 > 2026-09-29 视觉伴侣新增**方案 E「专业分析台」并完成多专家评审**（`redesign-20260929/variant-e.html`，
 > 未提交）：应用户「专业分析风格 + 组织多专业人士沟通」要求，并行征询四位专家
 > （BI 数据分析师 / B 端 UX 设计师 / 前端负责人 / 产品经理）对草案的评审并收敛：

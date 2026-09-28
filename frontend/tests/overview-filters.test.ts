@@ -92,26 +92,31 @@ test('卖得怎么样区块改名并启用 overview 版式等级图表', () => {
   assert.doesNotMatch(breakdown, /spec-list|spec-row/)
 })
 
-test('卖得怎么样等级销售分析与每日销售金额折线图同行', () => {
+test('卖得怎么样等级销售分析与每日销售折线图同行，支持金额/件数切换', () => {
   const view = fs.readFileSync(path.join(src, 'views', 'OverviewView.vue'), 'utf8')
   const breakdown = fs.readFileSync(path.join(src, 'components', 'SettlementGradeBreakdown.vue'), 'utf8')
-  const chart = fs.readFileSync(path.join(src, 'components', 'DailyAmountTrendChart.vue'), 'utf8')
+  const chart = fs.readFileSync(path.join(src, 'components', 'DailySalesTrendChart.vue'), 'utf8')
 
   // 折线图经 overview-aside 插槽与饼图同行；数据走 trend 接口、独立 loading / error。
-  assert.match(view, /import DailyAmountTrendChart from '\.\.\/components\/DailyAmountTrendChart\.vue'/)
+  assert.match(view, /import DailySalesTrendChart from '\.\.\/components\/DailySalesTrendChart\.vue'/)
   assert.match(view, /getTrend/)
   assert.match(view, /<template #overview-aside>/)
   assert.match(view, /:points="dailyTrend"/)
   assert.match(view, /requestErrors\.dailyTrend && `每日销售金额：\$\{requestErrors\.dailyTrend\}`/)
   assert.match(breakdown, /<slot name="overview-aside" \/>/)
   assert.match(breakdown, /\.breakdown-grid--overview \.overview-aside-block \{ grid-row: 1; grid-column: 2; \}/)
-  // 参考稿样式：隐藏 Y 轴、灰调平滑折线 + 面积渐变 + 末点空心圆，悬停按日看金额。
-  assert.match(chart, /<h3>每日销售金额<\/h3>/)
+  // 参考稿样式：隐藏 Y 轴、灰调平滑折线 + 面积渐变 + 末点空心圆，悬停按日看数值。
+  assert.match(chart, /const metricLabel = computed\(\(\) => \(isAmount\.value \? '销售金额' : '销售件数'\)\)/)
   assert.match(chart, /yAxis: \{ type: 'value', show: false \}/)
   assert.match(chart, /type: 'line'[\s\S]*?smooth: true/)
   assert.match(chart, /areaStyle/)
   assert.match(chart, /type: 'scatter'[\s\S]*?borderColor: LINE_COLOR/)
-  assert.match(chart, /formatCurrency\(item\.value \?\? 0\)/)
+  // 右上角「金额 / 件数」分段切换（参考稿）：默认金额，切换后画 salesQuantity。
+  assert.match(chart, /<h3>每日\{\{ metricLabel \}\}<\/h3>/)
+  assert.match(chart, /\{ value: 'amount', label: '金额' \},\s*\n\s*\{ value: 'quantity', label: '件数' \},/)
+  assert.match(chart, /:aria-pressed="mode === option\.value"/)
+  assert.match(chart, /isAmount\.value \? point\.salesAmount : point\.salesQuantity/)
+  assert.match(chart, /isAmount\.value \? formatCurrency\(value\) : `\$\{formatNumber\(value\)\} 件`/)
 })
 
 test('市场销售分析块跟随市场筛选，全部市场同图分组、单市场按档口展示', () => {
