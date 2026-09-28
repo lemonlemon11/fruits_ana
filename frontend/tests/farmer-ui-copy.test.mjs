@@ -144,6 +144,8 @@ test('销售详情经营指标挪入销售表现区，单号后展示国家', ()
   // banner 已删除，商号收进基础信息条第一位；手工录单操作改为信息条下方的操作行。
   assert.doesNotMatch(detailView, /settlement-banner|settlement-identity/)
   assert.match(detailView, /class="manual-entry-bar"/)
+  // 规格表品牌列用详情接口返回的品牌，避免落到「未识别品牌」。
+  assert.match(detailView, /:brand="detail\?\.brand"/)
 })
 
 test('筛选字段用商号取值、按「商号（单号）」展示', () => {

@@ -282,6 +282,7 @@ onBeforeUnmount(() => {
           :loading="loading"
           :grade-order="visibleGradeOrder"
           :title="`${sectionTitlePrefix} 规格件数与均价`"
+          :brand="detail?.brand"
         />
       </section>
       <AiAnalysisCard

@@ -3,6 +3,61 @@
 Last updated：2026-09-28 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-28 修复销售详情「国家 未登记 / 未识别品牌」（已提交）：① 根因一：
+> `get_settlement_detail` 的返回 payload **漏了 `country`**（batch 上有值、库里 15 单全部
+> 为 越南，但详情接口没带出来），前端 normalize 只能取空串 → 基础信息条显示「未登记」；
+> 根因二：详情页销售记录走 `record_payload`，**不含 `brand`**（卖得怎么样 grade-breakdown
+> 是后处理按 `batch_brand` 逐条补的），上一轮复用规格表后品牌列全部落到「未识别品牌」
+> 兜底。② 修复：详情 payload 补 `"country": batch.country` 与 `"brand": batch_brand(batch)`
+> （brand 列优先，回退单号中文前缀）；前端 `SettlementDetail` 类型 + normalize 补 `brand`，
+> `SettlementGradeBreakdown` 新增可选 prop `brand`（详情页传入整单品牌，优先于记录级
+> brand；overview 仍用记录级），SettlementView 传 `:brand="detail?.brand"`。
+> ③ 测试：`test_analytics_api` 详情用例给 M1 批次补 order_no=香香001 / country=越南 并
+> 断言返回 `country == '越南'`、`brand == '香香'`；`overview-filters` 断言 brand prop
+> 优先级写法，`farmer-ui-copy` 断言 `:brand="detail?.brand"` 接线。验证：后端
+> `test_analytics_api + test_analytics` 31 项通过；前端 287 项 test、typecheck、build
+> 通过，dist 已重建；8000 已重启，真实库直查 `get_settlement_detail`：单650 →
+> 越南/香香、单653 → 越南/晴牌。**运维踩坑留档**：重启时 `pkill -f "uvicorn app.main:app
+> --app-dir backend"` 会匹配到包含同样文本的**自身 shell**（命令自杀、后半段未执行），
+> 也会误杀并行会话在 8001 的同款 uvicorn（对方已自行拉起，无损失）——以后按端口用
+> `ss -tlnp` 拿 PID 再 kill。
+
+> 2026-09-28 「品牌对比」页改版（未提交）：① 所选结算单总览表删「每件均价」「销售日期」
+> 两列与合计行（桌面 foot + 移动端合计卡片一并删除，`SeriesOverviewTable` 不再收
+> `total` prop）；各等级的「件数」列与「占比」列**合并为一列**，单元格内上方件数、
+> 下方等级色占比条+百分比，悬浮提示同给两值（口径不变：占比=该等级件数÷该单总件数）；
+> 表头变为 商号/品牌/A果/B果/…/总件数/总金额，min-width 900→720。② 「等级均价对比」
+> 柱状图改**折线图**（横轴=所选结算单、每等级一条折线，某单缺该等级该点断开不连线，
+> 白色描边最高价标记随柱图一并移除，aria/标题说明同步）；③ 「等级件数占比」堆叠条图
+> **整个删除**（`SeriesGradeShareChart.vue` 文件删除，`SeriesComparisonView` 移除引用，
+> `chart-tooltip.test.ts` 组件清单同步）。④ AI 分析结论中的结算单改用**适配后单号
+> 称呼**（如 香香-001）：`ai_analysis_service` 提示词新增规则 12（禁止数字商号/「第N张」
+> 等称谓），数据包结算单与均价排名改用「称呼」字段（=适配后单号，缺单号退回商号），
+> 去掉 商号/原始商号/原始单号 字段；`PROMPT_VERSION` v10→v11（旧缓存自动失效）。
+> 验证：前端 287 项 test、typecheck、build 通过，dist 已重建；后端 test_ai_analysis +
+> test_series_analytics 33 项通过；8000 已重启（中途被并行会话停过一次，已恢复，8001
+> 为并行会话实例）；Playwright 真实浏览器 16/16 通过（表头列序、无合计、等级格两值、
+> 折线 aria、悬浮提示、移动端无溢出/无合计/无每件均价），截图
+> `tmp/series-comparison-redesign/`；真实 DeepSeek 调用实证结论以「香香-L011RXRK03」
+> 实际单号表述、无数字商号。环境修复留档：/root/.cache/ms-playwright 被清空，
+> 重装 chromium（默认源）+ yum 补 atk/at-spi2-atk/libXcomposite/libXdamage/
+> mesa-libgbm/alsa-lib 等运行库后方可跑浏览器验证。
+
+> 2026-09-28 视觉伴侣新增「双端布局重设计」设计稿（未提交，待业务评审）：
+> `frontend/dev-preview/redesign-20260928/` 新增 11 个文件——`index.html`
+> 视觉伴侣外壳（用户端 / 管理端 / 设计说明三个视图 + 桌面 / 手机设备切换，
+> iframe 装载各屏）、共享 `design.css`（「果园晨光」设计令牌与组件：燕麦画布 +
+> 森林绿 + 柑橘点缀，A/B/C 等级色保持业务口径）、用户端 5 屏（login /
+> overview / settlements / settlement-detail / imports，含深绿侧栏 + 手机底部
+> 标签栏布局）与管理端 4 屏（admin-login / admin-dashboard / admin-users /
+> admin-notifications，浅色毛玻璃顶栏 + 轻侧栏 + 下划线页签）。**全部虚构数据、
+> 纯静态 HTML，不碰 src 与线上构建**；本地用 `python3 -m http.server 53004 -d
+> frontend` 预览（业务方要求的评审端口），路径 `/dev-preview/redesign-20260928/`。
+> 覆盖 `fruits_ana_admin` 管理端的重设计稿也暂放本目录（视觉伴侣工作流的唯一
+> 承载地，评审通过后由两端各自仓库落地）。验证：11 个文件链接完整性与标签
+> 平衡静态检查通过；全部 URL 返回 200。方向确认后落地方式见设计稿 index 的
+> 「设计说明」视图。
+
 > 2026-09-28 「销售详情」页面再调整五项（已提交；本条覆盖同日「规格表按件数降序」
 > 条目中「结算单详情页 specRows 排序不变」的说法——specRows 已随本次整体移除）：
 > ① **settlement-banner 整体删除**，商号（适配后写法，`displayMerchantNo`）收进

@@ -190,6 +190,8 @@ export interface SettlementDetail extends OverviewData {
   orderNo: string
   orderNoNormalized: string
   country: string
+  /** 品牌口径与列表筛选一致：brand 列优先，回退单号中文前缀；供规格表品牌列使用。 */
+  brand: string
   containerNo: string
   vehicleNo: string
   sourceType: 'import' | 'manual'

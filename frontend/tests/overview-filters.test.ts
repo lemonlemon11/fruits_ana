@@ -74,6 +74,8 @@ test('卖得怎么样区块改名并启用 overview 版式等级图表', () => {
   // 规格表（方案A）：一行 = 品牌+等级+头数+KG+备注（相同组合合并统计），七列全部居中。
   assert.match(breakdown, /<table class="spec-table">[\s\S]*?<th>品牌<\/th>\s*<th>等级<\/th>\s*<th>头数<\/th>\s*<th>KG<\/th>\s*<th>备注<\/th>\s*<th>总件数<\/th>\s*<th>每件均价<\/th>/)
   assert.match(breakdown, /const key = `\$\{brand\}::\$\{grade\}::\$\{head\}::\$\{kg\}::\$\{remark\}`/)
+  // 详情页（单张结算单）经 brand prop 传入整单品牌，优先于记录级 brand。
+  assert.match(breakdown, /props\.brand\?\.trim\(\) \|\| record\.brand\.trim\(\) \|\| '未识别品牌'/)
   assert.match(breakdown, /\.spec-table thead th \{[\s\S]*?text-align: center;/)
   assert.match(breakdown, /\.spec-table tbody td \{[\s\S]*?text-align: center;/)
   // 每个 品牌×等级 小计 + 底部合计，小计/合计的每件均价按金额加权。

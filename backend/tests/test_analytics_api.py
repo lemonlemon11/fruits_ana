@@ -115,6 +115,9 @@ def test_trend_comparison_and_settlement_detail_routes(client):
         first = add_sale(db, "M1", date(2026, 1, 1), StandardGrade.A, 2, 10)
         add_sale(db, "M1", date(2026, 1, 2), StandardGrade.C, 1, 20)
         add_sale(db, "M2", date(2026, 1, 1), StandardGrade.B, 4, 5)
+        db.query(ImportBatch).filter_by(id=first.import_batch_id).update(
+            {"order_no": "香香001", "country": "越南"}
+        )
         db.commit()
         first_id = first.id
         batch_id = first.import_batch_id
@@ -134,6 +137,9 @@ def test_trend_comparison_and_settlement_detail_routes(client):
         "M1"
     ]
     assert detail.json()["merchant_no"] == "M1"
+    # 详情返回国家与品牌（品牌 = brand 列优先，回退单号中文前缀），供基础信息条与规格表使用。
+    assert detail.json()["country"] == "越南"
+    assert detail.json()["brand"] == "香香"
     assert detail.json()["grades"][0]["sales_quantity"] == 2.0
     assert detail.json()["settlement"] == {
         "after_sales_amount": None,

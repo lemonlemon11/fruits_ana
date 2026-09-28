@@ -240,6 +240,7 @@ export function normalizeSettlementDetail(payload: unknown, merchantNo: string):
     orderNo: stringOr(pick(body, 'order_no', 'orderNo'), ''),
     orderNoNormalized: stringOr(pick(body, 'order_no_normalized', 'orderNoNormalized'), ''),
     country: stringOr(pick(body, 'country'), ''),
+    brand: stringOr(pick(body, 'brand'), ''),
     containerNo: stringOr(pick(body, 'container_no', 'containerNo'), ''),
     vehicleNo: stringOr(pick(body, 'vehicle_no', 'vehicleNo'), ''),
     sourceType: pick(body, 'source_type', 'sourceType') === 'manual' ? 'manual' : 'import',

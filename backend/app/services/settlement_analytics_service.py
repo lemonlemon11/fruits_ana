@@ -376,6 +376,9 @@ def get_settlement_detail(
         ),
         "container_no": batch.container_no,
         "vehicle_no": batch.vehicle_no,
+        # 国家与品牌：基础信息条与规格表的品牌列依赖这两个字段（brand 列优先，回退单号中文前缀）。
+        "country": batch.country,
+        "brand": batch_brand(batch),
         "source_type": batch.source_type,
         "market": batch.market,
         "arrival_date": batch.arrival_date.isoformat() if batch.arrival_date else None,

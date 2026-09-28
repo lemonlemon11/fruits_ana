@@ -14,6 +14,8 @@ const props = defineProps<{
   gradeOrder?: Grade[]
   /** 区块标题；两个页面共用组件，标题随页面传入。 */
   title?: string
+  /** 详情页（单张结算单）传入的品牌：优先于记录级 brand，避免详情记录无 brand 时落到「未识别品牌」。 */
+  brand?: string
   /** overview：「卖得怎么样」版式——删均价图、规格表（方案A）整行展示；品牌柜数统计在「市场销售分析」块。 */
   variant?: 'detail' | 'overview'
 }>()
@@ -63,7 +65,7 @@ const overviewSpecGroups = computed<OverviewSpecGroup[]>(() => {
   props.records.forEach((record) => {
     const grade = record.grade
     if (!grade || !specGradeOrder.value.includes(grade)) return
-    const brand = record.brand.trim() || '未识别品牌'
+    const brand = props.brand?.trim() || record.brand.trim() || '未识别品牌'
     const head = record.headCount?.trim() ?? ''
     const kg = record.specKg?.trim() ?? ''
     const remark = record.remark?.trim() ?? ''
