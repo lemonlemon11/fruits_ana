@@ -104,6 +104,10 @@ test('市场销售分析块跟随市场筛选，全部市场同图分组、单�
   // 全部市场：同一柱状图按市场分组对比各品牌；单市场：参考稿的饼图+柱图。
   assert.match(market, /isSingleMarket/)
   assert.match(market, /series: markets\.value\.map\(\(market\) => \(/)
+  // 市场色必须设在系列级（barGap 之后）：图例与 tooltip marker 只认系列颜色，
+  // 挪回数据级 itemStyle 会导致提示圆点与图例回落到 ECharts 默认色板。
+  assert.match(market, /barGap: '30%',[\s\S]{0,200}itemStyle: \{ color: marketColor\(market\)/)
+  assert.match(market, /return row\?\.containerCount \?\? 0/)
   assert.match(market, /selectedMode: 'single'/)
   // 柱体顶部展示数量与单位，Y 轴标注「柜数」。
   assert.match(market, /position: 'top'[\s\S]*?柜/)

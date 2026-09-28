@@ -245,12 +245,11 @@ const barOption = computed<EChartsOption>(() => {
       type: 'bar' as const,
       barMaxWidth: 34,
       barGap: '30%',
+      // 颜色必须设在系列级：图例与 tooltip marker 只取系列颜色，数据级 itemStyle 不生效。
+      itemStyle: { color: marketColor(market), borderRadius: [4, 4, 0, 0] },
       data: brandOrder.map((brand) => {
         const row = props.rows.find((item) => item.market === market && item.brand === brand)
-        return {
-          value: row?.containerCount ?? 0,
-          itemStyle: { color: marketColor(market), borderRadius: [4, 4, 0, 0] },
-        }
+        return row?.containerCount ?? 0
       }),
       label: valueLabel,
     })),

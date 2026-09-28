@@ -3,6 +3,15 @@
 Last updated：2026-09-28 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-28 修复「各品牌分市场柜数对比」tooltip 与图例颜色（已提交未推送）：多市场分组
+> 柱图的市场色此前只设在**逐数据项** `itemStyle.color`，而 ECharts 的 tooltip marker 与
+> 图例只取**系列级**颜色，未设时回落到默认色板，导致提示圆点 / 顶部图例与柱体、饼图的
+> 市场色不一致。修复：颜色与圆角提升到系列级
+> `itemStyle: { color: marketColor(market), borderRadius: [4, 4, 0, 0] }`，data 项改为
+> 直接返回数值；`overview-filters.test.ts` 补两条防回归断言（barGap 后系列级 itemStyle、
+> data 返回纯数值）。验证：前端 287 项 test、typecheck、build 通过，dist 已重建，
+> 53000 vite preview 直接生效无需重启。后端无改动。
+
 > 2026-09-28 环境修复 + 全量验证 + checkpoint 提交（本轮会话）：① 本机 git 二进制丢失
 > （`.git` 仍在、分支 `dev` 与 origin/dev 同步，最新提交 d06a613），yum 重装 git 2.47.3 后
 > 按 AGENTS 流程完成 status / diff / log 检查；② `/root/.local` 被清空导致 `.venv` 断链
