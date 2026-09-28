@@ -123,11 +123,11 @@ test('市场销售分析块跟随市场筛选，全部市场同图分组、单�
   const view = fs.readFileSync(path.join(src, 'views', 'OverviewView.vue'), 'utf8')
   const market = fs.readFileSync(path.join(src, 'components', 'MarketSalesAnalysis.vue'), 'utf8')
 
-  // 新块挂在等级销售分析下方，消费 market_brand_containers。
+  // 市场销售分析块挂在等级销售分析上方（用户要求调序），消费 market_brand_containers。
   assert.match(view, /<MarketSalesAnalysis[\s\S]*?:rows="gradeBreakdown\?\.marketBrandContainers \?\? \[\]"[\s\S]*?:loading="gradeBreakdownLoading"/)
   const breakdownAt = view.indexOf('<SettlementGradeBreakdown')
   const marketAt = view.indexOf('<MarketSalesAnalysis')
-  assert.ok(breakdownAt >= 0 && marketAt > breakdownAt, '市场销售分析应在等级销售分析之后')
+  assert.ok(breakdownAt >= 0 && marketAt >= 0 && marketAt < breakdownAt, '市场销售分析应在等级销售分析之前')
 
   // 标题：期间 + 市场/全部市场 + 合计柜数（参考稿口径）。
   assert.match(market, /档口销售柜数统计（合计 \$\{formatNumber\(totalCount\.value\)\} 柜）/)

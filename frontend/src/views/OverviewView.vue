@@ -233,6 +233,13 @@ onBeforeUnmount(() => {
       />
     </div>
 
+    <MarketSalesAnalysis
+      :rows="gradeBreakdown?.marketBrandContainers ?? []"
+      :start-date="filters.startDate"
+      :end-date="filters.endDate"
+      :loading="gradeBreakdownLoading"
+    />
+
     <SettlementGradeBreakdown
       :grades="gradeBreakdown?.grades ?? []"
       :records="gradeBreakdown?.records ?? []"
@@ -245,13 +252,6 @@ onBeforeUnmount(() => {
         <DailySalesTrendChart :points="dailyTrend" :loading="dailyTrendLoading" />
       </template>
     </SettlementGradeBreakdown>
-
-    <MarketSalesAnalysis
-      :rows="gradeBreakdown?.marketBrandContainers ?? []"
-      :start-date="filters.startDate"
-      :end-date="filters.endDate"
-      :loading="gradeBreakdownLoading"
-    />
 
   </div>
 </template>
