@@ -2487,11 +2487,15 @@ b740af4 feat(frontend): 页签右键菜单支持刷新与关闭操作
 eeb6681 feat: 品牌化统一日期筛选并优化结算详情与移动端
 ```
 
-Uncommitted changes（2026-09-19）：
+Uncommitted changes（2026-09-28，checkpoint 后）：
 
-- 含本轮 ADR-033 结算单详情/术语收口改动，以及此前的专业测试修复、导入复核、
-  手工录单区分、均价文案、结算单删除等未提交改动。
-- `tickets/`、`backend/data/`、`.env`、`backend/.env` 未提交。
-- `fruits_ana_admin` 已合入 `main` 并推送到 `origin/main`，本地 `main`/`dev` 与远端同步。
-- 未改动 `.env`、`backend/.env`、MySQL 配置；`.superpowers/`、`.superpowersigeria/`、
-  `attachments/`、`backend/data/` 仍被 `.gitignore` 忽略，不会提交。
+- **工作区干净**：2026-09-28 全部在途改动已由 `0eb8892 checkpoint: land 2026-09-28
+  in-flight features and docs` 收口并推送到 `origin/dev`；此前数批改动已在
+  `c9fb46e` / `eeea102` / `d06a613` 等提交中入库。
+- `tmp/`、`demo-*/`、`.demo/`、`.mimosa/`、`.vite/`、`problem/`、dev-preview 截图、
+  `images/*.tar*`、`images/config/.env.docker`、`*.bak-*`、
+  `docs/结算单模板样式-*.xlsx` 已补入 `.gitignore`（本地运行产物 / 真实经营数据，不入库）。
+- `tickets/`、`backend/data/`、`.env`、`backend/.env`、`attachments/` 仍未提交（被忽略）。
+- `fruits_ana_admin` 已合入 `main` 并推送到 `origin/main`。
+- 未改动 `.env`、`backend/.env`、MySQL 配置；`.superpowers/`、`.superpowersigeria/`
+  仍被 `.gitignore` 忽略，不会提交。
