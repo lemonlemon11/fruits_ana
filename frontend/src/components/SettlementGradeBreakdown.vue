@@ -158,6 +158,11 @@ const GRADE_BADGE_BACKGROUNDS: Record<Grade, string> = {
           />
         </div>
 
+        <!-- overview 专属：与饼图同行的附加图（卖得怎么样传入「每日销售金额」折线图）。 -->
+        <div v-if="isOverview" class="chart-block overview-aside-block">
+          <slot name="overview-aside" />
+        </div>
+
         <section class="chart-block spec-block" aria-label="规格件数与均价">
           <header v-if="isOverview" class="block-heading">
             <div>
@@ -286,14 +291,11 @@ const GRADE_BADGE_BACKGROUNDS: Record<Grade, string> = {
 @media (min-width: 900px) {
   .breakdown-grid { grid-template-columns: minmax(240px, .78fr) minmax(300px, 1.22fr); }
   .spec-block { grid-column: 1 / -1; }
-  /* overview：饼图独占一行居中，规格表（方案A 长表）独占下一行全宽；
+  /* overview：饼图与「每日销售金额」折线图同行（.58fr/1.42fr），规格长表独占下一行全宽；
      品牌柜数统计已移至「市场销售分析」块。 */
-  .breakdown-grid--overview { grid-template-columns: minmax(0, 1fr); }
+  .breakdown-grid--overview { grid-template-columns: minmax(220px, .58fr) minmax(0, 1.42fr); }
   .breakdown-grid--overview .pie-chart-block { grid-row: 1; }
-  .breakdown-grid--overview .pie-chart-block :deep(.pie-layout) {
-    max-width: 640px;
-    margin: 0 auto;
-  }
+  .breakdown-grid--overview .overview-aside-block { grid-row: 1; grid-column: 2; }
   .breakdown-grid--overview .spec-block { grid-column: 1 / -1; grid-row: 2; }
 }
 

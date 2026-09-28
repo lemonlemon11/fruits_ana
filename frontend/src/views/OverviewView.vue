@@ -5,15 +5,18 @@ import {
   getOverview,
   getGradeBreakdown,
   getFilterOptions,
+  getTrend,
   type AnalyticsFilters,
   type FilterOptionsData,
   type Grade,
   type GradeBreakdownData,
   type OverviewData,
+  type TrendPoint,
 } from '../api/client'
 import GradeSummary from '../components/GradeSummary.vue'
 import SettlementGradeBreakdown from '../components/SettlementGradeBreakdown.vue'
 import MarketSalesAnalysis from '../components/MarketSalesAnalysis.vue'
+import DailyAmountTrendChart from '../components/DailyAmountTrendChart.vue'
 import DateRangeFilter from '../components/DateRangeFilter.vue'
 import SearchableSelect from '../components/SearchableSelect.vue'
 import { activeGrades } from '../utils/grades'
@@ -22,6 +25,8 @@ import { yearBounds } from '../utils/salePeriods.ts'
 const filters = reactive({ startDate: '', endDate: '', country: '', market: '' })
 const overview = ref<OverviewData | null>(null)
 const gradeBreakdown = ref<GradeBreakdownData | null>(null)
+// 每日销售金额折线图（与等级销售分析饼图同行）复用 trend 接口，独立 loading / error。
+const dailyTrend = ref<TrendPoint[]>([])
 // 国家/市场选项与日期快捷选项：接口刻意不受这些筛选取值影响，加载一次即可。
 const filterOptions = ref<FilterOptionsData | null>(null)
 const filterOptionsLoading = ref(true)
@@ -30,7 +35,8 @@ const quickYears = ref<number[]>([])
 const quickMonths = ref<string[]>([])
 const overviewLoading = ref(true)
 const gradeBreakdownLoading = ref(true)
-const requestErrors = reactive({ overview: '', gradeBreakdown: '', filterOptions: '' })
+const dailyTrendLoading = ref(true)
+const requestErrors = reactive({ overview: '', gradeBreakdown: '', dailyTrend: '', filterOptions: '' })
 const validationError = ref('')
 const alertPage = ref(1)
 const alertPageSize = 5
@@ -44,6 +50,7 @@ const error = computed(() => [
   validationError.value,
   requestErrors.overview && `核心指标：${requestErrors.overview}`,
   requestErrors.gradeBreakdown && `等级明细：${requestErrors.gradeBreakdown}`,
+  requestErrors.dailyTrend && `每日销售金额：${requestErrors.dailyTrend}`,
   requestErrors.filterOptions && `国家/市场选项：${requestErrors.filterOptions}`,
 ].filter(Boolean).join('；'))
 
@@ -116,6 +123,19 @@ async function loadGradeBreakdownData(query: AnalyticsFilters, version: number, 
   }
 }
 
+async function loadDailyTrendData(query: AnalyticsFilters, version: number, controller: AbortController) {
+  dailyTrendLoading.value = true
+  requestErrors.dailyTrend = ''
+  try {
+    const points = await getTrend(query, { signal: controller.signal })
+    if (version === requestVersion) dailyTrend.value = points
+  } catch (caught) {
+    if (!controller.signal.aborted && version === requestVersion) requestErrors.dailyTrend = errorMessage(caught)
+  } finally {
+    if (version === requestVersion) dailyTrendLoading.value = false
+  }
+}
+
 async function refresh() {
   if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
     validationError.value = '销售日期起不能晚于销售日期止'
@@ -130,6 +150,7 @@ async function refresh() {
   await Promise.allSettled([
     loadOverviewData(query, version, controller),
     loadGradeBreakdownData(query, version, controller),
+    loadDailyTrendData(query, version, controller),
   ])
 }
 
@@ -219,7 +240,11 @@ onBeforeUnmount(() => {
       title="等级销售分析"
       variant="overview"
       :grade-order="breakdownGradeOrder"
-    />
+    >
+      <template #overview-aside>
+        <DailyAmountTrendChart :points="dailyTrend" :loading="dailyTrendLoading" />
+      </template>
+    </SettlementGradeBreakdown>
 
     <MarketSalesAnalysis
       :rows="gradeBreakdown?.marketBrandContainers ?? []"

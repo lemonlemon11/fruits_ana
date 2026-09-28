@@ -1,7 +1,221 @@
 # HANDOFF
 
-Last updated：2026-09-28 (CST)
+Last updated：2026-09-29 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
+
+> 2026-09-29 视觉伴侣新增**方案 E「专业分析台」并完成多专家评审**（`redesign-20260929/variant-e.html`，
+> 未提交）：应用户「专业分析风格 + 组织多专业人士沟通」要求，并行征询四位专家
+> （BI 数据分析师 / B 端 UX 设计师 / 前端负责人 / 产品经理）对草案的评审并收敛：
+> **主色深青蓝 #2c5a71 四票全票**（与 A 级绿区分、低饱和可延续品牌）；顶栏分票
+> 裁决为**分端**——用户端 36px 深色终端条（Choice 式身份锚点）、管理端浅色细线
+> 顶栏（复用与吸顶成本低）；密度分端——用户端中密（正文 13px/手机 14px）、管理端
+> 高密（表格 12px）。吸收的关键修改：面板头去 3px 色条改两段式（左名/右单位·区间
+> 灰字）；层级用字重+三级灰阶（#1b2b33/#5f7078/#93a3aa）不压字号；中文不用大写
+> 字距；表格规范=单位灰化进表头+千分位右对齐+空值"—"+首行合计加权+列头排序；
+> 柱图 y 轴 0 起+刻度网格+仅标 Top3 峰值+「平时水平」虚线带标签（术语口语化，
+> 不用"分位/均线"字样）；环形图改横向堆叠条；指标带每值带环比；报告头=标题+
+> 口径一行+? 展开+时间戳+筛选摘要行；弃 12 列网格用 6 列 span。已按收敛结论实现
+> 四屏（用户端看板/每一单 + 管理端工作台/用户）+ 桌面/手机模式；选型页 index 已
+> 将 E 置首。验证：6 文件链接/标签平衡 0 错误、53004 全部 200。
+
+> 2026-09-29 「卖得怎么样」新增每日销售金额折线图（已提交）：应用户参考稿（极简灰调
+> 折线）在「等级销售分析」第一行、与「等级件数结构」饼图**同行**右侧新增
+> `components/DailyAmountTrendChart.vue`——ECharts 平滑灰线（#6b7280）+ 淡面积渐变 +
+> **隐藏 Y 轴** + X 轴稀疏日期刻度（hideOverlap）+ **末点空心圆**（scatter 白底灰边），
+> axis 悬停显示日期与 `formatCurrency` 金额；空数据 / loading 有独立骨架与占位。
+> 数据复用 `GET /api/analytics/trend`（跟随国家/市场/日期筛选），OverviewView 以独立
+> loading / error（错误前缀「每日销售金额：」）并发请求，经
+> `SettlementGradeBreakdown` 新增的 `overview-aside` 具名插槽挂入；overview 版第一行
+> 网格由「饼图独占居中 640px」改为两列 `.58fr / 1.42fr`（饼图左、折线图右），规格长表
+> 仍独占第二行，≤899px 单列堆叠（饼图→折线图→表格）。测试：
+> `overview-filters.test.ts` 新增 1 项（插槽接线 / 两列网格 / 参考稿样式断言）。
+> 验证：前端 **300 项 test**（含并行会话新增用例）、typecheck、build 通过，dist 已重建
+> （53000 preview 直接生效）；真实库直查 trend（2026 全年）返回 15 个销售日，有数据可画。
+> 参考稿中的「金额/件数」切换未做（用户只要求每日销售金额），需要时再加。
+
+> 2026-09-29 销售日期筛选改「快捷下拉 + 常驻日历」（未提交）：用户要求选完下拉后
+> 右侧仍保留日历组件并自动填充日期（如近七天 = 七天前 至 今天），且下拉增加更多
+> 快捷选项。`DateRangeFilter.vue` 由「按年度/按月度/自定义时间三方式互斥切换」改为
+> **单个快捷下拉 + 日历常驻同行**：下拉 = 自定义时间 + 快捷区间组（近七天/近十四天/
+> 近三十天/近九十天，`recent:N`）+ 按年度组（数据年份∪今年，`year:YYYY`）+ 按月度组
+> （数据月份，`month:YYYY-MM`）；选中快捷选项即把起止写入右侧 ElDatePicker 并
+> emit change 供父级自动查询，日历不再被年/月下拉替换。起止等于某快捷选项边界时下拉
+> 回显该选项（含近 N 天），手动改日历回「自定义时间」；`autoMatchMode=false`（卖得
+> 怎么样默认自定义+预填当年）行为不变；`v-model:start-date / end-date` 契约不变，
+> 四页接线零改动。`utils/salePeriods.ts` 新增 `RECENT_DAY_OPTIONS` /
+> `recentBounds(days)`（本地时区自然日），`periodBoundsForOption` 扩展解析 `recent:N`。
+> 测试：`date-range-filter.test.ts` 结构断言重写；新增 `sale-periods.test.ts` 4 项
+> 单测（近 N 天口径、选项清单、编码解析、年/月边界回归）。验证：前端 299 项 test、
+> typecheck、build 通过，dist 已重建；真实浏览器（53000 preview + test 账号，
+> `tmp/verify_date_range_quick.py`）12/12 通过：日历常驻、近七天自动填充
+> 2026-09-22 至 2026-09-29 且自动触发查询、下拉回显切换（近七天→2026年→自定义）、
+> 切自定义保留日期不触发查询、下拉宽度恒定 124.1px、手动改日历回自定义、卖得怎么样
+> 默认自定义+当年起止、移动端 390px 无溢出；AI 视觉验收通过（截图
+> `tmp/date-range-quick/`）。ARCHITECTURE 日期范围条目同步。
+
+> 2026-09-29 「销售详情」同行行与上方「销售表现」**拉开间隔**（未提交，承接同日
+> 「等高撑满」条目；用户反馈太贴）：根因＝`.grade-summary-panel :deep(.dashboard-section)`
+> 把区块原有的 `padding-top + 分隔线`清零，区块间只剩组件内边距。修复：`.detail-row-layout`
+> 加 `margin-top: 24px`（面板内区块分隔线已清零，该行与上方间隔由这里提供）；
+> `farmer-ui-copy` 按日均价用例追加 margin 断言。验证：前端 299 项 test、typecheck、
+> build 通过，dist 已重建；Playwright（临时账号已清理）实测销售表现底部 → 同行行首
+> 间距 24.0px、390px overflow=0，截图 `tmp/daily-price-chart/gap-desktop-650.png`。
+
+> 2026-09-29 按日均价走势图**随规格表等高撑满**（未提交，承接同日「同行排版」条目；
+> 用户反馈 250px 固定高在同行布局下太矮）：`SettlementDailyPriceChart.vue` 区块改
+> flex 纵向布局，图容器 `flex:1 + min-height 280px`、`DeferredEChart` 传
+> `height="100%"`（BaseEChart 本就挂 ResizeObserver，容器尺寸变化自动 resize）；
+> `SettlementView` 的 `.detail-row-layout` 由 `align-items: start` 改 **stretch**——
+> 行内图随右表等高拉伸，长表（单650）图区块 662px=表高、canvas 575px，切换短表
+> （单GZ-001）自动跟随到 375px；**≤1079px 单列/移动端回落 280px 固定高**（兜底
+> min-height，避免 % 高度链在 auto 高度上下文塌陷为 0——每层都给了 px 兜底）。
+> 测试：`farmer-ui-copy` 按日均价用例追加 height 100%/flex 拉伸/stretch 断言。
+> 验证：前端 295 项 test、typecheck、build 通过，dist 已重建；Playwright（临时账号
+> 已清理）**5/5 通过**：1440 长表等高 662/662、短表跟随 375、1079 单列 280、390px
+> 无溢出；截图 `tmp/daily-price-chart/fill-desktop-650.png` 等，脚本
+> `tmp/verify_daily_price_fill.py`；AI 视觉验收通过（三点 ¥286/¥307/¥274 清晰、无下方
+> 空白、与表平衡）。
+
+> 2026-09-29 结算单导出 xlsx 与 PDF 内容全部居中（未提交）：`entry_export.py` 双渲染器
+> 对齐调整——xlsx（`render_entry_workbook`）与 PDF（`render_entry_pdf`）的区块标题
+> （▼ 销售明细 / 售后 / 支出费用）、售后内容/摘要、费用项目名、总件数/售后合计/货款
+> 合计/费用合计/应付总金额的标签与金额，全部由左/右对齐改为水平居中（此前数据行已居中）；
+> 删除不再使用的 `_left()`/`_right()` 辅助。验证：后端 `test_entry_service` 14 项通过、
+> 全量 408 过 / 11 失败均为既有基线；xlsx 逐格断言非居中单元格为零（含在线真实数据
+> 单GZ-003），PDF 视觉验收居中无重叠裁切、在线 200 %PDF；8000 已重启生效。
+
+> 2026-09-29 视觉伴侣三方案后新增**方案 D「素净紧凑」**（`redesign-20260929/variant-d.html`，
+> 未提交）：用户反馈 A/B/C 均不合适，要求「简洁点的颜色 + 数据尽量紧凑」。
+> D 稿去全部渐变与琥珀点缀，中性灰白（#f6f7f6/#fff）+ 单一安静主色，
+> 页内可切主色（石墨/靛蓝/松绿，走 data-accent CSS 变量）与密度
+> （紧凑/舒展，走 --fs/--pad/--cell 变量组）。排版全面收紧：46px 细顶栏、
+> KPI 压成一条竖线分隔状态栏（六指标一行）、表格 12px 密排、等级改为
+> 带色点数字（31/39/30）、顺仔结论收成单行截断条、走势图灰线 + 暖橙仅
+> 标峰值点。仍含四屏切换与桌面/手机模式（.mode-mobile 类）。选型页
+> `index.html` 已把 D 置于首位默认预览。验证：5 文件链接/标签平衡 0 错误、
+> 53004 全部 200。
+
+> 2026-09-29 **侧边导航升级为管理端目录驱动的两级菜单**（未提交，配合
+> `fruits_ana_admin` 同日「菜单两级分组重排」）：目标结构＝「销售单管理」目录→
+> 每一单、录单/导入；「销售分析」目录→结算单详情、品牌对比；卖得怎么样(/overview)
+> 独立一级。后端：`SidebarMenuRead` 扩展 `id / parent_id / menu_type`、
+> `route_path` 可空（目录无路由），`get_menu_items` 由「只下发有路由菜单」改为
+> 下发 directory+menu 两级（button 仍不下发）；`backend/tests/test_auth_api.py`
+> 新增层级下发用例（含 button 排除断言）。前端：`AuthMenu` 扩字段、
+> `normalizeAuthMenus` 保留目录节点；`shellMenu.ts` 新增 `buildMenuGroups()`
+> （分组/排序以管理端菜单树为准，本地槽位降级为高亮规则+权限码+兜底文案图标来源，
+> 未命中槽位的叶子不渲染防死链，目录缺授权/停用时子菜单退化为无标题一级入口）；
+> `AppShell.vue` 桌面侧栏改为「分组标题+缩进子项」常驻两级（收起态隐藏标题），
+> 移动端底部 tabbar 槽位不动、「更多」面板改分组展示；`firstAllowedPath` 只认
+> 带路由叶子。新增/更新 `shell-menu.test.ts`、`auth-menu.test.ts` 用例。
+> 验证：后端 `pytest backend/tests` 仅 3 项失败且经 stash 对照确认属并行在途改动的
+> 存量失败（结算模板解析，与本改动无关）；前端 293 项 test、typecheck、build 通过，
+> dist 已重建（53000 preview 直接生效）；8000 后端已重启；真实浏览器
+> （CDP 驱动 headless_shell，临时账号 DB 直建、验后已删）验证 fruit_admin /
+> viewer / data_entry 三角色桌面侧栏分组正确（viewer 无总览、data_entry 仅
+> 销售单管理组）、移动端 tabbar 不变形、「更多」面板出「销售分析」分组标题。
+> ADR-051 见 `docs/DECISIONS.md`。注：此前 09-28 交接中提到的「3 项 shell-menu
+> 失败＝并行会话在途」即本改动的中间态，最终态全绿。
+
+> 2026-09-29 「销售详情」按日均价走势与规格表**同行排版**（未提交，承接同日稍早
+> 「新增按日均价走势折线图」条目）：用户要求两块放一行。`SettlementView.vue` 用
+> `.detail-row-layout` 栅格包裹（`minmax(260px, .6fr) minmax(0, 1.4fr)`、gap 14px、
+> `align-items: start` 顶部对齐）——图左窄、表右宽，两块各自保留单号前缀标题；
+> **≤1079px 回落单列**（图上表下，与移动端一致）。规格表自身 min-width 700px，
+> 中等宽度下容器内横向滚动（既有行为）。测试：`farmer-ui-copy` 的按日均价用例追加
+> 同行栅格与回落断点断言。验证：前端 **295 项 test 全过**（含并行会话 shell-menu 已
+> 收敛）、typecheck、build 通过，dist 已重建；Playwright（临时账号已清理）1440px
+> 同行（图 351px/表 818px、顶对齐、表无内部滚动）、1079px 与 390px 单列图上表下、
+> 390px overflow=0；截图 `tmp/daily-price-chart/row-desktop-1440.png`、
+> `row-mobile-390.png`，脚本 `tmp/verify_daily_price_row.py`。**排查留档**：1440px
+> 实测 scrollWidth-clientWidth=1px，隐藏本栅格后依旧、/overview 与 /settlements
+> 同样 1px——全站既有（页脚 wechat-qr-popover 与 sr-only 元素），与本次无关，
+> 未在本任务处理。
+
+> 2026-09-29 视觉伴侣「双端重设计」**三方案选型稿（未提交，待用户选型）**：
+> 用户否掉第三稿（沿用 09-22 版式）后要求重新设计并提供多版本选择。
+> 新增 `frontend/dev-preview/redesign-20260929/` 四个文件——`index.html`
+> 选型页（A/B/C 卡片 + iframe 预览，含优劣标签）+ 三个自包含方案页
+> （各含 用户端看板/每一单 + 管理端工作台/用户 四屏切换 与 桌面/手机
+> 模式切换，模式用 `.mode-mobile` 类实现、不依赖视口，手机模式含底部
+> 五格 tabbar）。三方案均为亮色、同一虚构数据（李叔/金秋-002 等）与业务
+> 口径：**A 清爽账本**（白色顶栏导航 + 居中单列 + KPI 竖分隔长条 + 无阴影
+> 卡片）；**B 双栏工作台**（深绿通栏顶带内嵌菜单 + 右侧常驻筛选/顺仔/提醒
+> 面板 + 高密度小圆角）；**C 门户入口**（问候 hero + 今日要点 + 六张带指标
+> 功能大卡，列表亦卡片化）。验证：4 文件链接完整性与标签平衡通过，
+> 53004 静态服务全部 200。用户选定方向后再补齐两端全部页面并出落地清单。
+
+> 2026-09-29 「品牌对比」等级均价对比图不再显示「其他」等级（未提交，随品牌对比页
+> 改版一并交付）：`SeriesGradePriceChart.vue` 的 gradeOrder 在 `activeGrades` 结果上
+> 过滤掉 `OTHER`，折线与图例随之不再出现「其他」（悬浮提示按 series 生成，自动同步）；
+> **总览表 `SeriesOverviewTable` 保留「其他」列不动**（用户仅要求该图隐藏）。新增回归
+> 测试 `frontend/tests/series-grade-price-chart.test.mjs`（2 项：图表过滤 OTHER /
+> 总览表不过滤）。验证：前端 295 项 test、typecheck、build 通过，dist 已重建。
+
+> 2026-09-28 「销售详情」新增按日均价走势折线图（未提交）：用户先评估「把参考稿
+> （编号402 结算分析 2×3 六图）做进详情页」，评估结论＝数据全齐但**单柜销售天数
+> 真实库 15 单中 9 单仅 1 天**（最多 3 天），按日两图多数单近空；用户拍板**只加
+> 「按日均价走势」一张**。落地：新增 `components/SettlementDailyPriceChart.vue`
+> （DeferredEChart 异步分片，不进首屏），数据从详情接口 `records` 前端按销售日期
+> 聚合——每件均价＝当日金额÷当日件数（金额加权），**跟随页面上方 GradeFilterBar
+> 等级筛选**（未选等级的记录不参与）；折线始终带圆点并直接标注 formatPrice 整数价，
+> Y 轴「元/件」，悬浮提示给 日期/均价/当日件数；仅 1 个销售日时说明追加「本单销售
+> 集中在 1 天」。排版：区块插在「X 销售表现」与「X 规格件数与均价」之间（同
+> grade-summary-panel 内），标题沿用 `sectionTitlePrefix` 单号前缀，高 250px，
+> 移动端随单列布局、无横向溢出。**注意 farmer-ui-copy 断言详情页不得出现
+> TrendChart/getTrend，本图为 records 前端聚合、独立组件，不碰已删除的旧趋势链路**。
+> 测试：`chart-tooltip.test.ts` ECharts 组件清单登记新组件；`farmer-ui-copy.test.mjs`
+> 新增接线与聚合口径断言。验证：前端 293 项 test 中本改动相关全部通过（3 项
+> shell-menu 失败＝并行会话在途改 shellMenu.ts 中间态，单跑该文件 10/10 过）、
+> typecheck、build 通过，dist 已重建（53000 preview 直接生效）；Playwright 真实浏览器
+> （临时账号 DB 直建、验后已删）**9/9 通过**：标题前缀「香香-L011RXRK03 按日均价
+> 走势」、单650 三点 ¥286/¥307/¥274 与库内加权均价逐点一致、位置在销售表现与规格表
+> 之间、单日单（单GZ-001）出提示、等级筛选切换后图仍在、移动端 390px overflow=0；
+> 截图 `tmp/daily-price-chart/`、脚本 `tmp/verify_daily_price.py`。后端无改动。
+> 交付文档（功能说明书/用户操作手册）沿既有指示未同步，待统一收口。
+
+> 2026-09-28 视觉伴侣「双端布局重设计」**第三稿（未提交，待评审）：用户否掉第二稿
+> 深色风，明确要亮色且问题在排版布局，并提示找回旧版设计记录**。已定位记录：
+> `redesign-20260922`（+ v2 真实数据版，业务 53001/53002 评审过）。第三稿直接
+> **沿用该版设计系统**——`redesign-20260928/design.css` 前 530 行原样复制
+> `redesign-20260922/redesign.css`（令牌零改动），后接 185 行扩展（管理端顶栏
+> 时钟/下划线页签/列表工具条/行内操作/抽屉示意/角色勾选/开关/快捷入口/动态流/
+> 通知卡/顺仔亮色卡/费用格/等级明细行等）。九屏全部按 09-22 骨架静态重写：
+> 桌面深绿渐变侧栏 + 浅色毛玻璃顶栏（页题+筛选 chip+通知+用户 chip），手机
+> 渐变 appbar + 底部五格 tabbar（中格琥珀 FAB 录单）；KPI 左色条 + hero 放大、
+> section-title 节奏、表格卡（brand-50 表头）+ 手机单据卡、hero-money 详情头卡。
+> 管理端四屏为同风格扩展（顶栏换时钟+账号，加页签行）。外壳 index 同步改亮色
+> 并在「设计说明」注明沿用关系与落地方式。验证：11 文件链接完整性/标签平衡/
+> 深色稿残留检查全过，全部 URL 200（53004 静态服务续用）。
+
+> 2026-09-28 修复「每一单」导出 PDF 报错——方案改为 PIL 渲染图片生成 PDF（未提交）：
+> 根因：环境重建后本机无 LibreOffice 且 alinux4 官方源无此包，旧方案（xlsx 经
+> LibreOffice 另存）必然报「服务器未安装 LibreOffice」；用户明确不装额外软件，改走
+> 「渲染成图片再转 PDF」。实现（`backend/app/services/entry_export.py`）：新增
+> `render_entry_pdf`——Pillow 按 xlsx 同款财务版式把结算单画成 A4 横向位图（1pt=2px
+> 144dpi、JPEG q95），行边界分页 + 新页重画表头，PIL 直接输出多页 PDF；列宽估宽 /
+> 备注封顶换行 / 信息行跨列复用 xlsx 渲染器同款算法；删除
+> `render_entry_pdf_from_workbook`（LibreOffice 路径）。字体：本机 yum 安装
+> `google-noto-cjk-fonts`（Noto Sans CJK ttc index=2 简体；缺字体报可操作错误）。
+> 依赖：`pillow>=10` 声明进 `backend/pyproject.toml`（venv 原已安装，无新增安装）；
+> `deploy/docker/Dockerfile.fruits-backend` 加装 `fonts-noto-cjk`（生产镜像内字体）。
+> 测试：`test_workbook_converts_to_pdf_via_libreoffice`（skip 型）替换为两项真实断言
+> （单页 %PDF/A4 横向 + 25 行明细分页≥2 页）；后端全量 408 过 / 11 失败均为既有基线
+> （夹具缺失 9 + test_exports 品种列 + test_settlements_api 复核夹具）。在线验证：8000
+> 已重启，`/api/exports/settlements/单GZ-003/template.pdf` 200（%PDF、433KB、503ms），
+> AI 视觉验收两页通过（跨页表头重画、应付行醒目、无裁切乱码）。ADR-050 已记
+> `docs/DECISIONS.md`。
+
+> 2026-09-28 视觉伴侣「双端布局重设计」**第二稿：业务否掉第一稿暖色圆角风，
+> 全套重做为「夜航 Night Cockpit」深色驾驶舱**（未提交，待评审）：冷黑绿画布
+> （#0c1210/#121917 双层面板）+ 亮薄荷数据色（#35d98f）+ 琥珀仅留用户端 CTA；
+> A/B/C 等级色按暗底提亮、口径不变。排版同步收紧：圆角 18px→10-14px、取消柔影
+> 改发丝线与内描边、密度收一档。`redesign-20260928/` 全部 11 个文件就地重做
+> （design.css 全量重写 + 双登录页重写 + 其余 7 屏批量换令牌），文件名与
+> 视觉伴侣结构不变，仍走 `python3 -m http.server 53004 -d frontend`。
+> 「设计说明」视图新增与第一稿的差异清单和可调开关（亮度 / 薄荷浓度 / CTA
+> 配色 / 移动端浅色变体）。验证：旧令牌残留清零、链接完整性与标签平衡通过、
+> 全部 URL 200。
 
 > 2026-09-28 修复销售详情「国家 未登记 / 未识别品牌」（已提交）：① 根因一：
 > `get_settlement_detail` 的返回 payload **漏了 `country`**（batch 上有值、库里 15 单全部

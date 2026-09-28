@@ -1,7 +1,70 @@
 # TODO
 
 > 规则：只保留尚未完成的事项；完成后删除条目并在此留下简短留档。
-> 最后更新：2026-09-28
+> 最后更新：2026-09-29
+
+> 已完成（2026-09-29）：「卖得怎么样」等级销售分析第一行新增每日销售金额折线图（与饼图
+> 同行，参考稿样式：灰调平滑线+面积渐变+隐 Y 轴+末点空心圆），数据走 trend 接口独立
+> loading/error，经 overview-aside 插槽挂入。前端 300 项 test、typecheck、build 通过，
+> dist 已重建。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：销售日期筛选改「快捷下拉 + 常驻日历」。`DateRangeFilter`
+> 单个快捷下拉（自定义时间 / 近七天 / 近十四天 / 近三十天 / 近九十天 / 按年度组 /
+> 按月度组）+ 右侧日历常驻，选中快捷选项自动填充起止并触发查询；起止匹配边界时
+> 下拉回显、手动改日历回自定义；对外契约不变、四页零改动。前端 299 test /
+> typecheck / build 通过，dist 已重建；Playwright 12/12 + AI 视觉验收通过。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：「销售详情」按日均价走势/规格表同行与上方「销售表现」的
+> 间隔拉开（`detail-row-layout` 加 margin-top 24px；面板内区块分隔线被清零是贴死
+> 根因）。前端 299 test/typecheck/build 通过；Playwright 实测间距 24px、移动端无
+> 溢出。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：按日均价走势图**随规格表等高撑满**（用户反馈同行布局下 250px
+> 太矮）——图容器 flex 拉伸 + `height="100%"`（ResizeObserver 跟随），`detail-row-layout`
+> 改 stretch；≤1079px 单列/移动端回落 280px 兜底。Playwright 5/5（长表 662px 等高、
+> 短表跟随、单列 280、无溢出）；前端 295 test/typecheck/build 通过。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：结算单导出 xlsx 与 PDF 内容全部居中（区块标题、售后内容/摘要、
+> 费用名、各合计与应付金额，由左/右对齐改居中）。仅 `entry_export.py` 双渲染器对齐调整；
+> 后端 408 过（11 失败为既有基线）、xlsx 在线逐格全居中、PDF 视觉验收通过、8000 已重启。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：侧边导航升级为管理端目录驱动的**两级菜单**（销售单管理 /
+> 销售分析分组，卖得怎么样独立一级）。后端 `SidebarMenuRead` 扩 `id/parent_id/
+> menu_type` 且目录随 `/api/auth/me` 下发；前端 `buildMenuGroups()` + `AppShell`
+> 两级侧栏与移动端分组「更多」面板。后端仅存量 3 失败（并行在途、与本改动无关）、
+> 前端 293 test / typecheck / build 通过，三角色真实浏览器验证通过。ADR-051 见
+> `docs/DECISIONS.md`。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：「销售详情」按日均价走势与规格件数与均价**同行排版**——
+> `.detail-row-layout` 栅格（图左窄 .6fr / 表右宽 1.4fr、顶部对齐），≤1079px 回落
+> 单列。前端 295 项 test、typecheck、build 通过，dist 已重建；Playwright 1440/1079/
+> 390 三断点验证通过（截图 `tmp/daily-price-chart/`）。另排查留档：1440px 存在
+> 1px 全站既有横向溢出（wechat-qr-popover / sr-only，与本次无关，未处理）。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：「品牌对比」等级均价对比图不再显示「其他」等级。
+> `SeriesGradePriceChart.vue` gradeOrder 过滤 OTHER（折线+图例同步，悬浮提示随
+> series 自动同步）；总览表「其他」列保留不动。新增
+> `frontend/tests/series-grade-price-chart.test.mjs` 2 项回归断言。前端 295 项
+> test、typecheck、build 通过，dist 已重建。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-28）：「销售详情」新增按日均价走势折线图（用户从 6 图评估稿中只保留
+> 此一张）。新组件 `SettlementDailyPriceChart.vue`（DeferredEChart 异步分片），数据由
+> 详情 `records` 前端按销售日期聚合（每件均价=当日金额÷当日件数，跟随上方等级筛选），
+> 区块插在「销售表现」与「规格件数与均价」之间、标题带单号前缀，单日单提示「本单销售
+> 集中在 1 天」；纯前端改动，无后端/依赖变化。前端 293 项 test 中与本改动相关的全部
+> 通过（3 项 shell-menu 失败属并行会话在途）、typecheck、build 通过、dist 已重建；
+> Playwright 真实浏览器 9/9 通过（含数值与库内一致），截图 `tmp/daily-price-chart/`。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-28）：修复「每一单」导出 PDF 报错。根因＝环境重建后无 LibreOffice；
+> 按用户指示改为 PIL 渲染图片→PDF（`render_entry_pdf`，A4 横向分页 + 表头重画），删除
+> LibreOffice 路径；本机装 `google-noto-cjk-fonts`、镜像 Dockerfile 加 `fonts-noto-cjk`、
+> `pyproject` 声明 pillow。后端 408 过（11 失败为既有基线）；8000 已重启，在线 PDF 200 +
+> AI 视觉验收通过。ADR-050 见 `docs/DECISIONS.md`。详见 `docs/HANDOFF.md` 顶部同日记录。
 
 > 已完成（2026-09-28）：修复销售详情「国家 未登记 / 未识别品牌」。详情接口补返回
 > `country` 与 `brand`（batch_brand 口径），前端类型/normalize 同步，规格表品牌列优先用
