@@ -3557,26 +3557,32 @@ Branch：`dev`
 Latest commits：
 
 ```text
-dfbd8a3 chore(frontend): 上线前清理旧入口与临时文件
-876bd61 docs(handoff): 同步提交与推送状态
-de40eca feat(import): 收口多文件导入手工录单与顺仔问答
-4903399 feat(analytics): 等级动态展示并新增结算单同品牌AI分析
-2c7c5c8 feat(frontend): 完善侧栏分页与系统页脚
-d1dd57b chore(backend): 统一环境变量到 backend/.env
-0a20e9f docs: 更新README页签与通知说明
-b740af4 feat(frontend): 页签右键菜单支持刷新与关闭操作
-eeb6681 feat: 品牌化统一日期筛选并优化结算详情与移动端
+6a47233 checkpoint: rollback dev to 83678eb, keep styles.css base block fix
+83678eb checkpoint: restart-aware container count fix and overview filter flex layout
+07fde22 checkpoint: sync metric wording docs after container count change
+877fb7c checkpoint: ui tweaks (container count, select blur, export align, price line chart)
+f3109c8 checkpoint: restore frontend lost in workspace incident via session records
+6ba6c5d feat(export): 结算单导出同日同规格同价行合并
+87ac77f chore(ui): 清理区块标题下的静态辅助说明
+4e77f47 feat(ui): 市场销售分析移至等级销售分析上方
+3854b9a feat(ui): 每日销售折线图支持金额件数切换
 ```
 
-Uncommitted changes（2026-09-28，checkpoint 后）：
+Uncommitted changes（2026-09-29，回退 checkpoint 后）：
 
-- **工作区干净**：2026-09-28 全部在途改动已由 `0eb8892 checkpoint: land 2026-09-28
-  in-flight features and docs` 收口并推送到 `origin/dev`；此前数批改动已在
-  `c9fb46e` / `eeea102` / `d06a613` 等提交中入库。
-- `tmp/`、`demo-*/`、`.demo/`、`.mimosa/`、`.vite/`、`problem/`、dev-preview 截图、
-  `images/*.tar*`、`images/config/.env.docker`、`*.bak-*`、
-  `docs/结算单模板样式-*.xlsx` 已补入 `.gitignore`（本地运行产物 / 真实经营数据，不入库）。
-- `tickets/`、`backend/data/`、`.env`、`backend/.env`、`attachments/` 仍未提交（被忽略）。
-- `fruits_ana_admin` 已合入 `main` 并推送到 `origin/main`。
-- 未改动 `.env`、`backend/.env`、MySQL 配置；`.superpowers/`、`.superpowersigeria/`
-  仍被 `.gitignore` 忽略，不会提交。
+- **回退与推送**：dev 已按用户指令回退至 `83678eb` 并叠加
+  `6a47233 checkpoint: rollback dev to 83678eb, keep styles.css base block fix`
+  （保留 styles.css 基础类块修复，详见顶部「晚（回退）」条目）；被撤销的 5 提交
+  备份于本地分支 `backup/pre-rollback-0c86f14`。本条目所在 docs 提交与此前 13 个
+  未推送提交一并推送 `origin/dev`（fast-forward）。
+- **并行会话在途改动（未提交、未推送）**：`frontend/dev-preview/README.md` 与
+  `frontend/dev-preview/index.ts` 已修改未提交；`frontend/dev-preview/
+  overview-one-screen.{html,css,js,data.js}` 与 `docs/superpowers/plans/
+  2026-09-29-overview-one-screen-spec-detail.md` 为未跟踪新文件——系「一屏看完」
+  改版并行会话的在途工作，待其自行收口，本次不代为提交。
+- `.zcode/`、`.zcodeignore` 为工具产物未入库；`tmp/`、`demo-*/`、`.demo/`、
+  `.mimosa/`、`.vite/`、`problem/`、dev-preview 截图、`images/*.tar*`、
+  `*.bak-*`、`docs/结算单模板样式-*.xlsx` 已在 `.gitignore`（本地运行产物 /
+  真实经营数据，不入库）。
+- `tickets/`、`backend/data/`、`.env`、`backend/.env`、`attachments/` 仍未提交
+  （被忽略）；未改动 `.env`、`backend/.env`、MySQL 配置。
