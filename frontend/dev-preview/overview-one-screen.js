@@ -131,7 +131,9 @@
       }
     })
     return {
-      grid: { left: 14, right: 20, top: 30, bottom: 26 },
+      /* containLabel：坐标标签计入网格，防止日期标签穿出容器；
+         y 轴上下各留 22% 数据余量，折线与下交错数值标签不扎进 x 轴标签区（修穿模）。 */
+      grid: { left: 8, right: 24, top: 30, bottom: 4, containLabel: true },
       tooltip: {
         trigger: 'axis',
         valueFormatter: function (value) { return metric.tip(value) },
@@ -144,11 +146,18 @@
         axisLabel: {
           color: '#56635b',
           fontSize: 10.5,
+          margin: 10,
           formatter: function (value) { return value.slice(5) },
           interval: Math.max(0, Math.floor(daily.length / 10) - 1),
         },
       },
-      yAxis: { show: false, type: 'value', splitLine: { show: false } },
+      yAxis: {
+        show: false,
+        type: 'value',
+        splitLine: { show: false },
+        min: function (value) { return value.min - (value.max - value.min) * 0.22 },
+        max: function (value) { return value.max + (value.max - value.min) * 0.22 },
+      },
       series: [{
         type: 'line',
         smooth: false,
