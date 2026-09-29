@@ -141,8 +141,13 @@ h1, h2, h3, p { margin: 0; }
   display: grid;
   grid-template-columns: 1.5fr 1fr 1fr 1fr;
 }
-.hcell { min-width: 0; padding: 4px 16px 6px; }
+.hcell { min-width: 0; padding: 4px 16px 6px; cursor: pointer; transition: background .12s ease; }
 .hcell + .hcell { border-left: 1px solid var(--line); }
+.hcell:hover { background: color-mix(in srgb, var(--primary-soft) 55%, transparent); }
+.hcell:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+/* 联动选中态：与下方每日趋势指标一致 */
+.hcell--active { background: var(--primary-soft); outline: 2px solid var(--primary); outline-offset: -2px; border-radius: var(--radius); }
+.hcell--price.hcell--active { outline: 2px solid var(--primary-dark); }
 .hlabel { display: block; color: var(--muted); font-size: .88rem; font-weight: 700; margin-bottom: 3px; }
 .hnum { display: block; line-height: 1.12; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hnum .cur { font-size: 46%; font-weight: 700; opacity: .75; margin-right: 1px; }
@@ -194,22 +199,10 @@ h1, h2, h3, p { margin: 0; }
 .card-heading h2 { font-size: 1rem; font-weight: 800; }
 .heading-note { color: var(--muted-2); font-size: .8rem; }
 
-/* ---------- 每日销售趋势（全宽主图，随视口弹性伸展） ---------- */
+/* ---------- 每日趋势（全宽主图，随视口弹性伸展；指标由上方大数带联动） ---------- */
 .trend-card { display: flex; flex: 1.08 1 200px; flex-direction: column; min-height: 0; }
 .trend-card .card-heading { flex: 0 0 auto; }
 #trend-chart { flex: 1 1 auto; min-height: 150px; }
-.trend-toggle { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 4px; overflow: hidden; }
-.trend-toggle-btn {
-  min-height: 1.75rem;
-  padding: 0 13px;
-  border: 0;
-  background: var(--card-bg);
-  color: var(--muted);
-  font-size: .84rem;
-  font-weight: 700;
-}
-.trend-toggle-btn + .trend-toggle-btn { border-left: 1px solid var(--line-strong); }
-.trend-toggle-btn.is-active { background: var(--primary); color: #fff; }
 
 /* ---------- 三卡一行 ---------- */
 .trio-row {

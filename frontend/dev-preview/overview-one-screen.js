@@ -42,13 +42,14 @@
   /* ---------- 通栏大数带 ---------- */
   function renderHero() {
     var cells = [
-      { label: '销售金额', hero: true, price: true, value: moneyPrefix() + formatNumber(totals.amount), cap: '筛选范围合计' },
-      { label: '总件数', value: formatNumber(totals.qty), unit: '件', cap: '全部等级合计' },
-      { label: '每件均价', price: true, value: moneyPrefix() + formatPrice(avgPrice), cap: '元/件 · 金额 ÷ 件数（加权）' },
-      { label: '总柜数', value: formatNumber(data.meta.settlementCount), unit: '柜', cap: '结算单数' },
+      { metric: 'amount', label: '销售金额', hero: true, price: true, value: moneyPrefix() + formatNumber(totals.amount), cap: '筛选范围合计 · 点击看每日走势' },
+      { metric: 'quantity', label: '总件数', value: formatNumber(totals.qty), unit: '件', cap: '全部等级合计 · 点击看每日走势' },
+      { metric: 'price', label: '每件均价', price: true, value: moneyPrefix() + formatPrice(avgPrice), cap: '元/件 · 金额 ÷ 件数（加权）' },
+      { metric: 'containers', label: '总柜数', value: formatNumber(data.meta.settlementCount), unit: '柜', cap: '结算单数 · 点击看每日走势' },
     ]
     document.getElementById('hero-cells').innerHTML = cells.map(function (cell) {
-      return '<div class="hcell' + (cell.price ? ' hcell--price' : '') + '">' +
+      return '<div class="hcell' + (cell.price ? ' hcell--price' : '') +
+        '" role="button" tabindex="0" aria-pressed="false" data-metric="' + cell.metric + '">' +
         '<span class="hlabel">' + cell.label + '</span>' +
         '<strong class="hnum num ' + (cell.hero ? 'n-hero' : 'n-kpi') + '">' + cell.value +
         (cell.unit ? '<small class="unit">' + cell.unit + '</small>' : '') + '</strong>' +
@@ -68,7 +69,7 @@
       '</b> · 最新 <b>' + data.meta.coverageEnd.slice(5) + '</b>'
   }
 
-  /* ---------- 每日销售趋势：权重缩放，合计与 KPI 完全一致 ---------- */
+  /* ---------- 每日趋势：权重缩放，金额/件数合计与 KPI 完全一致 ---------- */
   var daily = (function () {
     var weightSum = data.dailyWeights.reduce(function (sum, item) { return sum + item[1] }, 0)
     var usedAmount = 0
@@ -86,36 +87,54 @@
         usedAmount += amount
         usedQty += qty
       }
-      return { date: item[0], amount: amount, qty: qty }
+      return {
+        date: item[0],
+        amount: amount,
+        qty: qty,
+        price: qty ? amount / qty : null,
+        containers: data.containerDays[item[0]] || 0,
+      }
     })
   })()
 
+  /* KPI ↔ 趋势联动：点上方大数带各格切换指标（口径与后端 trend 一致） */
+  var METRICS = {
+    amount: { name: '销售金额', unit: '万元', label: function (v) { return (v / 10000).toFixed(1) }, tip: function (v) { return '¥' + formatNumber(v) } },
+    quantity: { name: '总件数', unit: '件', label: function (v) { return formatNumber(v) }, tip: function (v) { return formatNumber(v) + ' 件' } },
+    price: { name: '每件均价', unit: '元/件', label: function (v) { return v == null ? '—' : v.toFixed(1) }, tip: function (v) { return v == null ? '—' : '¥' + v.toFixed(2) } },
+    containers: { name: '总柜数', unit: '柜', label: function (v) { return String(v) }, tip: function (v) { return v + ' 柜' } },
+  }
   var trendMetric = 'amount'
   var trendChart = echarts.init(document.getElementById('trend-chart'))
 
-  function markLabelText(value) {
-    if (trendMetric === 'amount') {
-      return '¥' + (value / 10000).toFixed(1).replace(/\.0$/, '') + '万'
-    }
-    return formatNumber(value)
-  }
-
   function trendOption() {
-    var isAmount = trendMetric === 'amount'
-    var values = daily.map(function (point) { return isAmount ? point.amount : point.qty })
+    var metric = METRICS[trendMetric]
+    var values = daily.map(function (point) { return point[trendMetric === 'quantity' ? 'qty' : trendMetric] })
     var lastIndex = values.length - 1
-    /* 标注文字在构建期直接算好（静态字符串）：coord 型标注点运行时 param.value 为 NaN，
-       依赖 formatter 参数取值会渲染出「¥NaN万」。 */
-    var peak = Math.max.apply(null, values)
-    var peakText = markLabelText(peak)
-    var lastText = markLabelText(values[lastIndex])
+    var peak = Math.max.apply(null, values.map(function (v) { return v == null ? -Infinity : v }))
+    var peakIndex = values.indexOf(peak)
+    /* 全点数值标注：短值（单位在标题注）+ 奇偶上下交错防重叠；峰值/末值加粗深墨绿。
+       柜数的 0 值日不标注，避免成串 0 干扰。 */
+    var seriesData = values.map(function (value, index) {
+      var isKey = index === peakIndex || index === lastIndex
+      var text = metric.label(value)
+      if (trendMetric === 'containers' && !value) text = ''
+      return {
+        value: value,
+        label: {
+          position: index % 2 ? 'bottom' : 'top',
+          color: isKey ? '#104a2f' : '#56635b',
+          fontWeight: isKey ? 800 : 400,
+          fontSize: isKey ? 11 : 10,
+          formatter: text,
+        },
+      }
+    })
     return {
-      grid: { left: 52, right: 66, top: 30, bottom: 24 },
+      grid: { left: 14, right: 20, top: 30, bottom: 26 },
       tooltip: {
         trigger: 'axis',
-        valueFormatter: function (value) {
-          return isAmount ? '¥' + formatNumber(value) : formatNumber(value) + ' 件'
-        },
+        valueFormatter: function (value) { return metric.tip(value) },
       },
       xAxis: {
         type: 'category',
@@ -129,66 +148,51 @@
           interval: Math.max(0, Math.floor(daily.length / 10) - 1),
         },
       },
-      yAxis: {
-        type: 'value',
-        splitLine: { lineStyle: { color: '#e2e9e4' } },
-        axisLabel: {
-          color: '#56635b',
-          fontSize: 10.5,
-          formatter: function (value) {
-            return isAmount && value >= 10000 ? (value / 10000) + '万' : formatNumber(value)
-          },
-        },
-      },
+      yAxis: { show: false, type: 'value', splitLine: { show: false } },
       series: [{
         type: 'line',
-        smooth: true,
+        smooth: false,
         symbol: 'circle',
-        symbolSize: 5,
-        showSymbol: false,
-        data: values,
-        lineStyle: { width: 2.5, color: '#104a2f' },
+        symbolSize: 4.5,
+        data: seriesData,
+        lineStyle: { width: 2.2, color: '#104a2f' },
         itemStyle: { color: '#104a2f' },
-        areaStyle: {
-          color: {
-            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [
-              { offset: 0, color: 'rgba(16,74,47,.20)' },
-              { offset: 1, color: 'rgba(16,74,47,0)' },
-            ],
-          },
+        label: {
+          show: true,
+          distance: 5,
+          fontFamily: 'Bahnschrift, "Microsoft YaHei", sans-serif',
         },
-        markPoint: {
-          symbol: 'circle',
-          symbolSize: 7,
-          itemStyle: { color: '#104a2f' },
-          label: {
-            show: true,
-            position: 'top',
-            distance: 6,
-            fontFamily: 'Bahnschrift, "Microsoft YaHei", sans-serif',
-            fontSize: 11,
-            fontWeight: 800,
-            color: '#104a2f',
-          },
-          data: [
-            { type: 'max', name: '峰值', label: { formatter: peakText } },
-            { coord: [daily[lastIndex].date, values[lastIndex]], name: '末值', label: { formatter: lastText } },
-          ],
-        },
+        connectNulls: true,
       }],
     }
   }
 
-  function bindTrendToggle() {
-    document.querySelectorAll('.trend-toggle-btn').forEach(function (button) {
-      button.addEventListener('click', function () {
-        trendMetric = button.dataset.metric
-        document.querySelectorAll('.trend-toggle-btn').forEach(function (item) {
-          item.classList.toggle('is-active', item === button)
-        })
-        trendChart.setOption(trendOption(), { replaceMerge: ['series'] })
-      })
+  function setTrendMetric(key) {
+    if (!METRICS[key]) return
+    trendMetric = key
+    var metric = METRICS[key]
+    document.getElementById('trend-metric-note').textContent =
+      metric.name + ' · 单位：' + metric.unit
+    document.querySelectorAll('#hero-cells .hcell').forEach(function (cell) {
+      var active = cell.dataset.metric === key
+      cell.classList.toggle('hcell--active', active)
+      cell.setAttribute('aria-pressed', String(active))
+    })
+    trendChart.setOption(trendOption(), { replaceMerge: ['series'] })
+  }
+
+  function bindHeroMetric() {
+    document.getElementById('hero-cells').addEventListener('click', function (event) {
+      var cell = event.target.closest('.hcell[data-metric]')
+      if (cell) setTrendMetric(cell.dataset.metric)
+    })
+    document.getElementById('hero-cells').addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      var cell = event.target.closest('.hcell[data-metric]')
+      if (cell) {
+        event.preventDefault()
+        setTrendMetric(cell.dataset.metric)
+      }
     })
   }
 
@@ -485,19 +489,20 @@
 
   /* ---------- 启动 ---------- */
   renderHero()
-  bindTrendToggle()
+  bindHeroMetric()
   renderGradeDonut()
   renderGradePriceBars()
   renderMarket()
   bindFilters()
   renderSpecSummary()
   bindGradeModal()
-  trendChart.setOption(trendOption())
+  setTrendMetric(trendMetric)
   window.addEventListener('resize', function () { trendChart.resize() })
 
   /* ---------- 预览辅助：URL 参数驱动（无头截图验收用） ----------
    * ?detail=A|B|C          载入即弹出该等级明细（验收弹层；1 视同 A）
-   * ?metric=quantity       趋势图载入即切到件数
+   * ?metric=amount|quantity|price|containers
+   *                        趋势图载入即切到该指标（验收联动）
    * ?report=height         渲染后把整页高度写进 <title>（配合 --dump-dom 读数） */
   var params = new URLSearchParams(window.location.search)
   var detailGrade = String(params.get('detail') || '').toUpperCase()
@@ -505,9 +510,9 @@
   if (GRADE_ORDER.includes(detailGrade)) {
     window.setTimeout(function () { openGradeDetail(detailGrade) }, 200)
   }
-  if (params.get('metric') === 'quantity') {
-    var quantityButton = document.querySelector('.trend-toggle-btn[data-metric="quantity"]')
-    if (quantityButton) quantityButton.click()
+  var metricParam = params.get('metric')
+  if (metricParam && METRICS[metricParam] && metricParam !== trendMetric) {
+    setTrendMetric(metricParam)
   }
   if (params.get('report') === 'height') {
     window.setTimeout(function () {

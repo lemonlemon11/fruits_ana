@@ -54,16 +54,13 @@
       </div>
     </section>
 
-    <!-- 每日销售趋势：全宽主图，峰值/末值标注 -->
+    <!-- 每日趋势：全宽主图，点上方大数带各格切换指标，全点数值标注 -->
     <section class="card trend-card" aria-labelledby="trend-title">
       <header class="card-heading">
-        <h2 id="trend-title">每日销售趋势</h2>
-        <div class="trend-toggle" role="group" aria-label="趋势指标切换">
-          <button type="button" class="trend-toggle-btn is-active" data-metric="amount">金额</button>
-          <button type="button" class="trend-toggle-btn" data-metric="quantity">件数</button>
-        </div>
+        <h2 id="trend-title">每日趋势</h2>
+        <span class="heading-note" id="trend-metric-note"></span>
       </header>
-      <div id="trend-chart" aria-label="每日销售趋势图"></div>
+      <div id="trend-chart" aria-label="每日趋势图"></div>
     </section>
 
     <!-- 三卡一行：等级件数结构 | 等级均价 | 市场销售分析 -->
