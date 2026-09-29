@@ -105,7 +105,7 @@
     containers: { name: '总柜数', unit: '柜', label: function (v) { return String(v) }, tip: function (v) { return v + ' 柜' } },
   }
   var trendMetric = 'amount'
-  var trendChart = echarts.init(document.getElementById('trend-chart'))
+  var trendChart = null
 
   function trendOption() {
     var metric = METRICS[trendMetric]
@@ -500,15 +500,25 @@
 
   /* ---------- 启动 ---------- */
   renderHero()
-  bindHeroMetric()
   renderGradeDonut()
   renderGradePriceBars()
   renderMarket()
   bindFilters()
   renderSpecSummary()
   bindGradeModal()
+  bindHeroMetric()
+  /* echarts 初始化必须在各区块内容渲染完成之后：满高 flex 布局下，空容器会把
+     趋势图撑高，内容填充后容器收缩——若先 init，画布保持初始高度，底部日期行
+     会越出卡片压到下方区块（用户实测的「横坐标下沉穿模」）。 */
+  trendChart = echarts.init(document.getElementById('trend-chart'))
   setTrendMetric(trendMetric)
-  window.addEventListener('resize', function () { trendChart.resize() })
+  /* 画布随容器尺寸自动重排：覆盖字体加载、后续任何布局变化 */
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(function () { trendChart && trendChart.resize() }).observe(document.getElementById('trend-chart'))
+  }
+  window.addEventListener('resize', function () { trendChart && trendChart.resize() })
+  /* 兜底：布局稳定后再校一次尺寸 */
+  window.setTimeout(function () { trendChart && trendChart.resize() }, 60)
 
   /* ---------- 预览辅助：URL 参数驱动（无头截图验收用） ----------
    * ?detail=A|B|C          载入即弹出该等级明细（验收弹层；1 视同 A）

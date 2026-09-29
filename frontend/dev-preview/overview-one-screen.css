@@ -204,7 +204,7 @@ h1, h2, h3, p { margin: 0; }
 .heading-note { color: var(--muted-2); font-size: .8rem; }
 
 /* ---------- 每日趋势（全宽主图，随视口弹性伸展；指标由上方大数带联动） ---------- */
-.trend-card { display: flex; flex: 1.08 1 200px; flex-direction: column; min-height: 0; }
+.trend-card { display: flex; flex: 1.08 1 200px; flex-direction: column; min-height: 0; overflow: hidden; }
 .trend-card .card-heading { flex: 0 0 auto; }
 #trend-chart { flex: 1 1 auto; min-height: 150px; }
 
