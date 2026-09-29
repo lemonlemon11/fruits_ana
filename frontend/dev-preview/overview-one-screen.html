@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>卖得怎么样 · 一屏看完预览（视觉伴侣 53005）</title>
+  <!-- 复用真实全站令牌与基础类（styles.css → styles-dashboard.css），
+       预览所见即真实页面的设计语言。 -->
+  <link rel="stylesheet" href="../src/styles.css" />
+  <link rel="stylesheet" href="./overview-one-screen.css" />
+</head>
+<body>
+  <header class="preview-topbar">
+    <span class="preview-topbar-title">SLD 水果市场销售分析 · 卖得怎么样（销售总览）</span>
+    <span class="preview-topbar-badge">视觉伴侣预览 · 53005 · 虚构数据，口径与线上一致</span>
+  </header>
+
+  <main class="page-stack overview-preview" id="overview-root">
+    <!-- 筛选栏：版式与线上 overview-filter 一致（flex，日期吃满剩余行宽）。 -->
+    <form class="filter-bar overview-filter" onsubmit="return false">
+      <label class="overview-date-field">
+        <span>销售日期</span>
+        <div class="date-inputs">
+          <input type="date" value="2026-01-02" aria-label="销售日期起" />
+          <span class="date-sep">~</span>
+          <input type="date" value="2026-09-20" aria-label="销售日期止" />
+        </div>
+      </label>
+      <label>
+        <span>国家</span>
+        <select aria-label="国家">
+          <option>全部国家</option>
+          <option selected>越南</option>
+          <option>泰国</option>
+        </select>
+      </label>
+      <label>
+        <span>市场</span>
+        <select aria-label="市场">
+          <option selected>全部市场</option>
+          <option>广州江南</option>
+          <option>长沙海吉星</option>
+          <option>武汉白沙洲</option>
+        </select>
+      </label>
+      <button class="primary-button" type="submit">查看结果</button>
+    </form>
+
+    <!-- 销售情况 KPI hero：4 格大数 + 近期单据覆盖小注（纯销售口径，无费用/应收）。 -->
+    <section class="kpi-hero" aria-labelledby="kpi-title">
+      <header class="section-heading">
+        <h2 id="kpi-title">销售情况</h2>
+      </header>
+      <div class="kpi-grid" id="kpi-grid"><!-- JS 注入 4 格 --></div>
+      <p class="kpi-coverage" id="kpi-coverage"></p>
+    </section>
+
+    <!-- 双栏：每日销售趋势（左宽）+ 市场销售分析（右窄）。 -->
+    <div class="row-two">
+      <section class="preview-card trend-card" aria-labelledby="trend-title">
+        <header class="card-heading">
+          <h2 id="trend-title">每日销售趋势</h2>
+          <div class="trend-toggle" role="group" aria-label="趋势指标切换">
+            <button type="button" class="trend-toggle-btn is-active" data-metric="amount">金额</button>
+            <button type="button" class="trend-toggle-btn" data-metric="quantity">件数</button>
+          </div>
+        </header>
+        <div class="chart-holder" id="trend-chart" aria-label="每日销售趋势图"></div>
+      </section>
+
+      <section class="preview-card market-card" aria-labelledby="market-title">
+        <header class="card-heading">
+          <h2 id="market-title">市场销售分析</h2>
+        </header>
+        <div class="market-body">
+          <div class="market-donut">
+            <div class="chart-holder" id="market-chart" aria-label="各品牌柜数"></div>
+            <ul class="market-legend" id="market-legend"></ul>
+          </div>
+          <ul class="market-bars" id="market-bars" aria-label="市场 × 品牌柜数"></ul>
+        </div>
+      </section>
+    </div>
+
+    <!-- 规格级销售分析：等级件数结构（左窄）+ 规格件数与均价摘要（右宽）。 -->
+    <div class="row-three">
+      <section class="preview-card grade-pie-card" aria-labelledby="grade-pie-title">
+        <header class="card-heading">
+          <h2 id="grade-pie-title">等级件数结构</h2>
+        </header>
+        <div class="grade-pie-body">
+          <div class="chart-holder" id="grade-pie-chart" aria-label="等级件数结构饼图"></div>
+          <ul class="grade-pie-legend" id="grade-pie-legend"></ul>
+        </div>
+      </section>
+
+      <section class="preview-card spec-summary-card" aria-labelledby="spec-title">
+        <header class="card-heading">
+          <h2 id="spec-title">规格件数与均价</h2>
+          <div class="spec-tools">
+            <label class="spec-filter">
+              <span>品牌</span>
+              <select id="spec-brand-filter" aria-label="规格品牌筛选"></select>
+            </label>
+            <label class="spec-filter">
+              <span>等级</span>
+              <select id="spec-grade-filter" aria-label="规格等级筛选"></select>
+            </label>
+            <button type="button" class="secondary-button detail-toggle" id="detail-toggle"
+              aria-expanded="false" aria-controls="detail-panel">查看明细 ▾</button>
+          </div>
+        </header>
+        <div class="spec-summary-grid" id="spec-summary"><!-- JS 注入等级分组摘要 --></div>
+      </section>
+    </div>
+
+    <!-- 查看明细：页内手风琴，全宽展开 7 列规格明细长表（品牌×等级小计 + 合计）。 -->
+    <section class="preview-card detail-panel" id="detail-panel" hidden aria-labelledby="detail-title">
+      <header class="card-heading">
+        <h2 id="detail-title">规格明细 · 各等级各规格果销售情况</h2>
+        <button type="button" class="secondary-button detail-toggle" id="detail-collapse"
+          aria-expanded="true" aria-controls="detail-panel">收起明细 ▴</button>
+      </header>
+      <div class="spec-table-wrap">
+        <table class="spec-table" id="spec-table">
+          <thead>
+            <tr>
+              <th>品牌</th><th>等级</th><th>头数</th><th>KG</th>
+              <th>备注</th><th>总件数</th><th>每件均价</th>
+            </tr>
+          </thead>
+          <tbody id="spec-table-body"><!-- JS 注入 --></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="../node_modules/echarts/dist/echarts.min.js"></script>
+  <script src="./overview-one-screen.data.js"></script>
+  <script src="./overview-one-screen.js"></script>
+</body>
+</html>

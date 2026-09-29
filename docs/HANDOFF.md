@@ -3,6 +3,24 @@
 Last updated：2026-09-29 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-29 晚（四）**销售总览「一屏看完」视觉伴侣静态稿（53005）**。样式修复完成后按
+> 用户指令产出：新增 `frontend/dev-preview/overview-one-screen.{html,css,data.js,js}`——
+> KPI 4 格（总柜数/总件数/销售金额/每件均价）+「15 张结算单·覆盖起止·最新单据」小注；
+> 双栏网格（每日销售趋势 196px 金额/件数切换 + 市场销售分析环图/图例/市场×品牌条形）；
+> 等级件数结构饼图 + 「规格件数与均价」A/B/C(含BC) 三列摘要（等级小计件数/占比/加权均价 +
+> 件数前 3 规格「头数KG·件数·占比条·均价」+「其他 N 个规格」）；「查看明细/收起明细」页内
+> 手风琴全宽展开 7 列规格明细长表（品牌×等级小计+合计）。虚构数据口径自洽（金额=件数×单价、
+> 均价=Σ金额÷Σ件数、总柜数=结算单数，趋势权重缩放与 KPI 合计严格一致），复用已恢复的
+> `../src/styles.css` 全站令牌，echarts 取本地 node_modules；支持 `?detail=1`/`?metric=quantity`/
+> `?report=height` 无头验收参数。服务：`npm --prefix frontend run dev -- --port 53005
+> --strictPort --host 0.0.0.0`，页面 `/dev-preview/overview-one-screen.html`（后台运行中，
+> 用后即停）。验证：1920×1080 无头 chromium 两轮截图 + 视觉模型审图通过（默认态整页高度
+> =1080 恰好一屏、展开态长表 9 组小计+合计完整、数字千分位/¥xx.xx 格式正确）；本会话无
+> npm test 运行（dev-preview 不参与线上构建，README/index.ts 索引同步为文案改动，风险
+> 极低——若需回归可跑 `npm --prefix frontend run test`）。计划文件重建于
+> `docs/superpowers/plans/2026-09-29-overview-one-screen-spec-detail.md`（早前版本被
+> 回退清除）。**待用户确认静态稿后按计划步骤 1-4 落地真实页面。**
+
 > 2026-09-29 晚（回退）**按用户指令回退 dev 至 `83678eb`（保留 styles.css 基础类块修复）**。
 > 用户要求「回退到 83678eb」；经确认采用「回退并保留样式修复」方案：先建备份分支
 > **`backup/pre-rollback-0c86f14`** 原样保存其时 HEAD（`0c86f14`）及其后全部历史，再

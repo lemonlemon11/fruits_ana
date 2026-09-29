@@ -26,6 +26,7 @@ cd frontend && npx vite --config vite.demo.config.ts
 
 | 文件 | 用途 |
 | --- | --- |
+| `overview-one-screen.html` | 销售总览「一屏看完」改版预览（2026-09-29）：KPI 4 格+覆盖小注、双栏网格（趋势+市场分析）、规格级（等级+头数+KG）占比均价摘要、「查看明细」页内手风琴展开规格明细长表；虚构数据口径自洽，echarts 取自本地 node_modules，常态以 53005 端口呈现 |
 | `redesign-20260922/index.html` | 全站布局重设计稿（手机 390 / 网页双端，登录 + 7 个菜单页 + 导入复核/手工录单流程页，虚构数据） |
 | `index.html` | 预览索引 |
 | `ask-demo.html` | 顺仔 · 悬浮问答机器人 Demo（右下角悬浮按钮 + 悬浮对话窗，`/api/ask`，53001 → 8010） |

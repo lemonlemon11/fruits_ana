@@ -1,5 +1,12 @@
 # TODO
 
+> 待办（静态稿已出，待确认）：**销售总览「一屏看完」改版落地真实页面**——视觉伴侣静态稿
+> 已完成并跑在 53005（`frontend/dev-preview/overview-one-screen.html`：KPI 4 格+覆盖小注、
+> 双栏网格、规格级（等级+头数+KG）占比均价摘要、「查看明细」页内手风琴展开规格明细长表；
+> 视觉审图两轮通过）。待用户确认静态稿后按计划文件
+> `docs/superpowers/plans/2026-09-29-overview-one-screen-spec-detail.md` 步骤 1-4 改
+> `OverviewView.vue` / `SettlementGradeBreakdown.vue` 并更新 `overview-filters.test.ts`。
+
 > 已完成（2026-09-29 晚）：**dev 回退至 `83678eb`（保留 styles.css 基础类块修复）**。
 > 撤销其后 5 提交（`fb84276` 四页面「老板浏览序」重排版、`515ca88`/`ea4f20a` revert
 > 往返、`08c20d8`、`0c86f14`），原样备份于分支 `backup/pre-rollback-0c86f14`；
