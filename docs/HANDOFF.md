@@ -3,6 +3,28 @@
 Last updated：2026-09-29 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-29 晚（回退）**按用户指令回退 dev 至 `83678eb`（保留 styles.css 基础类块修复）**。
+> 用户要求「回退到 83678eb」；经确认采用「回退并保留样式修复」方案：先建备份分支
+> **`backup/pre-rollback-0c86f14`** 原样保存其时 HEAD（`0c86f14`）及其后全部历史，再
+> `git reset --hard 83678eb` 撤销其后 5 个提交——`fb84276`（四页面老板浏览序重排版）、
+> `515ca88`/`ea4f20a`（revert 往返）、`08c20d8`（styles.css 基础类块恢复）、`0c86f14`
+> （checkpoint 与「一屏看完」计划文档）；随后从 `0c86f14` checkout
+> `frontend/src/styles.css` 带回 08c20d8 的 30 行全局基础类块（`.page-stack`/
+> `.filter-bar`/`.primary-button`/`.secondary-button`/`.text-button`/`.error-banner`/
+> `.empty-state`/`.section-heading`/`.section-note`/`.dashboard-section`/
+> `.skeleton-block`/`.two-column-layout`，因 `f3109c8` 事故在 83678eb 时本就缺失，
+> 不带回会复发「全站样式不一样」）。回退后四页面版式＝83678eb 版式（总览趋势图在
+> aside、等级分析原布局、详情 metric-strip 内嵌 after-heading、对比页等级均价折线
+> 位于明细表之后）。**「一屏看完」改版的设计决策（2026-09-29 已逐项确认）不受影响，
+> 计划文档随回退移至 backup 分支，实施前取回**
+> `docs/superpowers/plans/2026-09-29-overview-one-screen-spec-detail.md`。**验证**：
+> 前端 310/310 test、typecheck、build 通过，dist 已重建（53000 即时生效）；后端
+> pytest 423 项中 11 失败/412 通过——失败均为**既有环境问题**（`attachments/` 缺
+> `结算单模板样式-测试数据 1/2/3.xlsx` 等 gitignored fixture 的 FileNotFoundError 及
+> 1 项 xlsx 导出断言 `['金枕','金枕']≠['—','—']`），backend 代码在 83678eb 与
+> 0c86f14 间零差异（`git diff` 为空）、与本次回退无关。涉及文件：
+> `frontend/src/styles.css`、`docs/{HANDOFF,TODO}.md`。
+
 > 2026-09-29 晚 **总柜数显示 0 修复 + 销售总览筛选栏版式统一**。① 用户反馈总柜数
 > 显示 0：根因＝**后端 8000 旧进程未重启**——uvicorn（15:56 启动、无 --reload）内存里
 > 没有 17:36 加入的 `container_count`，前端（53000 已服务 17:54 新构建）按兜底逻辑显示
