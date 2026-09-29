@@ -3,10 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>卖得怎么样 · 一屏看完预览（视觉伴侣 53005）</title>
-  <!-- 复用真实全站令牌与基础类（styles.css → styles-dashboard.css），
-       预览所见即真实页面的设计语言。 -->
-  <link rel="stylesheet" href="../src/styles.css" />
+  <title>卖得怎么样 · 一屏看完预览 v2（视觉伴侣 53005）</title>
+  <!-- v2：通栏大数带看板语言（variant-O 定稿规范），流体字号自适应 1366/1920/2560；
+       令牌与全站同值但自包含，脱离全站 17px 基准。 -->
   <link rel="stylesheet" href="./overview-one-screen.css" />
 </head>
 <body>
@@ -15,18 +14,18 @@
     <span class="preview-topbar-badge">视觉伴侣预览 · 53005 · 虚构数据，口径与线上一致</span>
   </header>
 
-  <main class="page-stack overview-preview" id="overview-root">
-    <!-- 筛选栏：版式与线上 overview-filter 一致（flex，日期吃满剩余行宽）。 -->
-    <form class="filter-bar overview-filter" onsubmit="return false">
-      <label class="overview-date-field">
+  <main class="overview-preview" id="overview-root">
+    <!-- 筛选栏：紧凑单行（日期吃满剩余行宽） -->
+    <form class="filter-bar" onsubmit="return false">
+      <label class="f-field f-field--date">
         <span>销售日期</span>
-        <div class="date-inputs">
+        <span class="date-inputs">
           <input type="date" value="2026-01-02" aria-label="销售日期起" />
           <span class="date-sep">~</span>
           <input type="date" value="2026-09-20" aria-label="销售日期止" />
-        </div>
+        </span>
       </label>
-      <label>
+      <label class="f-field">
         <span>国家</span>
         <select aria-label="国家">
           <option>全部国家</option>
@@ -34,7 +33,7 @@
           <option>泰国</option>
         </select>
       </label>
-      <label>
+      <label class="f-field">
         <span>市场</span>
         <select aria-label="市场">
           <option selected>全部市场</option>
@@ -43,82 +42,90 @@
           <option>武汉白沙洲</option>
         </select>
       </label>
-      <button class="primary-button" type="submit">查看结果</button>
+      <button class="primary-btn" type="submit">查看结果</button>
     </form>
 
-    <!-- 销售情况 KPI hero：4 格大数 + 近期单据覆盖小注（纯销售口径，无费用/应收）。 -->
-    <section class="kpi-hero" aria-labelledby="kpi-title">
-      <header class="section-heading">
-        <h2 id="kpi-title">销售情况</h2>
-      </header>
-      <div class="kpi-grid" id="kpi-grid"><!-- JS 注入 4 格 --></div>
-      <p class="kpi-coverage" id="kpi-coverage"></p>
+    <!-- 通栏大数带：hero 金额 + 三格 KPI；副行 = 等级均价 + 覆盖范围（纯销售口径） -->
+    <section class="hero-band" aria-label="销售情况">
+      <div class="hero-cells" id="hero-cells"><!-- JS 注入 --></div>
+      <div class="hero-sub">
+        <div class="grade-chips" id="grade-chips"><!-- JS 注入 A/B/C 均价胶囊 --></div>
+        <p class="hero-coverage" id="hero-coverage"></p>
+      </div>
     </section>
 
-    <!-- 双栏：每日销售趋势（左宽）+ 市场销售分析（右窄）。 -->
-    <div class="row-two">
-      <section class="preview-card trend-card" aria-labelledby="trend-title">
+    <!-- 每日销售趋势：全宽主图，峰值/末值标注 -->
+    <section class="card trend-card" aria-labelledby="trend-title">
+      <header class="card-heading">
+        <h2 id="trend-title">每日销售趋势</h2>
+        <div class="trend-toggle" role="group" aria-label="趋势指标切换">
+          <button type="button" class="trend-toggle-btn is-active" data-metric="amount">金额</button>
+          <button type="button" class="trend-toggle-btn" data-metric="quantity">件数</button>
+        </div>
+      </header>
+      <div id="trend-chart" aria-label="每日销售趋势图"></div>
+    </section>
+
+    <!-- 三卡一行：等级件数结构 | 等级均价 | 市场销售分析 -->
+    <div class="trio-row">
+      <section class="card grade-pie-card" aria-labelledby="grade-pie-title">
         <header class="card-heading">
-          <h2 id="trend-title">每日销售趋势</h2>
-          <div class="trend-toggle" role="group" aria-label="趋势指标切换">
-            <button type="button" class="trend-toggle-btn is-active" data-metric="amount">金额</button>
-            <button type="button" class="trend-toggle-btn" data-metric="quantity">件数</button>
-          </div>
+          <h2 id="grade-pie-title">等级件数结构</h2>
         </header>
-        <div class="chart-holder" id="trend-chart" aria-label="每日销售趋势图"></div>
+        <div class="donut-layout">
+          <div class="css-donut" id="grade-donut" role="img" aria-label="等级件数结构环图"></div>
+          <ul class="legend-list" id="grade-legend"></ul>
+        </div>
       </section>
 
-      <section class="preview-card market-card" aria-labelledby="market-title">
+      <section class="card grade-price-card" aria-labelledby="grade-price-title">
+        <header class="card-heading">
+          <h2 id="grade-price-title">等级均价</h2>
+          <span class="heading-note">加权 = 金额 ÷ 件数</span>
+        </header>
+        <div class="price-bars" id="grade-price-bars"><!-- JS 注入 --></div>
+      </section>
+
+      <section class="card market-card" aria-labelledby="market-title">
         <header class="card-heading">
           <h2 id="market-title">市场销售分析</h2>
+          <span class="heading-note">柜数 = 结算单数</span>
         </header>
         <div class="market-body">
-          <div class="market-donut">
-            <div class="chart-holder" id="market-chart" aria-label="各品牌柜数"></div>
-            <ul class="market-legend" id="market-legend"></ul>
+          <div class="donut-layout">
+            <div class="css-donut" id="market-donut" role="img" aria-label="各品牌柜数环图"></div>
+            <ul class="legend-list" id="market-legend"></ul>
           </div>
           <ul class="market-bars" id="market-bars" aria-label="市场 × 品牌柜数"></ul>
         </div>
       </section>
     </div>
 
-    <!-- 规格级销售分析：等级件数结构（左窄）+ 规格件数与均价摘要（右宽）。 -->
-    <div class="row-three">
-      <section class="preview-card grade-pie-card" aria-labelledby="grade-pie-title">
-        <header class="card-heading">
-          <h2 id="grade-pie-title">等级件数结构</h2>
-        </header>
-        <div class="grade-pie-body">
-          <div class="chart-holder" id="grade-pie-chart" aria-label="等级件数结构饼图"></div>
-          <ul class="grade-pie-legend" id="grade-pie-legend"></ul>
+    <!-- 规格件数与均价：A/B/C 三列共用网格模板，数据纵向对齐 -->
+    <section class="card spec-card" aria-labelledby="spec-title">
+      <header class="card-heading">
+        <h2 id="spec-title">规格件数与均价</h2>
+        <div class="spec-tools">
+          <label class="spec-filter">
+            <span>品牌</span>
+            <select id="spec-brand-filter" aria-label="规格品牌筛选"></select>
+          </label>
+          <label class="spec-filter">
+            <span>等级</span>
+            <select id="spec-grade-filter" aria-label="规格等级筛选"></select>
+          </label>
+          <button type="button" class="detail-toggle" id="detail-toggle"
+            aria-expanded="false" aria-controls="detail-panel">查看明细 ▾</button>
         </div>
-      </section>
+      </header>
+      <div class="spec-groups" id="spec-summary"><!-- JS 注入三列摘要 --></div>
+    </section>
 
-      <section class="preview-card spec-summary-card" aria-labelledby="spec-title">
-        <header class="card-heading">
-          <h2 id="spec-title">规格件数与均价</h2>
-          <div class="spec-tools">
-            <label class="spec-filter">
-              <span>品牌</span>
-              <select id="spec-brand-filter" aria-label="规格品牌筛选"></select>
-            </label>
-            <label class="spec-filter">
-              <span>等级</span>
-              <select id="spec-grade-filter" aria-label="规格等级筛选"></select>
-            </label>
-            <button type="button" class="secondary-button detail-toggle" id="detail-toggle"
-              aria-expanded="false" aria-controls="detail-panel">查看明细 ▾</button>
-          </div>
-        </header>
-        <div class="spec-summary-grid" id="spec-summary"><!-- JS 注入等级分组摘要 --></div>
-      </section>
-    </div>
-
-    <!-- 查看明细：页内手风琴，全宽展开 7 列规格明细长表（品牌×等级小计 + 合计）。 -->
-    <section class="preview-card detail-panel" id="detail-panel" hidden aria-labelledby="detail-title">
+    <!-- 查看明细：页内手风琴，全宽展开 7 列规格明细长表（数字右对齐） -->
+    <section class="card detail-panel" id="detail-panel" hidden aria-labelledby="detail-title">
       <header class="card-heading">
         <h2 id="detail-title">规格明细 · 各等级各规格果销售情况</h2>
-        <button type="button" class="secondary-button detail-toggle" id="detail-collapse"
+        <button type="button" class="detail-toggle" id="detail-collapse"
           aria-expanded="true" aria-controls="detail-panel">收起明细 ▴</button>
       </header>
       <div class="spec-table-wrap">
