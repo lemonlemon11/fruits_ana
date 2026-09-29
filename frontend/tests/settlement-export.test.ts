@@ -42,6 +42,8 @@ test('列表改用通用 DataTable，分页留在表内底栏', () => {
   // 列定义集中在 columns 里，等级列随筛选范围动态展开。
   assert.match(viewSource, /const columns = computed<DataTableColumn<SettlementListItem>\[\]>\(\(\) => \[/)
   assert.match(viewSource, /label: `\$\{gradeLabel\(grade\)\}件数`/)
+  // 单号列 noShrink：fitWidth 压缩时保持完整内容宽，不允许省略号截断。
+  assert.match(viewSource, /\{ key: 'orderNo', label: '单号', align: 'center', emphasis: true, noShrink: true,/)
   // 分页走 DataTable 的 footer 插槽，落在表格外框内侧。
   assert.match(viewSource, /\.list-pagination \{ display: flex;/)
 })

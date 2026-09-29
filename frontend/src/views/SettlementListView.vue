@@ -86,7 +86,7 @@ const visibleGrades = computed(() => scopeGrades.value)
 const columns = computed<DataTableColumn<SettlementListItem>[]>(() => [
   { key: 'merchantNo', label: '商号', align: 'center', emphasis: true },
   { key: 'brand', label: '品牌', align: 'center', value: (item) => item.brand || '未识别品牌' },
-  { key: 'orderNo', label: '单号', align: 'center', emphasis: true, value: (item) => item.orderNoNormalized || item.orderNo || '—' },
+  { key: 'orderNo', label: '单号', align: 'center', emphasis: true, noShrink: true, value: (item) => item.orderNoNormalized || item.orderNo || '—' },
   { key: 'arrivalDate', label: '到达市场日期', align: 'center', sortable: true, sortKey: 'arrival_date', value: (item) => item.arrivalDate || '—' },
   { key: 'totalQuantity', label: '总件数', align: 'center', numeric: true, sortable: true, sortKey: 'total_quantity', value: (item) => formatNumber(item.totalQuantity) },
   ...visibleGrades.value.map((grade) => ({

@@ -107,6 +107,9 @@ test('fitWidth 列宽自适应：超宽按表头下限压缩铺满容器，放�
   assert.match(source, /'is-width-fitted': fittedWidths !== null/)
   assert.match(source, /\.data-table-el\.is-width-fitted :deep\(\.el-table__cell\) \{ padding: \.3rem \.5rem; \}/)
   assert.match(source, /\.data-table-el\.is-width-fitted :deep\(\.el-table__cell \.cell\) \{ padding: 0 4px; \}/)
+  // noShrink 列（单号）不参与压缩：下限＝理想宽，保证关键列内容完整可读。
+  assert.match(source, /noShrink\?: boolean/)
+  assert.match(source, /floor: column\.noShrink \? ideal : Math\.min\(ideal, headerNeed\)/)
 })
 
 test('单元格自定义走 cell-<key> 插槽', () => {

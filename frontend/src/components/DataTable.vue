@@ -23,6 +23,8 @@ export interface DataTableColumn<Row> {
   wrap?: boolean
   /** 文字列（商号、单号）加粗，作为每行的阅读起点。 */
   emphasis?: boolean
+  /** fitWidth 压缩时保持完整内容宽、不参与摊赤字；截断后无法辨认的关键列（单号）用。 */
+  noShrink?: boolean
   /** 表尾合计行的取值；未配置的列在合计行留空。 */
   foot?: () => unknown
   /** 自定义取值，供按等级展开之类的动态列使用。 */
@@ -239,7 +241,7 @@ function computeFittedWidths(
       (headerWidths[column.key] ?? textWidth(column.label) + (column.sortable ? 20 : 4)) + FIT_CELL_PAD,
     )
     const ideal = Math.max(mins[column.key] ?? 0, headerNeed)
-    entries.push({ key: column.key, ideal, floor: Math.min(ideal, headerNeed) })
+    entries.push({ key: column.key, ideal, floor: column.noShrink ? ideal : Math.min(ideal, headerNeed) })
   }
   if (!entries.length) return null
   return fitColumnWidths(available - fixedTotal, entries)

@@ -91,3 +91,27 @@ test('多轮分摊不压破下限：已承担的压缩量在后续轮次累计�
   const total = Object.values(widths).reduce((sum, width) => sum + width, 0)
   assert.equal(total, 963)
 })
+
+test('floor=ideal 的列（noShrink，如单号）不参与压缩，赤字由其余列承担', () => {
+  // 结算单列表单号列经 DataTable 的 noShrink 标记传入 floor=ideal：
+  // 截断后无法辨认的关键列保持完整内容宽，压缩只落在时间 / 商号等列上。
+  const widths = fitColumnWidths(400, [
+    { key: 'orderNo', ideal: 179, floor: 179 },
+    { key: 'confirmedAt', ideal: 140, floor: 100 },
+    { key: 'merchantNo', ideal: 104, floor: 56 },
+  ])
+  assert.ok(widths)
+  assert.equal(widths.orderNo, 179, 'noShrink 列保持理想宽')
+  assert.ok(widths.confirmedAt < 140, '赤字由可压缩列承担')
+  const total = Object.values(widths).reduce((sum, width) => sum + width, 0)
+  assert.equal(total, 400)
+})
+
+test('noShrink 列撑爆预算时整体回退滚动，而不是截断关键列', () => {
+  // 下限合计 179+100=279 > 预算 250：保持单号完整意味着放不下，
+  // 返回 null 由调用方回退 min-width 横向滚动。
+  assert.equal(fitColumnWidths(250, [
+    { key: 'orderNo', ideal: 179, floor: 179 },
+    { key: 'confirmedAt', ideal: 140, floor: 100 },
+  ]), null)
+})

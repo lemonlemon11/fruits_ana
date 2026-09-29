@@ -3,6 +3,22 @@
 Last updated：2026-09-30 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-30（三）**结算单列表「单号看不全」修复：单号列退出 fitWidth 压缩**。用户反馈
+> 单号列内容被省略号截断。根因（table-column-fit 回归测试里 1366 屏真实数据证实）：
+> fitWidth 压缩模式下各列从理想宽压向「表头下限」，单号理想宽 179px、下限仅 56px，
+> 平方加权让富余最大的单号列担最多赤字，1366 屏被压到 ~56px 只剩一两个字符。修复：
+> `DataTableColumn` 新增 `noShrink?: boolean`（floor＝ideal，不参与摊赤字），结算单列表
+> 单号列启用；其余列照常压缩。**边界行为**：noShrink 列撑爆预算时 `fitColumnWidths`
+> 返回 null，整表回退 min-width 横向滚动（操作列已 fixed right 钉右缘）——1366 屏
+> 下限合计 957+179-56>963，即小屏会从「压缩截断」变为「横向滚动」，宽屏（总理想宽
+> ≤ 容器）行为不变；若用户更想小屏也不滚，可再议删列（如录单时间）或单号去系列前缀
+> （品牌列已含同源信息，涉及口径需记 DECISIONS）。**验证**：前端 **314/314** test
+> （新增 3 项：fitColumnWidths floor=ideal 不压缩/撑爆回退 null、单号列 noShrink 断言）、
+> typecheck、build 通过，dist 已重建（53000 刷新即生效）；无登录凭据未做浏览器实测。
+> 涉及文件：`frontend/src/components/DataTable.vue`、
+> `frontend/src/views/SettlementListView.vue`、`frontend/tests/table-column-fit.test.ts`、
+> `frontend/tests/data-table.test.ts`、`frontend/tests/settlement-export.test.ts`。
+
 > 2026-09-30 凌晨（二）**「查看明细」只读态改纯文本展示（优化记录展示）**。用户要求
 > 「看看导入文件和查看明细的记录」并「优化记录」。现状盘点：`/import-review` 双形态
 > ——「导入文件」（待确认，可编辑表格）与「查看明细」（结算单列表 readonly=1 进入，
