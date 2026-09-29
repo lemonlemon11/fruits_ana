@@ -666,11 +666,16 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="review-modal">
-    <div class="review-dialog mobile-form-page" role="dialog" aria-modal="true" :aria-label="isReadonly ? '结算单明细只读查看' : '导入文件二次确认'">
+  <section :class="isReadonly ? 'review-page' : 'review-modal'">
+    <div
+      :class="isReadonly ? 'review-page-panel mobile-form-page' : 'review-dialog mobile-form-page'"
+      :role="isReadonly ? undefined : 'dialog'"
+      :aria-modal="isReadonly ? undefined : 'true'"
+      :aria-label="isReadonly ? undefined : '导入文件二次确认'"
+    >
       <header class="review-head">
         <span class="draft-state">{{ isReadonly ? '已入库 · 只读' : '待确认 · 尚未入库' }}</span>
-        <button class="modal-close" type="button" aria-label="关闭二次确认" :disabled="saving" @click="goBack">关闭</button>
+        <button class="modal-close" type="button" :aria-label="isReadonly ? '返回结算单列表' : '关闭二次确认'" :disabled="saving" @click="goBack">{{ isReadonly ? '返回列表' : '关闭' }}</button>
       </header>
 
       <div class="review-body">
@@ -1004,6 +1009,13 @@ onMounted(() => {
 <style scoped>
 .review-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: rgb(24 49 42 / 55%); overflow: hidden; }
 .review-dialog { position: relative; display: flex; flex-direction: column; width: min(1280px, 100%); height: min(920px, calc(100vh - 48px)); border-radius: 16px; background: var(--surface); box-shadow: 0 18px 60px rgb(0 0 0 / 24%); overflow: hidden; }
+/* 只读「查看明细」＝整页形态：无遮罩、不居中、不限高，随页签页面自然排版滚动；
+   编辑态（导入二次确认）保持弹窗不变。 */
+.review-page { display: block; }
+.review-page-panel { display: flex; flex-direction: column; width: min(1280px, 100%); margin: 0 auto; }
+.review-page-panel .review-head { padding: 0 4px 10px; border-bottom: 0; background: transparent; }
+.review-page-panel .review-body { flex: 0 0 auto; overflow: visible; padding: 0 0 4px; }
+.review-page-panel .review-foot { margin-top: 6px; border: 2px solid var(--line-strong); border-radius: var(--radius); }
 .review-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .review-body { flex: 1; overflow: auto; display: grid; gap: 14px; padding: 4px 16px 20px; }
 .draft-state { padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--primary-soft); color: var(--primary-dark); font-size: .8rem; font-weight: 800; white-space: nowrap; }

@@ -3,6 +3,18 @@
 Last updated：2026-09-30 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-30（六）**「查看明细」只读页去掉弹窗形态，改整页展示（真根因修复）**。用户
+> 再反馈「不用弹窗了，整个页签页面显示」。排查发现此前所有轮次的真根因：
+> `/import-review` 虽是路由页签，但模板根是 `.review-modal`（fixed 全屏深色遮罩 +
+> grid 居中）套 `.review-dialog`（1280px 居中卡片、限高 920px、`role="dialog"` +
+> `aria-modal`）——从结算单列表进入后**看起来就是弹窗**。修复：按 `isReadonly` 分流
+> ——只读（查看明细）用 `.review-page` / `.review-page-panel`（无遮罩、不居中、不限高、
+> 不内部滚动，内容随页签页面自然排版，1280px 内容列居中），头部改轻量工具行（徽章 +
+> 「返回列表」按钮）；编辑态（导入二次确认）**保持原弹窗形态不变**。**验证**：前端
+> **315/315** test（新增 1 项整页形态断言）、typecheck、build 通过，dist 已重建
+> （53000 刷新生效）；无登录凭据未做浏览器实测。涉及文件：
+> `frontend/src/views/ImportReviewView.vue`、`frontend/tests/import-review-copy.test.mjs`。
+
 > 2026-09-30（五）**「查看明细」收回浏览器新窗口改法，恢复应用内页签新开（终态）**。
 > 用户澄清「新开 tab 页」指**外壳页签栏**（工作区式多页签），不是浏览器新窗口：
 > `354d1d3` 的 `window.open` 方案理解偏了，本次把 `openRecords` 恢复为 `router.push`

@@ -30,6 +30,18 @@ test('只读查看明细以纯文本呈现记录，不再满屏灰色禁用输�
   assert.match(review, /aria-label="数量（件）"/)
 })
 
+test('查看明细（只读）整页展示：无遮罩无弹窗语义，编辑态保持弹窗', () => {
+  // 根容器按只读 / 编辑分流：只读＝普通页面流（随页签页面滚动），编辑＝原弹窗遮罩。
+  assert.match(review, /:class="isReadonly \? 'review-page' : 'review-modal'"/)
+  assert.match(review, /:class="isReadonly \? 'review-page-panel mobile-form-page' : 'review-dialog mobile-form-page'"/)
+  assert.match(review, /:role="isReadonly \? undefined : 'dialog'"/)
+  assert.match(review, /:aria-modal="isReadonly \? undefined : 'true'"/)
+  // 整页形态样式：不限高、不内部滚动，页签页面正常排版。
+  assert.match(review, /\.review-page \{ display: block; \}/)
+  assert.match(review, /\.review-page-panel \{ display: flex; flex-direction: column; width: min\(1280px, 100%\); margin: 0 auto; \}/)
+  assert.match(review, /\.review-page-panel \.review-body \{ flex: 0 0 auto; overflow: visible;/)
+})
+
 test('手工录单同步使用“数量（件）”文案', () => {
   assert.match(entry, /label: '数量（件）'/)
   assert.doesNotMatch(entry, /label: '销售数量'/)
