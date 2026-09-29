@@ -113,8 +113,9 @@
     var lastIndex = values.length - 1
     var peak = Math.max.apply(null, values.map(function (v) { return v == null ? -Infinity : v }))
     var peakIndex = values.indexOf(peak)
-    /* 全点数值标注：短值（单位在标题注）+ 奇偶上下交错防重叠；峰值/末值加粗深墨绿。
-       柜数的 0 值日不标注，避免成串 0 干扰。 */
+    /* 全点数值标注：短值（单位在标题注）。标签一律放点上方、分近/远两档交错
+       （而非上下双向）——下方永不悬挂标签，结构性杜绝与 x 轴日期标签穿模；
+       峰值/末值加粗深墨绿；柜数 0 值日不标注。 */
     var seriesData = values.map(function (value, index) {
       var isKey = index === peakIndex || index === lastIndex
       var text = metric.label(value)
@@ -122,7 +123,8 @@
       return {
         value: value,
         label: {
-          position: index % 2 ? 'bottom' : 'top',
+          position: 'top',
+          distance: index % 2 ? 5 : 19,
           color: isKey ? '#104a2f' : '#56635b',
           fontWeight: isKey ? 800 : 400,
           fontSize: isKey ? 11 : 10,
@@ -131,9 +133,7 @@
       }
     })
     return {
-      /* containLabel：坐标标签计入网格，防止日期标签穿出容器；
-         y 轴上下各留 22% 数据余量，折线与下交错数值标签不扎进 x 轴标签区（修穿模）。 */
-      grid: { left: 8, right: 24, top: 30, bottom: 4, containLabel: true },
+      grid: { left: 8, right: 24, top: 34, bottom: 4, containLabel: true },
       tooltip: {
         trigger: 'axis',
         valueFormatter: function (value) { return metric.tip(value) },
@@ -155,8 +155,9 @@
         show: false,
         type: 'value',
         splitLine: { show: false },
-        min: function (value) { return value.min - (value.max - value.min) * 0.22 },
-        max: function (value) { return value.max + (value.max - value.min) * 0.22 },
+        /* 标签全在点上方：上方多留（30%）、下方少留（8%，折线贴近底部也只留日期行间距） */
+        min: function (value) { return value.min - (value.max - value.min) * 0.08 },
+        max: function (value) { return value.max + (value.max - value.min) * 0.3 },
       },
       series: [{
         type: 'line',
