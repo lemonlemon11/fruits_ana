@@ -1303,3 +1303,21 @@
   属预期；2) 手机 UA 直接跳独立移动版，`?desktop=1` 强制桌面版时无手机适配；3) 前端
   测试 324→307（删除 17 项纯手机断言）；4) ADR-036 / ADR-051 中「移动端 tabbar 布局」
   约束随 tabbar 删除失效（见两 ADR 文末修订注记）。
+
+
+## ADR-053 — 「销售情况·总柜数」口径定为结算单数（与单量一致）
+
+- Date：2026-09-29
+- Status：accepted（用户拍板「总柜数统计应和单量相同」）
+- Context：2026-09-28 将「总销量」仅改字面为「总柜数」，数值仍是筛选范围的件数合计
+  （`total.sales_quantity`），口径留档待拍板（当时库内 16 张结算单 / 去重柜号 15 个，
+  柜号 EMCU5364147 一柜两单，去重柜号与结算单数二选一）。
+- Decision：`GET /api/analytics/overview` 的 `total` 新增 `container_count =
+  len({record.import_batch_id})`（结算单数口径，一柜两单不去重柜号），「卖得怎么样·
+  销售情况」的总柜数展示该值；与市场销售分析「合计 N 柜」、趋势接口 `container_count`
+  同口径。`MetricTotal` 增加可选 `containerCount`，`normalizeOverview` 缺失兜底 0；
+  GradeSummary 等级占比 tooltip 注释由「÷ 总柜数」更正为「÷ 总件数」。
+- Why：总柜数显示件数合计属字面替换遗留错误；结算单数口径已在本项目多处使用且被
+  用户确认（「和单量相同」）。
+- Consequences：总柜数 = 单量（结算单数）；件数合计不再以「总柜数」字面出现在该汇总条；
+  `sales_quantity`（件数）仍供明细/规格表/均价计算使用，语义不变。

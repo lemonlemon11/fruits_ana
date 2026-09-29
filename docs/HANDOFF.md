@@ -3,6 +3,40 @@
 Last updated：2026-09-29 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-29 **frontend/ 目录被外部清空事故 + 从会话记录全量恢复 + 四项 UI 调整**。①
+> **事故与恢复**：本日 ~16:49 `frontend/` 整目录被外部进程清空（本会话仅执行过读取/grep，
+> 未删除；16:52 有进程将其恢复为 HEAD 版本，node_modules/dist 未动），全部未提交前端
+> 改动（侧栏折叠、ADR-052 手机端移除、结算单列表居中/柜号列移除、fitWidth 回归、
+> redesign-20260928/29 演示页、新组件/测试等）一度丢失。恢复路径＝`/root/.zcode/cli/
+> artifacts`（每次 Edit 的 beforeContent+structuredPatch）+ `/root/.zcode/cli/db/db.sqlite`
+> 的 part 表（全部会话 Read/Write/Edit/Bash 调用原文与输出）：artifact 终态为锚、追加
+> 其后的 DB 编辑链、以最新完整读取校准，并按序重放 bash 改写命令（含 ADR-052 手机端
+> 移除与 01:48 Element Plus 测试改写；注意原命令尾部 `; echo ok` 会掩盖 python 失败，
+> 以及 limit 截断的部分读取不可作快照——SettlementView/variant-h 曾因此截断，已按
+> artifact 前缀特征修复）。恢复后前端 **309/309 test 全过**（基线=事故前 15:12 的
+> 308 全过 + 本次新增 1 项）、typecheck/build 通过；已建 checkpoint commit
+> `f3109c8`（175 文件）。`.zcode/`、`.zcodeignore` 为工具产物未入库。② **四项 UI 调整
+> （用户需求）**：1) 「销售情况」总柜数口径改**结算单数**（ADR-053：overview total 新增
+> `container_count`，GradeSummary 改显 `total.containerCount`，normalize 映射+兜底 0，
+> 占比注释改「÷ 总件数」；后端 `overview_service.py`、前端 types/normalize/GradeSummary、
+> test_analytics/test_analytics_api 补断言、overview-filters 新增 1 项测试）；2) 下拉框
+> **点选即失焦**：SearchableSelect（onChange 后 blur，覆盖总览国家/市场、详情/列表商号/
+> 品牌 6 处）、DateRangeFilter 快捷下拉、EntryView 市场、ImportReviewView 待确认文件
+> （filterable）+市场，共 5 处 el-select 经 ref+nextTick 调 `blur()`；3) 结算单列表
+> 每行导出的**汇总区整行右对齐**（用户确认范围）：`entry_export.py` xlsx（总件数/销售
+> 金额、售后合计：、扣减售后+货款合计：、费用合计、应付贵方总金额（RMB）标签与数值
+> 全部 `_right()`，385 行注释同步）与 PDF（`body_cell` align 改 "right"）同步，
+> `test_exports.py` 补五行右对齐断言；数据行/表头/基本信息仍居中。4) 「等级均价对比」
+> 改**纯折线**（用户要求取消柱状）：删 bar 与左「件」轴，每等级一条折线用等级色
+> （gradeColors），单轴元/件保留 priceAxisBounds 非零区间，每点 `label` 标 formatPrice
+> 均价 + `labelLayout.hideOverlap` 防叠压，副标题/aria 同步，`series-grade-price-chart
+> .test.mjs` 断言重写。③ **验证**：前端 309/309 + typecheck + build 通过；后端
+> analytics 31 项、exports 模板断言通过；`test_settlement_list_xlsx_exports_sales_after
+> _sale_and_fee_details` 为**既有漂移**（单跑 3/3 失败、全量时随机出现，stash 后同样
+> 失败，与本次无关，涉及品种断言的顺序污染）。**遗留**：用户操作手册 docx 的总柜数
+> 口径行未同步（md 已改，docx 待下次手册统一更新）；本会话无浏览器后端，下拉失焦与
+> 图表形态建议在 53001/53000 人工点检。
+
 > 2026-09-29 **第三场布局评审会（数据看板 O/P/Q）+ 误删事故与恢复**（未提交）。① 用户
 > 否决第二场 L/M/N（「布局还要改，向数据看板思维去想，突出重点的数据」），第三场以
 > 看板范式重做：允许按重点数据优先重排区块、KPI hero 化、图表优先、明细后置；菜单

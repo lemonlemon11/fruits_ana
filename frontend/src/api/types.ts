@@ -98,6 +98,8 @@ export interface MetricTotal {
   salesQuantity: number
   salesAmount: number
   weightedAvgPrice: number | null
+  /** 总柜数口径 = 结算单数（import_batch_id 去重，一柜两单不去重柜号），仅 overview total 下发。 */
+  containerCount?: number
 }
 
 export interface GradeMetric extends MetricTotal {

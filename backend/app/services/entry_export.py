@@ -272,6 +272,9 @@ def _info_spans(widths: list[float], needs: list[float]) -> list[tuple[int, int]
 def _center():
     return Alignment(horizontal="center", vertical="center")
 
+def _right():
+    return Alignment(horizontal="right", vertical="center")
+
 def _center_wrap():
     return Alignment(horizontal="center", vertical="center", wrap_text=True)
 
@@ -382,16 +385,17 @@ def render_entry_workbook(entry: dict) -> bytes:
         amt = s["sales_quantity"] * s["unit_price"]
         _cell(ws, row, 9, _fmt(amt), font=_body_font(bold=True), align=_center(), fill=fill, border=THIN)
 
-    # 合计行：数值由数量/金额列统计，标签与数值均居中（用户要求全表内容居中）。
+    # 合计行：数值由数量/金额列统计；汇总区（合计/售后/货款/费用/应付各行）标签与数值
+    # 右对齐（用户要求，2026-09-29 起；数据行、表头与基本信息行仍居中）。
     total_row = sr + len(sales)
     _merge(ws, total_row, 1, total_row, 6, "总件数",
-           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
+           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
     _cell(ws, total_row, 7, _fmt_int(total_qty), font=_body_font(bold=True, sz=10, color=INK),
-          fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
+          fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
     _cell(ws, total_row, 8, "销售金额", font=_body_font(bold=True, sz=10),
-          fill=TOTAL_FILL, align=_center_wrap(), border=TOTAL_BORDER)
+          fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
     _cell(ws, total_row, 9, _fmt(sales_amt), font=_body_font(bold=True, sz=10, color=INK),
-          fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
+          fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
     ws.row_dimensions[total_row].height = 26
 
     # ════════════════ 售后（与销售明细同宽，对齐到 I 列） ════════════════
@@ -422,19 +426,19 @@ def render_entry_workbook(entry: dict) -> bytes:
 
     after_total_row = ar + max(len(after_sales), 1)
     _merge(ws, after_total_row, 1, after_total_row, 6, "售后合计：",
-           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
+           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
     _merge(ws, after_total_row, 7, after_total_row, 9, _fmt(after_amt),
-           font=_body_font(bold=True, sz=10, color=INK), fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
+           font=_body_font(bold=True, sz=10, color=INK), fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
     ws.row_dimensions[after_total_row].height = 20
 
     # 货款合计
     goods_row = after_total_row + 1
     _merge(ws, goods_row, 1, goods_row, 5, "扣减售后",
-           font=_body_font(sz=10), align=_center(), border=SUBTLE_BORDER)
+           font=_body_font(sz=10), align=_right(), border=SUBTLE_BORDER)
     _merge(ws, goods_row, 6, goods_row, 7, "货款合计：",
-           font=_body_font(bold=True, sz=10), align=_center(), border=SUBTLE_BORDER)
+           font=_body_font(bold=True, sz=10), align=_right(), border=SUBTLE_BORDER)
     _merge(ws, goods_row, 8, goods_row, 9, _fmt(goods_amt),
-           font=_body_font(bold=True, sz=10, color=INK), align=_center(), border=SUBTLE_BORDER)
+           font=_body_font(bold=True, sz=10, color=INK), align=_right(), border=SUBTLE_BORDER)
     ws.row_dimensions[goods_row].height = 20
 
     # ════════════════ 支出费用（对齐到 I 列） ════════════════
@@ -462,9 +466,9 @@ def render_entry_workbook(entry: dict) -> bytes:
 
     fee_total_row = fr + len(fixed_rows)
     _merge(ws, fee_total_row, 1, fee_total_row, 6, "费用合计",
-           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
+           font=_body_font(bold=True, sz=10), fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
     _merge(ws, fee_total_row, 7, fee_total_row, 9, _fmt(fee_amt),
-           font=_body_font(bold=True, sz=10, color=INK), fill=TOTAL_FILL, align=_center(), border=TOTAL_BORDER)
+           font=_body_font(bold=True, sz=10, color=INK), fill=TOTAL_FILL, align=_right(), border=TOTAL_BORDER)
     ws.row_dimensions[fee_total_row].height = 20
 
     # ════════════════ 应付总额 ════════════════
@@ -473,10 +477,10 @@ def render_entry_workbook(entry: dict) -> bytes:
     r += 1
 
     _merge(ws, r, 1, r, 6, "应付贵方总金额（RMB）",
-           font=_body_font(bold=True, sz=11, color=INK), fill=GRAND_FILL, align=_center(), border=GRAND_BORDER)
+           font=_body_font(bold=True, sz=11, color=INK), fill=GRAND_FILL, align=_right(), border=GRAND_BORDER)
     _merge(ws, r, 7, r, 9, _fmt(payable),
            font=Font(name="微软雅黑", bold=True, size=16, color=INK),
-           fill=GRAND_FILL, align=_center(), border=GRAND_BORDER)
+           fill=GRAND_FILL, align=_right(), border=GRAND_BORDER)
     ws.row_dimensions[r].height = 32
 
     # 列宽只按表格内容自适应（跳过信息行）；备注列按 4 个汉字宽度封顶；
@@ -1009,11 +1013,12 @@ def render_entry_pdf(entry: dict) -> bytes:
         _pdf_row(canvas, xs, height, cells)
 
     canvas.ensure(52)
+    # 汇总区各行右对齐（用户要求，2026-09-29 起；数据行、表头仍居中）。
     _pdf_row(canvas, xs, 52, [
-        body_cell(1, 6, "总件数", "center", f_bold, PDF_TOTAL),
-        body_cell(7, 7, _fmt_int(total_qty), "center", f_bold, PDF_TOTAL),
-        body_cell(8, 8, "销售金额", "center", f_bold, PDF_TOTAL),
-        body_cell(9, 9, _fmt(sales_amt), "center", f_bold, PDF_TOTAL),
+        body_cell(1, 6, "总件数", "right", f_bold, PDF_TOTAL),
+        body_cell(7, 7, _fmt_int(total_qty), "right", f_bold, PDF_TOTAL),
+        body_cell(8, 8, "销售金额", "right", f_bold, PDF_TOTAL),
+        body_cell(9, 9, _fmt(sales_amt), "right", f_bold, PDF_TOTAL),
     ], top="thick")
 
     # ════════════════ 售后 ════════════════
@@ -1036,14 +1041,14 @@ def render_entry_pdf(entry: dict) -> bytes:
         _pdf_row(canvas, xs, height, cells)
     canvas.ensure(40)
     _pdf_row(canvas, xs, 40, [
-        body_cell(1, 6, "售后合计：", "center", f_bold, PDF_TOTAL),
-        body_cell(7, 9, _fmt(after_amt), "center", f_bold, PDF_TOTAL),
+        body_cell(1, 6, "售后合计：", "right", f_bold, PDF_TOTAL),
+        body_cell(7, 9, _fmt(after_amt), "right", f_bold, PDF_TOTAL),
     ], top="thick")
     canvas.ensure(40)
     _pdf_row(canvas, xs, 40, [
-        body_cell(1, 5, "扣减售后", "center"),
-        body_cell(6, 7, "货款合计：", "center", f_bold),
-        body_cell(8, 9, _fmt(goods_amt), "center", f_bold),
+        body_cell(1, 5, "扣减售后", "right"),
+        body_cell(6, 7, "货款合计：", "right", f_bold),
+        body_cell(8, 9, _fmt(goods_amt), "right", f_bold),
     ])
 
     # ════════════════ 支出费用 ════════════════
@@ -1062,16 +1067,16 @@ def render_entry_pdf(entry: dict) -> bytes:
         _pdf_row(canvas, xs, height, cells)
     canvas.ensure(40)
     _pdf_row(canvas, xs, 40, [
-        body_cell(1, 6, "费用合计", "center", f_bold, PDF_TOTAL),
-        body_cell(7, 9, _fmt(fee_amt), "center", f_bold, PDF_TOTAL),
+        body_cell(1, 6, "费用合计", "right", f_bold, PDF_TOTAL),
+        body_cell(7, 9, _fmt(fee_amt), "right", f_bold, PDF_TOTAL),
     ], top="thick")
 
     # ════════════════ 应付总额 ════════════════
     divider()
     canvas.ensure(64)
     _pdf_row(canvas, xs, 64, [
-        body_cell(1, 6, "应付贵方总金额（RMB）", "center", f_section, PDF_GRAND),
-        body_cell(7, 9, _fmt(payable), "center", f_grand, PDF_GRAND),
+        body_cell(1, 6, "应付贵方总金额（RMB）", "right", f_section, PDF_GRAND),
+        body_cell(7, 9, _fmt(payable), "right", f_grand, PDF_GRAND),
     ], top="double")
 
     return canvas.finish()

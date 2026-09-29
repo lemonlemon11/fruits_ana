@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { EChartsOption } from 'echarts'
 
 import { gradeLabel } from '../api/client'
@@ -20,11 +20,10 @@ const gradeOrder = computed(() =>
   activeGrades(props.items.flatMap((item) => item.grades)).filter((grade) => grade !== 'OTHER'),
 )
 
-// 柱＝件数（等级色），折线＝每件均价（统一黑色，与等级区分靠柱色与图例文字）。
-const legendItems = computed(() => gradeOrder.value.flatMap((grade) => [
-  { label: `${gradeLabel(grade)}·件数`, color: gradeColors[grade], variant: 'block' as const },
-  { label: `${gradeLabel(grade)}·均价`, color: echartTheme.ink, variant: 'line' as const },
-]))
+// 每个等级一条折线（等级色）：折线走向即该等级在各张结算单的均价走势，颜色区分等级。
+const legendItems = computed(() => gradeOrder.value.map((grade) => ({
+  label: `${gradeLabel(grade)}均价`, color: gradeColors[grade], variant: 'line' as const,
+})))
 
 const groups = computed(() =>
   props.items.map((item) => ({
@@ -53,10 +52,11 @@ const priceAxisBounds = computed(() => {
 
 const chartOption = computed<EChartsOption>(() => ({
   aria: { enabled: true },
-  grid: { left: gridMargin, right: gridMargin, top: 34, bottom: 46, containLabel: true },
+  // 顶部留高一些：折线点上方要标均价数字。
+  grid: { left: gridMargin, right: gridMargin, top: 40, bottom: 46, containLabel: true },
   tooltip: {
     trigger: 'axis',
-    axisPointer: { type: 'shadow' },
+    axisPointer: { type: 'line' },
     formatter: (params: unknown) => {
       const rows = (Array.isArray(params) ? params : [params]) as Array<{ dataIndex: number }>
       if (!rows.length) return ''
@@ -82,48 +82,38 @@ const chartOption = computed<EChartsOption>(() => ({
     axisLabel: { color: echartTheme.muted, interval: 0, overflow: 'break', width: labelWidth },
     boundaryGap: true,
   },
-  yAxis: [
-    {
-      type: 'value',
-      name: '件',
-      min: 0,
-      axisLabel: { color: echartTheme.muted, formatter: (value: number) => formatNumber(value) },
-      splitLine: { lineStyle: { color: echartTheme.line, type: 'dashed' } },
+  yAxis: {
+    type: 'value',
+    name: '元/件',
+    min: priceAxisBounds.value.min,
+    max: priceAxisBounds.value.max,
+    axisLabel: { color: echartTheme.muted, formatter: (value: number) => formatNumber(value) },
+    splitLine: { lineStyle: { color: echartTheme.line, type: 'dashed' } },
+  },
+  // 每个等级一条折线（等级色），每点上方标注该单均价数字；某张单缺该等级时折线断开，
+  // 不造假；多线近点用 hideOverlap 防数字叠压。
+  series: gradeOrder.value.map((grade) => ({
+    name: `${gradeLabel(grade)}均价`,
+    type: 'line',
+    data: props.items.map((item) => gradePrice(item, grade)),
+    connectNulls: false,
+    symbol: 'circle',
+    symbolSize: 8,
+    color: gradeColors[grade],
+    lineStyle: { width: 2.5 },
+    itemStyle: { color: gradeColors[grade] },
+    label: {
+      show: true,
+      color: gradeColors[grade],
+      fontWeight: 700,
+      formatter: (params: unknown) => {
+        const value = (params as { value: number | null }).value
+        return value == null ? '' : formatPrice(value)
+      },
     },
-    {
-      type: 'value',
-      name: '元/件',
-      min: priceAxisBounds.value.min,
-      max: priceAxisBounds.value.max,
-      axisLabel: { color: echartTheme.muted, formatter: (value: number) => formatNumber(value) },
-      splitLine: { show: false },
-    },
-  ],
-  // 每个等级一组柱（件数，左轴）+ 一条黑色折线（每件均价，右轴）；某张单缺该等级时
-  // 柱缺失、折线断开，不造假。
-  series: gradeOrder.value.flatMap((grade) => [
-    {
-      name: `${gradeLabel(grade)}·件数`,
-      type: 'bar',
-      data: props.items.map((item) => gradeOf(item, grade)?.salesQuantity ?? null),
-      barMaxWidth: 26,
-      itemStyle: { color: gradeColors[grade], borderRadius: [3, 3, 0, 0] },
-      emphasis: { focus: 'series' },
-    },
-    {
-      name: `${gradeLabel(grade)}·均价`,
-      type: 'line',
-      yAxisIndex: 1,
-      data: props.items.map((item) => gradePrice(item, grade)),
-      connectNulls: false,
-      symbol: 'circle',
-      symbolSize: 7,
-      color: echartTheme.ink,
-      lineStyle: { width: 2.5 },
-      itemStyle: { color: echartTheme.ink },
-      emphasis: { focus: 'series' },
-    },
-  ]),
+    labelLayout: { hideOverlap: true },
+    emphasis: { focus: 'series' },
+  })),
 }))
 </script>
 
@@ -132,7 +122,7 @@ const chartOption = computed<EChartsOption>(() => ({
     <header class="section-heading">
       <div>
         <h2 id="series-price-title">等级均价对比</h2>
-        <p class="section-note">柱为件数（左轴），折线为每件均价（右轴，元/件）；横轴为所选结算单</p>
+        <p class="section-note">折线为各等级每件均价（元/件），点旁数字为该单均价；横轴为所选结算单</p>
       </div>
       <ChartLegend :items="legendItems" />
     </header>
@@ -146,7 +136,7 @@ const chartOption = computed<EChartsOption>(() => ({
       <DeferredEChart
         :option="chartOption"
         height="250px"
-        :aria-label="`${items.length} 张结算单等级件数柱状与每件均价折线组合图`"
+        :aria-label="`${items.length} 张结算单各等级每件均价折线图`"
       />
     </div>
   </section>

@@ -17,26 +17,31 @@ test('等级均价对比图不展示「其他」兜底等级', () => {
   )
 })
 
-test('等级均价对比为柱线双轴组合：柱=件数（左轴从 0），黑色折线=均价（右轴不从 0）', () => {
+test('等级均价对比为纯折线单轴：每等级一条折线挂均价轴（不从 0 开始），无柱状系列', () => {
   const source = read('components/SeriesGradePriceChart.vue')
 
-  assert.match(source, /type: 'bar',/, '应有件数柱系列')
-  assert.match(source, /type: 'line',\s*\n\s*yAxisIndex: 1,/, '均价折线应挂右轴')
-  assert.match(source, /name: '件',\s*\n\s*min: 0,/, '件数轴（左）应从 0 开始')
+  assert.doesNotMatch(source, /type: 'bar',/, '不应再有件数柱系列')
+  assert.match(source, /series: gradeOrder\.value\.map\(\(grade\) => \(/, '每个等级一个系列')
+  assert.match(source, /type: 'line',/, '应为折线系列')
+  assert.doesNotMatch(source, /yAxisIndex/, '单轴无需再指定 yAxisIndex')
+  assert.doesNotMatch(source, /name: '件',/, '件数轴已随柱状一起移除')
   assert.match(source, /const priceAxisBounds = computed/, '缺少均价轴范围计算')
   assert.match(source, /\(max - min\) \* 0\.15/, '均价轴应按数据跨度 15% 放宽')
   assert.match(source, /min: priceAxisBounds\.value\.min/, '均价轴 min 应接入计算结果')
 })
 
-test('均价折线统一用黑色（echartTheme.ink），等级色只上柱', () => {
+test('每条均价折线用等级色区分，并在每个点旁标注均价数字', () => {
   const source = read('components/SeriesGradePriceChart.vue')
-  const lineSeries = source.match(/name: `\$\{gradeLabel\(grade\)\}·均价`,[\s\S]*?emphasis: \{ focus: 'series' \},/)?.[0] ?? ''
+  const lineSeries = source.match(/series: gradeOrder\.value\.map\(\(grade\) => \(\{[\s\S]*?\}\)\),/)?.[0] ?? ''
 
-  assert.ok(lineSeries, '应能找到均价折线系列')
-  assert.match(lineSeries, /color: echartTheme\.ink/, '折线应为黑色')
-  assert.match(lineSeries, /itemStyle: \{ color: echartTheme\.ink \}/, '折线圆点应为黑色')
-  assert.doesNotMatch(lineSeries, /gradeColors\[grade\]/, '折线不应使用等级色')
-  assert.match(source, /itemStyle: \{ color: gradeColors\[grade\]/, '柱应使用等级色')
+  assert.ok(lineSeries, '应能找到折线系列构建')
+  assert.match(lineSeries, /color: gradeColors\[grade\]/, '折线应使用等级色')
+  assert.match(lineSeries, /itemStyle: \{ color: gradeColors\[grade\] \}/, '折线圆点应使用等级色')
+  assert.doesNotMatch(lineSeries, /echartTheme\.ink/, '折线不应统一用黑色')
+  // 点旁数字：label 常显 + formatPrice，空值不标；多线近点防叠压。
+  assert.match(lineSeries, /label: \{\s*\n\s*show: true,/, '每个点应显示均价数字')
+  assert.match(lineSeries, /formatPrice\(value\)/, '均价数字用 formatPrice 格式化')
+  assert.match(lineSeries, /labelLayout: \{ hideOverlap: true \}/, '数字标签应防叠压')
 })
 
 test('等级均价对比横轴标签完整显示，不截断成省略号', () => {

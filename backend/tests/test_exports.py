@@ -497,10 +497,26 @@ def test_settlement_template_xlsx_exports_manual_and_imported_rows():
     assert _number(manual_sheet.cell(manual_total, 9).value) == 140.0
     manual_after = _row_containing(manual_sheet, "售后合计")
     assert _number(manual_sheet.cell(manual_after, 7).value) == 10.0
+    manual_goods = _row_containing(manual_sheet, "扣减售后")
     manual_fee_total = _row_containing(manual_sheet, "费用合计")
     assert _number(manual_sheet.cell(manual_fee_total, 7).value) == 8.0
     manual_payable = _row_containing(manual_sheet, "应付贵方总金额")
     assert _number(manual_sheet.cell(manual_payable, 7).value) == 122.0
+
+    # 汇总区各行（总件数/售后合计：/扣减售后+货款合计：/费用合计/应付贵方总金额）的
+    # 标签与数值右对齐（用户要求，2026-09-29 起）；基本信息行仍居中。
+    for row, label_columns in (
+        (manual_total, (1, 7, 8, 9)),
+        (manual_after, (1, 7)),
+        (manual_goods, (1, 6, 8)),
+        (manual_fee_total, (1, 7)),
+        (manual_payable, (1, 7)),
+    ):
+        for column in label_columns:
+            cell = manual_sheet.cell(row, column)
+            if cell.value in (None, ""):
+                continue
+            assert cell.alignment.horizontal == "right", f"行{row} 列{column} 应右对齐"
 
     imported_sheet = openpyxl.load_workbook(BytesIO(imported.content), data_only=False)["结算单"]
     assert _info_texts(imported_sheet, 3) == ["商号：624", "单号：宝贝-001", "国家：—", "市场：—"]

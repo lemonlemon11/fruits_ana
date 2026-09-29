@@ -34,7 +34,7 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
       { label: '销售金额', value: formatCurrency(item.salesAmount) },
       { label: '每件均价', value: formatPrice(item.weightedAvgPrice) },
     ],
-    note: '占比 = 该等级销量 ÷ 总柜数',
+    note: '占比 = 该等级销量 ÷ 总件数',
   })
 }
 </script>
@@ -60,7 +60,7 @@ function showShareTooltip(event: MouseEvent, item: GradeMetric) {
       <div v-if="!hideTotalStrip" class="total-strip" aria-label="筛选范围汇总">
         <div>
           <span>总柜数</span>
-          <strong>{{ formatNumber(total.salesQuantity) }}</strong>
+          <strong>{{ formatNumber(total.containerCount ?? 0) }}</strong>
         </div>
         <div>
           <span>销售金额</span>

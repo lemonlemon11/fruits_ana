@@ -53,6 +53,12 @@ const confirmOpen = ref(false)
 const confirmForce = ref(false)
 const hardBlocked = ref(false)
 const marketOptions = ref<string[]>([])
+const fileSelectRef = ref<InstanceType<typeof ElSelect> | null>(null)
+const marketSelectRef = ref<InstanceType<typeof ElSelect> | null>(null)
+// 下拉点选即失焦（用户要求）：不再停留在可继续输入的编辑态。
+function blurMarketSelect() {
+  nextTick(() => marketSelectRef.value?.blur())
+}
 
 /** 全局消息统一走 ElMessage。 */
 function showToast(message: string, type: 'success' | 'error' | 'warning' = 'success') {
@@ -341,6 +347,8 @@ async function switchDraft(token: string) {
 }
 
 function onFileChange(value: string | number | boolean | object) {
+  // 点选即失焦（用户要求）：切换文件后收起 filterable 下拉的编辑态。
+  nextTick(() => fileSelectRef.value?.blur())
   void switchDraft(String(value))
 }
 
@@ -673,6 +681,7 @@ onMounted(() => {
       <div v-if="!isReadonly" class="file-toolbar">
         <label>待确认文件</label>
         <ElSelect
+          ref="fileSelectRef"
           :model-value="draft?.draftToken"
           :disabled="saving || loading"
           filterable
@@ -747,10 +756,12 @@ onMounted(() => {
             <span>市场 *</span>
             <ElSelect
               v-if="!isReadonly"
+              ref="marketSelectRef"
               v-model="form.market"
               placeholder="请选择"
               aria-label="市场"
               class="field-control"
+              @change="blurMarketSelect"
             >
               <ElOption v-for="item in marketOptions" :key="item" :label="item" :value="item" />
             </ElSelect>

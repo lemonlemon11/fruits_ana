@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { ElConfigProvider, ElDatePicker, ElOption, ElOptionGroup, ElSelect } from 'element-plus'
 import 'element-plus/es/components/config-provider/style/css'
 import 'element-plus/es/components/date-picker/style/css'
@@ -40,6 +40,7 @@ const emit = defineEmits<{
 }>()
 
 const root = ref<HTMLElement | null>(null)
+const quickSelectRef = ref<InstanceType<typeof ElSelect> | null>(null)
 
 /** 快捷选项值：`custom`（默认）/ `recent:7` / `year:2026` / `month:2026-09`。 */
 const quickValue = ref('custom')
@@ -111,6 +112,8 @@ function applyBounds(start: string, end: string) {
 
 function onQuickChange() {
   // 选中快捷选项即把区间写入右侧日历并触发查询；「自定义时间」由用户在日历里手动选择。
+  // 点选即失焦（用户要求）：下拉选中后不再保持焦点编辑态。
+  nextTick(() => quickSelectRef.value?.blur())
   if (quickValue.value === 'custom') return
   const bounds = periodBoundsForOption(quickValue.value)
   if (bounds) applyBounds(bounds.start, bounds.end)
@@ -122,6 +125,7 @@ function onQuickChange() {
     <span class="date-range-label">销售日期</span>
     <div class="date-range-control">
       <ElSelect
+        ref="quickSelectRef"
         v-model="quickValue"
         class="date-range-quick"
         aria-label="时间快捷选项"

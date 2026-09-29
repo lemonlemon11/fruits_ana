@@ -60,6 +60,17 @@ test('卖得怎么样隐藏等级卡片，等级项不展示 AB 与 OTHER，总�
   assert.match(view, /:total="overview\?\.total \?\? \{ salesQuantity: 0, salesAmount: 0, weightedAvgPrice: null \}"/)
 })
 
+test('销售情况总柜数改为结算单数口径（container_count），不再显示件数合计', () => {
+  const summary = fs.readFileSync(path.join(src, 'components', 'GradeSummary.vue'), 'utf8')
+  const normalizeSrc = fs.readFileSync(path.join(src, 'api', 'normalize.ts'), 'utf8')
+
+  // 汇总条总柜数取 total.containerCount（结算单数），兜底 0。
+  assert.match(summary, /总柜数<\/span>\s*\n\s*<strong>\{\{ formatNumber\(total\.containerCount \?\? 0\) \}\}<\/strong>/)
+  assert.doesNotMatch(summary, /formatNumber\(total\.salesQuantity\)\}\}<\/strong>\s*\n\s*<\/div>\s*\n\s*<div>\s*\n\s*<span>销售金额/)
+  // 归一化映射 container_count -> containerCount。
+  assert.match(normalizeSrc, /containerCount: numberOr\(pick\(explicitTotal, 'container_count', 'containerCount'\), 0\)/)
+})
+
 test('卖得怎么样区块改名并启用 overview 版式等级图表', () => {
   const view = fs.readFileSync(path.join(src, 'views', 'OverviewView.vue'), 'utf8')
   const breakdown = fs.readFileSync(path.join(src, 'components', 'SettlementGradeBreakdown.vue'), 'utf8')

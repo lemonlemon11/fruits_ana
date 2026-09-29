@@ -47,6 +47,11 @@ async function jumpToBlock(id: BlockId) {
 }
 const conflictMessage = ref('')
 const marketOptions = ref<string[]>([])
+const marketSelectRef = ref<InstanceType<typeof ElSelect> | null>(null)
+// 下拉点选即失焦（用户要求）：不再停留在可继续输入的编辑态。
+function blurMarketSelect() {
+  nextTick(() => marketSelectRef.value?.blur())
+}
 
 const form = reactive<EntryPayload>({
   merchantNo: '',
@@ -424,10 +429,12 @@ onMounted(() => {
             <span>市场 *</span>
             <ElSelect
               v-if="marketOptions.length"
+              ref="marketSelectRef"
               v-model="form.market"
               placeholder="请选择"
               aria-label="市场"
               class="field-control"
+              @change="blurMarketSelect"
             >
               <ElOption v-for="item in marketOptions" :key="item" :label="item" :value="item" />
             </ElSelect>

@@ -105,6 +105,8 @@ export function normalizeOverview(payload: unknown): OverviewData {
       salesAmount,
       weightedAvgPrice: nullableNumber(pick(explicitTotal, 'weighted_avg_price', 'weightedAvgPrice'))
         ?? (salesQuantity ? salesAmount / salesQuantity : null),
+      // 总柜数 = 结算单数口径，由后端 overview total 下发；缺失时兜底 0 而不是件数。
+      containerCount: numberOr(pick(explicitTotal, 'container_count', 'containerCount'), 0),
     },
     grades: grades.map((row) => ({
       ...row,
