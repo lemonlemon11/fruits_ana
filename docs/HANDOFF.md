@@ -3,6 +3,18 @@
 Last updated：2026-09-30 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-30（五）**「查看明细」收回浏览器新窗口改法，恢复应用内页签新开（终态）**。
+> 用户澄清「新开 tab 页」指**外壳页签栏**（工作区式多页签），不是浏览器新窗口：
+> `354d1d3` 的 `window.open` 方案理解偏了，本次把 `openRecords` 恢复为 `router.push`
+> 跳 `/import-review`（即 `ad92049` 时点的实现）。行为说明（`AppShell.vue` 页签栏 +
+> `utils/shellTabs.ts` openTab 按路径建签）：点「查看明细」→ 页签栏末尾新开「查看明细」
+> 页签并激活，「每一单」页签原位保留，点回即切回列表；再看另一单时复用同一页签
+> （按 path 去重，不堆积）；页签可 ×/右键关闭。用户此前看到「弹窗」系浏览器停在
+> 旧版脚本（同日（二）条目同因），刷新即见页签行为。**验证**：前端 **314/314** test、
+> typecheck、build 通过，dist 已重建（53000 刷新生效）。涉及文件：
+> `frontend/src/views/SettlementListView.vue`、`frontend/tests/farmer-ui-copy.test.mjs`、
+> `frontend/tests/settlement-export.test.ts`（三文件回到 `ad92049` 内容）。
+
 > 2026-09-30（四）**结算单列表「查看明细」改为新开浏览器 tab**。用户明确要求「查看明细
 > 不用弹窗，用新开 tab 页的形式」：原实现 `router.push` 在当前页签内跳 `/import-review`，
 > 列表页被顶走；现改为 `window.open(router.resolve({…}).href, '_blank', 'noopener')`

@@ -200,13 +200,7 @@ function runRowExport(item: SettlementListItem, fmt: 'xlsx' | 'pdf') {
 }
 
 function openRecords(item: SettlementListItem) {
-  // 明细新开浏览器 tab 打开（会话走 fruit_session cookie，新 tab 免登录），
-  // 结算单列表留在原页签，看完关掉即回到列表。
-  window.open(
-    router.resolve({ path: '/import-review', query: { merchant_no: item.merchantNo, readonly: '1' } }).href,
-    '_blank',
-    'noopener',
-  )
+  void router.push({ path: '/import-review', query: { merchant_no: item.merchantNo, readonly: '1' } })
 }
 
 function requestDelete(item: SettlementListItem) {

@@ -30,10 +30,9 @@ test('页面内部不出现跨菜单跳转入口', () => {
   const pageSource = pageFiles.map((file) => fs.readFileSync(file, 'utf8')).join('\n')
   assert.doesNotMatch(pageSource, /RouterLink|router\.push|router\.replace/)
 
-  // 结算单列表的“查看明细”复用导入二次确认页，且新开浏览器 tab 打开（列表页不跳走），
-  // 属于已确认的单点查看入口。
+  // 结算单列表的“查看明细”已改为复用导入二次确认页，属于已确认的单点查看入口。
   const settlementListView = fs.readFileSync(path.join(root, 'views', 'SettlementListView.vue'), 'utf8')
-  assert.match(settlementListView, /window\.open\(\s*router\.resolve\(\{ path: '\/import-review', query: \{ merchant_no: item\.merchantNo, readonly: '1' \} \}\)\.href,\s*'_blank',\s*'noopener',\s*\)/)
+  assert.match(settlementListView, /router\.push\(\{ path: '\/import-review', query: \{ merchant_no: item\.merchantNo, readonly: '1' \} \}\)/)
   assert.doesNotMatch(settlementListView, /RouterLink|router\.replace/)
 
   // 数据导入可在当前流程内跳转到“二次确认”，不提供跨菜单入口。
