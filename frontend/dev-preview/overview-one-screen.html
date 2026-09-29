@@ -101,7 +101,7 @@
       </section>
     </div>
 
-    <!-- 规格件数与均价：A/B/C 三列共用网格模板，数据纵向对齐 -->
+    <!-- 规格件数与均价：A/B/C 三列共用网格模板；各卡「查看明细」弹层看该等级明细 -->
     <section class="card spec-card" aria-labelledby="spec-title">
       <header class="card-heading">
         <h2 id="spec-title">规格件数与均价</h2>
@@ -114,33 +114,24 @@
             <span>等级</span>
             <select id="spec-grade-filter" aria-label="规格等级筛选"></select>
           </label>
-          <button type="button" class="detail-toggle" id="detail-toggle"
-            aria-expanded="false" aria-controls="detail-panel">查看明细 ▾</button>
         </div>
       </header>
       <div class="spec-groups" id="spec-summary"><!-- JS 注入三列摘要 --></div>
     </section>
-
-    <!-- 查看明细：页内手风琴，全宽展开 7 列规格明细长表（数字右对齐） -->
-    <section class="card detail-panel" id="detail-panel" hidden aria-labelledby="detail-title">
-      <header class="card-heading">
-        <h2 id="detail-title">规格明细 · 各等级各规格果销售情况</h2>
-        <button type="button" class="detail-toggle" id="detail-collapse"
-          aria-expanded="true" aria-controls="detail-panel">收起明细 ▴</button>
-      </header>
-      <div class="spec-table-wrap">
-        <table class="spec-table" id="spec-table">
-          <thead>
-            <tr>
-              <th>品牌</th><th>等级</th><th>头数</th><th>KG</th>
-              <th>备注</th><th>总件数</th><th>每件均价</th>
-            </tr>
-          </thead>
-          <tbody id="spec-table-body"><!-- JS 注入 --></tbody>
-        </table>
-      </div>
-    </section>
   </main>
+
+  <!-- 等级明细弹层：点各等级卡「查看明细」弹出，Esc/遮罩/× 关闭 -->
+  <div class="modal-overlay" id="grade-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="grade-modal-title">
+      <header class="modal-heading">
+        <h2 id="grade-modal-title"></h2>
+        <button type="button" class="modal-close" id="grade-modal-close" aria-label="关闭明细">×</button>
+      </header>
+      <div class="modal-body">
+        <div class="spec-table-wrap"><!-- JS 注入该等级明细表 --></div>
+      </div>
+    </div>
+  </div>
 
   <script src="../node_modules/echarts/dist/echarts.min.js"></script>
   <script src="./overview-one-screen.data.js"></script>

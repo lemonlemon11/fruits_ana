@@ -362,21 +362,25 @@
         GRADE_LABEL[group.grade] + '</span>' +
         '<span class="g-sub"><b>' + formatNumber(group.qty) + '</b> 件 · ' + formatPercent(group.share) +
         ' · 小计 <span class="g-price">¥' + formatPrice(group.price) + '</span></span>' +
-        '</header>' + body + '</section>'
+        '</header>' +
+        '<div class="spec-group-rows">' + body + '</div>' +
+        '<footer class="spec-group-foot"><button type="button" class="grade-detail-btn" data-grade="' +
+        group.grade + '">查看明细 ▾</button></footer></section>'
     }).join('')
   }
 
-  /* ---------- 规格明细长表：品牌×等级 小计 + 合计（数字右对齐） ---------- */
-  function renderSpecTable() {
-    var items = filteredRows()
-    var groupMap = {}
+  /* ---------- 等级明细弹层：各卡「查看明细」→ 该等级 品牌×规格 明细表 ---------- */
+  var gradeModal = null
+
+  function gradeDetailTableHtml(grade) {
+    var items = filteredRows().filter(function (row) { return row.grade === grade })
+    var brandMap = {}
     items.forEach(function (row) {
-      var key = row.brand + '::' + row.grade
-      if (!groupMap[key]) groupMap[key] = { brand: row.brand, grade: row.grade, rows: [] }
-      groupMap[key].rows.push(row)
+      if (!brandMap[row.brand]) brandMap[row.brand] = { brand: row.brand, rows: [] }
+      brandMap[row.brand].rows.push(row)
     })
-    var groups = Object.keys(groupMap).map(function (key) {
-      var group = groupMap[key]
+    var brands = Object.keys(brandMap).map(function (key) {
+      var group = brandMap[key]
       group.qty = group.rows.reduce(function (sum, row) { return sum + row.qty }, 0)
       group.amount = group.rows.reduce(function (sum, row) { return sum + row.amount }, 0)
       group.price = group.qty ? group.amount / group.qty : null
@@ -387,17 +391,15 @@
       return group
     }).sort(function (a, b) {
       if (a.qty !== b.qty) return b.qty - a.qty
-      if (a.brand !== b.brand) return a.brand.localeCompare(b.brand, 'zh-Hans-CN')
-      return GRADE_ORDER.indexOf(a.grade) - GRADE_ORDER.indexOf(b.grade)
+      return a.brand.localeCompare(b.brand, 'zh-Hans-CN')
     })
 
     var totalQty = items.reduce(function (sum, row) { return sum + row.qty }, 0)
     var totalAmount = items.reduce(function (sum, row) { return sum + row.amount }, 0)
-    var html = groups.map(function (group) {
+    var html = brands.map(function (group) {
       var rowsHtml = group.rows.map(function (row) {
         return '<tr>' +
           '<td class="spec-brand">' + row.brand + '</td>' +
-          '<td>' + GRADE_LABEL[group.grade] + '</td>' +
           '<td class="spec-cell">' + row.head + '</td>' +
           '<td class="spec-cell">' + row.kg + '</td>' +
           '<td><span class="spec-remark' + (row.remark ? '' : ' spec-remark--empty') + '">' +
@@ -405,19 +407,53 @@
           '<td class="td-num">' + formatNumber(row.qty) + '</td>' +
           '<td class="td-num spec-price">¥' + formatPrice(row.price) + '</td></tr>'
       }).join('')
-      rowsHtml += '<tr class="spec-subtotal"><td colspan="5">小计 · ' + group.brand + ' ' +
-        GRADE_LABEL[group.grade] + '</td><td class="td-num"><b>' + formatNumber(group.qty) +
-        '</b></td><td class="td-num spec-price"><b>¥' + formatPrice(group.price) + '</b></td></tr>'
+      rowsHtml += '<tr class="spec-subtotal"><td colspan="4">小计 · ' + group.brand + '</td><td class="td-num"><b>' +
+        formatNumber(group.qty) + '</b></td><td class="td-num spec-price"><b>¥' + formatPrice(group.price) +
+        '</b></td></tr>'
       return rowsHtml
     }).join('')
-    if (!groups.length) {
-      html = '<tr><td colspan="7" style="text-align:center;color:var(--muted)">当前筛选范围没有可统计的规格数据</td></tr>'
+    if (!brands.length) {
+      html = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">当前筛选范围没有该等级的规格数据</td></tr>'
     } else {
-      html += '<tr class="spec-total"><td colspan="5">合计 · 全部品牌等级</td><td class="td-num"><b>' +
+      html += '<tr class="spec-total"><td colspan="4">合计 · ' + GRADE_LABEL[grade] + '（全部品牌）</td><td class="td-num"><b>' +
         formatNumber(totalQty) + '</b> 件</td><td class="td-num spec-price"><b>¥' +
         formatPrice(totalQty ? totalAmount / totalQty : null) + '</b></td></tr>'
     }
-    document.getElementById('spec-table-body').innerHTML = html
+    return '<table class="spec-table spec-table--grade"><thead><tr>' +
+      '<th>品牌</th><th>头数</th><th>KG</th><th>备注</th><th>总件数</th><th>每件均价</th>' +
+      '</tr></thead><tbody>' + html + '</tbody></table>'
+  }
+
+  function openGradeDetail(grade) {
+    if (!GRADE_ORDER.includes(grade)) return
+    var items = filteredRows().filter(function (row) { return row.grade === grade })
+    var qty = items.reduce(function (sum, row) { return sum + row.qty }, 0)
+    var amount = items.reduce(function (sum, row) { return sum + row.amount }, 0)
+    gradeModal.querySelector('.modal-heading h2').innerHTML = GRADE_LABEL[grade] +
+      ' · 规格明细<span class="modal-sub">共 ' + formatNumber(qty) + ' 件 · 加权均价 ¥' +
+      formatPrice(qty ? amount / qty : null) + '</span>'
+    gradeModal.querySelector('.spec-table-wrap').innerHTML = gradeDetailTableHtml(grade)
+    gradeModal.hidden = false
+    document.getElementById('grade-modal-close').focus()
+  }
+
+  function closeGradeDetail() {
+    gradeModal.hidden = true
+  }
+
+  function bindGradeModal() {
+    gradeModal = document.getElementById('grade-modal')
+    document.getElementById('spec-summary').addEventListener('click', function (event) {
+      var button = event.target.closest('.grade-detail-btn')
+      if (button) openGradeDetail(button.dataset.grade)
+    })
+    document.getElementById('grade-modal-close').addEventListener('click', closeGradeDetail)
+    gradeModal.addEventListener('click', function (event) {
+      if (event.target === gradeModal) closeGradeDetail()
+    })
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !gradeModal.hidden) closeGradeDetail()
+    })
   }
 
   /* ---------- 品牌/等级筛选（只作用于规格摘要与明细表） ---------- */
@@ -435,7 +471,6 @@
     brandSelect.addEventListener('change', function () {
       brandFilter = brandSelect.value
       renderSpecSummary()
-      renderSpecTable()
     })
 
     var gradeSelect = document.getElementById('spec-grade-filter')
@@ -445,22 +480,7 @@
     gradeSelect.addEventListener('change', function () {
       gradeFilter = gradeSelect.value
       renderSpecSummary()
-      renderSpecTable()
     })
-  }
-
-  /* ---------- 查看明细 / 收起明细（页内手风琴） ---------- */
-  function bindDetailToggle() {
-    var panel = document.getElementById('detail-panel')
-    var toggle = document.getElementById('detail-toggle')
-    function setExpanded(expanded) {
-      panel.hidden = !expanded
-      toggle.textContent = expanded ? '收起明细 ▴' : '查看明细 ▾'
-      toggle.setAttribute('aria-expanded', String(expanded))
-      document.getElementById('detail-collapse').setAttribute('aria-expanded', String(expanded))
-    }
-    toggle.addEventListener('click', function () { setExpanded(panel.hidden) })
-    document.getElementById('detail-collapse').addEventListener('click', function () { setExpanded(false) })
   }
 
   /* ---------- 启动 ---------- */
@@ -471,18 +491,19 @@
   renderMarket()
   bindFilters()
   renderSpecSummary()
-  renderSpecTable()
-  bindDetailToggle()
+  bindGradeModal()
   trendChart.setOption(trendOption())
   window.addEventListener('resize', function () { trendChart.resize() })
 
   /* ---------- 预览辅助：URL 参数驱动（无头截图验收用） ----------
-   * ?detail=1            载入即展开规格明细（验收展开态）
-   * ?metric=quantity     趋势图载入即切到件数
-   * ?report=height       渲染后把整页高度写进 <title>（配合 --dump-dom 读数） */
+   * ?detail=A|B|C          载入即弹出该等级明细（验收弹层；1 视同 A）
+   * ?metric=quantity       趋势图载入即切到件数
+   * ?report=height         渲染后把整页高度写进 <title>（配合 --dump-dom 读数） */
   var params = new URLSearchParams(window.location.search)
-  if (params.get('detail') === '1') {
-    document.getElementById('detail-toggle').click()
+  var detailGrade = String(params.get('detail') || '').toUpperCase()
+  if (detailGrade === '1') detailGrade = 'A'
+  if (GRADE_ORDER.includes(detailGrade)) {
+    window.setTimeout(function () { openGradeDetail(detailGrade) }, 200)
   }
   if (params.get('metric') === 'quantity') {
     var quantityButton = document.querySelector('.trend-toggle-btn[data-metric="quantity"]')

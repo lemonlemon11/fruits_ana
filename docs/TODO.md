@@ -1,13 +1,12 @@
 # TODO
 
-> 待办（静态稿 v2 已出，待确认）：**销售总览「一屏看完」改版落地真实页面**——视觉伴侣
-> 静态稿 **v2**（通栏大数带看板语言 + 流体字号 + 2560/1920/1366 三档一屏自适应）已完成并
-> 跑在 53005（`frontend/dev-preview/overview-one-screen.html`：大数带[金额 hero｜件数｜
-> 均价绿底面板｜柜数]+A/B/C 均价胶囊副行、趋势全宽主图、三卡行[等级结构环图｜等级均价
-> 横条｜市场分析]、规格摘要三列对齐、「查看明细」折叠展开；三档视口页高恰一屏 + 三态
-> 视觉审图全过）。待用户确认 v2 后按计划文件
-> `docs/superpowers/plans/2026-09-29-overview-one-screen-spec-detail.md`（含「六、v2 设计
-> 语言」）落 `OverviewView.vue` / `SettlementGradeBreakdown.vue` 并更新
+> 待办（静态稿 v3 已出，待确认）：**销售总览「一屏看完」改版落地真实页面**——视觉伴侣
+> 静态稿 **v3**（v2 通栏大数带看板+流体字号+三档自适应；v3 满高布局填满视口 +「查看
+> 明细」下沉至各等级卡、弹层查看该等级明细）已完成并跑在 53005
+> （`frontend/dev-preview/overview-one-screen.html`）。三档视口页高恰一屏 + 三态视觉审图
+> 全过。待用户确认 v3 后按计划文件
+> `docs/superpowers/plans/2026-09-29-overview-one-screen-spec-detail.md`（含 v2/v3 设计
+> 语言章节）落 `OverviewView.vue` / `SettlementGradeBreakdown.vue` 并更新
 > `overview-filters.test.ts`。
 
 > 已完成（2026-09-29 晚）：**dev 回退至 `83678eb`（保留 styles.css 基础类块修复）**。

@@ -24,6 +24,7 @@
   --card-bg: #fff;
   --num-font: Bahnschrift, 'Segoe UI', 'Microsoft YaHei', sans-serif;
   --radius: 6px;
+  --topbar-h: 32px;
 
   /* 流体刻度：1366→12.5px / 1920→12.7px / 2560→15px（封顶） */
   font-size: clamp(12.5px, 6px + 0.35vw, 15px);
@@ -74,14 +75,19 @@ h1, h2, h3, p { margin: 0; }
   white-space: nowrap;
 }
 
-/* ---------- 页面容器 ---------- */
+/* ---------- 页面容器：满高布局，区块弹性伸展填满视口（消除底部空隙） ---------- */
 .overview-preview {
   max-width: clamp(1280px, 100vw - 32px, 2080px);
   margin: 0 auto;
   padding: 10px 16px 14px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--gap);
+  min-height: calc(100vh - var(--topbar-h));
 }
+.overview-preview > .filter-bar,
+.overview-preview > .hero-band,
+.overview-preview > .trio-row { flex: 0 0 auto; }
 
 /* ---------- 筛选栏（紧凑白卡） ---------- */
 .filter-bar {
@@ -188,8 +194,10 @@ h1, h2, h3, p { margin: 0; }
 .card-heading h2 { font-size: 1rem; font-weight: 800; }
 .heading-note { color: var(--muted-2); font-size: .8rem; }
 
-/* ---------- 每日销售趋势（全宽主图） ---------- */
-#trend-chart { height: var(--trend-h); }
+/* ---------- 每日销售趋势（全宽主图，随视口弹性伸展） ---------- */
+.trend-card { display: flex; flex: 1.08 1 200px; flex-direction: column; min-height: 0; }
+.trend-card .card-heading { flex: 0 0 auto; }
+#trend-chart { flex: 1 1 auto; min-height: 150px; }
 .trend-toggle { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 4px; overflow: hidden; }
 .trend-toggle-btn {
   min-height: 1.75rem;
@@ -257,7 +265,9 @@ h1, h2, h3, p { margin: 0; }
 .market-bar-row .bar-value { text-align: right; font-family: var(--num-font); font-variant-numeric: tabular-nums; font-weight: 700; }
 .market-bar-row .bar-value small { font-size: 72%; color: var(--muted); font-weight: 700; }
 
-/* ---------- 规格件数与均价摘要（三列共用同一网格模板 → 纵向对齐） ---------- */
+/* ---------- 规格件数与均价摘要（三列共用同一网格模板 → 纵向对齐；随视口伸展） ---------- */
+.spec-card { display: flex; flex: 1 1 190px; flex-direction: column; min-height: 0; }
+.spec-card .card-heading { flex: 0 0 auto; }
 .spec-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .spec-filter { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: .84rem; }
 .spec-filter select {
@@ -281,14 +291,35 @@ h1, h2, h3, p { margin: 0; }
 }
 .detail-toggle:hover { border-color: var(--primary); }
 
-.spec-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); }
-.spec-group { border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 10px 8px; background: var(--surface); }
-.spec-group-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; min-height: 1.5rem; }
+.spec-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); flex: 1 1 auto; min-height: 0; }
+.spec-group { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 10px 8px; background: var(--surface); }
+.spec-group-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; min-height: 1.5rem; flex: 0 0 auto; }
 .spec-group-header .g-left { display: inline-flex; align-items: center; gap: 6px; font-size: .92rem; font-weight: 800; }
 .spec-group-header .g-dot { width: 9px; height: 9px; border-radius: 3px; }
 .spec-group-header .g-sub { color: var(--muted); font-size: .8rem; white-space: nowrap; }
 .spec-group-header .g-sub b { font-family: var(--num-font); font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 700; }
 .spec-group-header .g-sub .g-price { color: var(--primary-dark); }
+
+/* 摘要行容器：伸展填满卡片高度，行距均匀分布 */
+.spec-group-rows { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+
+/* 卡底「查看明细」：弹层查看该等级各规格明细 */
+.spec-group-foot { flex: 0 0 auto; margin-top: 5px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.grade-detail-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 1.9rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--primary-dark);
+  font-size: .88rem;
+  font-weight: 700;
+}
+.grade-detail-btn:hover { border-color: var(--line-strong); background: var(--card-bg); }
 
 /* 摘要行：三列同一模板（规格 | 件数右 | 占比条+% | 均价右） */
 .sum-row {
@@ -311,8 +342,52 @@ h1, h2, h3, p { margin: 0; }
 .sum-row--more .s-price { color: var(--muted); font-weight: 700; }
 .sum-row--empty .s-spec { color: var(--muted-2); font-weight: 700; }
 
-/* ---------- 规格明细长表（数字右对齐；浅色表头；弃深色重底条） ---------- */
-.detail-panel[hidden] { display: none; }
+/* ---------- 等级明细弹层（点各等级卡「查看明细」弹出） ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(16, 37, 29, .34);
+}
+.modal-overlay[hidden] { display: none; }
+.modal-card {
+  display: flex;
+  flex-direction: column;
+  width: min(62rem, calc(100vw - 48px));
+  max-height: min(46rem, calc(100vh - 64px));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  box-shadow: 0 18px 48px rgba(16, 37, 29, .18);
+}
+.modal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-heading h2 { font-size: 1.05rem; font-weight: 800; }
+.modal-heading .modal-sub { color: var(--muted-2); font-size: .8rem; font-weight: 400; margin-left: 8px; }
+.modal-close {
+  min-height: 1.9rem;
+  min-width: 1.9rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--card-bg);
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+}
+.modal-close:hover { border-color: var(--primary); color: var(--primary-dark); }
+.modal-body { padding: 12px 14px 14px; overflow: auto; }
+
+/* ---------- 规格明细长表（弹层内；数字右对齐；浅色表头） ---------- */
 .spec-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
 .spec-table { width: 100%; min-width: 46rem; border-collapse: collapse; }
 .spec-table th {
@@ -331,6 +406,14 @@ h1, h2, h3, p { margin: 0; }
 .spec-table th:nth-child(5), .spec-table td:nth-child(5) { text-align: left; }
 .spec-table th:last-child, .spec-table td:last-child,
 .spec-table th:nth-child(6), .spec-table td:nth-child(6) { text-align: right; }
+/* 弹层 6 列变体（无等级列）：品牌左，头数/KG 居中，备注左，件数/均价右 */
+.spec-table--grade th:nth-child(2), .spec-table--grade td:nth-child(2),
+.spec-table--grade th:nth-child(3), .spec-table--grade td:nth-child(3) { text-align: center; }
+.spec-table--grade th:nth-child(4), .spec-table--grade td:nth-child(4) { text-align: left; }
+.spec-table--grade th:nth-child(5), .spec-table--grade td:nth-child(5),
+.spec-table--grade th:nth-child(6), .spec-table--grade td:nth-child(6) { text-align: right; }
+.spec-table--grade .spec-subtotal td[colspan], .spec-table--grade .spec-total td[colspan] { text-align: left; padding-left: .9rem; }
+
 .spec-table td { padding: .38rem .8rem; border-top: 1px solid var(--line); font-size: .92rem; vertical-align: middle; }
 .spec-table tbody tr:hover { background: color-mix(in srgb, var(--primary-soft) 40%, var(--card-bg)); }
 .spec-table .td-num { font-family: var(--num-font); font-variant-numeric: tabular-nums; }
@@ -367,7 +450,8 @@ h1, h2, h3, p { margin: 0; }
 }
 /* 矮屏（笔电 1366×768/900 等）：三卡保持横排、进一步压缩，保一屏 */
 @media (max-height: 960px) {
-  :root { --trend-h: clamp(150px, 10vw, 220px); --donut: clamp(88px, 4.2vw, 104px); --card-pad: 8px; }
+  :root { --donut: clamp(88px, 4.2vw, 104px); --card-pad: 8px; }
+  #trend-chart { min-height: 150px; }
   .trio-row { grid-template-columns: minmax(0, 1fr) minmax(0, .9fr) minmax(0, 1.3fr); }
   .market-card { grid-column: auto; }
   .n-hero { font-size: 2.05rem; }
@@ -377,12 +461,21 @@ h1, h2, h3, p { margin: 0; }
   .sum-row { padding: 2px 0; }
 }
 
-/* 极矮视口（≤800px 高，如 1366×768）：再压一档 */
+/* 极矮视口（≤800px 高，如 1366×768）：根字号降档 + 压缩间距，保一屏 */
 @media (max-height: 800px) {
-  :root { --trend-h: 138px; --card-pad: 6px; }
+  :root { --card-pad: 6px; font-size: 12px; }
+  #trend-chart { min-height: 118px; }
   .overview-preview { padding-bottom: 6px; gap: 6px; }
   .filter-bar { padding: 5px 8px; }
   .hero-cells .hcell { padding: 2px 14px 4px; }
+  .hero-band { padding: 5px 4px 4px; }
   .card-heading { margin-bottom: 5px; min-height: 1.35rem; }
   .trio-row, .spec-groups { gap: 6px; }
+  .spec-group { padding: 5px 8px 6px; }
+  .spec-group-foot { margin-top: 2px; padding-top: 3px; }
+  .grade-detail-btn { min-height: 1.5rem; font-size: .84rem; }
+  .market-bars { gap: 4px; }
+  .price-bars { gap: 6px; }
+  .n-hero { font-size: 1.9rem; }
+  .n-kpi { font-size: 1.35rem; }
 }
