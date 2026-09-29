@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElDatePicker, ElDialog, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
+import 'element-plus/es/components/date-picker/style/css'
+import 'element-plus/es/components/dialog/style/css'
+import 'element-plus/es/components/input/style/css'
+import 'element-plus/es/components/message/style/css'
+import 'element-plus/es/components/option/style/css'
+import 'element-plus/es/components/select/style/css'
 import {
   ApiError,
   confirmImportJob,
@@ -24,23 +31,13 @@ import type { EntryAfterSaleItem, EntryFeeItem, EntrySaleItem } from '../api/typ
 const logger = createLogger('import-review')
 const route = useRoute()
 const router = useRouter()
-/** 手机端分区折叠：二次确认页默认全部展开（核对场景不应藏内容），需要时可逐个收起。 */
-const narrowQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-  ? window.matchMedia('(max-width: 820px)')
-  : null
-const isNarrow = ref(narrowQuery?.matches ?? false)
-const collapsedBlocks = reactive<Record<string, boolean>>({})
+/** 表单分区锚点：点击滚动到对应分区。 */
 const BLOCK_IDS = ['basic', 'sales', 'after', 'fees', 'summary'] as const
 type BlockId = (typeof BLOCK_IDS)[number]
-function isCollapsed(id: BlockId) { return isNarrow.value && collapsedBlocks[id] === true }
-function toggleBlock(id: BlockId) { collapsedBlocks[id] = !isCollapsed(id) }
-function expandAllBlocks() { for (const id of BLOCK_IDS) collapsedBlocks[id] = false }
 async function jumpToBlock(id: BlockId) {
-  collapsedBlocks[id] = false
   await nextTick()
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
-function onNarrowChange(event: MediaQueryListEvent) { isNarrow.value = event.matches }
 const jobToken = typeof route.query.job === 'string' ? route.query.job : ''
 const merchantNo = typeof route.query.merchant_no === 'string' ? route.query.merchant_no : ''
 const isReadonly = computed(() => route.query.readonly === '1')
@@ -51,12 +48,16 @@ const saving = ref(false)
 type SavingAction = 'switch' | 'restore' | 'prepare' | 'submit' | ''
 const savingAction = ref<SavingAction>('')
 const error = ref('')
-const toast = ref('')
 const confirmDialog = ref('')
 const confirmOpen = ref(false)
 const confirmForce = ref(false)
 const hardBlocked = ref(false)
 const marketOptions = ref<string[]>([])
+
+/** 全局消息统一走 ElMessage。 */
+function showToast(message: string, type: 'success' | 'error' | 'warning' = 'success') {
+  ElMessage({ message, type, duration: 1800 })
+}
 const savingMessage = computed(() => ({
   switch: '正在切换文件…',
   restore: '正在还原…',
@@ -339,8 +340,8 @@ async function switchDraft(token: string) {
   }
 }
 
-function onFileSelect(event: Event) {
-  void switchDraft((event.target as HTMLSelectElement).value)
+function onFileChange(value: string | number | boolean | object) {
+  void switchDraft(String(value))
 }
 
 function payloadFromForm(): EntryPayload {
@@ -520,7 +521,6 @@ function removeFee(index: number) {
 }
 
 async function focusFirstIssue() {
-  expandAllBlocks()
   await nextTick()
   const target = document.querySelector('.cell-error, .field.error, .summary-line.error')
   target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -547,8 +547,7 @@ async function restoreCurrentDraft() {
       fees: original.fees.map((row) => ({ ...row })),
     })
     await persistCurrentDraft()
-    toast.value = '已还原为导入解析值'
-    window.setTimeout(() => { if (toast.value) toast.value = '' }, 1800)
+    showToast('已还原为导入解析值')
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '还原失败'
   } finally {
@@ -591,7 +590,7 @@ async function doSubmit(force = false) {
   logger.info('doSubmit start', { jobToken, force, feeCount: form.fees.length })
   try {
     const result: ImportConfirmResult = await confirmImportJob(jobToken, { force })
-    toast.value = `已确认 ${result.confirmed.length} 张结算单`
+    showToast(`已确认 ${result.confirmed.length} 张结算单`)
     window.setTimeout(() => { void router.push('/imports') }, 500)
   } catch (caught) {
     logger.error('doSubmit failed', caught)
@@ -648,7 +647,6 @@ function goBack() {
 }
 
 onMounted(() => {
-  narrowQuery?.addEventListener('change', onNarrowChange)
   if (isReadonly.value) {
     loadSettlementReview()
     loadFieldOptions()
@@ -657,7 +655,6 @@ onMounted(() => {
     loadFieldOptions()
   }
 })
-onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange))
 </script>
 
 <template>
@@ -674,12 +671,23 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
 
         <template v-else>
       <div v-if="!isReadonly" class="file-toolbar">
-        <label for="review-file">待确认文件</label>
-        <select id="review-file" :value="draft?.draftToken" :disabled="saving || loading" @change="onFileSelect">
-          <option v-for="item in job?.drafts ?? []" :key="item.token" :value="item.token">
-            {{ item.fileName }} · 商号 {{ item.merchantNo }}
-          </option>
-        </select>
+        <label>待确认文件</label>
+        <ElSelect
+          :model-value="draft?.draftToken"
+          :disabled="saving || loading"
+          filterable
+          placeholder="选择待确认文件"
+          aria-label="待确认文件"
+          class="file-select"
+          @update:model-value="onFileChange"
+        >
+          <ElOption
+            v-for="item in job?.drafts ?? []"
+            :key="item.token"
+            :value="item.token"
+            :label="`${item.fileName} · 商号 ${item.merchantNo}`"
+          />
+        </ElSelect>
         <span class="file-name">{{ draft?.fileName }}</span>
       </div>
       <p v-if="saving" class="review-saving-status" role="status" aria-live="polite">{{ savingMessage }}</p>
@@ -706,64 +714,77 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
         <a href="#summary" @click.prevent="jumpToBlock('summary')">结算核对</a>
       </nav>
 
-      <section class="block" :class="{ 'is-collapsed': isCollapsed('basic') }" id="basic">
-        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('basic') : undefined" @click="toggleBlock('basic')"><h2>基本信息</h2><span>来源：{{ isReadonly ? '已入库结算单' : '导入文件' }}</span></div>
-        <div v-show="!isCollapsed('basic')" class="block-body">
+      <section class="block" id="basic">
+        <div class="block-title"><h2>基本信息</h2><span>来源：{{ isReadonly ? '已入库结算单' : '导入文件' }}</span></div>
+        <div class="block-body">
         <div class="basic-grid">
           <label class="field" :class="{ error: basicFieldHasError('merchant_no') }">
             <span>商号 *</span>
-            <input v-model="form.merchantNo" aria-label="商号" :disabled="isReadonly" />
+            <ElInput v-model="form.merchantNo" aria-label="商号" :disabled="isReadonly" />
             <span v-if="basicFieldHint('merchant_no')" class="field-hint">{{ basicFieldHint('merchant_no') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('container_no') }">
             <span>柜号</span>
-            <input v-model="form.containerNo" aria-label="柜号" :disabled="isReadonly" />
+            <ElInput v-model="form.containerNo" aria-label="柜号" :disabled="isReadonly" />
             <span v-if="basicFieldHint('container_no')" class="field-hint">{{ basicFieldHint('container_no') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('order_no') }">
             <span>单号 *</span>
-            <input v-model="form.orderNo" aria-label="单号" :disabled="isReadonly" />
+            <ElInput v-model="form.orderNo" aria-label="单号" :disabled="isReadonly" />
             <span v-if="basicFieldHint('order_no')" class="field-hint">{{ basicFieldHint('order_no') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('vehicle_no') }">
             <span>转运公司 / 车牌号 *</span>
-            <input v-model="form.vehicleNo" aria-label="转运公司 / 车牌号" :disabled="isReadonly" />
+            <ElInput v-model="form.vehicleNo" aria-label="转运公司 / 车牌号" :disabled="isReadonly" />
             <span v-if="basicFieldHint('vehicle_no')" class="field-hint">{{ basicFieldHint('vehicle_no') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('country') }">
             <span>国家 *</span>
-            <input v-model="form.country" aria-label="国家" placeholder="如 越南" :disabled="isReadonly" />
+            <ElInput v-model="form.country" aria-label="国家" placeholder="如 越南" :disabled="isReadonly" />
             <span v-if="basicFieldHint('country')" class="field-hint">{{ basicFieldHint('country') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('market') }">
             <span>市场 *</span>
-            <select v-if="!isReadonly" v-model="form.market" aria-label="市场">
-              <option disabled value="">请选择</option>
-              <option v-for="item in marketOptions" :key="item" :value="item">{{ item }}</option>
-            </select>
-            <input v-else :value="form.market || '—'" disabled class="readonly-input" />
+            <ElSelect
+              v-if="!isReadonly"
+              v-model="form.market"
+              placeholder="请选择"
+              aria-label="市场"
+              class="field-control"
+            >
+              <ElOption v-for="item in marketOptions" :key="item" :label="item" :value="item" />
+            </ElSelect>
+            <ElInput v-else :model-value="form.market || '—'" disabled aria-label="市场" />
             <span v-if="basicFieldHint('market')" class="field-hint">{{ basicFieldHint('market') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('arrival_date') }">
             <span>到达市场日期 *</span>
-            <input v-model="form.arrivalDate" type="date" aria-label="到达市场日期" :disabled="isReadonly" />
+            <ElDatePicker
+              v-model="form.arrivalDate"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="选择日期"
+              aria-label="到达市场日期"
+              class="field-control"
+              :disabled="isReadonly"
+              :clearable="false"
+            />
             <span v-if="basicFieldHint('arrival_date')" class="field-hint">{{ basicFieldHint('arrival_date') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('arrival_quantity') }">
             <span>来货数量（件） *</span>
-            <input v-model.number="form.arrivalQuantity" type="number" min="0" step="1" aria-label="来货数量（件）" :disabled="isReadonly" />
+            <ElInput v-model.number="form.arrivalQuantity" type="number" min="0" step="1" aria-label="来货数量（件）" :disabled="isReadonly" />
             <span v-if="basicFieldHint('arrival_quantity')" class="field-hint">{{ basicFieldHint('arrival_quantity') }}</span>
           </label>
         </div>
         </div>
       </section>
 
-      <section class="block" :class="{ 'is-collapsed': isCollapsed('sales') }" id="sales">
-        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('sales') : undefined" @click="toggleBlock('sales')"><h2>销售明细 <small>· {{ form.sales.length }} 行</small></h2><button v-if="!isReadonly" class="outline" type="button" @click.stop="addSale">添加销售行</button></div>
-        <div v-show="!isCollapsed('sales')" class="block-body">
+      <section class="block" id="sales">
+        <div class="block-title"><h2>销售明细 <small>· {{ form.sales.length }} 行</small></h2><button v-if="!isReadonly" class="outline" type="button" @click.stop="addSale">添加销售行</button></div>
+        <div class="block-body">
         <DataTable
           class="review-table sale-table"
-          data-labels
           :columns="saleColumns"
           :rows="form.sales"
           :row-key="saleRowKey"
@@ -775,28 +796,37 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
         >
           <template #cell-sourceRow="{ row }"><span class="source">{{ row.sourceRow ?? '新增' }}</span></template>
           <template #cell-saleDate="{ row }">
-            <input v-model="row.saleDate" type="date" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'sale_date')" aria-label="销售日期" :disabled="isReadonly" />
+            <ElDatePicker
+              v-model="row.saleDate"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="日期"
+              :class="cellClass('sales', form.sales.indexOf(row) + 1, 'sale_date')"
+              aria-label="销售日期"
+              :disabled="isReadonly"
+              :clearable="false"
+            />
           </template>
           <template #cell-variety="{ row }">
-            <input v-model="row.variety" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'variety')" aria-label="品种" placeholder="如 金枕" :disabled="isReadonly" />
+            <ElInput v-model="row.variety" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'variety')" aria-label="品种" placeholder="如 金枕" :disabled="isReadonly" />
           </template>
           <template #cell-grade="{ row }">
-            <input v-model="row.grade" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'grade')" aria-label="等级" placeholder="如 A、AB、BC" :disabled="isReadonly" />
+            <ElInput v-model="row.grade" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'grade')" aria-label="等级" placeholder="如 A、AB、BC" :disabled="isReadonly" />
           </template>
           <template #cell-headCount="{ row }">
-            <input v-model="row.headCount" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'head_count')" aria-label="规格（头数）" placeholder="如 3/4" :disabled="isReadonly" />
+            <ElInput v-model="row.headCount" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'head_count')" aria-label="规格（头数）" placeholder="如 3/4" :disabled="isReadonly" />
           </template>
           <template #cell-specKg="{ row }">
-            <input v-model="row.specKg" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'spec_kg')" aria-label="规格（KG）" placeholder="如 10" :disabled="isReadonly" />
+            <ElInput v-model="row.specKg" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'spec_kg')" aria-label="规格（KG）" placeholder="如 10" :disabled="isReadonly" />
           </template>
           <template #cell-remark="{ row }">
-            <input v-model="row.remark" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'remark')" aria-label="备注" :disabled="isReadonly" />
+            <ElInput v-model="row.remark" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'remark')" aria-label="备注" :disabled="isReadonly" />
           </template>
           <template #cell-salesQuantity="{ row }">
-            <input v-model.number="row.salesQuantity" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'sales_quantity')" aria-label="数量（件）" :disabled="isReadonly" />
+            <ElInput v-model.number="row.salesQuantity" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'sales_quantity')" aria-label="数量（件）" :disabled="isReadonly" />
           </template>
           <template #cell-unitPrice="{ row }">
-            <input v-model.number="row.unitPrice" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'unit_price')" aria-label="单价（元）" placeholder="空白按 0" :disabled="isReadonly" />
+            <ElInput v-model.number="row.unitPrice" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'unit_price')" aria-label="单价（元）" placeholder="空白按 0" :disabled="isReadonly" />
           </template>
           <template #cell-amount="{ row }">
             <strong class="money-amount">{{ money(rowSalesAmount(row)) }}</strong>
@@ -811,12 +841,11 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
         </div>
       </section>
 
-      <section class="block" :class="{ 'is-collapsed': isCollapsed('after') }" id="after">
-        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('after') : undefined" @click="toggleBlock('after')"><h2>售后明细 <small v-if="form.afterSales.length">· {{ form.afterSales.length }} 行</small></h2><button v-if="!isReadonly" class="outline" type="button" @click.stop="addAfterSale">添加售后行</button></div>
-        <div v-show="!isCollapsed('after')" class="block-body">
+      <section class="block" id="after">
+        <div class="block-title"><h2>售后明细 <small v-if="form.afterSales.length">· {{ form.afterSales.length }} 行</small></h2><button v-if="!isReadonly" class="outline" type="button" @click.stop="addAfterSale">添加售后行</button></div>
+        <div class="block-body">
         <DataTable
           class="review-table smaller after-sale-table"
-          data-labels
           :columns="afterSaleColumns"
           :rows="form.afterSales"
           :row-key="afterSaleRowKey"
@@ -827,21 +856,20 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
           empty-text="没有售后明细"
         >
           <template #cell-sourceRow="{ row }"><span class="source">{{ row.sourceRow ?? '新增' }}</span></template>
-          <template #cell-content="{ row }"><input v-model="row.content" :class="cellClass('after_sales', form.afterSales.indexOf(row) + 1)" aria-label="售后内容" :disabled="isReadonly" /></template>
-          <template #cell-summary="{ row }"><input v-model="row.summary" aria-label="售后摘要" :disabled="isReadonly" /></template>
-          <template #cell-amount="{ row }"><input v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('after_sales', form.afterSales.indexOf(row) + 1)" aria-label="售后金额（元）" :disabled="isReadonly" /></template>
+          <template #cell-content="{ row }"><ElInput v-model="row.content" :class="cellClass('after_sales', form.afterSales.indexOf(row) + 1)" aria-label="售后内容" :disabled="isReadonly" /></template>
+          <template #cell-summary="{ row }"><ElInput v-model="row.summary" aria-label="售后摘要" :disabled="isReadonly" /></template>
+          <template #cell-amount="{ row }"><ElInput v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('after_sales', form.afterSales.indexOf(row) + 1)" aria-label="售后金额（元）" :disabled="isReadonly" /></template>
           <template #cell-actions="{ row }"><button v-if="!isReadonly" class="delete-row" type="button" @click="removeAfterSale(form.afterSales.indexOf(row))">删除</button></template>
         </DataTable>
         <div class="section-foot">售后合计 <strong>{{ money(totals.afterAmount) }}</strong> 元</div>
         </div>
       </section>
 
-      <section class="block" :class="{ 'is-collapsed': isCollapsed('fees') }" id="fees">
-        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('fees') : undefined" @click="toggleBlock('fees')"><h2>支出费用 <small>· 合计 {{ money(totals.feeAmount) }} 元</small></h2><button v-if="!isReadonly" class="outline" type="button" @click.stop="addFee">添加费用行</button></div>
-        <div v-show="!isCollapsed('fees')" class="block-body">
+      <section class="block" id="fees">
+        <div class="block-title"><h2>支出费用 <small>· 合计 {{ money(totals.feeAmount) }} 元</small></h2><button v-if="!isReadonly" class="outline" type="button" @click.stop="addFee">添加费用行</button></div>
+        <div class="block-body">
         <DataTable
           class="review-table smaller fee-table"
-          data-labels
           :columns="feeColumns"
           :rows="form.fees"
           :row-key="feeRowKey"
@@ -852,17 +880,17 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
           empty-text="没有费用明细"
         >
           <template #cell-sourceRow="{ row }"><span class="source">{{ row.sourceRow ?? '新增' }}</span></template>
-          <template #cell-name="{ row }"><input v-model="row.name" :class="cellClass('fees', form.fees.indexOf(row) + 1)" aria-label="费用摘要" :disabled="isReadonly" /></template>
-          <template #cell-amount="{ row }"><input v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('fees', form.fees.indexOf(row) + 1)" aria-label="费用金额（元）" :disabled="isReadonly" /></template>
+          <template #cell-name="{ row }"><ElInput v-model="row.name" :class="cellClass('fees', form.fees.indexOf(row) + 1)" aria-label="费用摘要" :disabled="isReadonly" /></template>
+          <template #cell-amount="{ row }"><ElInput v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('fees', form.fees.indexOf(row) + 1)" aria-label="费用金额（元）" :disabled="isReadonly" /></template>
           <template #cell-actions="{ row }"><button v-if="!isReadonly" class="delete-row" type="button" @click="removeFee(form.fees.indexOf(row))">删除</button></template>
         </DataTable>
         <div class="section-foot">费用合计 <strong>{{ money(totals.feeAmount) }}</strong> 元</div>
         </div>
       </section>
 
-      <section class="block" :class="{ 'is-collapsed': isCollapsed('summary') }" id="summary">
-        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('summary') : undefined" @click="toggleBlock('summary')"><h2>结算核对 <small>· 应付 {{ money(totals.payable) }} 元</small></h2></div>
-        <div v-show="!isCollapsed('summary')" class="block-body">
+      <section class="block" id="summary">
+        <div class="block-title"><h2>结算核对 <small>· 应付 {{ money(totals.payable) }} 元</small></h2></div>
+        <div class="block-body">
         <div class="summary-table">
           <div class="summary-head"><span>核对项目</span><span>文件填写</span><span>系统计算 · 提交值</span></div>
           <div v-for="row in summaryRows" :key="row.key" class="summary-line" :class="{ error: row.mismatch, total: row.key === 'payable_amount' }">
@@ -891,41 +919,44 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
       </footer>
     </div>
 
-    <div v-if="confirmOpen" class="overlay" role="dialog" aria-modal="true">
-      <section class="dialog">
-        <p class="dialog-kicker">提交前核对</p>
-        <h2>{{ hardBlocked || hasHardBlockErrors ? '存在问题需修正后才能提交' : hasErrors ? '仍有问题，是否带错提交？' : hasWarnings ? '存在差异，是否按当前结果提交？' : '确认提交' }}</h2>
-        <div class="confirm-list">
-          <div v-if="errorIssues.length" class="confirm-issues">
-            <p>提交校验未通过的行</p>
-            <table class="issue-table">
-              <thead>
-                <tr><th>位置</th><th>字段</th><th>问题</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="(issue, index) in errorIssues" :key="`${issue.code}-${issue.row}-${issue.field}-${index}`">
-                  <td>{{ issueLocation(issue) }}</td>
-                  <td>{{ issueFieldLabel(issue) }}</td>
-                  <td>{{ issue.message }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-if="warningSummaryLines.length" class="confirm-issues">
-            <p>待核对项</p>
-            <ul><li v-for="(line, index) in warningSummaryLines" :key="`${line}-${index}`">{{ line }}</li></ul>
-          </div>
-          <p v-if="confirmDialog" class="dialog-text">{{ confirmDialog }}</p>
+    <ElDialog
+      :model-value="confirmOpen"
+      :title="hardBlocked || hasHardBlockErrors ? '存在问题需修正后才能提交' : hasErrors ? '仍有问题，是否带错提交？' : hasWarnings ? '存在差异，是否按当前结果提交？' : '确认提交'"
+      width="min(760px, 94vw)"
+      append-to-body
+      :close-on-click-modal="false"
+      @update:model-value="(value) => { if (!value) closeConfirm() }"
+    >
+      <div class="confirm-list">
+        <div v-if="errorIssues.length" class="confirm-issues">
+          <p>提交校验未通过的行</p>
+          <table class="issue-table">
+            <thead>
+              <tr><th>位置</th><th>字段</th><th>问题</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="(issue, index) in errorIssues" :key="`${issue.code}-${issue.row}-${issue.field}-${index}`">
+                <td>{{ issueLocation(issue) }}</td>
+                <td>{{ issueFieldLabel(issue) }}</td>
+                <td>{{ issue.message }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <p>继续提交将以当前填写值入库；系统金额和汇总会按自洽口径修正。</p>
+        <div v-if="warningSummaryLines.length" class="confirm-issues">
+          <p>待核对项</p>
+          <ul><li v-for="(line, index) in warningSummaryLines" :key="`${line}-${index}`">{{ line }}</li></ul>
+        </div>
+        <p v-if="confirmDialog" class="dialog-text">{{ confirmDialog }}</p>
+      </div>
+      <p>继续提交将以当前填写值入库；系统金额和汇总会按自洽口径修正。</p>
+      <template #footer>
         <div class="dialog-actions">
           <button class="subtle" type="button" :disabled="saving" @click="closeConfirm">返回修改</button>
           <button class="primary" type="button" :disabled="saving || hardBlocked || hasHardBlockErrors" @click="doSubmit(confirmForce)">{{ savingAction === 'submit' ? '正在提交…' : '确认提交' }}</button>
         </div>
-      </section>
-    </div>
-
-    <p v-if="toast" class="toast" role="status">{{ toast }}</p>
+      </template>
+    </ElDialog>
   </section>
 </template>
 
@@ -939,7 +970,8 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
 .modal-close:hover { border-color: var(--primary); color: var(--primary); }
 .file-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 11px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .file-toolbar label { font-weight: 800; white-space: nowrap; }
-.file-toolbar select { min-width: min(280px, 100%); min-height: 38px; border: 1px solid var(--line-strong); border-radius: 6px; background: #fff; padding: 0 10px; }
+.file-toolbar .file-select { width: min(320px, 100%); }
+.file-toolbar :deep(.el-select__wrapper) { min-height: 38px; }
 .file-name { color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
 .status-panel { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 14px; border-left: 4px solid var(--warning); border-radius: 8px; background: var(--warning-soft); }
 .status-panel.ok { border-color: var(--primary); background: var(--primary-soft); }
@@ -960,21 +992,51 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
 .primary { border: 1px solid var(--primary); background: var(--primary); color: #fff; }
 .basic-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px; }
 .field { display: flex; flex-direction: column; min-width: 0; gap: 6px; color: var(--muted); font-size: .78rem; font-weight: 700; }
-.field input, .field select { width: 100%; min-height: 38px; padding: 6px 9px; border: 1px solid var(--line-strong); border-radius: 6px; background: #fff; color: var(--ink); font: inherit; }
-.field.error input, .field.error select { border-color: var(--danger); background: #fff5f5; }
+/* 表单里的 EP 控件对齐原 38px 手写输入；field-control 让 select / date 占满格。 */
+.field .field-control { width: 100%; }
+.field :deep(.el-input__wrapper),
+.field :deep(.el-select__wrapper),
+.field :deep(.el-date-editor.el-input) { min-height: 38px; }
+.field :deep(.el-input__wrapper),
+.field :deep(.el-select__wrapper) { padding: 0 9px; border-radius: 6px; }
+.field :deep(.el-input__wrapper) { box-shadow: 0 0 0 1px var(--line-strong) inset; background: #fff; }
+.field :deep(.el-date-editor.el-input .el-input__wrapper) { box-shadow: 0 0 0 1px var(--line-strong) inset; background: #fff; }
+.field.error :deep(.el-input__wrapper),
+.field.error :deep(.el-select__wrapper),
+.field.error :deep(.el-date-editor.el-input .el-input__wrapper) { box-shadow: 0 0 0 2px var(--danger) inset; background: #fff5f5; }
+.field :deep(.el-input__wrapper.is-disabled),
+.field :deep(.el-date-editor.el-input .el-input__wrapper.is-disabled) { background: var(--surface-soft); box-shadow: 0 0 0 1px var(--line) inset; }
 .field-hint { color: var(--danger); font-size: .72rem; font-weight: 400; }
 .review-table :deep(.data-table td) { padding: .38rem .5rem; }
 .review-table :deep(.data-table thead th) { padding: .5rem .6rem; }
-.review-table input { width: 100%; min-height: 36px; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 5px; background: #fff; color: var(--ink); font: inherit; }
-.review-table input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); outline: none; }
-.review-table input.cell-error { border: 2px solid var(--danger); background: #fff5f5; }
-.review-table input.cell-warning { border-color: var(--warning); background: #fffbf0; }
+/* 可编辑表格内的 EP 输入：36px 紧凑尺寸，等价原手写 cell input。 */
+.review-table :deep(.el-input__wrapper),
+.review-table :deep(.el-select__wrapper),
+.review-table :deep(.el-date-editor.el-input) { min-height: 36px; }
+.review-table :deep(.el-input__wrapper),
+.review-table :deep(.el-date-editor.el-input .el-input__wrapper) {
+  padding: 0 7px;
+  border-radius: 5px;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--line-strong) inset;
+}
+.review-table :deep(.el-input__wrapper.is-focus),
+.review-table :deep(.el-date-editor.el-input .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px var(--primary) inset, 0 0 0 2px var(--primary-soft);
+}
+.review-table :deep(.el-input__wrapper.is-disabled),
+.review-table :deep(.el-date-editor.el-input .el-input__wrapper.is-disabled) { background: var(--surface-soft); box-shadow: 0 0 0 1px var(--line) inset; }
+.review-table :deep(.el-date-editor.el-input .el-input__prefix) { display: none; }
+/* cell-error / cell-warning 落在 EP 控件根节点上，描边作用于内部 wrapper。 */
+.review-table .cell-error :deep(.el-input__wrapper),
+.review-table .cell-error :deep(.el-date-editor.el-input .el-input__wrapper) { box-shadow: 0 0 0 2px var(--danger) inset; background: #fff5f5; }
+.review-table .cell-warning :deep(.el-input__wrapper),
+.review-table .cell-warning :deep(.el-date-editor.el-input .el-input__wrapper) { box-shadow: 0 0 0 1px var(--warning) inset; background: #fffbf0; }
 .review-table :deep(tbody tr.row-invalid),
 .review-table :deep(tbody tr.row-invalid:hover) { background: #ffd9d6 !important; }
 .review-table :deep(tbody tr.row-invalid) td { box-shadow: inset 0 0 0 1px #f2b0ac; }
 .source { color: var(--muted); font-size: .78rem; }
-.readonly-value, input.readonly-input { display: inline-flex; align-items: center; min-height: 2rem; color: var(--ink); white-space: nowrap; }
-.review-table input:disabled, .basic-grid input:disabled, .basic-grid select:disabled { color: var(--ink); opacity: 1; background: var(--surface-soft); }
+.readonly-value { display: inline-flex; align-items: center; min-height: 2rem; color: var(--ink); white-space: nowrap; }
 .money-amount { color: var(--primary-dark); font-weight: 800; }
 .row-error { margin-top: 4px; color: var(--danger); font-size: .72rem; }
 .delete-row { border: 0; background: transparent; color: var(--danger); font-weight: 800; white-space: nowrap; }
@@ -999,15 +1061,9 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
 .review-foot span { margin-right: auto; color: var(--muted); font-size: .78rem; }
 .empty-card, .error-card { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .error-card { color: var(--danger); }
-.toast { position: fixed; right: 20px; bottom: 24px; z-index: 21; padding: 10px 14px; border-radius: 10px; background: var(--primary); color: #fff; }
-.overlay { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgb(24 49 42 / 45%); padding: 16px; }
-.dialog { width: min(760px, 100%); max-height: min(82vh, 760px); display: flex; flex-direction: column; padding: 20px; border-radius: 14px; background: #fff; box-shadow: 0 16px 40px rgb(0 0 0 / 18%); }
-.dialog-kicker { color: var(--danger); font-size: .76rem; font-weight: 800; }
-.dialog h2 { margin: 8px 0 12px; font-size: 1.2rem; }
 .dialog-text { white-space: pre-wrap; color: var(--danger); line-height: 1.6; }
-.dialog p { line-height: 1.6; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
-.confirm-list { flex: 1; min-height: 0; overflow: auto; padding-right: 4px; }
+.confirm-list { min-height: 0; }
 .change-list { display: grid; gap: 8px; margin-bottom: 12px; }
 .change-line { display: grid; grid-template-columns: minmax(150px, .95fr) minmax(220px, 1.25fr); gap: 3px 12px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-soft); }
 .change-line strong { font-size: .88rem; }
@@ -1027,12 +1083,5 @@ onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange)
 .issue-table td:last-child { color: var(--ink); }
 @media (max-width: 900px) {
   .basic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 620px) {
-  .review-head { align-items: flex-start; flex-direction: column; }
-  .basic-grid { grid-template-columns: 1fr; }
-  .summary-head, .summary-line { grid-template-columns: 1fr .95fr 1fr; gap: 6px; padding: 10px 8px; font-size: .76rem; }
-  .review-foot span { flex-basis: 100%; }
-  .change-line { grid-template-columns: 1fr; }
 }
 </style>

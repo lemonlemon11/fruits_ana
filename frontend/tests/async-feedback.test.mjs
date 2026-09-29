@@ -30,6 +30,21 @@ test('问题明细下载提供批次级等待状态', () => {
   assert.match(source, /:disabled="downloadingIssuesBatch === String\(batch\.id\)"/)
 })
 
+test('结算单导出期间整个列表/页面盖上遮罩，防止重复点击', () => {
+  const list = read('views/SettlementListView.vue')
+  assert.match(list, /const exportingAnything = computed\(\(\) => exportingKeys\.value\.size > 0\)/)
+  assert.match(list, /:aria-busy="exportingAnything"/)
+  assert.match(list, /v-if="exportingAnything" class="list-export-mask"/)
+  assert.match(list, /正在导出\{\{ exportingCount > 1 \? ` \$\{exportingCount\} 个文件` : '' \}\}，请稍候/)
+  assert.match(list, /\.settlement-list-page \.panel \{ position: relative; \}/)
+  assert.match(list, /\.list-export-mask \{[\s\S]*?position: absolute;[\s\S]*?inset: 0;/)
+
+  const detail = read('views/SettlementView.vue')
+  assert.match(detail, /v-if="manualExporting" class="export-mask"/)
+  assert.match(detail, /正在导出结算单，请稍候/)
+  assert.match(detail, /\.export-mask \{[\s\S]*?position: absolute;[\s\S]*?inset: -6px;/)
+})
+
 test('排序期间锁定筛选操作并保留排序状态提示', () => {
   const source = read('views/SettlementListView.vue')
   // 统计周期组件已删除；销售日期快捷筛选与查询按钮在排序期间锁定。

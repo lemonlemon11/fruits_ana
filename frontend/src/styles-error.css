@@ -181,25 +181,3 @@
 @media (prefers-reduced-motion: reduce) {
   .error-action { transition: none; }
 }
-
-@media (max-width: 820px) {
-  .error-view {
-    min-height: calc(100vh - var(--app-header-height) - var(--mobile-tabbar-height) - 1rem);
-    min-height: calc(100dvh - var(--app-header-height) - var(--mobile-tabbar-height) - 1rem);
-    width: 100%;
-    max-width: 100%;
-    place-items: start stretch;
-    padding: 1.18rem 0 .82rem;
-    overflow-x: clip;
-  }
-
-  .error-panel { display: block; width: 100%; border-radius: var(--radius-md); }
-  .error-visual { min-height: 11.5rem; border-right: 0; border-bottom: 1px solid var(--line); }
-  .error-graphic { width: 6.7rem; height: 6.7rem; }
-  .error-copy { padding: 1.41rem 1.18rem 1.65rem; }
-  .error-copy h1 { font-size: 1.45rem; }
-  .error-lead { font-size: 1rem; line-height: 1.7; }
-  .error-actions { display: grid; grid-template-columns: 1fr; }
-  .error-action { width: 100%; min-height: 2.82rem; }
-  .error-details dl > div { grid-template-columns: 1fr; gap: .12rem; }
-}

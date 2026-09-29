@@ -110,6 +110,9 @@ def test_prompt_forbids_unknown_terms_and_fake_numbers():
     # 提示词必须要求跨结算单比较并给出可执行建议。
     assert "对比结论" in SYSTEM_PROMPT
     assert "不要写「继续关注」这类空话" in SYSTEM_PROMPT
+    # 提到结算单必须用「称呼」字段（适配后单号），禁止数字商号或抽象称谓。
+    assert "「称呼」字段" in SYSTEM_PROMPT
+    assert "禁止用数字商号" in SYSTEM_PROMPT
 
 
 def test_build_messages_embeds_payload_without_recomputing():
@@ -169,6 +172,10 @@ def test_payload_keeps_grade_numbers_without_spreads():
     assert grades["A"]["件数"] == 15.0
     assert grades["A"]["金额占比"] == pytest.approx(0.625)
     assert payload["结算单"][0]["品牌"] == "宝贝"
+    # 结算单以适配后单号为称呼（如 宝贝-001），数据包不再携带商号编号。
+    assert payload["结算单"][0]["称呼"] == "宝贝-001"
+    assert "商号" not in payload["结算单"][0]
+    assert "原始商号" not in payload["结算单"][0]
     assert "价差" not in payload["合计"]
     assert grades["C"]["件数"] == 5.0
 
@@ -188,6 +195,8 @@ def test_payload_adds_sample_size_and_comparison_insights():
     rankings = insights["结算单均价排名"]
     assert len(rankings) == 2
     assert rankings[0]["每件均价"] >= rankings[1]["每件均价"]
+    assert {row["称呼"] for row in rankings} == {"宝贝-001", "宝贝-002"}
+    assert all("商号" not in row for row in rankings)
     assert insights["最高比最低每件贵"] is not None
     signals = {row["等级"]: row for row in insights["等级结构信号"]}
     assert signals["A"]["金额占比减件数占比"] == pytest.approx(0.625 - 15 / 40)

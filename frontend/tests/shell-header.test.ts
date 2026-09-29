@@ -85,9 +85,8 @@ test('header 提供字号选择并让全局根字号按偏好缩放', () => {
   assert.match(globalStyles, /calc\(clamp\(15px, 0\.25rem \+ 0\.85vw, 17px\) \* var\(--font-scale\)\)/)
 })
 
-test('桌面收起为自适应图标栏且移动端不显示收起按钮', () => {
+test('桌面收起为自适应图标栏', () => {
   assert.match(styles, /@media \(min-width: 821px\)[\s\S]*\.app-shell\.sidebar-collapsed \.app-body\s*\{[^}]*4\.24rem/)
-  assert.match(styles, /@media \(max-width: 820px\)[\s\S]*\.sidebar-toggle\s*\{\s*display:\s*none/)
 })
 
 test('header 文案与用户名单行截断，避免换行变高后盖住左侧菜单', () => {
@@ -99,10 +98,9 @@ test('header 文案与用户名单行截断，避免换行变高后盖住左侧�
   assert.match(styles, /\.account-name\s*\{[^}]*text-overflow:\s*ellipsis/)
 })
 
-test('页面提供右下角一键回顶按钮，移动端抬高到底部导航之上', () => {
+test('页面提供右下角一键回顶按钮', () => {
   assert.match(shell, /class="back-to-top"/)
   assert.match(shell, /aria-label="回到页面顶部"/)
   assert.match(shell, /window\.addEventListener\('scroll', handleScroll/)
   assert.match(styles, /\.back-to-top\s*\{[^}]*position:\s*fixed/)
-  assert.match(styles, /@media \(max-width: 820px\)[\s\S]*\.back-to-top\s*\{[\s\S]*calc\(var\(--mobile-tabbar-height\)/)
 })

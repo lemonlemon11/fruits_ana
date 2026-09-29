@@ -27,7 +27,7 @@ const totalGrade = (grade: Grade) => gradeRow(props.total.grades, grade)
 function columnsFor(grade: Grade): DataTableColumn<SeriesComparisonItem>[] {
   const gradeTotal = totalGrade(grade)
   return [
-    { key: 'order', label: '单号', rowHeader: true, emphasis: true, value: (item) => shortLabel(item) },
+    { key: 'order', label: '单号', emphasis: true, value: (item) => shortLabel(item) },
     {
       key: 'quantity',
       label: '件数',
@@ -78,7 +78,7 @@ function columnsFor(grade: Grade): DataTableColumn<SeriesComparisonItem>[] {
           :caption="`${gradeLabel(grade)}在各结算单的件数、金额、每件均价与金额占比`"
           min-width="320px"
           foot-label="合计"
-          cards-on-narrow
+          compact
         />
       </article>
     </div>
@@ -87,10 +87,12 @@ function columnsFor(grade: Grade): DataTableColumn<SeriesComparisonItem>[] {
 </template>
 
 <style scoped>
-/* 卡片要放得下 5 列（单号/件数/金额/每件均价/金额占比），否则最后一列会被挤出去。 */
-.grade-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 14px; }
-.grade-table-card { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
-.grade-table-card h3 { margin: 0 0 8px; font-size: .92rem; }
+/* 卡片最小宽须大于 5 列（单号/件数/金额/每件均价/金额占比）的紧凑列宽总和，
+   保证任何分辨率下每行卡片都装得下整张表，卡片内不出现横向滚动条；
+   放不下 N 列时 auto-fit 自动退到 N-1 列，表格随容器伸缩。 */
+.grade-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(600px, 100%), 1fr)); gap: 12px; }
+.grade-table-card { min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.grade-table-card h3 { margin: 0 0 6px; font-size: .92rem; }
 
 @media (max-width: 560px) {
   .grade-tables { grid-template-columns: minmax(0, 1fr); }

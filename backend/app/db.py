@@ -54,12 +54,36 @@ def build_database_url(environ: Mapping[str, str]) -> str | URL:
     )
 
 
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, "") or default)
+    except ValueError:
+        return default
+
+
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def engine_options(database_url: str | URL) -> dict[str, object]:
-    """返回适配当前数据库方言的连接池参数。"""
+    """返回适配当前数据库方言的连接池参数。
+
+    远程公网库下单次往返 ~50ms，`pool_pre_ping` 的 SELECT 1 探活是每个请求
+    的固定开销，默认关闭，连接新鲜度交给较短的 `pool_recycle`；链路不稳
+    （偶发 stale connection）时可设 FRUIT_ANALYSIS_DB_PRE_PING=1 重新打开。
+    池默认放大到 10+20：首屏会并发打 5 个分析接口，默认 5+10 会排队。
+    """
 
     if make_url(database_url).get_backend_name() == "sqlite":
         return {"connect_args": {"check_same_thread": False}}
-    return {"pool_pre_ping": True, "pool_recycle": 1800}
+    options: dict[str, object] = {
+        "pool_recycle": _env_int("FRUIT_ANALYSIS_DB_POOL_RECYCLE", 300),
+        "pool_size": _env_int("FRUIT_ANALYSIS_DB_POOL_SIZE", 10),
+        "max_overflow": _env_int("FRUIT_ANALYSIS_DB_MAX_OVERFLOW", 20),
+    }
+    if _env_flag("FRUIT_ANALYSIS_DB_PRE_PING"):
+        options["pool_pre_ping"] = True
+    return options
 
 
 DATABASE_URL = build_database_url(os.environ)

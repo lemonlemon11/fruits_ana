@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 import type { Grade, GradeMetric, SettlementRecord } from '../api/client'
 import { gradeLabel } from '../api/client'
@@ -28,8 +28,32 @@ const specGradeOrder = computed(() => props.gradeOrder ?? activeGrades(props.rec
 const sectionTitle = computed(() => props.title ?? '等级图表')
 
 const totalQuantity = computed(() =>
-  props.records.reduce((total, record) => total + record.quantity, 0),
+  filteredSpecRecords.value.reduce((total, record) => total + record.quantity, 0),
 )
+
+/** 规格表的品牌/等级筛选（用户要求，仅 overview 版式）：只作用于规格表本身，
+ *  不影响页面上其他板块（KPI/饼图/每日销售金额等仍按页面级筛选口径）。 */
+const specBrandFilter = ref('')
+const specGradeFilter = ref<Grade | ''>('')
+
+/** 与分组同一口径的品牌标签：详情页整单品牌优先，overview 用记录级 brand。 */
+function recordBrandLabel(record: SettlementRecord): string {
+  return props.brand?.trim() || record.brand.trim() || '未识别品牌'
+}
+
+const specBrandOptions = computed(() =>
+  [...new Set(props.records.map(recordBrandLabel))].sort((left, right) => left.localeCompare(right, 'zh-Hans-CN')),
+)
+const specGradeOptions = computed(() => specGradeOrder.value)
+
+const filteredSpecRecords = computed(() => {
+  if (!isOverview.value) return props.records
+  return props.records.filter((record) => {
+    if (specBrandFilter.value && recordBrandLabel(record) !== specBrandFilter.value) return false
+    if (specGradeFilter.value && record.grade !== specGradeFilter.value) return false
+    return true
+  })
+})
 
 /** 规格表（方案A，两页共用）：一行 = 品牌+等级+头数+KG+备注，相同组合合并统计；
  *  按 品牌×等级 给小计、表底给合计，小计/合计的每件均价按金额加权；
@@ -57,10 +81,10 @@ type OverviewSpecGroup = {
 
 const overviewSpecGroups = computed<OverviewSpecGroup[]>(() => {
   const grouped = new Map<string, OverviewSpecRow>()
-  props.records.forEach((record) => {
+  filteredSpecRecords.value.forEach((record) => {
     const grade = record.grade
     if (!grade || !specGradeOrder.value.includes(grade)) return
-    const brand = props.brand?.trim() || record.brand.trim() || '未识别品牌'
+    const brand = recordBrandLabel(record)
     const head = record.headCount?.trim() ?? ''
     const kg = record.specKg?.trim() ?? ''
     const remark = record.remark?.trim() ?? ''
@@ -164,6 +188,24 @@ const GRADE_BADGE_BACKGROUNDS: Record<Grade, string> = {
             </div>
           </header>
 
+          <!-- 品牌等级筛选（仅 overview）：只过滤本表，合计与占比随筛选重算。 -->
+          <div v-if="isOverview" class="spec-filter-row">
+            <label class="spec-filter">
+              <span>品牌</span>
+              <select v-model="specBrandFilter">
+                <option value="">全部品牌</option>
+                <option v-for="brand in specBrandOptions" :key="brand" :value="brand">{{ brand }}</option>
+              </select>
+            </label>
+            <label class="spec-filter">
+              <span>等级</span>
+              <select v-model="specGradeFilter">
+                <option value="">全部等级</option>
+                <option v-for="grade in specGradeOptions" :key="grade" :value="grade">{{ gradeLabel(grade) }}</option>
+              </select>
+            </label>
+          </div>
+
           <div v-if="!hasOverviewSpecRows" class="empty-inline">{{ isOverview ? '当前筛选范围没有可统计的规格数据' : '当前结算单没有可统计的规格数据' }}</div>
           <div v-else class="spec-table-wrap">
             <table class="spec-table">
@@ -236,6 +278,18 @@ const GRADE_BADGE_BACKGROUNDS: Record<Grade, string> = {
 .pie-chart-block :deep(.section-heading h2) { margin: 0; font-size: 1rem; }
 .pie-chart-block :deep(.pie-layout) { flex: 1; align-content: center; min-height: 116px; gap: 8px; }
 .spec-block { padding: 10px; }
+/* 规格表品牌/等级筛选（仅 overview）：本地行内筛选，不动页面级 filter-bar。 */
+.spec-filter-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.spec-filter { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .85rem; }
+.spec-filter select {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: .85rem;
+}
 
 /* 规格表（方案A，两页共用）：品牌+等级+头数+KG+备注 一行一个组合，含小计与合计；
    全部字段内容居中（用户要求，不按数字右对齐）。 */
@@ -296,7 +350,4 @@ const GRADE_BADGE_BACKGROUNDS: Record<Grade, string> = {
   .breakdown-grid--overview { grid-template-columns: minmax(0, 1fr); }
 }
 
-@media (max-width: 820px) {
-  .spec-table { min-width: 640px; }
-}
 </style>

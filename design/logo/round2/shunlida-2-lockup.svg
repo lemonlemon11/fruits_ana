@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 172 64" role="img" aria-label="顺立达组合标：榴莲专送">
+  <path d="M2 37 H11" stroke="#17663f" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M0.5 44 H11" stroke="#17663f" stroke-width="2.6" stroke-linecap="round"/>
+  <polygon points="13,31 4.5,24.5 14,21.5 21,31" fill="#104a2f"/>
+  <polygon points="51,31 59.5,24.5 50,21.5 43,31" fill="#104a2f"/>
+  <g>
+    <polygon points="32,8.5 28.7,14.1 35.3,14.1" fill="#d1960c"/>
+    <polygon points="32,8.5 28.7,14.1 35.3,14.1" fill="#d1960c" transform="rotate(45 32 21)"/>
+    <polygon points="32,8.5 28.7,14.1 35.3,14.1" fill="#d1960c" transform="rotate(90 32 21)"/>
+    <polygon points="32,8.5 28.7,14.1 35.3,14.1" fill="#d1960c" transform="rotate(135 32 21)"/>
+    <polygon points="32,8.5 28.7,14.1 35.3,14.1" fill="#d1960c" transform="rotate(180 32 21)"/>
+    <polygon points="32,8.5 28.7,14.1 35.3,14.1" fill="#d1960c" transform="rotate(225 32 21)"/>
+    <polygon points="32,8.5 28.7,14.1 35.3,14.1" fill="#d1960c" transform="rotate(270 32 21)"/>
+    <polygon points="32,8.5 28.7,14.1 35.3,14.1" fill="#d1960c" transform="rotate(315 32 21)"/>
+    <circle cx="32" cy="21" r="9" fill="#ffd93f" stroke="#c98a08" stroke-width="1.4"/>
+    <circle cx="28.7" cy="19.5" r="1.4" fill="#3a2417"/>
+    <circle cx="35.3" cy="19.5" r="1.4" fill="#3a2417"/>
+    <path d="M29.5 23 Q32 25.5 34.5 23" fill="none" stroke="#7a3d16" stroke-width="1.4" stroke-linecap="round"/>
+    <rect x="30.6" y="3" width="2.8" height="5" rx="1.4" fill="#8a5417"/>
+  </g>
+  <rect x="13" y="31" width="38" height="23" rx="2.5" fill="#17663f"/>
+  <path d="M32 47.5 V36.5 M28.4 40 L32 36 L35.6 40" fill="none" stroke="#f7faf8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="78" y="34" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif" font-size="25" font-weight="900" fill="#104a2f" letter-spacing="2">顺立达</text>
+  <text x="78.5" y="50" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif" font-size="9" font-weight="500" fill="#5f7a6c" letter-spacing="4">SHUNLIDA</text>
+</svg>

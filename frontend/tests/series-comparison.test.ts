@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 import { normalizeSeriesComparison, normalizeSettlementList } from '../src/api/normalize.ts'
 import {
@@ -9,6 +12,37 @@ import {
   selectWholeSeries,
   toggleSelection,
 } from '../src/utils/seriesComparison.ts'
+
+const srcRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src')
+
+test('「按等级号别」对比视图已移除，品牌对比只保留按品牌视图', () => {
+  const view = fs.readFileSync(path.join(srcRoot, 'views', 'SeriesComparisonView.vue'), 'utf8')
+  assert.doesNotMatch(view, /按等级号别|SeriesGradeDetail|GradeDetailAiAnalysis|role="tablist"/)
+  // gradeDetails 数据链路（类型/归一化/请求）一并移除。
+  const types = fs.readFileSync(path.join(srcRoot, 'api', 'types.ts'), 'utf8')
+  assert.doesNotMatch(types, /GradeDetailData|GradeDetailBucket|gradeDetails/)
+  const normalize = fs.readFileSync(path.join(srcRoot, 'api', 'normalize.ts'), 'utf8')
+  assert.doesNotMatch(normalize, /normalizeGradeDetails/)
+  const client = fs.readFileSync(path.join(srcRoot, 'api', 'client.ts'), 'utf8')
+  assert.doesNotMatch(client, /grade-detail/)
+})
+
+test('总览表单行紧凑居中，等级独立对比不出现卡片内滚动条', () => {
+  const overview = fs.readFileSync(path.join(srcRoot, 'components', 'SeriesOverviewTable.vue'), 'utf8')
+  // 所有列显式居中；启用紧凑模式并压低整表最小宽，减少触发内部横向滚动。
+  assert.match(overview, /align: 'center'/)
+  assert.match(overview, /min-width="560px"/)
+  assert.match(overview, /\n        compact\n/)
+  // 商号+单号、件数+占比条都同行排布，行内不再出现堆叠换行。
+  assert.match(overview, /\.merchant-cell \{ display: inline-flex; align-items: baseline/)
+  assert.match(overview, /\.grade-cell \{ display: inline-flex; align-items: center/)
+  assert.doesNotMatch(overview, /share-line/)
+
+  const gradeTables = fs.readFileSync(path.join(srcRoot, 'components', 'SeriesGradeTables.vue'), 'utf8')
+  // 卡片最小轨道钳制在容器内：任何分辨率下每行卡片都装得下整张表，无卡片内滚动条。
+  assert.match(gradeTables, /repeat\(auto-fit, minmax\(min\(600px, 100%\), 1fr\)\)/)
+  assert.match(gradeTables, /\n          compact\n/)
+})
 
 const payload = {
   settlements: [

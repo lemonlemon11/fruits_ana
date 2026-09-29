@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>方案 I · 掌柜账单 · 用户端（真实数据）</title>
+<style>
+/* ===== 方案 I「掌柜账单」：微信账单 / 手机银行心智的「大数字少层级」账单版
+   · 唯一深色满宽报告头一屏给结论，其余全白细线
+   · 单层 56px 白底顶栏直切（无侧栏 / 无页签条），从属页靠面包屑返回
+   · 图表 = 系统同款 ECharts（等级环 / 每日灰调折线 / 详情双轴 / 品牌双系列）
+   · 全站无斜渐变、无阴影；字重只 400/500/600/650；警示红仅 #9b3029 一支
+   数据：53000 实测（variant-h.html 同源，2026-09-29 拉取） ===== */
+:root {
+  --ink:#1f2923; --bg:#f6f9f7; --panel:#fff; --line:#dce5df; --rowline:#edf2ee;
+  --muted:#6b7a72; --thead:#f4f7f5;
+  --brand:#2f7a4f; --brand-weak:#e8f2ea;           /* 品牌绿只管交互 */
+  --gA:#16856b; --gB:#bd7414; --gO:#6e7780;         /* A 果绿只管数据 */
+  --warn:#9b3029; --report:#163528;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; background:#e9ede9; color:var(--ink); font-size:13px; }
+a { text-decoration:none; color:inherit; }
+button { font:inherit; cursor:pointer; border:0; background:none; color:inherit; }
+ul { list-style:none; }
+.num { font-variant-numeric:tabular-nums; }
+svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+small { font-weight:400; }
+
+/* ===== 演示控制条（深色） ===== */
+.variant-bar { position:sticky; top:0; z-index:99; display:flex; align-items:center; gap:8px; flex-wrap:nowrap;
+  padding:7px 12px; background:#131c17; color:#c9d6cd; font-size:.74rem; font-weight:600; overflow-x:auto; }
+.variant-bar .vt { color:#fff; margin-right:4px; white-space:nowrap; }
+.variant-bar .vt small { display:block; color:#8ba58f; font-size:.62rem; font-weight:500; }
+.vtabs { display:flex; gap:2px; background:rgba(255,255,255,.1); padding:2px; border-radius:7px; }
+.vtabs button { padding:5px 9px; border-radius:5px; color:#adc3b3; font-size:.72rem; white-space:nowrap; }
+.vtabs button.on { background:#fff; color:#131c17; }
+.vdev { margin-left:auto; display:flex; gap:2px; background:rgba(255,255,255,.1); padding:2px; border-radius:7px; }
+.vdev button { padding:5px 9px; border-radius:5px; color:#adc3b3; font-size:.72rem; white-space:nowrap; }
+.vdev button.on { background:#fff; color:#131c17; }
+
+/* ===== 单层 56px 白底顶栏 ===== */
+.app { display:flex; flex-direction:column; min-height:calc(100vh - 34px); background:var(--bg); }
+.topbar { height:56px; background:#fff; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:18px;
+  padding:0 clamp(14px,3vw,28px); position:sticky; top:34px; z-index:40; }
+.logo { display:flex; align-items:center; gap:9px; font-size:15px; font-weight:650; }
+.logo .mark { width:28px; height:28px; border-radius:6px; background:var(--brand); color:#fff; display:grid; place-items:center; font-size:13px; }
+.topnav { display:flex; gap:2px; }
+.topnav a { height:44px; display:inline-flex; align-items:center; padding:0 13px; border-radius:6px; font-size:13px; color:#37423b; }
+.topnav a:hover { background:var(--brand-weak); }
+.topnav a.on { color:var(--brand); font-weight:600; background:var(--brand-weak); }
+.spacer { flex:1; }
+.bell { position:relative; width:44px; height:44px; display:grid; place-items:center; color:#37423b; border-radius:6px; }
+.bell:hover { background:var(--brand-weak); }
+.bell .dot { position:absolute; top:9px; right:10px; width:7px; height:7px; border-radius:50%; background:var(--warn); border:2px solid #fff; }
+.avatar { width:32px; height:32px; border-radius:50%; background:var(--brand); color:#fff; display:grid; place-items:center; font-size:13px; font-weight:600; }
+.backline { display:none; align-items:center; gap:7px; height:44px; padding:0 8px; margin-left:-8px; border-radius:6px; font-size:13px; font-weight:600; }
+.backline:hover { background:var(--brand-weak); }
+
+/* ===== 内容栅格：单列通栏 max 1160，段间 32 / 段内 12 ===== */
+.page { display:flex; flex-direction:column; flex:1; }
+.wrap { width:100%; max-width:1160px; margin:0 auto; padding:0 20px; }
+.stack { display:flex; flex-direction:column; gap:32px; padding:32px 20px 72px; }
+
+.pagehead { display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+.pagehead h1 { font-size:24px; font-weight:650; letter-spacing:-0.01em; }
+.pagehead .desc { font-size:12px; color:var(--muted); padding-bottom:4px; }
+.pagehead .sp { flex:1; }
+.crumbline { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px; }
+.crumbline a { color:var(--brand); padding:4px 6px; margin-left:-6px; border-radius:6px; }
+.crumbline a:hover { background:var(--brand-weak); }
+
+/* ===== 卡片与分隔：白底 12px 圆角（容器 12 / 控件 6），行级＝上边 1px 裸行 ===== */
+.card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px 20px; min-width:0; }
+.card h3 { font-size:15px; font-weight:600; display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+.h3note { font-size:12px; color:var(--muted); font-weight:400; }
+.h3lk { margin-left:auto; font-size:12px; color:var(--brand); font-weight:600; }
+.h3lk:hover { text-decoration:underline; }
+
+.btn { min-height:44px; padding:0 16px; border-radius:6px; display:inline-flex; align-items:center; gap:7px; font-size:13px; }
+.btn.primary { background:var(--brand); color:#fff; font-weight:600; }
+.btn.primary:hover { background:#276a43; }
+.btn.ghost { border:1px solid var(--line); background:#fff; color:#37423b; }
+.btn.ghost:hover { border-color:var(--brand); color:var(--brand); }
+.btn.sm { min-height:38px; padding:0 12px; font-size:12px; }
+
+/* ===== 满宽深墨绿报告头（全页唯一深色，桌面约 170px；手机端浅色化降级） ===== */
+.report { background:var(--report); color:#fff; }
+.report .wrap { padding:16px 20px 14px; }
+.rh-meta { font-size:12px; color:#9db8a8; }
+.rh-main { display:flex; align-items:baseline; gap:16px; margin-top:5px; flex-wrap:wrap; }
+.rh-big { font-size:48px; font-weight:650; letter-spacing:-0.02em; line-height:1.15; font-variant-numeric:tabular-nums; }
+.rh-big i { font-style:normal; font-size:16px; font-weight:500; margin-left:6px; letter-spacing:0; }
+.rh-sub { font-size:14px; color:#b9cdc1; font-variant-numeric:tabular-nums; }
+.rh-concl { margin-top:9px; display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#d7e4db; line-height:1.55; }
+.shun-ic { width:14px; height:14px; border-radius:50%; background:rgba(255,255,255,.16); color:#cfe0d5;
+  display:grid; place-items:center; font-size:9px; flex:none; margin-top:3px; }
+.rh-points { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.rh-pt { font-size:12px; color:#cfe0d5; background:rgba(255,255,255,.09); border-radius:6px; padding:3px 10px; font-variant-numeric:tabular-nums; }
+/* 市场 / 品牌分布行：12px 分布条，降级不隐形，点击展开真值 */
+.rh-dist { margin-top:11px; display:flex; gap:20px; flex-wrap:wrap; font-size:12px; color:#b9cdc1; }
+.dist-t { display:inline-flex; align-items:center; gap:7px; color:#b9cdc1; font-size:12px; min-height:32px; }
+.dist-t:hover { color:#fff; }
+.dbar { display:inline-flex; width:104px; height:12px; border-radius:3px; overflow:hidden; background:rgba(255,255,255,.12); }
+.dbar i { display:block; height:100%; }
+.dbar .d1 { background:#a9c4b2; } .dbar .d2 { background:#4f7c66; }
+.rh-truth { margin-top:8px; padding-top:9px; border-top:1px solid rgba(255,255,255,.14); font-size:12px; color:#cfe0d5;
+  display:flex; gap:22px; flex-wrap:wrap; font-variant-numeric:tabular-nums; }
+.rh-truth b { color:#fff; font-weight:600; }
+
+/* ===== A / B 果金额对照行（两段式非四卡） ===== */
+.ab { background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px 22px; }
+.ab-grid { display:grid; grid-template-columns:1fr auto 1fr; gap:24px; align-items:center; }
+.ab-side .t { display:flex; align-items:center; gap:7px; font-size:13px; color:#37423b; }
+.ab-side .amt { font-size:24px; font-weight:650; margin-top:5px; font-variant-numeric:tabular-nums; }
+.ab-side .amt i { font-style:normal; font-size:13px; font-weight:500; color:var(--muted); margin-left:3px; }
+.ab-side .amt sup { font-size:11px; color:var(--muted); font-weight:500; margin-left:2px; }
+.ab-side .meta { font-size:12px; color:var(--muted); margin-top:4px; font-variant-numeric:tabular-nums; }
+.ab-mid { display:flex; flex-direction:column; gap:6px; min-width:190px; }
+.ab-bar { display:flex; width:100%; height:10px; border-radius:3px; overflow:hidden; }
+.ab-bar i { display:block; height:100%; }
+.ab-pct { display:flex; justify-content:space-between; width:100%; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
+.ab-note { margin-top:13px; padding-top:11px; border-top:1px solid var(--rowline); text-align:center; font-size:11px; color:#93a29a; }
+
+/* ===== 趋势层：等级环 4 列 + 每日折线 8 列，240px 同高同组 ===== */
+.trend { display:grid; grid-template-columns:4fr 8fr; gap:12px; }
+.chartbox { height:240px; display:flex; gap:12px; align-items:center; min-width:0; }
+#chGradePie { width:204px; height:236px; flex:none; }
+.pie-legend { display:flex; flex-direction:column; gap:10px; min-width:0; }
+.pl-row .l1 { display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink); }
+.pl-row .l1 b { margin-left:auto; font-weight:600; font-variant-numeric:tabular-nums; }
+.pl-row .l2 { font-size:12px; color:var(--muted); margin-top:2px; font-variant-numeric:tabular-nums; }
+.pie-note { font-size:11px; color:#93a29a; margin-top:1px; }
+.gdot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:6px; vertical-align:1px; flex:none; }
+.daily-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+.daily-head h3 { margin:0; }
+.daily-mode { display:inline-flex; padding:2px; border:1px solid var(--line); border-radius:999px; background:#f2f6f3; }
+.daily-mode button { min-height:28px; padding:0 13px; border-radius:999px; color:var(--muted); font-size:12px; font-weight:600; }
+.daily-mode button.on { background:var(--ink); color:#fff; }
+.daily-mode button:not(.on):hover { color:var(--ink); }
+#chDaily { height:240px; width:100%; }
+
+/* ===== 共享表格规范：浅底灰字表头 / 6px 等级色点 / 件数·均价强调 / 小计浅底缩进 / 合计白底双线 ===== */
+.tscroll { overflow-x:auto; border:1px solid var(--line); border-radius:6px; }
+table.t { width:100%; min-width:880px; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; background:#fff; }
+table.t th { background:var(--thead); color:var(--muted); font-size:11px; font-weight:600; text-align:left;
+  padding:9px 10px; white-space:nowrap; border-bottom:1px solid var(--line); }
+table.t td { padding:12px 10px; border-top:1px solid var(--rowline); white-space:nowrap; vertical-align:middle; }
+table.t th.num, table.t td.num { text-align:right; }
+table.t tbody tr:hover td { background:#f8fbf9; }
+table.t .em { font-weight:650; }
+table.t .sm2 { font-size:12px; color:var(--muted); }
+table.t .noprice { color:#93a29a; }
+table.t th.sortable { cursor:pointer; }
+table.t th.sortable:hover { color:var(--brand); }
+table.t tr.sub td { background:#f4f7f5; border-top:1px solid #e3ebe6; border-bottom:1px solid #e3ebe6; font-size:12px; color:#37423b; }
+table.t tr.sub td:first-child { padding-left:26px; }
+table.t tfoot td { background:#fff; border-top:3px double #9db3a6; font-weight:650; padding:13px 10px; }
+.spec-scroll { overflow-x:auto; max-height:none; }
+.spec-scroll.tall { max-height:560px; overflow-y:auto; }
+.spec-scroll.tall table.t th { position:sticky; top:0; z-index:2; }
+.tbrand { font-weight:600; }
+.op { font-size:12px; color:var(--brand); font-weight:600; padding:6px 8px; margin-left:-8px; border-radius:6px; }
+.op:hover { background:var(--brand-weak); }
+.champ { display:inline-block; margin-left:7px; font-size:11px; font-weight:600; color:var(--brand);
+  border:1px solid var(--brand); border-radius:6px; padding:0 5px; vertical-align:1px; }
+.tg { display:inline-flex; align-items:center; font-size:12px; color:var(--muted); }
+
+/* ===== 竖式收支单（详情页） ===== */
+.bill .brow { display:flex; justify-content:space-between; align-items:center; padding:11px 0; font-size:13px; color:#37423b; }
+.bill .brow + .brow { border-top:1px solid var(--rowline); }
+.bill .brow b { font-weight:600; font-variant-numeric:tabular-nums; }
+.bill .brow .neg b, .bill .brow b.neg { color:var(--warn); }
+.bill .brow.pay { border-top:1px solid #c8d6cc; padding:15px 0 3px; }
+.bill .brow.pay span { font-size:13px; font-weight:600; color:var(--ink); }
+.bill .brow.pay b { font-size:24px; font-weight:650; }
+.bstat { margin-top:11px; padding-top:11px; border-top:1px solid var(--rowline); font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+.bstat b { color:var(--ink); font-weight:600; }
+.meta-line { font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:6px 18px; font-variant-numeric:tabular-nums; }
+.meta-line b { color:#37423b; font-weight:500; }
+
+/* ===== 等级明细进度行（带金额与 vs 大盘基准） ===== */
+.grows { display:flex; flex-direction:column; }
+.grow { display:grid; grid-template-columns:150px 1fr auto; gap:14px; align-items:center; padding:13px 0; }
+.grow + .grow { border-top:1px solid var(--rowline); }
+.grow .gl { font-size:13px; white-space:nowrap; }
+.grow .gl b { font-weight:600; margin-left:2px; }
+.grow .track { height:10px; border-radius:99px; background:#eef3ef; overflow:hidden; }
+.grow .track i { display:block; height:100%; border-radius:99px; }
+.grow .ms { font-size:12px; color:var(--muted); display:flex; gap:14px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.grow .ms b { color:var(--ink); font-weight:600; }
+.pos { color:var(--gA); } .neg { color:var(--warn); }
+
+/* ===== 品牌汇总：不对称 2fr:1fr 基准＋差异版式 ===== */
+.vsg { display:grid; grid-template-columns:2fr 1fr; gap:12px; }
+.vsg .cap { font-size:11px; color:var(--muted); font-weight:600; letter-spacing:1px; }
+.vsg h4 { font-size:15px; font-weight:600; margin:3px 0 2px; }
+.bigv { font-size:24px; font-weight:650; font-variant-numeric:tabular-nums; }
+.bigv small { font-size:12px; color:var(--muted); font-weight:500; margin-left:4px; }
+.vrow { display:flex; justify-content:space-between; gap:12px; padding:10px 0; font-size:12.5px; color:var(--muted); }
+.vrow + .vrow { border-top:1px solid var(--rowline); }
+.vrow b { color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums; }
+.drop-tag { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:var(--warn);
+  background:rgba(155,48,41,.09); border-radius:6px; padding:3px 9px; margin-left:8px; font-variant-numeric:tabular-nums; }
+.hl { color:var(--gA); font-weight:600; }
+
+/* ===== 录单 ===== */
+.drop { border:1.5px dashed #b9cac0; border-radius:12px; background:#f4f8f5; padding:46px 16px; text-align:center; color:var(--muted); font-size:12.5px; }
+.drop b { display:block; color:var(--ink); font-size:15px; margin-bottom:6px; font-weight:600; }
+.manual-form { display:grid; grid-template-columns:1fr 1fr; gap:12px 14px; }
+.fld label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+.fld input, .fld select { width:100%; min-width:min(320px,100%); height:44px; padding:0 12px;
+  border:1px solid var(--line); border-radius:6px; background:#fff; font-size:13px; }
+.fld input:focus, .fld select:focus { outline:none; border-color:var(--brand); }
+.fld .hint { font-size:11px; color:#93a29a; margin-top:5px; }
+.tally { display:flex; gap:18px; align-items:center; font-size:13px; color:#37423b; background:#f4f7f5;
+  border-radius:6px; padding:11px 15px; margin-top:14px; font-variant-numeric:tabular-nums; }
+.tally b { font-weight:650; }
+.tally .sp { flex:1; }
+.entries { margin-top:6px; }
+.entry { display:flex; align-items:center; gap:12px; padding:6px 0; font-size:13px; color:#37423b; font-variant-numeric:tabular-nums; }
+.entry + .entry { border-top:1px solid var(--rowline); }
+.entry b { margin-left:auto; font-weight:650; }
+.undo { min-height:44px; padding:0 10px; color:var(--warn); font-size:12px; font-weight:600; border-radius:6px; }
+.undo:hover { background:rgba(155,48,41,.09); }
+
+/* ===== 筛选条（列表页，表单式） ===== */
+.filter-grid { display:grid; grid-template-columns:auto auto auto 1fr auto; gap:12px 14px; align-items:end; }
+.fld2 label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+.fld2 input, .fld2 select { height:44px; padding:0 12px; border:1px solid var(--line); border-radius:6px; background:#fff; font-size:13px; }
+.fld2 input { width:150px; }
+.fld2 select { width:130px; }
+.fld2 input:focus, .fld2 select:focus { outline:none; border-color:var(--brand); }
+.frange { display:flex; align-items:center; gap:7px; }
+.fsearch { flex:1; min-width:200px; width:100%; }
+
+/* ===== toast（无 alert） ===== */
+.toast { position:fixed; right:18px; bottom:18px; z-index:80; background:#fff; border:1px solid var(--line);
+  border-left:3px solid var(--brand); border-radius:6px; padding:12px 15px; font-size:12.5px; color:#37423b; max-width:320px; }
+
+/* ===== 手机端：3 主入口＋更多 tabbar；报告头浅色化降级（保留版式） ===== */
+.tabbar { display:none; }
+.more-panel { display:none; }
+#stage.mode-mobile .app { max-width:480px; margin:0 auto; border-left:1px solid #cfd8d2; border-right:1px solid #cfd8d2; background:var(--bg); }
+#stage.mode-mobile .topnav { display:none; }
+#stage.mode-mobile.scr-detail .logo { display:none; }
+#stage.mode-mobile.scr-detail .backline { display:inline-flex; }
+#stage.mode-mobile .stack { padding:20px 14px 92px; gap:20px; }
+#stage.mode-mobile .report { background:#e9f1ec; color:var(--ink); }
+#stage.mode-mobile .rh-meta { color:var(--muted); }
+#stage.mode-mobile .rh-big { font-size:28px; }
+#stage.mode-mobile .rh-sub { color:var(--muted); }
+#stage.mode-mobile .rh-concl { color:#37423b; }
+#stage.mode-mobile .shun-ic { background:var(--brand-weak); color:var(--brand); }
+#stage.mode-mobile .rh-pt { background:rgba(47,122,79,.09); color:#37423b; }
+#stage.mode-mobile .rh-dist { color:#37423b; }
+#stage.mode-mobile .dist-t { color:#37423b; }
+#stage.mode-mobile .dist-t:hover { color:var(--brand); }
+#stage.mode-mobile .dbar { background:#d5e2da; }
+#stage.mode-mobile .rh-truth { color:#37423b; border-top-color:rgba(31,41,35,.14); }
+#stage.mode-mobile .rh-truth b { color:var(--ink); }
+#stage.mode-mobile .trend { grid-template-columns:1fr; }
+#stage.mode-mobile .chartbox { height:auto; flex-direction:column; align-items:stretch; gap:8px; }
+#stage.mode-mobile #chGradePie { width:100%; height:190px; }
+#stage.mode-mobile .ab-grid { grid-template-columns:1fr; gap:14px; }
+#stage.mode-mobile .ab-mid { min-width:0; }
+#stage.mode-mobile .vsg { grid-template-columns:1fr; }
+#stage.mode-mobile .manual-form { grid-template-columns:1fr; }
+#stage.mode-mobile .filter-grid { grid-template-columns:1fr; }
+#stage.mode-mobile .grow { grid-template-columns:1fr; gap:8px; }
+#stage.mode-mobile .grow .ms { flex-wrap:wrap; white-space:normal; }
+#stage.mode-mobile .tabbar { display:grid; position:fixed; inset:auto 0 0 0; z-index:60;
+  grid-template-columns:repeat(4,1fr); padding:5px 4px calc(7px + env(safe-area-inset-bottom));
+  background:rgba(255,255,255,.97); border-top:1px solid var(--line); }
+.tabbar a, .tabbar button { display:grid; justify-items:center; align-content:center; gap:2px; padding:3px 0;
+  min-height:44px; color:#9aa8a0; font-size:10px; font-weight:600; }
+.tabbar a svg { width:19px; height:19px; }
+.tabbar .on { color:var(--brand); }
+#stage.mode-mobile .more-panel { position:fixed; right:8px; bottom:64px; z-index:61; display:none;
+  background:#fff; border:1px solid var(--line); border-radius:12px; padding:8px; min-width:150px; }
+#stage.mode-mobile .more-panel.open { display:block; }
+.more-panel a { display:flex; height:44px; align-items:center; padding:0 12px; border-radius:6px; font-size:13px; }
+.more-panel a:hover { background:var(--brand-weak); }
+section[hidden] { display:none; }
+</style>
+</head>
+<body>
+<div class="variant-bar">
+  <span class="vt">方案 I · 掌柜账单<small>微信账单心智的「大数字少层级」账单版：唯一深色报告头一屏给结论，其余全白细线 · 数据 = 53000 实测</small></span>
+  <nav class="vtabs" id="vtabs">
+    <button data-s="overview" class="on">总览</button>
+    <button data-s="settlements">列表</button>
+    <button data-s="detail">详情</button>
+    <button data-s="series">对比</button>
+    <button data-s="imports">录单</button>
+  </nav>
+  <div class="vdev" id="vdev">
+    <button data-m="desktop" class="on">🖥 桌面</button>
+    <button data-m="mobile">📱 手机</button>
+  </div>
+</div>
+
+<div id="stage" class="mode-desktop">
+<div class="app">
+  <header class="topbar">
+    <a class="backline" href="#" data-goto="settlements"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><path d="m15 18-6-6 6-6"/></svg><span id="backName">单650</span></a>
+    <div class="logo"><span class="mark">果</span>果销分析</div>
+    <nav class="topnav" id="topnav">
+      <a href="#" data-goto="overview" data-nav="overview" class="on">卖得怎么样</a>
+      <a href="#" data-goto="settlements" data-nav="settlements">每一单</a>
+      <a href="#" data-goto="series" data-nav="series">品牌对比</a>
+      <a href="#" data-goto="imports" data-nav="imports">录单</a>
+    </nav>
+    <div class="spacer"></div>
+    <button class="bell" aria-label="通知"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><i class="dot"></i></button>
+    <span class="avatar">T</span>
+  </header>
+
+  <main class="page">
+
+    <!-- ================= 屏 1：卖得怎么样（总览） ================= -->
+    <section data-screen="overview">
+      <!-- 满宽深墨绿报告头＝页头（口径信息全页只出现这一次） -->
+      <header class="report">
+        <div class="wrap">
+          <div class="rh-meta num">09-02 ~ 09-19 · 15 张结算单 · A/B/C（含 BC）口径</div>
+          <div class="rh-main">
+            <span class="rh-big">800.84<i>万元</i></span>
+            <span class="rh-sub">¥8,008,442.99 · 29,771 件 · 均价 269.00 元/件</span>
+          </div>
+          <div class="rh-concl">
+            <span class="shun-ic">顺</span>
+            <p><b>本期 15 柜 18 天全部卖完：A 果是赚钱主力，集中开柜的两天出钱最多，B 果价格偏低拉低了均价。</b></p>
+          </div>
+          <div class="rh-points">
+            <span class="rh-pt">09-15 / 17 两日占 37%</span>
+            <span class="rh-pt">B 均 234.64 vs A 289.28</span>
+            <span class="rh-pt">晴牌仅 1 柜</span>
+          </div>
+          <div class="rh-dist">
+            <button class="dist-t" data-dist>市场<span class="dbar"><i class="d1" style="width:80%"></i><i class="d2" style="width:20%"></i></span>海吉星 12 柜 · 江南 3 柜 ▾</button>
+            <button class="dist-t" data-dist>品牌<span class="dbar"><i class="d1" style="width:93.3%"></i><i class="d2" style="width:6.7%"></i></span>香香 14 柜 · 晴牌 1 柜 ▾</button>
+          </div>
+          <div class="rh-truth" id="rhTruth" hidden></div>
+        </div>
+      </header>
+
+      <div class="wrap stack">
+        <!-- A/B 果金额对照行（紧跟报告头，两段式非四卡） -->
+        <div class="ab">
+          <div class="ab-grid">
+            <div class="ab-side">
+              <div class="t"><span class="gdot" style="background:var(--gA)"></span>A 果</div>
+              <div class="amt">¥546.9<i>万</i><sup>†</sup></div>
+              <div class="meta">18,907 件 · 63.5% · 均 289.28</div>
+            </div>
+            <div class="ab-mid">
+              <span class="ab-bar"><i style="width:68.3%;background:var(--gA)"></i><i style="width:31.7%;background:var(--gB)"></i></span>
+              <span class="ab-pct"><span>件数 63.5%</span><span>36.3%</span></span>
+            </div>
+            <div class="ab-side">
+              <div class="t"><span class="gdot" style="background:var(--gB)"></span>B 果</div>
+              <div class="amt">¥253.9<i>万</i><sup>†</sup></div>
+              <div class="meta">10,819 件 · 36.3% · 均 234.64</div>
+            </div>
+          </div>
+          <div class="ab-note">† 金额 = 件数 × 等级均价（推算） · 待接口字段</div>
+        </div>
+
+        <!-- 趋势层：等级环 4 列 + 每日折线 8 列（240px 同高同组） -->
+        <div class="trend">
+          <div class="card">
+            <h3>等级件数结构<span class="h3note">图例即 A/B 拆分层</span></h3>
+            <div class="chartbox">
+              <div id="chGradePie" class="echart"></div>
+              <ul class="pie-legend" id="gradeLegend"></ul>
+            </div>
+          </div>
+          <div class="card">
+            <div class="daily-head">
+              <h3 id="dailyTitle">每日销售金额</h3>
+              <div class="daily-mode" role="group" aria-label="切换每日销售指标">
+                <button class="on" data-mode="amt" type="button">金额</button>
+                <button data-mode="qty" type="button">件数</button>
+              </div>
+            </div>
+            <div id="chDaily" class="echart"></div>
+          </div>
+        </div>
+
+        <!-- 本期柜 Top5 排行（替代同构摘要表） -->
+        <div class="card">
+          <h3>本期柜 Top5<span class="h3note">按销售额排序 · 点击销冠行直达单柜账单</span><a class="h3lk" href="#" data-goto="settlements">全部 15 单 ›</a></h3>
+          <div class="tscroll">
+            <table class="t">
+              <thead><tr><th>商号</th><th>品牌</th><th class="num">件数</th><th class="num">销售额</th><th class="num">均价（元/件）</th></tr></thead>
+              <tbody id="top5Body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 规格七列表：默认 6 组品牌×等级小计，可展开全部 56 组 -->
+        <div class="card">
+          <h3>规格件数与均价<span class="h3note">相同 品牌×等级×头数×KG×备注 合并 · 共 56 组</span>
+            <button class="btn ghost sm" id="specToggle" style="margin-left:auto" type="button">展开全部 56 组</button></h3>
+          <div class="spec-scroll" id="ovSpecScroll">
+            <table class="t" style="min-width:760px">
+              <thead><tr><th>品牌</th><th>等级</th><th>头数</th><th>KG</th><th>备注</th><th class="num">总件数</th><th class="num">每件均价</th></tr></thead>
+              <tbody id="ovSpecBody"></tbody>
+              <tfoot id="ovSpecFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 屏 2：每一单（结算单列表） ================= -->
+    <section data-screen="settlements" hidden>
+      <div class="wrap stack">
+        <div class="pagehead">
+          <h1>每一单</h1>
+          <span class="desc num">共 15 单 · 香香 14 柜 / 晴牌 1 柜 · 按到货日期倒序</span>
+          <span class="sp"></span>
+          <button class="btn ghost" type="button"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>导出 Excel</button>
+        </div>
+
+        <!-- 表单式筛选条（补齐 H 稿只有灰字说明无控件的缺位） -->
+        <div class="card">
+          <div class="filter-grid">
+            <div class="fld2 frange">
+              <div><label>到货日期</label><input class="num" value="2026-09-02" aria-label="起始日期" /></div>
+              <span style="padding-bottom:13px;color:#93a29a">~</span>
+              <div><label>&nbsp;</label><input class="num" value="2026-09-19" aria-label="结束日期" /></div>
+            </div>
+            <div class="fld2"><label>市场</label><select><option>全部市场</option><option>海吉星</option><option>江南</option></select></div>
+            <div class="fld2"><label>品牌</label><select><option>全部品牌</option><option>香香</option><option>晴牌</option></select></div>
+            <div class="fld2"><label>搜索</label><input class="fsearch" placeholder="商号 / 单号 / 柜号，如 单650" /></div>
+            <div class="fld2" style="display:flex;gap:8px">
+              <button class="btn primary" type="button">筛选</button>
+              <button class="btn ghost" type="button">清空</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>结算单<span class="h3note">† 单据级金额 = 件数 × 本期均价 269.00 推算 · 待接口字段（单650 为真实结算值）</span></h3>
+          <div class="tscroll">
+            <table class="t" style="min-width:1020px">
+              <thead><tr><th>商号</th><th>单号</th><th>品牌</th><th>柜号</th><th>车号</th><th>到货</th>
+                <th class="num">件数</th><th class="num">记录数</th><th class="num">销售额</th>
+                <th class="num sortable" id="thPrice" aria-sort="none" title="点击排序">加权均价 ⇅</th><th></th></tr></thead>
+              <tbody id="listBody"></tbody>
+              <tfoot id="listFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 屏 3：单柜账单（结算单详情 · 单650） ================= -->
+    <section data-screen="detail" hidden>
+      <div class="wrap stack">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="crumbline"><a href="#" data-goto="settlements">每一单</a><span>/</span><span>单650</span></div>
+          <div class="pagehead" style="margin-top:-4px">
+            <h1>单650 · 单柜账单</h1>
+            <span class="desc num">香香-L011RXRK03 · 金枕 · 销售期 09-17 ~ 09-19</span>
+            <span class="sp"></span>
+            <button class="btn ghost" type="button"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>导出结算单</button>
+            <button class="btn primary" id="cmpBtn" type="button">加入对比 (<span id="cmpN">1</span>/6)</button>
+          </div>
+        </div>
+
+        <!-- 竖式收支单：第一个钱数就在页面顶部，应付金额最大字号 -->
+        <div class="card bill">
+          <h3>这一柜的账<span class="h3note">单位：元</span></h3>
+          <div class="brow"><span>销售金额</span><b>¥569,120</b></div>
+          <div class="brow"><span>售后金额</span><b class="neg">-¥12,040</b></div>
+          <div class="brow"><span>货款金额</span><b>¥557,080</b></div>
+          <div class="brow"><span>市场费用</span><b class="neg">-¥20,190</b></div>
+          <div class="brow"><span>清关税费</span><b>—</b></div>
+          <div class="brow pay"><span>应付金额</span><b>¥536,890</b></div>
+          <div class="bstat">3 天卖完 <b>1,977 件</b> · 均价 <b>287.87</b> 高于大盘 <b class="pos">+18.87</b> · 扣项 <b>5.7%</b>（售后 12,040 ＋ 费用 20,190）</div>
+        </div>
+
+        <!-- 物流元信息一行（替代四格 facts） -->
+        <div class="card">
+          <div class="meta-line">
+            <span>单号 <b>香香-L011RXRK03</b></span><span>柜号 <b>EISU5674802</b></span><span>车号 <b>桂AX6166</b></span>
+            <span>市场 <b>海吉星</b></span><span>品牌 <b>香香</b>（越南）</span><span>到货 <b>2026-09-15 · 1,977 件</b></span>
+          </div>
+        </div>
+
+        <!-- 每日金额柱＋均价线（220px 双轴） -->
+        <div class="card">
+          <h3>每日销售金额与均价<span class="h3note">柱 = 销售金额（左轴） · 线 = 每件均价（右轴）</span></h3>
+          <div id="chCombo" class="echart" style="height:220px"></div>
+        </div>
+
+        <!-- 等级明细：进度行带金额与 vs 大盘基准 -->
+        <div class="card">
+          <h3>等级明细<span class="h3note">进度 = 件数占比 · 基准 = 本期大盘均价 269.00</span></h3>
+          <div class="grows">
+            <div class="grow">
+              <span class="gl"><span class="gdot" style="background:var(--gA)"></span>A 果 <b class="num">1,335 件</b></span>
+              <span class="track"><i style="width:67.5%;background:var(--gA)"></i></span>
+              <span class="ms"><span>占 <b>67.5%</b></span><span>金额 <b>¥408,020</b></span><span>均价 <b>305.63</b></span><span>vs 大盘 <b class="pos">+36.63</b></span></span>
+            </div>
+            <div class="grow">
+              <span class="gl"><span class="gdot" style="background:var(--gB)"></span>B 果 <b class="num">635 件</b></span>
+              <span class="track"><i style="width:32.1%;background:var(--gB)"></i></span>
+              <span class="ms"><span>占 <b>32.1%</b></span><span>金额 <b>¥160,920</b></span><span>均价 <b>253.42</b></span><span>vs 大盘 <b class="neg">-15.58</b></span></span>
+            </div>
+            <div class="grow">
+              <span class="gl"><span class="gdot" style="background:var(--gO)"></span>其他 <b class="num">7 件</b></span>
+              <span class="track"><i style="width:0.8%;background:var(--gO)"></i></span>
+              <span class="ms"><span>占 <b>0.4%</b></span><span>金额 <b>¥180</b></span><span>均价 <b>25.71</b></span><span>vs 大盘 <b class="neg">-243.29</b></span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 规格 10 组表（共享表格规范） -->
+        <div class="card">
+          <h3>规格件数与均价<span class="h3note">单650 · 品牌×等级×头数×KG×备注 合并 · 全部 10 组</span></h3>
+          <div class="spec-scroll" id="dSpecScroll">
+            <table class="t" style="min-width:760px">
+              <thead><tr><th>品牌</th><th>等级</th><th>头数</th><th>KG</th><th>备注</th><th class="num">总件数</th><th class="num">每件均价</th></tr></thead>
+              <tbody id="d650SpecBody"></tbody>
+              <tfoot id="d650SpecFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- 与上一柜对比入口 -->
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <span style="font-size:13px;color:#37423b">上一柜是 <b>单649</b>（09-15 到货 · 2,042 件 · 54 条记录）</span>
+            <span class="sp" style="flex:1"></span>
+            <button class="btn ghost" id="prevCmp" type="button">与上一柜对比<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 屏 4：品牌汇总（原「品牌对比」） ================= -->
+    <section data-screen="series" hidden>
+      <div class="wrap stack">
+        <div class="pagehead">
+          <h1>品牌汇总</h1>
+          <span class="desc">单号中文前缀聚合 · 最多勾选 6 个品牌 · 14 : 1 样本量差异已标注</span>
+        </div>
+
+        <!-- 不对称 2fr:1fr：香香＝基准卡，晴牌＝对比卡带降色标注 -->
+        <div class="vsg">
+          <div class="card">
+            <div class="cap">基准品牌</div>
+            <h4>香香</h4>
+            <div class="bigv">27,760<small>件 · 14 柜</small></div>
+            <div style="margin-top:8px">
+              <div class="vrow"><span>柜均件数</span><b>1,983 件</b></div>
+              <div class="vrow"><span>代表单</span><b>单649（2,042 件）</b></div>
+              <div class="vrow"><span>到货区间</span><b>09-01 ~ 09-18</b></div>
+              <div class="vrow"><span>A 果均价</span><b>286.74</b></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="cap">对比品牌</div>
+            <h4>晴牌<span class="drop-tag">柜数 ↓93%</span></h4>
+            <div class="bigv">2,011<small>件 · 1 柜</small></div>
+            <div style="margin-top:8px">
+              <div class="vrow"><span>柜均件数</span><b>—（仅 1 柜）</b></div>
+              <div class="vrow"><span>代表单</span><b>单653 · 46 条记录</b></div>
+              <div class="vrow"><span>到货</span><b>09-17</b></div>
+              <div class="vrow"><span>A 果均价</span><b>327.36 <span class="hl">+14.1%</span></b></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>品牌件数与柜数对比<span class="h3note">左轴 = 总件数 · 右轴 = 柜数 · 数字以卡内为准（不再三处重复）</span></h3>
+          <div id="chVs" class="echart" style="height:220px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 屏 5：录单（上传为默认主体） ================= -->
+    <section data-screen="imports" hidden>
+      <div class="wrap stack">
+        <div class="pagehead">
+          <h1>录单</h1>
+          <span class="desc">文件导入与手工录单共用商号唯一键 · 字典由管理端维护</span>
+          <span class="sp"></span>
+          <button class="btn ghost" id="manualToggle" type="button"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>手工录单</button>
+        </div>
+
+        <div class="card">
+          <h3>上传结算文件<span class="h3lk">查看导入模板 ›</span></h3>
+          <div class="drop">
+            <b>把文件拖到这里，或点击选择</b>
+            Excel / CSV · 单文件 ≤ 10MB · 内容哈希去重 · 上传后先预览再复核 · 单号商号重复会提示覆盖确认
+          </div>
+        </div>
+
+        <!-- 手工录单（右上次按钮展开；表单两列、输入 ≥320px；下方常驻实时小结＋可撤销行卡） -->
+        <div class="card" id="manualCard" hidden>
+          <h3>手工录单<span class="h3note">按行录入 · 暂存可恢复</span></h3>
+          <div class="manual-form">
+            <div class="fld"><label>市场</label><select id="fMarket"><option>海吉星</option><option>江南</option></select></div>
+            <div class="fld"><label>品种代码</label><select id="fCode"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option></select>
+              <div class="hint">示例：A · 品种代码与 A/B/C 等级是两回事</div></div>
+            <div class="fld"><label>销售日期</label><input id="fDate" class="num" value="2026-09-29" /></div>
+            <div class="fld"><label>规格（头）</label><input id="fHead" placeholder="如 9" /></div>
+            <div class="fld"><label>数量（件）</label><input id="fQty" class="num" placeholder="如 20" /></div>
+            <div class="fld"><label>单价（元/件）</label><input id="fPrice" class="num" placeholder="如 260.00" /></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+            <button class="btn ghost" type="button">存草稿</button>
+            <button class="btn ghost" id="addRow" type="button">记一行</button>
+            <button class="btn primary" id="saveBill" type="button">保存这一单</button>
+          </div>
+          <div class="tally">已录 <b id="tallyN">3</b> 行 · 合计 <b id="tallyQ">32</b> 件 · 合计金额 <b id="tallyA">¥6,940</b><span class="sp"></span>最近 3 行可撤销</div>
+          <div class="entries" id="entries"></div>
+        </div>
+
+        <div class="card">
+          <h3>最近导入批次<span class="h3note">按导入时间倒序</span></h3>
+          <div style="padding:14px 0 4px;font-size:12.5px;color:#93a29a;text-align:center">当前暂无导入批次——第一批文件导入后会显示在这里（文件名 / 商号 / 状态 / 成功-警告-失败）</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<nav class="tabbar">
+  <a class="on" href="#" data-goto="overview"><svg viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 13l3-3 4 4 5-6"/></svg>总览</a>
+  <a href="#" data-goto="settlements"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg>每一单</a>
+  <a href="#" data-goto="imports"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>录单</a>
+  <button id="moreBtn" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>更多</button>
+</nav>
+<div class="more-panel" id="morePanel">
+  <a href="#" data-goto="series">品牌汇总</a>
+  <a href="#" data-goto="detail">单柜账单（单650）</a>
+</div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="../../node_modules/echarts/dist/echarts.min.js"></script>
+<script>
+/* ===== 真实数据（53000 实测，2026-09-29，与 variant-h.html 同源） ===== */
+const DATA = {"daily":[{"d":"09-02","amt":483640,"qty":1975},{"d":"09-03","amt":493740,"qty":1980},{"d":"09-04","amt":499795,"qty":1977},{"d":"09-06","amt":394005,"qty":1547},{"d":"09-07","amt":116480,"qty":429},{"d":"09-10","amt":361060,"qty":1423},{"d":"09-11","amt":146740,"qty":558},{"d":"09-12","amt":313220,"qty":1106},{"d":"09-13","amt":271930,"qty":936},{"d":"09-14","amt":346160,"qty":1245},{"d":"09-15","amt":1254693,"qty":4629},{"d":"09-16","amt":241270,"qty":822},{"d":"09-17","amt":1688730,"qty":6236},{"d":"09-18","amt":768390,"qty":2600},{"d":"09-19","amt":628590,"qty":2308}],
+"ovSpec":{"rowsAll":[{"brand":"香香","grade":"A","head":"3","kg":"10","remark":"","qty":9666,"amt":2859060,"price":295.79},{"brand":"香香","grade":"B","head":"3/4","kg":"9","remark":"","qty":3999,"amt":916320,"price":229.14},{"brand":"香香","grade":"B","head":"3","kg":"9","remark":"","qty":3986,"amt":941910,"price":236.3},{"brand":"香香","grade":"A","head":"3/4","kg":"10","remark":"","qty":3955,"amt":1139328,"price":288.07},{"brand":"香香","grade":"A","head":"3","kg":"","remark":"","qty":1289,"amt":364580,"price":282.84},{"brand":"晴牌","grade":"A","head":"3","kg":"10","remark":"","qty":974,"amt":324585,"price":333.25},{"brand":"香香","grade":"B","head":"3/4","kg":"","remark":"","qty":689,"amt":161375,"price":234.22},{"brand":"晴牌","grade":"B","head":"3","kg":"9","remark":"","qty":618,"amt":155670,"price":251.89},{"brand":"香香","grade":"A","head":"4","kg":"10","remark":"","qty":547,"amt":155320,"price":283.95},{"brand":"香香","grade":"B","head":"4","kg":"9","remark":"","qty":528,"amt":127520,"price":241.52},{"brand":"香香","grade":"B","head":"3","kg":"10","remark":"","qty":520,"amt":127340,"price":244.88},{"brand":"香香","grade":"A","head":"3","kg":"10/11","remark":"硬包/不售后","qty":436,"amt":95920,"price":220.0},{"brand":"香香","grade":"A","head":"3","kg":"10","remark":"不售后","qty":291,"amt":73750,"price":253.44},{"brand":"香香","grade":"A","head":"3","kg":"9/10","remark":"尾","qty":254,"amt":63500,"price":250.0},{"brand":"香香","grade":"A","head":"3/4","kg":"10","remark":"不售后","qty":218,"amt":58860,"price":270.0},{"brand":"晴牌","grade":"A","head":"3","kg":"9","remark":"","qty":212,"amt":63665,"price":300.31},{"brand":"香香","grade":"A","head":"3","kg":"10","remark":"硬包不售后","qty":194,"amt":42680,"price":220.0},{"brand":"晴牌","grade":"B","head":"3/4","kg":"9","remark":"","qty":150,"amt":37500,"price":250.0},{"brand":"香香","grade":"A","head":"3","kg":"10","remark":"熟","qty":136,"amt":34000,"price":250.0},{"brand":"香香","grade":"A","head":"3","kg":"9/10","remark":"","qty":110,"amt":27280,"price":248.0},{"brand":"香香","grade":"A","head":"3","kg":"9","remark":"熟","qty":110,"amt":25300,"price":230.0},{"brand":"香香","grade":"A","head":"3","kg":"9","remark":"","qty":101,"amt":25940,"price":256.83},{"brand":"香香","grade":"A","head":"3","kg":"10","remark":"尾","qty":100,"amt":27000,"price":270.0},{"brand":"香香","grade":"A","head":"3","kg":"11","remark":"","qty":90,"amt":31400,"price":348.89},{"brand":"香香","grade":"B","head":"3","kg":"10","remark":"硬包不售后","qty":81,"amt":15390,"price":190.0},{"brand":"香香","grade":"A","head":"3","kg":"10","remark":"裂","qty":77,"amt":20490,"price":266.1},{"brand":"香香","grade":"A","head":"3","kg":"10","remark":"裂口","qty":76,"amt":19300,"price":253.95},{"brand":"晴牌","grade":"B","head":"4","kg":"9","remark":"","qty":54,"amt":14200,"price":262.96},{"brand":"香香","grade":"B","head":"3","kg":"9","remark":"硬包/不售后","qty":53,"amt":10070,"price":190.0},{"brand":"香香","grade":"B","head":"3","kg":"9","remark":"尾","qty":44,"amt":10120,"price":230.0},{"brand":"香香","grade":"A","head":"3","kg":"10","remark":"水货","qty":36,"amt":9720,"price":270.0},{"brand":"香香","grade":"B","head":"3/4","kg":"9","remark":"尾/微裂","qty":36,"amt":6840,"price":190.0},{"brand":"香香","grade":"A","head":"3","kg":"11","remark":"硬包不售后","qty":22,"amt":5060,"price":230.0},{"brand":"香香","grade":"B","head":"4","kg":"9","remark":"裂","qty":20,"amt":4600,"price":230.0},{"brand":"香香","grade":"B","head":"3/4","kg":"9","remark":"裂","qty":17,"amt":3740,"price":220.0},{"brand":"香香","grade":"OTHER","head":"","kg":"","remark":"验果抽检","qty":13,"amt":0,"price":0.0},{"brand":"香香","grade":"B","head":"3/4","kg":"10","remark":"","qty":10,"amt":2700,"price":270.0},{"brand":"香香","grade":"A","head":"3","kg":"10","remark":"尾/黄","qty":7,"amt":1750,"price":250.0},{"brand":"香香","grade":"B","head":"3","kg":"9","remark":"裂口","qty":6,"amt":1560,"price":260.0},{"brand":"香香","grade":"B","head":"3","kg":"10","remark":"尾","qty":6,"amt":1380,"price":230.0},{"brand":"香香","grade":"OTHER","head":"3","kg":"","remark":"烂皮处理","qty":6,"amt":180,"price":30.0},{"brand":"香香","grade":"OTHER","head":"","kg":"","remark":"损耗","qty":5,"amt":0,"price":0.0},{"brand":"香香","grade":"A","head":"3","kg":"10","remark":"补售后","qty":3,"amt":0,"price":0.0},{"brand":"香香","grade":"OTHER","head":"","kg":"","remark":"损/霉","qty":3,"amt":0,"price":0.0},{"brand":"香香","grade":"OTHER","head":"","kg":"","remark":"发霉","qty":3,"amt":0,"price":0.0},{"brand":"香香","grade":"OTHER","head":"","kg":"","remark":"","qty":3,"amt":100,"price":33.33},{"brand":"香香","grade":"OTHER","head":"","kg":"","remark":"验果","qty":3,"amt":0,"price":0.0},{"brand":"晴牌","grade":"OTHER","head":"","kg":"","remark":"损/霉","qty":2,"amt":0,"price":0.0},{"brand":"香香","grade":"A","head":"3","kg":"2","remark":"","qty":2,"amt":700,"price":350.0},{"brand":"香香","grade":"B","head":"3","kg":"9","remark":"裂","qty":2,"amt":340,"price":170.0},{"brand":"香香","grade":"OTHER","head":"","kg":"","remark":"补果","qty":2,"amt":0,"price":0.0},{"brand":"香香","grade":"OTHER","head":"","kg":"","remark":"烂皮果","qty":2,"amt":100,"price":50.0},{"brand":"晴牌","grade":"OTHER","head":"","kg":"","remark":"验果","qty":1,"amt":0,"price":0.0},{"brand":"香香","grade":"A","head":"4","kg":"9","remark":"","qty":1,"amt":300,"price":300.0},{"brand":"香香","grade":"OTHER","head":"","kg":"","remark":"损","qty":1,"amt":0,"price":0.0},{"brand":"香香","grade":"OTHER","head":"","kg":"","remark":"补客户","qty":1,"amt":0,"price":0.0}],
+"subs":[{"brand":"香香","grade":"A","qty":17721,"price":286.74},{"brand":"香香","grade":"B","qty":9997,"price":233.19},{"brand":"晴牌","grade":"A","qty":1186,"price":327.36},{"brand":"晴牌","grade":"B","qty":822,"price":252.27},{"brand":"香香","grade":"OTHER","qty":42,"price":9.05},{"brand":"晴牌","grade":"OTHER","qty":3,"price":0.0}],
+"total":{"qty":29771,"price":269.0}},
+"d650Spec":{"rows":[{"brand":"香香","grade":"A","head":"3","kg":"10","remark":"","qty":1033,"amt":322160,"price":311.87},{"brand":"香香","grade":"B","head":"3/4","kg":"9","remark":"","qty":367,"amt":92450,"price":251.91},{"brand":"香香","grade":"A","head":"3/4","kg":"10","remark":"不售后","qty":218,"amt":58860,"price":270.0},{"brand":"香香","grade":"B","head":"3","kg":"9","remark":"","qty":165,"amt":41250,"price":250.0},{"brand":"香香","grade":"B","head":"4","kg":"9","remark":"","qty":97,"amt":25660,"price":264.54},{"brand":"香香","grade":"A","head":"3/4","kg":"10","remark":"","qty":46,"amt":14840,"price":322.61},{"brand":"香香","grade":"A","head":"4","kg":"10","remark":"","qty":38,"amt":12160,"price":320.0},{"brand":"香香","grade":"B","head":"3","kg":"9","remark":"裂口","qty":6,"amt":1560,"price":260.0},{"brand":"香香","grade":"OTHER","head":"3","kg":"","remark":"烂皮处理","qty":6,"amt":180,"price":30.0},{"brand":"香香","grade":"OTHER","head":"","kg":"","remark":"验果","qty":1,"amt":0,"price":0.0}],
+"subs":[{"brand":"香香","grade":"A","qty":1335,"price":305.63},{"brand":"香香","grade":"B","qty":635,"price":253.42},{"brand":"香香","grade":"OTHER","qty":7,"price":25.71}],
+"total":{"qty":1977,"price":287.87}},
+"daily650":[{"d":"09-17","amt":355840,"qty":1246,"price":285.59},{"d":"09-18","amt":122710,"qty":400,"price":306.77},{"d":"09-19","amt":90570,"qty":331,"price":273.63}],
+"marketBrand":[{"market":"海吉星","brand":"香香","container_count":11},{"market":"江南","brand":"香香","container_count":3},{"market":"海吉星","brand":"晴牌","container_count":1}],
+"overviewTotal":{"sales_quantity":29771.0,"sales_amount":8008442.99,"weighted_avg_price":269.0015}};
+
+/* ===== 工具 ===== */
+const fmtNum = (n) => Number(n || 0).toLocaleString('en-US');
+const fmtWan = (v) => v >= 10000 ? (v / 10000).toFixed(1) + '万' : fmtNum(v);
+const fmtPct = (x) => (x * 100).toFixed(1) + '%';
+const fmtPrice = (p) => (p == null || Number(p) <= 0) ? null : Number(p).toFixed(2);
+const INK = '#1f2923', MUTED = '#6b7a72', LINE = '#dfe7e1', LINE_STRONG = '#b8c9bf';
+const DAILY_LINE = '#6b7280', BRAND_LINE = '#2f7a4f';
+const GRADE_COLOR = { A: '#16856b', B: '#bd7414', OTHER: '#6e7780' };
+const GRADE_NAME = { A: 'A果', B: 'B果', OTHER: '其他' };
+const gdotHTML = (g) => '<span class="gdot" style="background:' + (GRADE_COLOR[g] || '#6e7780') + '"></span>';
+
+/* A/B 果金额推算：件数 × 等级均价（任务书口径，标注待接口字段） */
+const AB = {
+  A: { qty: 18907, share: 0.635, price: 289.28, amt: 18907 * 289.28 },
+  B: { qty: 10819, share: 0.363, price: 234.64, amt: 10819 * 234.64 },
+  O: { qty: 45, share: 0.0015, price: 8.44, amt: 380 },
+};
+
+const charts = [];
+function mount(elId, build) {
+  const el = document.getElementById(elId);
+  if (!el) return null;
+  if (!window.echarts) {
+    el.innerHTML = '<div style="display:grid;place-items:center;height:100%;color:#93a29a;font-size:12px;border:1px dashed var(--line);border-radius:6px;background:#f6faf7">ECharts 未能加载（请通过 53004 端口访问）</div>';
+    return null;
+  }
+  const chart = echarts.init(el);
+  chart.setOption(build());
+  charts.push(chart);
+  return chart;
+}
+
+/* ===== 报告头：市场/品牌分布条 → 点击展开 DATA.marketBrand 三行真值 ===== */
+(function initDist() {
+  const truth = document.getElementById('rhTruth');
+  if (truth) {
+    truth.innerHTML = '<span>市场 × 品牌真值：</span>' + DATA.marketBrand.map((r) =>
+      '<span>' + r.market + ' · ' + r.brand + ' <b>' + r.container_count + ' 柜</b></span>').join('');
+  }
+  document.querySelectorAll('.dist-t[data-dist]').forEach((b) => {
+    b.addEventListener('click', () => { if (truth) truth.hidden = !truth.hidden; });
+  });
+})();
+
+/* ===== 等级环图（4 列副图：radius 58%-78%，中心总件数 20px；图例即 A/B 拆分层） ===== */
+function gradePie() {
+  const rows = [
+    { grade: 'A', qty: 18907, share: 0.6351 },
+    { grade: 'B', qty: 10819, share: 0.3634 },
+    { grade: 'OTHER', qty: 45, share: 0.0015 },
+  ];
+  mount('chGradePie', () => ({
+    tooltip: {
+      trigger: 'item',
+      formatter: (p) => '<strong>' + GRADE_NAME[p.data.grade] + '</strong><br/>件数占比：' + fmtPct(p.data.share) + '<br/>件数：' + fmtNum(p.data.value) + ' 件',
+    },
+    title: {
+      text: '29,771', subtext: '总件数', left: 'center', top: '41%',
+      textStyle: { color: INK, fontSize: 20, fontWeight: 650 },
+      subtextStyle: { color: MUTED, fontSize: 11 },
+    },
+    series: [{
+      type: 'pie', radius: ['58%', '78%'], center: ['50%', '50%'],
+      label: { show: false }, emphasis: { scaleSize: 4 },
+      data: rows.map((g) => ({
+        name: GRADE_NAME[g.grade], value: g.qty, grade: g.grade, share: g.share,
+        itemStyle: { color: GRADE_COLOR[g.grade] },
+      })),
+    }],
+  }));
+  const lg = document.getElementById('gradeLegend');
+  if (lg) {
+    lg.innerHTML = rows.map((g) => {
+      const k = g.grade === 'OTHER' ? 'O' : g.grade;
+      const d = AB[k];
+      return '<li class="pl-row"><div class="l1">' + gdotHTML(g.grade) + '<span>' + GRADE_NAME[g.grade] + '</span><b>' + fmtPct(g.share) + '</b></div>' +
+        '<div class="l2">' + fmtNum(d.qty) + ' 件 · ¥' + (d.amt / 10000).toFixed(1) + ' 万† · 均 ' + d.price.toFixed(2) + '</div></li>';
+    }).join('') + '<li class="pie-note">† 金额 = 件数 × 等级均价 · 待接口字段</li>';
+  }
+}
+
+/* ===== 每日折线（8 列：灰调 #6b7280＋淡面积＋末点空心圆＋胶囊切换＋09-15/17 峰值标注） ===== */
+let dailyMode = 'amt';
+const PEAK_DAYS = ['09-15', '09-17'];
+function dailyOption() {
+  const dates = DATA.daily.map((p) => p.d);
+  const values = DATA.daily.map((p) => (dailyMode === 'amt' ? p.amt : p.qty));
+  const last = dates.length - 1;
+  const fmtV = (v) => dailyMode === 'amt' ? '¥' + fmtWan(v) : fmtNum(v) + ' 件';
+  return {
+    grid: { left: 48, right: 20, top: 40, bottom: 26 },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'line', lineStyle: { color: LINE_STRONG } },
+      formatter: (params) => {
+        const it = (Array.isArray(params) ? params : []).find((e) => e.value != null);
+        return it ? '<strong>2026-' + it.name + '</strong><br/><span>' + (dailyMode === 'amt' ? '销售金额：¥' + fmtNum(it.value) : '销售件数：' + fmtNum(it.value) + ' 件') + '</span>' : '';
+      },
+    },
+    xAxis: {
+      type: 'category', data: dates, boundaryGap: false,
+      axisLine: { lineStyle: { color: LINE_STRONG } }, axisTick: { show: false },
+      axisLabel: { color: MUTED, fontSize: 11, hideOverlap: true },
+    },
+    yAxis: {
+      type: 'value', axisLine: { show: false }, axisTick: { show: false },
+      splitLine: { lineStyle: { color: LINE } },
+      axisLabel: { color: MUTED, fontSize: 11, formatter: fmtWan },
+    },
+    series: [
+      {
+        type: 'line', data: values, smooth: true, showSymbol: false,
+        lineStyle: { width: 2, color: DAILY_LINE }, itemStyle: { color: DAILY_LINE },
+        areaStyle: {
+          color: {
+            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(107, 114, 128, 0.18)' },
+              { offset: 1, color: 'rgba(107, 114, 128, 0)' },
+            ],
+          },
+        },
+        markPoint: {
+          symbol: 'circle', symbolSize: 7,
+          itemStyle: { color: '#fff', borderColor: DAILY_LINE, borderWidth: 2 },
+          data: PEAK_DAYS.map((d, i) => {
+            const row = DATA.daily.find((x) => x.d === d) || { amt: 0, qty: 0 };
+            const v = dailyMode === 'amt' ? row.amt : row.qty;
+            return {
+              name: d, coord: [d, v],
+              label: {
+                show: true, position: i === 0 ? 'bottom' : 'top',
+                formatter: d + ' ' + fmtV(v), color: '#37423b', fontSize: 11, fontWeight: 600,
+              },
+            };
+          }),
+        },
+      },
+      {
+        type: 'scatter', data: last >= 0 ? [{ value: [dates[last], values[last]] }] : [],
+        symbol: 'circle', symbolSize: 8,
+        itemStyle: { color: '#fff', borderColor: DAILY_LINE, borderWidth: 2 },
+        tooltip: { show: false }, silent: true,
+      },
+    ],
+  };
+}
+let dailyChart = null;
+function initDaily() {
+  dailyChart = mount('chDaily', dailyOption);
+  document.querySelectorAll('.daily-mode button').forEach((b) => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.daily-mode button').forEach((x) => x.classList.toggle('on', x === b));
+      dailyMode = b.dataset.mode;
+      document.getElementById('dailyTitle').textContent = dailyMode === 'amt' ? '每日销售金额' : '每日销售件数';
+      if (dailyChart) dailyChart.setOption(dailyOption());
+    });
+  });
+}
+
+/* ===== 单650：每日金额柱＋均价线（220px 双轴：淡柱＋品牌绿平滑线） ===== */
+function combo650() {
+  const rows = DATA.daily650;
+  mount('chCombo', () => ({
+    grid: { left: 56, right: 56, top: 34, bottom: 26 },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: { right: 0, top: 0, itemWidth: 14, textStyle: { color: MUTED, fontSize: 11 } },
+    xAxis: {
+      type: 'category', data: rows.map((p) => p.d),
+      axisLine: { lineStyle: { color: LINE_STRONG } }, axisTick: { show: false },
+      axisLabel: { color: MUTED, fontSize: 11 },
+    },
+    yAxis: [
+      { type: 'value', name: '金额（元）', nameTextStyle: { color: MUTED, fontSize: 11 },
+        axisLine: { show: false }, axisTick: { show: false },
+        splitLine: { lineStyle: { color: LINE, type: 'dashed' } },
+        axisLabel: { color: MUTED, fontSize: 11, formatter: fmtWan } },
+      { type: 'value', name: '均价（元/件）', nameTextStyle: { color: MUTED, fontSize: 11 },
+        axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false },
+        axisLabel: { color: MUTED, fontSize: 11 } },
+    ],
+    series: [
+      { name: '销售金额', type: 'bar', barWidth: 46, data: rows.map((p) => p.amt),
+        itemStyle: { color: 'rgba(47, 122, 79, 0.28)', borderRadius: [5, 5, 0, 0] } },
+      { name: '每件均价', type: 'line', smooth: true, yAxisIndex: 1, data: rows.map((p) => p.price),
+        lineStyle: { width: 2, color: BRAND_LINE }, itemStyle: { color: BRAND_LINE } },
+    ],
+  }));
+}
+
+/* ===== 品牌汇总柱图：保留双系列，去顶部标签（同一数字只留卡内一处） ===== */
+function vsBar() {
+  mount('chVs', () => ({
+    grid: { left: 56, right: 56, top: 34, bottom: 26 },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: { right: 0, top: 0, itemWidth: 14, textStyle: { color: MUTED, fontSize: 11 } },
+    xAxis: {
+      type: 'category', data: ['香香', '晴牌'],
+      axisLine: { lineStyle: { color: LINE_STRONG } }, axisTick: { show: false },
+      axisLabel: { color: MUTED, fontSize: 11 },
+    },
+    yAxis: [
+      { type: 'value', name: '件数', nameTextStyle: { color: MUTED, fontSize: 11 },
+        axisLine: { show: false }, axisTick: { show: false },
+        splitLine: { lineStyle: { color: LINE, type: 'dashed' } },
+        axisLabel: { color: MUTED, fontSize: 11, formatter: fmtWan } },
+      { type: 'value', name: '柜数', nameTextStyle: { color: MUTED, fontSize: 11 },
+        axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false },
+        axisLabel: { color: MUTED, fontSize: 11 } },
+    ],
+    series: [
+      { name: '总件数', type: 'bar', barWidth: 46, data: [27760, 2011],
+        itemStyle: { color: 'rgba(47, 122, 79, 0.28)', borderRadius: [5, 5, 0, 0] } },
+      { name: '柜数', type: 'line', smooth: true, yAxisIndex: 1, data: [14, 1],
+        lineStyle: { width: 2, color: BRAND_LINE }, itemStyle: { color: BRAND_LINE } },
+    ],
+  }));
+}
+
+/* ===== 共享表格规范渲染（浅底灰字表头 / 6px 色点 / 件数·均价强调 / 留文字删条 / 小计浅底缩进 / 合计白底双线） ===== */
+function priceCell(p) {
+  const s = fmtPrice(p);
+  return s ? s : '<span class="noprice">不计价</span>';
+}
+function grandRow(label, total) {
+  return '<tr><td colspan="5">' + label + '</td><td class="num">' + fmtNum(total.qty) + ' <small class="sm2">件</small></td><td class="num">' + fmtPrice(total.price) + '</td></tr>';
+}
+/* 总览规格表：默认 6 组品牌×等级小计；展开全部 56 组（按件数降序，>20 行 sticky 表头） */
+let ovExpanded = false;
+function renderOvSpec() {
+  const body = document.getElementById('ovSpecBody');
+  const foot = document.getElementById('ovSpecFoot');
+  const scroll = document.getElementById('ovSpecScroll');
+  if (!body) return;
+  let html = '';
+  if (!ovExpanded) {
+    const subs = [...DATA.ovSpec.subs].sort((a, b) => b.qty - a.qty);
+    html = subs.map((s) => '<tr class="sub"><td colspan="5">小计 · ' + s.brand + ' ' + gdotHTML(s.grade) + GRADE_NAME[s.grade] + '</td>' +
+      '<td class="num em">' + fmtNum(s.qty) + ' <small class="sm2">件</small></td><td class="num em">' + priceCell(s.price) + '</td></tr>').join('');
+  } else {
+    const rows = [...DATA.ovSpec.rowsAll].sort((a, b) => b.qty - a.qty);
+    const total = DATA.ovSpec.total.qty;
+    html = rows.map((r) => '<tr><td class="tbrand">' + r.brand + '</td><td>' + gdotHTML(r.grade) + GRADE_NAME[r.grade] + '</td>' +
+      '<td>' + (r.head || '—') + '</td><td>' + (r.kg || '—') + '</td><td>' + (r.remark || '—') + '</td>' +
+      '<td class="num em">' + fmtNum(r.qty) + ' <small class="sm2">件 · 占 ' + fmtPct(r.qty / total) + '</small></td>' +
+      '<td class="num em">' + priceCell(r.price) + '</td></tr>').join('');
+  }
+  body.innerHTML = html;
+  if (foot) foot.innerHTML = grandRow('合计 · 全部品牌等级（共 ' + (ovExpanded ? DATA.ovSpec.rowsAll.length : DATA.ovSpec.subs.length) + ' 组明细）', DATA.ovSpec.total);
+  if (scroll) scroll.classList.toggle('tall', ovExpanded);
+  const btn = document.getElementById('specToggle');
+  if (btn) btn.textContent = ovExpanded ? '收起小计' : '展开全部 56 组';
+}
+/* 单650 规格 10 组表：3 组（A/B/OTHER）组内按件数降序＋组尾小计＋合计（13 行 < 20，不 sticky） */
+function renderD650Spec() {
+  const body = document.getElementById('d650SpecBody');
+  const foot = document.getElementById('d650SpecFoot');
+  if (!body) return;
+  const idx = new Map(); const groups = [];
+  DATA.d650Spec.rows.forEach((r) => {
+    const key = r.brand + '|' + r.grade;
+    if (!idx.has(key)) { idx.set(key, groups.length); groups.push({ key: key, rows: [] }); }
+    groups[idx.get(key)].rows.push(r);
+  });
+  const subMap = new Map(DATA.d650Spec.subs.map((s) => [s.brand + '|' + s.grade, s]));
+  groups.sort((a, b) => (subMap.get(b.key) ? subMap.get(b.key).qty : 0) - (subMap.get(a.key) ? subMap.get(a.key).qty : 0));
+  let html = '';
+  groups.forEach((g) => {
+    g.rows.sort((a, b) => b.qty - a.qty).forEach((r) => {
+      html += '<tr><td class="tbrand">' + r.brand + '</td><td>' + gdotHTML(r.grade) + GRADE_NAME[r.grade] + '</td>' +
+        '<td>' + (r.head || '—') + '</td><td>' + (r.kg || '—') + '</td><td>' + (r.remark || '—') + '</td>' +
+        '<td class="num em">' + fmtNum(r.qty) + ' <small class="sm2">件 · 占 ' + fmtPct(r.qty / DATA.d650Spec.total.qty) + '</small></td>' +
+        '<td class="num em">' + priceCell(r.price) + '</td></tr>';
+    });
+    const s = subMap.get(g.key);
+    if (s) {
+      html += '<tr class="sub"><td colspan="5">小计 · ' + s.brand + ' ' + gdotHTML(s.grade) + GRADE_NAME[s.grade] + '</td>' +
+        '<td class="num em">' + fmtNum(s.qty) + ' <small class="sm2">件</small></td><td class="num em">' + priceCell(s.price) + '</td></tr>';
+    }
+  });
+  body.innerHTML = html;
+  if (foot) foot.innerHTML = grandRow('合计 · 单650 全部品牌等级', DATA.d650Spec.total);
+}
+
+/* ===== 本期柜 Top5（按销售额排序；单650 为真实结算值并作销冠直链详情） ===== */
+function renderTop5() {
+  const el = document.getElementById('top5Body');
+  if (!el) return;
+  const rows = [
+    { m: '单650', brand: '香香', qty: 1977, amt: 569120, price: 287.87, real: true },
+    { m: '单649', brand: '香香', qty: 2042, amt: 2042 * 269, price: 269 },
+    { m: '单653', brand: '晴牌', qty: 2011, amt: 2011 * 269, price: 269 },
+    { m: '单641', brand: '香香', qty: 1981, amt: 1981 * 269, price: 269 },
+    { m: '单GZ-003', brand: '香香', qty: 1980, amt: 1980 * 269, price: 269 },
+  ];
+  el.innerHTML = rows.map((r, i) => {
+    const name = r.real
+      ? '<a href="#" data-goto="detail"><b>' + r.m + '</b><span class="champ">销冠</span></a>'
+      : '<b>' + r.m + '</b>';
+    return '<tr ' + (i === 0 ? 'style="background:#f8fbf9"' : '') + '><td>' + name + '</td><td>' + r.brand + '</td>' +
+      '<td class="num">' + fmtNum(r.qty) + '</td>' +
+      '<td class="num em">¥' + fmtNum(r.amt) + (r.real ? '' : '<sup>†</sup>') + '</td>' +
+      '<td class="num">' + r.price.toFixed(2) + (r.real ? '' : '<sup>†</sup>') + '</td></tr>';
+  }).join('');
+}
+
+/* ===== 结算单列表：15 单真实行＋销售额/加权均价列（† 推算）＋均价列头排序＋表尾合计白底双线 ===== */
+const LIST = [
+  ['单GZ-003', '香香-L015RXRK7', '香香', 'EMCU5328197', '桂KR8618', '09-18', 1980, 10],
+  ['单651', '香香-L013RXRK05', '香香', 'SNHU8010217', '桂FA9877', '09-17', 1977, 44],
+  ['单653', '晴牌-03', '晴牌', 'EMCU5364147', '桂AW7082', '09-17', 2011, 46],
+  ['单650', '香香-L011RXRK03', '香香', 'EISU5674802', '桂AX6166', '09-15', 1977, 52],
+  ['单649', '香香-L012RXRK04', '香香', 'MWCU3999021', '桂AS0055', '09-15', 2042, 54],
+  ['单GZ-002', '香香-L010RXRK2', '香香', 'SEGU9138999', '桂KR7133', '09-15', 1979, 8],
+  ['单GZ-001', '香香-L008', '香香', 'TGHU9951501', '浙B5X861', '09-13', 1979, 10],
+  ['单647', '香香-L009RXRK01', '香香', 'MORU1102072', '豫N03BON', '09-12', 1980, 20],
+  ['单646', '香香-L007', '香香', 'EMCU5364147', '桂AW7082', '09-12', 1979, 36],
+  ['单643', '香香-L006', '香香', 'TCLU1125295', '桂AAB151', '09-10', 1978, 49],
+  ['单641', '香香-L005', '香香', 'NYKU7101033', '桂K29220', '09-09', 1981, 51],
+  ['单638', '香香-L004', '香香', 'NYKU701953', '粤SE6998', '09-06', 1976, 59],
+  ['单634', '香香-L003', '香香', 'EMCU5215797', '桂ABM228', '09-03', 1977, 35],
+  ['单633', '香香-L002', '香香', 'MWCU6759664', '桂ABK333', '09-03', 1980, 28],
+  ['单629', '香香-L001', '香香', 'TRLU1709169', '桂ND0602', '09-01', 1975, 31],
+];
+let listRows = LIST.slice();
+let priceSortDir = 0; /* 0 = 原序，1 = 升，-1 = 降 */
+function listPrice(r) { return r[0] === '单650' ? 287.87 : 269; }
+function listAmt(r) { return r[0] === '单650' ? 569120 : Math.round(r[6] * 269); }
+function renderList() {
+  const el = document.getElementById('listBody');
+  if (!el) return;
+  el.innerHTML = listRows.map((r) => {
+    const real = r[0] === '单650';
+    const tag = real ? '' : '<sup>†</sup>';
+    return '<tr><td>' + (real ? '<a href="#" data-goto="detail"><b>' + r[0] + '</b></a>' : '<b>' + r[0] + '</b>') + '</td>' +
+      '<td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td><td>' + r[4] + '</td><td>' + r[5] + '</td>' +
+      '<td class="num">' + fmtNum(r[6]) + '</td><td class="num">' + r[7] + '</td>' +
+      '<td class="num em">¥' + fmtNum(listAmt(r)) + tag + '</td>' +
+      '<td class="num">' + listPrice(r).toFixed(2) + tag + '</td>' +
+      '<td><a class="op" href="#" data-goto="detail">详情</a></td></tr>';
+  }).join('');
+  const foot = document.getElementById('listFoot');
+  if (foot) foot.innerHTML = '<tr><td>合计</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>' +
+    '<td class="num">' + fmtNum(29771) + '</td><td class="num">523</td>' +
+    '<td class="num">¥8,008,442.99</td><td class="num">269.00</td><td>—</td></tr>';
+}
+function initListSort() {
+  const th = document.getElementById('thPrice');
+  if (!th) return;
+  th.addEventListener('click', () => {
+    priceSortDir = priceSortDir === 0 ? -1 : (priceSortDir === -1 ? 1 : 0);
+    if (priceSortDir === 0) { listRows = LIST.slice(); }
+    else { listRows = [...LIST].sort((a, b) => (listPrice(a) - listPrice(b)) * priceSortDir); }
+    th.setAttribute('aria-sort', priceSortDir === 1 ? 'ascending' : (priceSortDir === -1 ? 'descending' : 'none'));
+    th.textContent = '加权均价 ' + (priceSortDir === 1 ? '↑' : (priceSortDir === -1 ? '↓' : '⇅'));
+    renderList();
+  });
+}
+
+/* ===== 详情页：加入对比 (n/6) 累加 ＋ 与上一柜对比入口 ===== */
+function initDetailActions() {
+  const btn = document.getElementById('cmpBtn');
+  const n = document.getElementById('cmpN');
+  if (btn && n) {
+    btn.addEventListener('click', () => {
+      const cur = Math.min(Number(n.textContent) + 1, 6);
+      n.textContent = cur;
+      toast(cur >= 6 ? '对比篮已满（6/6）：可在品牌汇总中发起对比' : '已加入对比（' + cur + '/6）——在品牌汇总页可发起对比');
+    });
+  }
+  const prev = document.getElementById('prevCmp');
+  if (prev) prev.addEventListener('click', () => toast('已定位上一柜：单649（09-15 · 2,042 件）——两柜对比视图在完整版提供'));
+}
+
+/* ===== 录单：手工表单展开／记一行／撤销／实时小结回执 ===== */
+let entries = [
+  { d: '09-17', code: 'B', head: '4', kg: '9', qty: 20, price: 260 },
+  { d: '09-19', code: 'B', head: '3', kg: '9', qty: 6, price: 260 },
+  { d: '09-19', code: 'C', head: '3', kg: '', qty: 6, price: 30 },
+];
+function renderEntries() {
+  const box = document.getElementById('entries');
+  if (!box) return;
+  box.innerHTML = entries.map((e, i) =>
+    '<div class="entry"><span>' + e.d + ' · 代码 ' + e.code + ' · ' + (e.head || '—') + '头' + (e.kg ? '/' + e.kg + 'KG' : '') +
+    ' · ' + fmtNum(e.qty) + ' 件 × ¥' + e.price.toFixed(2) + '</span><b>¥' + fmtNum(e.qty * e.price) + '</b>' +
+    '<button class="undo" data-undo="' + i + '" type="button">撤销</button></div>').join('');
+  const q = entries.reduce((t, e) => t + e.qty, 0);
+  const a = entries.reduce((t, e) => t + e.qty * e.price, 0);
+  document.getElementById('tallyN').textContent = entries.length;
+  document.getElementById('tallyQ').textContent = fmtNum(q);
+  document.getElementById('tallyA').textContent = '¥' + fmtNum(a);
+}
+function initImports() {
+  const tgl = document.getElementById('manualToggle');
+  const card = document.getElementById('manualCard');
+  if (tgl && card) tgl.addEventListener('click', () => {
+    card.hidden = !card.hidden;
+    tgl.lastChild.textContent = card.hidden ? '手工录单' : '收起表单';
+  });
+  const add = document.getElementById('addRow');
+  if (add) add.addEventListener('click', () => {
+    const g = (id) => (document.getElementById(id).value || '').trim();
+    const qty = Number(g('fQty') || 20);
+    const price = Number(g('fPrice') || 260);
+    entries.unshift({ d: (g('fDate') || '2026-09-29').slice(5), code: g('fCode') || 'A', head: g('fHead'), kg: '', qty: qty, price: price });
+    entries = entries.slice(0, 3); /* 最近 3 行 */
+    renderEntries();
+    toast('已记一行：' + fmtNum(qty) + ' 件 × ¥' + price.toFixed(2) + ' = ¥' + fmtNum(qty * price));
+  });
+  const save = document.getElementById('saveBill');
+  if (save) save.addEventListener('click', () => toast('这一单已保存：共 ' + entries.length + ' 行（演示稿未写入后端）'));
+  const box = document.getElementById('entries');
+  if (box) box.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-undo]');
+    if (!b) return;
+    entries.splice(Number(b.dataset.undo), 1);
+    renderEntries();
+    toast('已撤销该行');
+  });
+  renderEntries();
+}
+
+/* ===== toast ===== */
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
+}
+
+/* ===== 页面切换（单壳）＋图表懒初始化＋resize ===== */
+const inited = {};
+function initScreen(name) {
+  if (inited[name]) return;
+  inited[name] = true;
+  if (name === 'overview') { gradePie(); initDaily(); renderTop5(); renderOvSpec(); }
+  else if (name === 'settlements') { renderList(); initListSort(); }
+  else if (name === 'detail') { combo650(); renderD650Spec(); initDetailActions(); }
+  else if (name === 'series') { vsBar(); }
+  else if (name === 'imports') { initImports(); }
+}
+const stage = document.getElementById('stage');
+function show(name) {
+  document.querySelectorAll('#vtabs button').forEach((b) => b.classList.toggle('on', b.dataset.s === name));
+  document.querySelectorAll('#stage section[data-screen]').forEach((s) => { s.hidden = s.dataset.screen !== name; });
+  document.querySelectorAll('.topnav a[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === name));
+  document.querySelectorAll('.tabbar [data-goto]').forEach((a) => a.classList.toggle('on', a.dataset.goto === name));
+  stage.classList.toggle('scr-detail', name === 'detail');
+  const mp = document.getElementById('morePanel');
+  if (mp) mp.classList.remove('open');
+  window.scrollTo({ top: 0 });
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    initScreen(name);
+    charts.forEach((c) => c.resize());
+  }));
+}
+document.getElementById('vtabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-s]'); if (b) show(b.dataset.s);
+});
+document.getElementById('vdev').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-m]'); if (!b) return;
+  document.querySelectorAll('#vdev button').forEach((n) => n.classList.toggle('on', n === b));
+  stage.classList.toggle('mode-mobile', b.dataset.m === 'mobile');
+  charts.forEach((c) => c.resize());
+});
+document.addEventListener('click', (e) => {
+  const g = e.target.closest('[data-goto]');
+  if (g) { e.preventDefault(); show(g.dataset.goto); return; }
+  const mb = e.target.closest('#moreBtn');
+  if (mb) { const mp = document.getElementById('morePanel'); if (mp) mp.classList.toggle('open'); }
+});
+document.addEventListener('click', (e) => {
+  const st = document.getElementById('specToggle');
+  if (st && e.target === st) { ovExpanded = !ovExpanded; renderOvSpec(); }
+});
+window.addEventListener('resize', () => charts.forEach((c) => c.resize()));
+if (window.innerWidth < 700) {
+  stage.classList.add('mode-mobile');
+  document.querySelectorAll('#vdev button').forEach((n) => n.classList.toggle('on', n.dataset.m === 'mobile'));
+}
+show('overview');
+</script>
+</body>
+</html>

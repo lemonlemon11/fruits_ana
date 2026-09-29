@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 172 64" role="img" aria-label="顺立达组合标：金额飙升">
+  <g fill="#17663f">
+    <polygon points="13,4.1 10.6,8 15.4,8"/>
+    <polygon points="13,4.1 10.6,8 15.4,8" transform="rotate(45 13 12.5)"/>
+    <polygon points="13,4.1 10.6,8 15.4,8" transform="rotate(90 13 12.5)"/>
+    <polygon points="13,4.1 10.6,8 15.4,8" transform="rotate(135 13 12.5)"/>
+    <polygon points="13,4.1 10.6,8 15.4,8" transform="rotate(180 13 12.5)"/>
+    <polygon points="13,4.1 10.6,8 15.4,8" transform="rotate(225 13 12.5)"/>
+    <polygon points="13,4.1 10.6,8 15.4,8" transform="rotate(270 13 12.5)"/>
+    <polygon points="13,4.1 10.6,8 15.4,8" transform="rotate(315 13 12.5)"/>
+    <circle cx="13" cy="12.5" r="6"/>
+  </g>
+  <circle cx="13" cy="12.5" r="3" fill="#ffd93f"/>
+  <g fill="none" stroke="#17663f" stroke-width="4.5" stroke-linecap="round">
+    <path d="M31 14 C27 19 23 22.5 19.5 26"/>
+    <path d="M31 14 C35 19 39 22.5 42.5 26"/>
+    <path d="M31 16 V46"/>
+    <path d="M21.5 31.5 H40.5"/>
+    <path d="M21.5 38.5 H40.5"/>
+  </g>
+  <path d="M50 46 V22 M43.5 28.5 L50 21 L56.5 28.5" fill="none" stroke="#e58a7c" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M8 55 H43" stroke="#17663f" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 3" opacity="0.8"/>
+  <polygon points="43,52.8 48.5 55 43,57.2" fill="#17663f"/>
+  <text x="78" y="34" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif" font-size="25" font-weight="900" fill="#104a2f" letter-spacing="2">顺立达</text>
+  <text x="78.5" y="50" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif" font-size="9" font-weight="500" fill="#5f7a6c" letter-spacing="4">SHUNLIDA</text>
+</svg>

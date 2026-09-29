@@ -4,11 +4,11 @@ import Bell from '@lucide/vue/dist/esm/icons/bell.mjs'
 import BellRing from '@lucide/vue/dist/esm/icons/bell-ring.mjs'
 import Boxes from '@lucide/vue/dist/esm/icons/boxes.mjs'
 import ChartColumn from '@lucide/vue/dist/esm/icons/chart-column.mjs'
+import ChevronDown from '@lucide/vue/dist/esm/icons/chevron-down.mjs'
 import ClipboardPen from '@lucide/vue/dist/esm/icons/clipboard-pen.mjs'
 import Clock3 from '@lucide/vue/dist/esm/icons/clock-3.mjs'
 import LogOut from '@lucide/vue/dist/esm/icons/log-out.mjs'
 import Leaf from '@lucide/vue/dist/esm/icons/leaf.mjs'
-import Menu from '@lucide/vue/dist/esm/icons/menu.mjs'
 import MessageCircle from '@lucide/vue/dist/esm/icons/message-circle.mjs'
 import PackageSearch from '@lucide/vue/dist/esm/icons/package-search.mjs'
 import PanelLeftClose from '@lucide/vue/dist/esm/icons/panel-left-close.mjs'
@@ -23,6 +23,11 @@ import Upload from '@lucide/vue/dist/esm/icons/upload.mjs'
 import X from '@lucide/vue/dist/esm/icons/x.mjs'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { ElConfigProvider, ElDialog, ElPopover } from 'element-plus'
+import 'element-plus/es/components/config-provider/style/css'
+import 'element-plus/es/components/dialog/style/css'
+import 'element-plus/es/components/popover/style/css'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 
 import {
   getNotifications,
@@ -32,7 +37,7 @@ import {
   type AppNotification,
 } from './api/client'
 import { authReady, currentUser, firstAllowedPath, setCurrentUser } from './auth'
-import { applyMenuItems, buildMenusByPath } from './utils/shellMenu'
+import { applyMenuItems, buildMenuGroups, buildMenusByPath } from './utils/shellMenu'
 import AskWidget from './components/AskWidget.vue'
 import BrandMark from './components/BrandMark.vue'
 import {
@@ -62,7 +67,6 @@ import {
   NAVIGATION_START_EVENT,
 } from './utils/navigationFeedback'
 
-const mobileNavOpen = ref(false)
 const signingOut = ref(false)
 const notifications = ref<AppNotification[]>([])
 const unreadNotificationCount = ref(0)
@@ -156,22 +160,38 @@ const _hasPerm = (item: ShellNavItem): boolean => {
   return !item.permission || perms.includes(item.permission)
 }
 
-const sidebarNavItems = computed(() =>
-  [...primaryNav.value, ...moreNav.value].filter(_hasPerm),
+// 桌面侧栏按管理端目录渲染两级导航：目录作分组标题，子菜单缩进展示；
+// 分组结构以管理端菜单树为准，本地槽位只补高亮规则、权限码与兜底文案。
+const navGroups = computed(() =>
+  buildMenuGroups(
+    currentUser.value?.menus ?? [],
+    [...primaryNavItems, ...moreNavItems],
+    resolveShellIcon,
+  ),
 )
+const sidebarNavGroups = computed(() =>
+  navGroups.value
+    .map((group) => ({ label: group.label, items: group.items.filter(_hasPerm) }))
+    .filter((group) => group.items.length > 0),
+)
+// 一级分组（目录标题）可整组收起，默认全部展开；仅本次会话内记忆，不落存储。
+const collapsedNavGroups = ref<ReadonlySet<string>>(new Set())
 
-const visiblePrimaryNavItems = computed(() =>
-  primaryNav.value.filter(_hasPerm),
-)
+function isNavGroupCollapsed(label: string | null): boolean {
+  return label !== null && collapsedNavGroups.value.has(label)
+}
 
-const visibleMoreNavItems = computed(() =>
-  moreNav.value.filter(_hasPerm),
-)
+function toggleNavGroup(label: string | null) {
+  if (!label) return
+  const next = new Set(collapsedNavGroups.value)
+  if (next.has(label)) next.delete(label)
+  else next.add(label)
+  collapsedNavGroups.value = next
+}
 const defaultHomePath = computed(() => firstAllowedPath(
   currentUser.value?.permissions ?? [],
   currentUser.value?.menus ?? [],
 ) ?? WELCOME_TAB_PATH)
-const moreNavActive = computed(() => visibleMoreNavItems.value.some((item) => isNavActive(item, route.path)))
 // 顺仔（数据问答）只对拥有 ask:view 的业务角色开放，由管理端角色授权控制。
 const canAsk = computed(() => Boolean(currentUser.value?.permissions.includes('ask:view')))
 const authPage = computed(() => Boolean(route.meta.guestOnly || route.meta.publicPreview))
@@ -220,11 +240,10 @@ onMounted(() => {
 watch(
   () => route.fullPath,
   () => {
-    mobileNavOpen.value = false
     fontSizePanelOpen.value = false
     tabContextMenu.value = null
-    if (authPage.value || route.meta.modal) return
-    openedTabs.value = openTab(openedTabs.value, activeTabPath.value, route.fullPath)
+    if (authPage.value) return
+    openedTabs.value = openTab(openedTabs.value, activeTabPath.value, route.fullPath, specialTabTitle(route))
   },
   { immediate: true },
 )
@@ -345,7 +364,19 @@ function isNavActive(item: ShellNavItem, path: string): boolean {
 
 /** 页签命名按路径精确归属：`/imports` 主导航优先于 `/entry`，因此主导航必须排在前面。 */
 function navItemFor(path: string) {
+  // 查看明细 / 导入确认（/import-review）没有导航菜单条目，用合成项承载页签激活与图标。
+  if (path.startsWith('/import-review')) {
+    return { path: '/import-review', label: '查看明细', icon: Table2, matches: ['/import-review'] } as ShellNavItem
+  }
   return navItems.value.find((item) => isNavActive(item, path)) ?? navItems.value[0]
+}
+
+/** 特殊路由的页签展示名：按用途区分，不依赖导航菜单。 */
+function specialTabTitle(route: { path: string; query: Record<string, unknown> }): string | undefined {
+  if (route.path.startsWith('/import-review')) {
+    return route.query.readonly === '1' ? '查看明细' : '导入确认'
+  }
+  return undefined
 }
 
 /** 页签过多时把当前页签滚进可视区，避免激活项藏在横向滚动条外。 */
@@ -361,7 +392,7 @@ async function scrollActiveTabIntoView() {
 }
 
 function isKnownPath(path: string): boolean {
-  return navItems.value.some((item) => item.path === path)
+  return navItems.value.some((item) => item.path === path) || path.startsWith('/import-review')
 }
 
 function readStoredSidebarState(): boolean {
@@ -420,7 +451,6 @@ function handleGlobalPointerDown(event: PointerEvent) {
 function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
   tabContextMenu.value = null
-  mobileNavOpen.value = false
   fontSizePanelOpen.value = false
   notificationPanelOpen.value = false
   notificationBanner.value = null
@@ -428,7 +458,6 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 }
 
 function activateTab(tab: ShellTab) {
-  mobileNavOpen.value = false
   if (route.fullPath !== tab.fullPath) void router.push(tab.fullPath)
 }
 
@@ -512,6 +541,7 @@ function scrollToTop() {
 </script>
 
 <template>
+  <ElConfigProvider :locale="zhCn">
   <RouterView v-if="authPage || (errorPage && (!authReady || !currentUser))" />
   <div v-else-if="!authReady || !currentUser" class="app-loading" aria-busy="true"></div>
   <template v-else>
@@ -647,30 +677,51 @@ function scrollToTop() {
         </div>
         <button type="button" class="notification-banner-view" @click="openNotification(notificationBanner)">查看详情</button>
       </div>
-      <div v-if="notificationDetail" class="notification-detail-mask" @click.self="closeNotificationDetail">
-        <article class="notification-detail-card" role="dialog" aria-modal="true" aria-label="通知详情">
-          <header class="notification-detail-head">
-            <div>
-              <h2>{{ notificationDetail.title }}</h2>
-              <p>
-                {{ notificationDetail.priority === 'urgent' ? '紧急' : notificationDetail.priority === 'important' ? '重要' : '普通' }}
-                · {{ notificationDetail.publish_at ? new Date(notificationDetail.publish_at).toLocaleString() : '—' }}
-              </p>
-            </div>
-            <button type="button" class="notification-detail-close" aria-label="关闭通知详情" @click="closeNotificationDetail">
-              <X :size="18" aria-hidden="true" />
-            </button>
-          </header>
-          <div class="notification-detail-content" v-html="sanitizeNotificationHtml(notificationDetail.content)"></div>
-        </article>
-      </div>
+      <ElDialog
+        :model-value="notificationDetail !== null"
+        :title="notificationDetail?.title ?? '通知详情'"
+        width="min(560px, 92vw)"
+        append-to-body
+        aria-label="通知详情"
+        @update:model-value="(value) => { if (!value) closeNotificationDetail() }"
+      >
+        <p class="notification-detail-meta">
+          {{ notificationDetail?.priority === 'urgent' ? '紧急' : notificationDetail?.priority === 'important' ? '重要' : '普通' }}
+          · {{ notificationDetail?.publish_at ? new Date(notificationDetail.publish_at).toLocaleString() : '—' }}
+        </p>
+        <div class="notification-detail-content" v-html="sanitizeNotificationHtml(notificationDetail?.content ?? '')"></div>
+      </ElDialog>
       <div class="app-body">
         <aside class="app-sidebar" aria-label="主要导航">
           <nav id="primary-nav" aria-label="主要导航">
-            <RouterLink v-for="item in sidebarNavItems" :key="item.path" :to="item.path" :title="item.label" :aria-label="sidebarCollapsed ? item.label : undefined" :aria-current="isNavActive(item, route.path) ? 'page' : undefined" :class="{ 'is-navigation-pending': navigationPending && isNavActive(item, navigationPendingPath) }">
-              <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
-              <span>{{ item.label }}</span>
-            </RouterLink>
+            <div
+              v-for="(group, groupIndex) in sidebarNavGroups"
+              :key="group.label ?? 'root'"
+              class="nav-group"
+              :class="{ 'is-root': !group.label, 'is-collapsed': isNavGroupCollapsed(group.label) }"
+            >
+              <button
+                v-if="group.label && !sidebarCollapsed"
+                type="button"
+                class="nav-group-label"
+                :aria-expanded="!isNavGroupCollapsed(group.label)"
+                :aria-controls="`nav-group-${groupIndex}-items`"
+                @click="toggleNavGroup(group.label)"
+              >
+                <span>{{ group.label }}</span>
+                <ChevronDown class="nav-group-chevron" :size="16" aria-hidden="true" />
+              </button>
+              <div
+                :id="group.label ? `nav-group-${groupIndex}-items` : undefined"
+                class="nav-group-items"
+                v-show="sidebarCollapsed || !isNavGroupCollapsed(group.label)"
+              >
+                <RouterLink v-for="item in group.items" :key="item.path" :to="item.path" :title="item.label" :aria-label="sidebarCollapsed ? item.label : undefined" :aria-current="isNavActive(item, route.path) ? 'page' : undefined" :class="{ 'is-navigation-pending': navigationPending && isNavActive(item, navigationPendingPath) }">
+                  <component :is="item.icon" class="nav-icon" :size="20" :stroke-width="2" aria-hidden="true" />
+                  <span>{{ item.label }}</span>
+                </RouterLink>
+              </div>
+            </div>
           </nav>
           <p class="sidebar-foot"><strong>等级说明</strong><span>统计等级按管理端转换规则展示，明细保留原文</span></p>
         </aside>
@@ -692,7 +743,7 @@ function scrollToTop() {
                   @click="activateTab(entry.tab)"
                 >
                   <component :is="entry.item.icon" :size="16" aria-hidden="true" />
-                  <span>{{ entry.item.label }}</span>
+                  <span>{{ entry.tab.title ?? entry.item.label }}</span>
                 </button>
                 <button
                   v-if="isClosableTab(entry.tab.path)"
@@ -737,12 +788,6 @@ function scrollToTop() {
               关闭全部
             </button>
           </div>
-          <nav v-if="mobileNavOpen" id="mobile-nav" class="mobile-nav-panel" aria-label="更多页面">
-            <RouterLink v-for="item in visibleMoreNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined" :class="{ 'is-navigation-pending': navigationPending && isNavActive(item, navigationPendingPath) }">
-              <component :is="item.icon" class="nav-icon" :size="20" aria-hidden="true" />
-              <span>{{ item.label }}</span>
-            </RouterLink>
-          </nav>
           <main id="main-content" tabindex="-1">
             <RouterView :key="viewKey" />
           </main>
@@ -750,10 +795,14 @@ function scrollToTop() {
             <span class="app-footer-copy">SLD-水果市场销售分析系统©2026</span>
             <nav class="app-footer-actions" aria-label="系统服务">
               <span class="app-footer-manual">使用手册请联系管理员获取</span>
-              <button type="button" class="wechat-qr-button">
-                <MessageCircle :size="16" :stroke-width="2" aria-hidden="true" />微信公众号
+              <ElPopover placement="top" :width="240" trigger="hover" aria-label="微信公众号二维码">
+                <template #reference>
+                  <button type="button" class="wechat-qr-button">
+                    <MessageCircle :size="16" :stroke-width="2" aria-hidden="true" />微信公众号
+                  </button>
+                </template>
                 <img class="wechat-qr-popover" src="/gzh.jpg" alt="SLD-水果市场销售分析系统 微信公众号二维码" />
-              </button>
+              </ElPopover>
             </nav>
           </footer>
           <AskWidget v-if="canAsk" @update:open="askOpen = $event" />
@@ -767,31 +816,14 @@ function scrollToTop() {
             <ArrowUp :size="22" aria-hidden="true" />
             <span>回顶部</span>
           </button>
-          <nav class="mobile-tabbar" aria-label="主要导航（移动端）">
-            <RouterLink v-for="item in visiblePrimaryNavItems" :key="item.path" :to="item.path" :aria-current="isNavActive(item, route.path) ? 'page' : undefined" :class="{ 'is-navigation-pending': navigationPending && isNavActive(item, navigationPendingPath) }">
-              <component :is="item.icon" :size="28" :stroke-width="2" aria-hidden="true" />
-              <span>{{ item.label }}</span>
-            </RouterLink>
-            <button
-              v-if="visibleMoreNavItems.length > 0"
-              class="mobile-tabbar-more"
-              type="button"
-              aria-controls="mobile-nav"
-              :aria-expanded="mobileNavOpen"
-              :class="{ 'is-active': moreNavActive }"
-              @click="mobileNavOpen = !mobileNavOpen"
-            >
-              <Menu :size="28" aria-hidden="true" />
-              <span>更多</span>
-            </button>
-          </nav>
         </div>
       </div>
     </div>
   </template>
+  </ElConfigProvider>
 </template>
 
 <style src="./styles.css"></style>
+<style src="./styles-element.css"></style>
 <style src="./styles-shell.css"></style>
 <style src="./styles-responsive.css"></style>
-<style src="./styles-mobile.css"></style>

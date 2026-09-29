@@ -2,10 +2,14 @@ import type { Grade } from '../utils/grades'
 
 export type { Grade }
 
-/** 侧边导航条目：名称与图标由管理端「菜单管理」维护。 */
+/** 侧边导航条目：directory 为一级分组，名称/图标/层级由管理端「菜单管理」维护。 */
 export interface AuthMenu {
-  routePath: string
+  id: number
+  /** directory（一级菜单）没有路由，叶子菜单必有路由。 */
+  routePath: string | null
   name: string
+  parentId: number | null
+  menuType: string
   icon: string | null
   permissionCode: string | null
   sortOrder: number
@@ -279,31 +283,6 @@ export interface SeriesComparisonData {
   settlements: SeriesComparisonItem[]
   series: SeriesComparisonGroup[]
   total: SeriesAggregate
-  gradeDetails: GradeDetailData
-}
-
-/** 细分等级（号别）阶梯的一行；区间如 `B6/7` 原样保留（ADR-013 方案 A）。 */
-export interface GradeDetailBucket {
-  label: string
-  grade: Grade
-  fruitType: string
-  salesQuantity: number
-  salesAmount: number
-  weightedAvgPrice: number | null
-  quantityShare: number | null
-  amountShare: number | null
-  recordCount: number
-  qualityMarks: string[]
-}
-
-export interface GradeDetailData {
-  buckets: GradeDetailBucket[]
-  unrecognized: {
-    label: string
-    recordCount: number
-    salesQuantity: number
-  }
-  total: MetricTotal
 }
 
 export interface SeriesAnalysisResult {

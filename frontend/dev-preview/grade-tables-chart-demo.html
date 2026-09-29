@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>等级独立对比 · 图表化 Demo（grade-tables）</title>
+  <link rel="stylesheet" href="./grade-tables-chart-demo.css" />
+</head>
+<body>
+  <header class="page-head">
+    <p class="eyebrow">品牌对比 · 等级独立对比（grade-tables 图表化评估）</p>
+    <h1>等级独立对比，用哪种图最直观？</h1>
+    <p class="lead">
+      同一份<strong>真实数据</strong>（品牌「香香」全部结算单，取自「品牌对比」接口 get_series_comparison）
+      分别用三种图展示，挑一个再落地。
+    </p>
+    <p id="data-note" class="data-note">正在读取数据文件……</p>
+  </header>
+
+  <section class="card verdict" aria-labelledby="verdict-title">
+    <h2 id="verdict-title">推荐：方案 A · 分面小图（柱 = 件数，折线 = 每件均价）</h2>
+    <ul>
+      <li>和现在「每等级一张表」的心智完全一致：一等级一卡，只是把表格换成图，学习成本为零；</li>
+      <li>柱高看量、折线看价，一张小图同时回答「这个等级卖得多不多、卖得贵不贵」；</li>
+      <li>所有小图横轴同序，同一张单在不同等级间高低一眼对照；某单缺该等级时折线断开、柱缺失，不造假。</li>
+    </ul>
+    <p class="verdict-note">
+      方案 B 适合结算单很多、想一屏看全的时候；方案 C 适合「找异常单」（量小价高 / 量大价低）。
+      三者不互斥，落地时可只做 A。
+    </p>
+  </section>
+
+  <section class="card plan" id="plan-a" aria-labelledby="plan-a-title">
+    <header class="plan-head">
+      <div>
+        <h2 id="plan-a-title">方案 A · 分面小图（推荐）</h2>
+        <p class="section-note">每个等级一张小图：柱 = 件数（左轴），折线 = 每件均价（右轴，元/件）；若某单缺该等级则柱缺失、折线断开</p>
+      </div>
+      <div class="scale-toggle" role="group" aria-label="刻度模式">
+        <button type="button" id="scale-shared" aria-pressed="true">统一刻度（跨等级可比）</button>
+        <button type="button" id="scale-local" aria-pressed="false">各自刻度（看本等级波动）</button>
+      </div>
+    </header>
+    <div class="facet-grid" id="facet-grid"><!-- JS 生成 A/B/C 三张小图 --></div>
+    <div class="plan-notes">
+      <p><strong>优点：</strong>等级独立的心智不变；量价同屏；悬浮提示仍给全量四指标（件数/金额/均价/占比），不丢表格信息。</p>
+      <p><strong>注意：</strong>「统一刻度」下 B 果柱子比 A 果矮是真实差距（件数确实少），切「各自刻度」可看清本等级内的波动。</p>
+      <p><strong>落地口径：</strong>等级顺序与颜色沿用 <code>activeGrades</code> / <code>gradeColors</code>；「其他」兜底等级与「等级均价对比」图一致不展示（见页首数据说明）；原表格折叠进「查看数据表」（同「按等级号别看价格」的做法）。</p>
+    </div>
+  </section>
+
+  <section class="card plan" id="plan-b" aria-labelledby="plan-b-title">
+    <header class="plan-head">
+      <div>
+        <h2 id="plan-b-title">方案 B · 分组柱状图（备选）</h2>
+        <p class="section-note">横轴 = 结算单，每个等级一组柱（件数，左轴）+ 一条同色均价折线（右轴，元/件）；占比看悬浮提示</p>
+      </div>
+    </header>
+    <div id="chart-b" class="chart-wide" role="img" aria-label="四张结算单按等级分组的件数柱状图"></div>
+    <div class="plan-notes">
+      <p><strong>优点：</strong>一张图放全等级的量与价，占位小；结算单多时也撑得住。</p>
+      <p><strong>注意：</strong>等级「挤在一起」，独立感弱；等级一多（A/B/AB/C/…）柱和折线都会挤，折线交叉时不如方案 A 清楚。</p>
+    </div>
+  </section>
+
+  <section class="card plan" id="plan-c" aria-labelledby="plan-c-title">
+    <header class="plan-head">
+      <div>
+        <h2 id="plan-c-title">方案 C · 量价散点图（备选）</h2>
+        <p class="section-note">横轴 = 件数，纵轴 = 每件均价，气泡大小 = 金额，颜色 = 等级</p>
+      </div>
+    </header>
+    <div id="chart-c" class="chart-wide" role="img" aria-label="各结算单各等级的件数与每件均价散点图"></div>
+    <div class="plan-notes">
+      <p><strong>优点：</strong>一图找异常——右上「量多价高」卖得最好，左上「量少价高」可惜了，右下「量多价低」值得排查。</p>
+      <p><strong>注意：</strong>对不熟悉坐标图的读者门槛略高，更像分析视角；建议作为 A 的补充而非替代。</p>
+    </div>
+  </section>
+
+  <footer class="page-foot">
+    <p>纯静态演示页，不参与线上构建；正式落地只改前端（<code>SeriesGradeTables.vue</code>，数据来自已有 <code>items</code>），无后端改动。</p>
+    <p>真实数据在本地文件 <code>grade-tables-chart-demo.data.js</code>（已加入 .gitignore 不入库；由 <code>tmp/grade-tables-chart-demo/gen_data.py</code> 从真实库生成）。</p>
+    <p>预览：`python3 -m http.server 53004 -d frontend` 后访问 <code>/dev-preview/grade-tables-chart-demo.html</code>（vite 53001 亦可）。</p>
+  </footer>
+
+  <script src="../node_modules/echarts/dist/echarts.min.js"></script>
+  <script src="./grade-tables-chart-demo.data.js"></script>
+  <script src="./grade-tables-chart-demo.js"></script>
+</body>
+</html>

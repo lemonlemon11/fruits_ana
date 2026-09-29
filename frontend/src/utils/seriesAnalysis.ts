@@ -8,14 +8,6 @@ export interface AnalysisSection {
 /** 与后端提示词约定的小标题顺序保持一致。 */
 export const ANALYSIS_HEADINGS = ['整体行情', 'A果', 'B果', 'AB果', 'C果', 'D果', 'E果', 'F果', '其他', '可以留意的地方'] as const
 
-/** 「等级细分」AI 小结的小标题，与后端 grade_detail 提示词保持一致。 */
-export const GRADE_DETAIL_HEADINGS = [
-  '这批货的等级结构',
-  '哪个号最值钱',
-  '哪个号在拖后腿',
-  '可以留意的地方',
-] as const
-
 const FALLBACK_TITLE = '分析结论'
 const HAS_CHINESE = /[\u4e00-\u9fff]/
 /** 模型给空等级写占位行时整段丢弃，避免出现「D果 - 暂无数据」这种空小节。 */

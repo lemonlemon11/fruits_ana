@@ -145,66 +145,58 @@ async function submit() {
       </header>
       <div class="auth-field">
         <label for="register-username">用户名</label>
-        <div class="auth-input">
-          <input
-            id="register-username"
-            v-model.trim="form.displayName"
-            type="text"
-            autocomplete="username"
-            maxlength="80"
-            :aria-invalid="Boolean(errors.displayName)"
-            :aria-describedby="errors.displayName ? 'register-username-error' : undefined"
-            autofocus
-          />
-        </div>
+        <ElInput
+          id="register-username"
+          v-model.trim="form.displayName"
+          class="auth-input"
+          :class="{ 'is-error': Boolean(errors.displayName) }"
+          autocomplete="username"
+          maxlength="80"
+          :aria-invalid="Boolean(errors.displayName)"
+          :aria-describedby="errors.displayName ? 'register-username-error' : undefined"
+          autofocus
+        />
         <small v-if="errors.displayName" id="register-username-error" class="field-error">{{ errors.displayName }}</small>
       </div>
       <div class="auth-field">
         <label for="register-password">密码</label>
-        <div class="auth-input has-toggle">
-          <input
-            id="register-password"
-            v-model="form.password"
-            :type="passwordVisible ? 'text' : 'password'"
-            autocomplete="new-password"
-            :aria-invalid="Boolean(errors.password)"
-            :aria-describedby="errors.password ? 'register-password-error' : 'register-password-hint'"
-          />
-          <button
-            class="password-toggle"
-            type="button"
-            :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
-            :aria-pressed="passwordVisible"
-            @click="passwordVisible = !passwordVisible"
-          >
-            <EyeOff v-if="passwordVisible" :size="18" aria-hidden="true" />
-            <Eye v-else :size="18" aria-hidden="true" />
-          </button>
-        </div>
+        <ElInput
+          id="register-password"
+          v-model="form.password"
+          type="password"
+          show-password
+          class="auth-input"
+          :class="{ 'is-error': Boolean(errors.password) }"
+          autocomplete="new-password"
+          :aria-invalid="Boolean(errors.password)"
+          :aria-describedby="errors.password ? 'register-password-error' : 'register-password-hint'"
+        />
         <small v-if="errors.password" id="register-password-error" class="field-error">{{ errors.password }}</small>
         <small v-else id="register-password-hint" class="field-hint">至少输入 8 位字符</small>
       </div>
       <div class="auth-field">
         <label for="register-confirmation">再次输入密码</label>
-        <div class="auth-input">
-          <input
-            id="register-confirmation"
-            v-model="form.confirmation"
-            :type="passwordVisible ? 'text' : 'password'"
-            autocomplete="new-password"
-            :aria-invalid="Boolean(errors.confirmation)"
-            :aria-describedby="errors.confirmation ? 'register-confirmation-error' : undefined"
-          />
-        </div>
+        <ElInput
+          id="register-confirmation"
+          v-model="form.confirmation"
+          type="password"
+          show-password
+          class="auth-input"
+          :class="{ 'is-error': Boolean(errors.confirmation) }"
+          autocomplete="new-password"
+          :aria-invalid="Boolean(errors.confirmation)"
+          :aria-describedby="errors.confirmation ? 'register-confirmation-error' : undefined"
+        />
         <small v-if="errors.confirmation" id="register-confirmation-error" class="field-error">{{ errors.confirmation }}</small>
       </div>
       <div class="auth-field">
         <label for="register-email">邮箱</label>
         <div class="auth-input has-suffix-button">
-          <input
+          <ElInput
             id="register-email"
             v-model.trim="form.email"
-            type="email"
+            class="auth-email-input"
+            :class="{ 'is-error': Boolean(errors.email) }"
             autocomplete="email"
             maxlength="320"
             :aria-invalid="Boolean(errors.email)"
@@ -225,19 +217,17 @@ async function submit() {
       </div>
       <div v-if="codeSent" class="auth-field">
         <label for="register-code">验证码</label>
-        <div class="auth-input">
-          <input
-            id="register-code"
-            v-model.trim="form.verificationCode"
-            type="text"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            maxlength="6"
-            :aria-invalid="Boolean(errors.verificationCode)"
-            :aria-describedby="errors.verificationCode ? 'register-code-error' : undefined"
-            placeholder="输入 6 位验证码"
-          />
-        </div>
+        <ElInput
+          id="register-code"
+          v-model.trim="form.verificationCode"
+          class="auth-input"
+          :class="{ 'is-error': Boolean(errors.verificationCode) }"
+          autocomplete="one-time-code"
+          maxlength="6"
+          :aria-invalid="Boolean(errors.verificationCode)"
+          :aria-describedby="errors.verificationCode ? 'register-code-error' : undefined"
+          placeholder="输入 6 位验证码"
+        />
         <small v-if="errors.verificationCode" id="register-code-error" class="field-error">{{ errors.verificationCode }}</small>
       </div>
       <p v-if="error" class="form-message error" role="alert">{{ error }}</p>

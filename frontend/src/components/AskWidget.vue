@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { ElInput } from 'element-plus'
+import 'element-plus/es/components/input/style/css'
 
 import { askQuestion } from '../api/client'
 import type { AskHistoryMessage } from '../api/types'
@@ -39,7 +41,8 @@ const busy = ref(false)
 const greeted = ref(false)
 const statusText = ref('在线')
 const messages = ref<ChatMessage[]>([])
-const input = ref<HTMLTextAreaElement | null>(null)
+const input = ref<InstanceType<typeof ElInput> | null>(null)
+const draft = ref('')
 const scrollBox = ref<HTMLElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
 const fab = ref<HTMLButtonElement | null>(null)
@@ -64,26 +67,6 @@ function removeMessage(id: number): void {
   messages.value = messages.value.filter((item) => item.id !== id)
 }
 
-/**
- * 移动端对话窗跟随「可视视口」：软键盘弹出时浏览器只缩小可视视口，
- * 固定定位的整屏窗口不会自动收缩，输入框会被键盘盖住。
- * 这里把可视视口的高度与偏移写进 CSS 变量，交给样式决定整窗尺寸。
- */
-function syncVisualViewport(): void {
-  const node = panel.value
-  const viewport = window.visualViewport
-  const height = viewport ? Math.round(viewport.height) : 0
-  if (!node) return
-  // 取不到有效高度时清掉变量，让样式回落到整屏（100dvh），避免窗口塌成内容高度。
-  if (!viewport || !Number.isFinite(height) || height <= 0) {
-    node.style.removeProperty('--ask-vv-height')
-    node.style.removeProperty('--ask-vv-top')
-    return
-  }
-  node.style.setProperty('--ask-vv-height', `${height}px`)
-  node.style.setProperty('--ask-vv-top', `${Math.max(0, Math.round(viewport.offsetTop))}px`)
-}
-
 function setOpen(value: boolean): void {
   open.value = value
   emit('update:open', value)
@@ -96,7 +79,6 @@ function setOpen(value: boolean): void {
     pushMessage('bot', '顺仔', WELCOME_BLOCKS)
   }
   void nextTick(() => {
-    syncVisualViewport()
     input.value?.focus()
     const node = scrollBox.value
     if (node) node.scrollTop = node.scrollHeight
@@ -107,22 +89,13 @@ function setOpen(value: boolean): void {
  * 输入框内容变多时自己长高，不出现内部滚动条。
  * 上限走对话窗高度的 60%，避免输入区把消息区挤没；补 4px 余量抵消边框与取整误差。
  */
-function autoGrow(): void {
-  const node = input.value
-  if (!node) return
-  node.style.height = 'auto'
-  const room = Math.max(96, (panel.value?.clientHeight ?? 0) * 0.6)
-  node.style.height = `${Math.min(node.scrollHeight + 4, room)}px`
-}
-
+/** 输入框行高交给 ElInput 的 autosize（1~5 行内自动增长）。 */
 function resetInput(): void {
-  const node = input.value
-  if (node) node.value = ''
-  autoGrow()
+  draft.value = ''
 }
 
 async function send(): Promise<void> {
-  const question = input.value?.value.trim() ?? ''
+  const question = draft.value.trim()
   if (!question || busy.value) return
   resetInput()
   busy.value = true
@@ -150,14 +123,10 @@ function handleGlobalKeydown(event: KeyboardEvent): void {
 
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown)
-  window.visualViewport?.addEventListener('resize', syncVisualViewport)
-  window.visualViewport?.addEventListener('scroll', syncVisualViewport)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
-  window.visualViewport?.removeEventListener('resize', syncVisualViewport)
-  window.visualViewport?.removeEventListener('scroll', syncVisualViewport)
 })
 </script>
 
@@ -212,15 +181,17 @@ onBeforeUnmount(() => {
 
     <div class="ask-panel__foot">
       <form class="composer" @submit.prevent="send">
-        <textarea
+        <ElInput
           ref="input"
-          rows="1"
+          v-model="draft"
+          type="textarea"
+          :autosize="{ minRows: 1, maxRows: 5 }"
           maxlength="500"
           placeholder="例如：哪张单卖得最好？"
           aria-label="输入你的问题"
-          @input="autoGrow"
+          class="composer-input"
           @keydown.enter.exact.prevent="send"
-        ></textarea>
+        />
         <button type="submit" :disabled="busy">{{ busy ? '查询中…' : '发送' }}</button>
       </form>
     </div>

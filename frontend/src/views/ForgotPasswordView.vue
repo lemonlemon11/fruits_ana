@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElInput } from 'element-plus'
+import 'element-plus/es/components/input/style/css'
 import AuthPortal from '../components/AuthPortal.vue'
 
 const API_ROOT = '/api'
@@ -20,7 +22,6 @@ const form = reactive({
   password: '',
   confirmation: '',
 })
-const passwordVisible = ref(false)
 
 const CODE_COOLDOWN_SECONDS = 60
 const router = useRouter()
@@ -122,7 +123,7 @@ function goLogin() {
         <div class="auth-field">
           <label for="fp-email">注册邮箱</label>
           <div class="auth-input has-suffix-button">
-            <input id="fp-email" v-model.trim="email" type="email" autocomplete="email" maxlength="320" placeholder="输入注册邮箱" />
+            <ElInput id="fp-email" v-model.trim="email" class="auth-email-input" autocomplete="email" maxlength="320" placeholder="输入注册邮箱" />
             <button class="send-code-button" type="button" :disabled="sending" @click="handleSendCode">
               {{ sending ? '发送中…' : '发送验证码' }}
             </button>
@@ -136,9 +137,7 @@ function goLogin() {
       <template v-if="step === 'code'">
         <div class="auth-field">
           <label for="fp-code">验证码</label>
-          <div class="auth-input">
-            <input id="fp-code" v-model.trim="verificationCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="输入 6 位验证码" />
-          </div>
+          <ElInput id="fp-code" v-model.trim="verificationCode" class="auth-input" autocomplete="one-time-code" maxlength="6" placeholder="输入 6 位验证码" />
           <small v-if="codeHint" class="field-hint hint-success">{{ codeHint }}</small>
         </div>
         <p v-if="error" class="form-message error" role="alert">{{ error }}</p>
@@ -156,20 +155,12 @@ function goLogin() {
       <template v-if="step === 'password'">
         <div class="auth-field">
           <label for="fp-password">新密码</label>
-          <div class="auth-input has-toggle">
-            <input id="fp-password" v-model="form.password" :type="passwordVisible ? 'text' : 'password'" autocomplete="new-password" placeholder="至少 8 位" />
-            <button class="password-toggle" type="button" :aria-label="passwordVisible ? '隐藏密码' : '显示密码'" :aria-pressed="passwordVisible" @click="passwordVisible = !passwordVisible">
-              <svg v-if="!passwordVisible" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-            </button>
-          </div>
+          <ElInput id="fp-password" v-model="form.password" type="password" show-password class="auth-input" autocomplete="new-password" placeholder="至少 8 位" />
           <small class="field-hint">至少 8 位字符</small>
         </div>
         <div class="auth-field">
           <label for="fp-confirmation">再次输入新密码</label>
-          <div class="auth-input">
-            <input id="fp-confirmation" v-model="form.confirmation" :type="passwordVisible ? 'text' : 'password'" autocomplete="new-password" />
-          </div>
+          <ElInput id="fp-confirmation" v-model="form.confirmation" type="password" show-password class="auth-input" autocomplete="new-password" />
         </div>
         <p v-if="error" class="form-message error" role="alert">{{ error }}</p>
         <button class="primary-button auth-submit" :disabled="resetting" @click="handleReset">
@@ -192,7 +183,7 @@ function goLogin() {
   display: flex;
   gap: 8px;
 }
-.auth-input.has-suffix-button input {
+.auth-input.has-suffix-button .auth-email-input {
   flex: 1;
 }
 .send-code-button {

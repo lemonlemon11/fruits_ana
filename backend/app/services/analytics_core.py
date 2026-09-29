@@ -17,6 +17,7 @@ from statistics import median
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ..cache import get as short_cache_get, put as short_cache_put
 from ..models import ImportBatch, SaleRecord, StandardGrade
 from .order_no_naming import series_name
 
@@ -57,15 +58,21 @@ def resolve_date_window(
     """未传日期时收敛到「最新销售日期往前一个月」的有限窗口。
 
     仅当 ``start_date`` 与 ``end_date`` 同时为空时才应用默认窗口；传了任意一端
-    则保持调用方原有日期筛选行为不变。
+    则保持调用方原有日期筛选行为不变。默认窗口依赖的 MAX(sale_date) 走 60s
+    短缓存——导入新数据后最迟一分钟内窗口自动跟进。
     """
 
     if start_date is not None or end_date is not None:
         return start_date, end_date, False
+    cached = short_cache_get("date-window:latest-month")
+    if cached is not None:
+        return cached
     latest = db.query(func.max(SaleRecord.sale_date)).scalar()
     if latest is None:
         return None, None, True
-    return one_month_before(latest), latest, True
+    window = (one_month_before(latest), latest, True)
+    short_cache_put("date-window:latest-month", window)
+    return window
 
 
 def batch_brand(batch: ImportBatch | None) -> str | None:

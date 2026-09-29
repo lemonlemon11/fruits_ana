@@ -85,7 +85,12 @@ def get_overview(
         for item in daily_quantity_anomalies(filtered, thresholds)
     )
     return {
-        "total": metrics(filtered),
+        # 总柜数口径 = 结算单数（import_batch_id 去重，一柜两单不去重柜号），
+        # 与市场销售分析柜数 / 趋势接口 container_count 一致；件数合计仍走 sales_quantity。
+        "total": {
+            **metrics(filtered),
+            "container_count": len({record.import_batch_id for record in filtered}),
+        },
         "grades": grade_metrics(filtered),
         "trend": [
             {"sale_date": day.isoformat(), **metrics(by_day[day])}

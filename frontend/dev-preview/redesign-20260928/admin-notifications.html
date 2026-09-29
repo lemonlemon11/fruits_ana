@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>通知管理 · SLD 管理员端（设计稿）</title>
+<link rel="stylesheet" href="design.css" />
+<style>
+  .notice-list { display: grid; gap: 12px; }
+  .notice-card { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 16px;
+    padding: 16px 18px; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--r-lg); box-shadow: var(--shadow-sm); }
+  .notice-card:hover { box-shadow: var(--shadow-md); }
+  .nc-main { display: grid; gap: 9px; min-width: 0; }
+  .nc-title { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .nc-title b { font-size: 1rem; font-weight: 900; }
+  .nc-excerpt { font-size: .84rem; color: var(--muted); line-height: 1.7;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .nc-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .76rem; color: var(--muted); font-weight: 700; }
+  .nc-side { display: grid; gap: 10px; align-content: start; border-left: 1px dashed var(--line-strong); padding-left: 16px; }
+  .read-stat { display: grid; gap: 6px; }
+  .read-stat .rs-row { display: flex; justify-content: space-between; font-size: .76rem; font-weight: 800; color: var(--muted); }
+  .read-stat .rs-row b { color: var(--ink); }
+
+  @media (max-width: 900px) {
+    .notice-card { grid-template-columns: minmax(0, 1fr); }
+    .nc-side { border-left: 0; border-top: 1px dashed var(--line-strong); padding: 12px 0 0; }
+  }
+</style>
+</head>
+<body>
+<div class="admin">
+  <header class="admin-top">
+    <div class="brand">
+      <span class="avatar" style="width:34px;height:34px;border-radius:11px;background:var(--g900);color:#fff;display:grid;place-items:center;font-weight:900;font-size:.72rem">SLD</span>
+      <span><b>SLD 管理端</b><span>系统运营控制台</span></span>
+    </div>
+    <span class="crumb">通知管理</span>
+    <span class="admin-clock">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span class="hide-m">2026-09-28 星期一&nbsp;&nbsp;</span><b>10:35:52</b>
+    </span>
+    <div class="admin-account">
+      <span class="avatar">A</span>
+      <b>admin</b>
+      <button class="btn btn-ghost btn-sm">退出</button>
+    </div>
+  </header>
+
+  <div class="admin-body">
+    <aside class="admin-side">
+      <div class="group">总览</div>
+      <a href="admin-dashboard.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        工作台
+      </a>
+      <div class="group">权限管理</div>
+      <a href="admin-users.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        用户管理
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+        角色管理
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+        菜单管理
+      </a>
+      <div class="group">内容与数据</div>
+      <a class="is-on" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        通知管理
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
+        业务数据
+      </a>
+      <div class="group">系统运维</div>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        审计日志
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        系统配置
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        录单字段配置
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+        字段转换配置
+      </a>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-tabs">
+        <a class="is-on" href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          通知管理
+        </a>
+      </div>
+
+      <div class="admin-toolbar">
+        <div class="search-box" style="width:220px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input class="input" placeholder="标题 / 内容" />
+        </div>
+        <select class="select" style="width:110px"><option>全部类型</option></select>
+        <select class="select" style="width:110px"><option>全部状态</option></select>
+        <button class="btn btn-soft btn-sm">查询</button>
+        <span class="spacer"></span>
+        <span class="tag">共 12 条</span>
+        <button class="btn btn-primary btn-sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          新建通知
+        </button>
+      </div>
+
+      <section class="notice-list">
+        <article class="notice-card">
+          <div class="nc-main">
+            <div class="nc-title">
+              <b>国庆假期数据录入安排</b>
+              <span class="tag info">公告</span>
+              <span class="tag warning">重要</span>
+              <span class="tag success dot">已发布</span>
+            </div>
+            <p class="nc-excerpt">10 月 1 日至 7 日期间，各市场结算文件可在假期后集中补导，系统不设截止时间；手工录单正常开放。请各商号注意假期内出手的 C 果（含 BC）留好单据，节后一并核对……</p>
+            <div class="nc-meta">
+              <span>范围 <b>全部用户</b></span>
+              <span>发布 <b>09-27 09:40</b></span>
+              <span>创建 <b>admin</b></span>
+            </div>
+          </div>
+          <div class="nc-side">
+            <div class="read-stat">
+              <div class="rs-row"><span>阅读进度</span><b class="num">21 / 33</b></div>
+              <div class="progress"><i style="width:64%"></i></div>
+              <div class="rs-row"><span>未读</span><b class="num" style="color:var(--grade-b)">12 人</b></div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="icon-btn">编辑</button>
+              <button class="icon-btn">阅读明细</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="notice-card">
+          <div class="nc-main">
+            <div class="nc-title">
+              <b>9 月结算文件模板更新提醒</b>
+              <span class="tag info">任务</span>
+              <span class="tag">普通</span>
+              <span class="tag success dot">已发布</span>
+            </div>
+            <p class="nc-excerpt">自 9 月起江南市场结算单新增「转运车号」列，导入模板已同步更新；旧模板仍可导入，车号列为空时按未填写处理，不影响等级与金额解析……</p>
+            <div class="nc-meta">
+              <span>范围 <b>录单员 + 运营人员</b></span>
+              <span>发布 <b>09-22 08:30</b></span>
+              <span>创建 <b>admin</b></span>
+            </div>
+          </div>
+          <div class="nc-side">
+            <div class="read-stat">
+              <div class="rs-row"><span>阅读进度</span><b class="num">6 / 9</b></div>
+              <div class="progress"><i style="width:67%"></i></div>
+              <div class="rs-row"><span>未读</span><b class="num" style="color:var(--grade-b)">3 人</b></div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="icon-btn">编辑</button>
+              <button class="icon-btn">阅读明细</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="notice-card" style="border-style:dashed;box-shadow:none">
+          <div class="nc-main">
+            <div class="nc-title">
+              <b>系统维护公告：10-03 凌晨暂停导入</b>
+              <span class="tag info">系统</span>
+              <span class="tag danger">紧急</span>
+              <span class="tag warning dot">定时中 · 10-02 18:00 自动发布</span>
+            </div>
+            <p class="nc-excerpt">10 月 3 日 00:00-06:00 进行数据库维护，期间导入与手工录单暂停，看板查询不受影响。已保存的草稿不受影响，请提前安排当晚报表……</p>
+            <div class="nc-meta">
+              <span>范围 <b>全部用户</b></span>
+              <span>失效 <b>10-04 06:00</b></span>
+              <span>创建 <b>admin</b></span>
+            </div>
+          </div>
+          <div class="nc-side">
+            <div class="read-stat">
+              <div class="rs-row"><span>预计触达</span><b class="num">33 人</b></div>
+              <div class="progress"><i style="width:0%"></i></div>
+              <div class="rs-row"><span>状态</span><b>草稿待发布</b></div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="icon-btn">编辑</button>
+              <button class="icon-btn">立即发布</button>
+              <button class="icon-btn danger">删除</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="notice-card">
+          <div class="nc-main">
+            <div class="nc-title">
+              <b>8 月数据质量提示：BC 等级集中出货</b>
+              <span class="tag info">公告</span>
+              <span class="tag">普通</span>
+              <span class="tag success dot">已发布</span>
+            </div>
+            <p class="nc-excerpt">8 月共 5 个批次的 BC 组合等级集中在月末出手，拉低 C 果（含 BC）均价约 1.9 元/件；建议对照「单柜诊断」查看明细，合理安排出手节奏……</p>
+            <div class="nc-meta">
+              <span>范围 <b>业务主管理员</b></span>
+              <span>发布 <b>09-05 10:00</b></span>
+              <span>已过期</span>
+            </div>
+          </div>
+          <div class="nc-side">
+            <div class="read-stat">
+              <div class="rs-row"><span>阅读进度</span><b class="num">5 / 5</b></div>
+              <div class="progress"><i style="width:100%"></i></div>
+              <div class="rs-row"><span>未读</span><b class="num" style="color:var(--grade-a)">0 人</b></div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="icon-btn">编辑</button>
+              <button class="icon-btn">阅读明细</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <nav class="pager" style="display:flex;align-items:center;gap:8px;justify-content:center">
+        <span style="font-size:.8rem;color:var(--muted);font-weight:700;margin-right:6px">共 12 条</span>
+        <a style="min-width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:.84rem;font-weight:800;color:var(--muted)" href="#">‹</a>
+        <a style="min-width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:var(--g900);color:#fff;font-size:.84rem;font-weight:800" href="#">1</a>
+        <a style="min-width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:.84rem;font-weight:800;color:var(--muted)" href="#">2</a>
+        <a style="min-width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:.84rem;font-weight:800;color:var(--muted)" href="#">›</a>
+      </nav>
+    </main>
+  </div>
+</div>
+<div class="preview-banner">设计稿 · 2026-09-28 · 数据虚构</div>
+</body>
+</html>

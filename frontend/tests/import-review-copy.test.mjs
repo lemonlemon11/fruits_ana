@@ -17,8 +17,8 @@ test('导入二次确认数量字段使用“数量（件）”文案', () => {
 
 test('导入二次确认品种保留用户原文输入，不使用下拉选择', () => {
   const varietyCell = review.match(/<template #cell-variety="\{ row \}">([\s\S]*?)<\/template>/)?.[1] ?? ''
-  assert.match(varietyCell, /<input v-model="row\.variety"/)
-  assert.doesNotMatch(varietyCell, /<select v-model="row\.variety"/)
+  assert.match(varietyCell, /<ElInput v-model="row\.variety"/)
+  assert.doesNotMatch(varietyCell, /<ElSelect v-model="row\.variety"/)
 })
 
 test('手工录单同步使用“数量（件）”文案', () => {
@@ -49,5 +49,7 @@ test('手工录单区分暂存和正式保存状态', () => {
   assert.match(entry, /保存中…/)
   assert.match(entry, /savingAsOverwrite \? '覆盖中…' : '保存中…'/)
   assert.match(entry, /const saved = await flushDraft\(\)/)
-  assert.match(entry, /saved \? '已暂存，可稍后继续录单' : '暂存失败，请稍后重试'/)
+  // 暂存结果提示改走 ElMessage（showToast 包装）。
+  assert.match(entry, /showToast\('已暂存，可稍后继续录单'\)/)
+  assert.match(entry, /showToast\('暂存失败，请稍后重试', 'error'\)/)
 })

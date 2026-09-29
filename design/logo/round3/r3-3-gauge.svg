@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="顺立达方案三：仪表果速">
+  <circle cx="32" cy="38" r="20" fill="none" stroke="#8fd3a8" stroke-width="6" stroke-dasharray="31.42 94.24" transform="rotate(180 32 38)"/>
+  <circle cx="32" cy="38" r="20" fill="none" stroke="#f0c163" stroke-width="6" stroke-dasharray="11.43 114.23" transform="rotate(270 32 38)"/>
+  <circle cx="32" cy="38" r="20" fill="none" stroke="#e58a7c" stroke-width="6" stroke-dasharray="8.34 117.32" transform="rotate(322 32 38)"/>
+  <path d="M32 38 L51.5 24.5" stroke="#104a2f" stroke-width="3.6" stroke-linecap="round"/>
+  <g fill="#17663f">
+    <polygon points="32,29 29.4,32.8 34.6,32.8"/>
+    <polygon points="32,29 29.4,32.8 34.6,32.8" transform="rotate(45 32 38)"/>
+    <polygon points="32,29 29.4,32.8 34.6,32.8" transform="rotate(90 32 38)"/>
+    <polygon points="32,29 29.4,32.8 34.6,32.8" transform="rotate(135 32 38)"/>
+    <polygon points="32,29 29.4,32.8 34.6,32.8" transform="rotate(180 32 38)"/>
+    <polygon points="32,29 29.4,32.8 34.6,32.8" transform="rotate(225 32 38)"/>
+    <polygon points="32,29 29.4,32.8 34.6,32.8" transform="rotate(270 32 38)"/>
+    <polygon points="32,29 29.4,32.8 34.6,32.8" transform="rotate(315 32 38)"/>
+    <circle cx="32" cy="38" r="6.4"/>
+  </g>
+  <circle cx="32" cy="38" r="3.4" fill="#ffd93f"/>
+</svg>

@@ -22,33 +22,28 @@ test('列表页分页：每页条数、上一页 / 下一页与页码文案', ()
   assert.match(viewSource, /const pageSize = ref\(10\)/)
   assert.match(viewSource, /const PAGE_SIZE_OPTIONS = \[10, 20, 50\]/)
   assert.match(viewSource, /class="list-pagination"/)
-  assert.match(viewSource, /@click="goPage\(page - 1\)">上一页</)
-  assert.match(viewSource, /@click="goPage\(page \+ 1\)">下一页</)
-  assert.match(viewSource, /:disabled="loading \|\| sorting \|\| page <= 1"/)
-  assert.match(viewSource, /:disabled="loading \|\| sorting \|\| page >= totalPages"/)
-  // 页码文案只在分页条出现一次；面板标题不再重复「共 N 张 · 第 x / y 页」。
+  // 翻页与每页条数改用 ElPagination（sizes + prev/pager/next），页码文案保留「共 N 张」摘要。
+  assert.match(viewSource, /<ElPagination/)
+  assert.match(viewSource, /layout="sizes, prev, pager, next"/)
+  assert.match(viewSource, /@current-change="onPageChange"/)
+  assert.match(viewSource, /@size-change="onSizeChange"/)
   assert.match(viewSource, /<span class="pagination-summary">共 <b>\{\{ totalCount \}\}<\/b> 张 · 第 <b>\{\{ page \}\}<\/b> \/ \{\{ totalPages \}\} 页<\/span>/)
   assert.doesNotMatch(viewSource, /共 \$\{totalCount\} 张结算单/)
-  assert.match(viewSource, /function onPageSizeChange\(event: Event\)/)
+  assert.match(viewSource, /function onSizeChange\(size: number\)/)
   // 筛选项变化要把页码收回第 1 页，否则会停在越界页。
   assert.match(viewSource, /@submit\.prevent="refresh\(\{ resetPage: true \}\)"/)
   assert.match(viewSource, /@change="refresh\(\{ resetPage: true \}\)"/)
 })
 
-test('列表改用通用 DataTable，并保留移动端卡片分页', () => {
+test('列表改用通用 DataTable，分页留在表内底栏', () => {
   assert.match(viewSource, /import DataTable, \{ type DataTableColumn \} from '\.\.\/components\/DataTable\.vue'/)
   assert.match(viewSource, /<DataTable\n\s+class="settlement-table fixed-height-list"/)
   assert.match(viewSource, /min-width="880px"/)
   // 列定义集中在 columns 里，等级列随筛选范围动态展开。
   assert.match(viewSource, /const columns = computed<DataTableColumn<SettlementListItem>\[\]>\(\(\) => \[/)
   assert.match(viewSource, /label: `\$\{gradeLabel\(grade\)\}件数`/)
-  // 移动端降级为卡片：只隐藏表格数据区，表内底栏（分页）留在卡片下方。
-  assert.match(viewSource, /\.settlement-list-results \{ display: flex; flex-direction: column;/)
-  assert.match(viewSource, /\.settlement-list-results \.settlement-table :deep\(\.data-table-scroll\) \{ display: none; \}/)
-  assert.match(viewSource, /\.settlement-list-results \.settlement-table :deep\(\.data-table-foot\) \{ padding: 0;/)
-  assert.match(viewSource, /\.mobile-settlement-cards \{ order: 1;/)
+  // 分页走 DataTable 的 footer 插槽，落在表格外框内侧。
   assert.match(viewSource, /\.list-pagination \{ display: flex;/)
-  assert.match(viewSource, /\.mobile-settlement-cards \{ display: none; \}/)
 })
 
 test('分页条内嵌在表格底栏，与表格是一个整体', () => {
@@ -65,8 +60,8 @@ test('列表在桌面端至少撑满剩余视口，行多时随页面自然向�
   // 行数超出可视高度时列表随内容扩展，顶部筛选区保持原样。
   assert.match(viewSource, /\.settlement-list-page > \* \{ flex: 0 0 auto; \}/)
   assert.match(viewSource, /\.settlement-list-page \.panel \{ display: grid; flex: 1 1 auto;/)
-  // 翻页按钮仍靠左，右下角整块留空给“顺仔”悬浮入口，避免点不到。
-  assert.match(viewSource, /\.pagination-actions \{ margin-left: 0; \}/)
+  // 翻页控件靠右（用户要求）；页脚在面板内侧、距窗口右缘有页边距，不与顺仔悬浮入口重叠。
+  assert.match(viewSource, /\.list-pagination \.el-pagination \{ justify-content: flex-end;/)
 })
 
 test('分页请求参数与响应解析', () => {
@@ -98,7 +93,6 @@ test('结算单列表展示录单时间，并把七个指定指标设为可排�
   assert.match(viewSource, /:active-sort-key="sortBy"/)
   assert.match(viewSource, /:sort-order="sortOrder"/)
   assert.match(viewSource, /@sort="toggleSort"/)
-  assert.match(viewSource, /录单 \{\{ formatDateTime\(item\.confirmedAt\) \}\}/)
 })
 
 test('点击排序保留现有表格，只在请求完成后替换行数据', () => {
@@ -131,7 +125,7 @@ test('按行导出：地址指向单张结算单模板，手工单与导入件�
   assert.equal(settlementTemplateExportUrl('637'), '/api/exports/settlements/637/template.xlsx')
 })
 
-test('列表每行都有导出入口，桌面表格与移动端卡片一致', () => {
+test('列表每行都有导出入口', () => {
   assert.match(viewSource, /settlementTemplateExportUrl/)
   assert.match(viewSource, /settlementTemplatePdfUrl/)
   // 桌面表格：导出按钮 → 下拉菜单（Excel / PDF），实际下载使用异步状态。
@@ -145,16 +139,13 @@ test('列表每行都有导出入口，桌面表格与移动端卡片一致', ()
   assert.match(viewSource, /class="table-action"/)
   assert.match(viewSource, /class="table-action danger"/)
   assert.match(viewSource, /\.table-action \{[\s\S]*?min-height: 2\.35rem;[\s\S]*?white-space: nowrap;/)
-  // 移动端卡片：查看明细 + Excel / PDF + 删除放在同一动作栏，不折行。
-  assert.match(viewSource, /<div class="mobile-card-actions-bar">/)
-  assert.match(viewSource, /<button class="primary-button mobile-detail-button" type="button" @click="openRecords\(item\)">查看明细<\/button>/)
-  assert.match(viewSource, /class="text-button export-row-link"[\s\S]*?@click="runRowExport\(item, 'xlsx'\)"/)
-  assert.match(viewSource, /class="text-button export-row-link"[\s\S]*?@click="runRowExport\(item, 'pdf'\)"/)
-  assert.match(viewSource, /class="text-button delete-row-link"/)
-  assert.match(viewSource, /\.mobile-card-actions-bar \{\s+display: flex;/)
-  assert.match(viewSource, /\.mobile-detail-button \{\s+flex: 1 1 auto;/)
-  // 操作列交给浏览器按内容自适应，不再写死宽度。
-  assert.match(viewSource, /\{ key: 'actions', label: '操作', align: 'right' \}/)
+  // 操作列固定宽度（操作下拉 + 独立删除两枚按钮 + 单元格内边距的实测需求）并钉在表格右缘。
+  assert.match(viewSource, /\{ key: 'actions', label: '操作', align: 'center', width: '184px', fixed: 'right' \}/)
+  // 列宽自适应容器：内容超宽时按表头下限压缩铺满（打开即整表可见），放不下才滚动。
+  assert.match(viewSource, /<DataTable[\s\S]*?fit-width/)
+  // 查看明细并入操作下拉菜单（与导出 Excel/PDF 同一菜单），独立的查看明细按钮已删除。
+  assert.match(viewSource, /<ElDropdownItem @click="openRecords\(row\)">/)
+  assert.match(viewSource, /<span class="dropdown-caret"/)
 })
 
 test('结算单列表空状态与其他页面一致使用 prominent，且不显示 null 范围提示', () => {

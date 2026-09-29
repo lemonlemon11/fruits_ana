@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="顺立达方案一：顺达航线">
+  <g fill="#17663f">
+    <polygon points="17,32 13.7,37.6 20.3,37.6"/>
+    <polygon points="17,32 13.7,37.6 20.3,37.6" transform="rotate(45 17 45)"/>
+    <polygon points="17,32 13.7,37.6 20.3,37.6" transform="rotate(90 17 45)"/>
+    <polygon points="17,32 13.7,37.6 20.3,37.6" transform="rotate(135 17 45)"/>
+    <polygon points="17,32 13.7,37.6 20.3,37.6" transform="rotate(180 17 45)"/>
+    <polygon points="17,32 13.7,37.6 20.3,37.6" transform="rotate(225 17 45)"/>
+    <polygon points="17,32 13.7,37.6 20.3,37.6" transform="rotate(270 17 45)"/>
+    <polygon points="17,32 13.7,37.6 20.3,37.6" transform="rotate(315 17 45)"/>
+    <circle cx="17" cy="45" r="8.8"/>
+  </g>
+  <circle cx="17" cy="45" r="4.6" fill="#ffd93f"/>
+  <path d="M26 45 C34 51, 44 46, 44 38 C44 29, 49 26, 51 20" fill="none" stroke="#17663f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M26 45 C34 51, 44 46, 44 38 C44 29, 49 26, 51 20" fill="none" stroke="#f7faf8" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="3.4 3"/>
+  <polygon points="48.6,13.8 53,20.5 57.4,13.8" fill="#104a2f"/>
+  <circle cx="53" cy="11" r="5.8" fill="#104a2f"/>
+  <circle cx="53" cy="11" r="2.3" fill="#f7faf8"/>
+</svg>

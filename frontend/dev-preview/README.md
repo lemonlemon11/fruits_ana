@@ -37,6 +37,7 @@ cd frontend && npx vite --config vite.demo.config.ts
 | `settlement-detail-taste.html` | 结算单详情页设计测试稿（用 taste skill 重新组织，数据为 mock 示例） |
 | `settlement-detail-facts.html` | 结算单详情改造预览（基础信息条、规格级占比/总件数/均价，移除整单均价与销售金额排名） |
 | `grade-breakdown-compact.html` | 等级图表紧凑版（饼图与均价横条并排、规格件数表全宽展开） |
+| `grade-tables-chart-demo.html` | 「品牌对比 · 等级独立对比（grade-tables）」图表化方案评估稿（分面小图 / 分组柱状 / 量价散点三选一，虚构数据，echarts 取自本地 node_modules） |
 | `mobile-review/index.html` | 手机端 6 个业务页面现状预览（截图与横向溢出/滚动指标） |
 
 `ask-demo.html` 的样式拆成两份，方便整体移植到 `frontend/src`：

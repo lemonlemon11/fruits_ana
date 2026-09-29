@@ -161,5 +161,5 @@ test('选择器搜索框聚焦时隐藏提示语', () => {
     path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'components', 'SettlementPicker.css'),
     'utf8',
   )
-  assert.match(cssSource, /\.picker-search input:focus::placeholder\s*\{\s*color:\s*transparent/)
+  assert.match(cssSource, /\.picker-search \.el-input__inner:focus::placeholder\s*\{\s*color:\s*transparent/)
 })

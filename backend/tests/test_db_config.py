@@ -42,7 +42,18 @@ def test_engine_options_are_specific_to_sqlite() -> None:
     mysql_options = engine_options("mysql+pymysql://user:password@db/fruits_ana")
 
     assert sqlite_options == {"connect_args": {"check_same_thread": False}}
-    assert mysql_options == {"pool_pre_ping": True, "pool_recycle": 1800}
+    assert mysql_options == {
+        # pre_ping 默认关闭（远程库下每请求多一次往返），recycle 缩短保新鲜。
+        "pool_recycle": 300,
+        "pool_size": 10,
+        "max_overflow": 20,
+    }
+
+
+def test_engine_options_enable_pre_ping_via_env(monkeypatch) -> None:
+    monkeypatch.setenv("FRUIT_ANALYSIS_DB_PRE_PING", "1")
+    options = engine_options("mysql+pymysql://user:password@db/fruits_ana")
+    assert options["pool_pre_ping"] is True
 
 
 def test_mysql_datetime_columns_preserve_microseconds() -> None:

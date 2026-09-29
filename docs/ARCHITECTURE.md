@@ -45,11 +45,13 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   勾选“30 天内免登录”时延长为 30 天，服务端到期时间与 Cookie `Max-Age` 保持一致。
 - 新用户注册成功后默认绑定管理端角色 `registered_user`；该角色在管理端不关联任何菜单
   与权限，管理员可后续在用户管理中调整角色。
-- 侧边导航（ADR-036）：`/api/auth/me`（及 login / register）除 `permissions` 外还返回
-  `menus`（菜单 `route_path / name / icon / sort_order / is_active`），由管理端
-  `admin_menu` + `admin_role_menu` 按当前用户角色只读派生。业务端 `AppShell.vue` 的
-  **导航位置**仍由本地槽位决定，管理端菜单只覆盖名称、图标与启用状态；合并规则见
-  `frontend/src/utils/shellMenu.ts`。
+- 侧边导航（ADR-036、ADR-051）：`/api/auth/me`（及 login / register）除 `permissions`
+  外还返回 `menus`（`id / route_path / parent_id / menu_type / name / icon /
+  sort_order / is_active`，directory 无路由、button 不下发），由管理端
+  `admin_menu` + `admin_role_menu` 按当前用户角色只读派生。业务端 `AppShell.vue`
+  按 `parent_id` 渲染「一级分组 + 子菜单」两级侧栏：**分组结构与排序由管理端菜单树
+  决定**，本地槽位只提供路由高亮规则（matches）、权限码与兜底文案/图标，未命中槽位
+  的叶子不渲染；合并与分组规则见 `frontend/src/utils/shellMenu.ts`。
 - 主要路由：`POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me`、`POST /api/auth/logout`。
 - 前端：`frontend/src/auth.ts`（`.vue` 侧会话状态）、`frontend/src/views/LoginView.vue`、`RegisterView.vue`。
 
@@ -148,10 +150,9 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   纯逻辑在 `utils/askWidget.ts`），点击展开微信式左右气泡对话窗；`AppShell.vue` 通过
   `update:open` 让「回顶部」按钮在窗口打开时避让，二者不重叠。历史预览页
   `frontend/dev-preview/ask-demo.html`（53001）保留作留档，不再作为入口。
-- 移动端：≤820px 对话窗改为整屏并跟随 `visualViewport`（`AskWidget.vue` 写入
-  `--ask-vv-height` / `--ask-vv-top`，取不到有效高度时回落 `100dvh`），软键盘弹出时整窗收缩，
-  输入区始终在键盘上方；顶部 / 底部按 `env(safe-area-inset-*)` 避让刘海与横条；站内通知横幅
-  在对话窗打开时让位（`AppShell.vue` 的 `!askOpen`）。
+  站内通知横幅在对话窗打开时让位（`AppShell.vue` 的 `!askOpen`）。
+  手机端适配（软键盘 `visualViewport` 跟随、刘海/横条避让）已随手机端功能整体移除
+  （ADR-052），手机访客由独立移动版站点承担。
 
 ### Grade Detail（`backend/app/parser/grade_detail.py`、`services/grade_detail_service.py`）
 
@@ -179,18 +180,40 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 
 - 视图：`OverviewView`（总览看板）、`SettlementListView`（数据明细）、
   `SettlementComparisonView`（结算单对比）、`SettlementView`（结算单诊断）、`ImportView`（导入）、
-  `SeriesComparisonView`（品牌对比，内含「按品牌 / 按等级号别」两个视图）、
+  `SeriesComparisonView`（品牌对比；「按等级号别」视图已于 2026-09-29 按用户要求移除，
+  只保留按品牌对比，后端 grade-detail 接口保留未动）、
   `ImportReviewView`（导入二次确认，`readonly=1` 时只读展示已入库结算单）、
   `LoginView` / `RegisterView` / `PublicPreviewView`。
-- 等级细分组件：`SeriesGradeDetail.vue`（号别阶梯与数据表）、`GradeDetailAiAnalysis.vue`（号别小结）。
-  AI 结论的渲染与状态机抽到通用组件 `AiAnalysisCard.vue`，两个页面的封装只负责接口与小标题；
+- AI 结论的渲染与状态机在通用组件 `AiAnalysisCard.vue`，页面封装只负责接口与小标题；
   卡片默认可见并自动以 `refresh=false` 先读缓存，命中缓存直接展示 `cached` 标记。
+- UI 组件库（2026-09-29 全量接入）：基础控件统一使用 Element Plus（`AppShell` 根部
+  `ElConfigProvider(zhCn)` 提供中文文案），主题经 `styles-element.css` 把 EP 设计变量
+  映射到全站令牌（墨绿主色、4px 圆角、17px 字号基线），弹层（Dialog/Message/Drawer/
+  Select 下拉）渲染在 body 层也能继承主题。具体承载：
+  - 弹窗 `ElDialog`：商号冲突、导入提交确认、批次问题确认、通知详情；
+  - 全局消息 `ElMessage`：录单暂存/校验/提交结果提示；
+  - 下拉 `ElSelect`（含 SearchableSelect 封装与 DateRangeFilter 快捷下拉）；
+  - 表单输入 `ElInput` / `ElCheckbox` / `ElDatePicker`（登录注册找回、手工录单、
+    导入二次确认、顺仔问答框、等级筛选胶囊）；
+  - 分页 `ElPagination`（结算单列表、选择器内分页）；
+  - 抽屉 `ElDrawer`（结算单选择器，遮罩/Esc/焦点圈定由组件承担）；
+  - 表格 `ElTable`：`DataTable.vue` 内部渲染（见下），窄屏卡片化除外。
+  按钮与外壳页签栏保持自研（无对应 EP 语义）。
 - 下拉框：`SearchableSelect.vue` 对业务保持原有 props，内部使用 Element Plus
   `ElSelect` / `ElOption`；展示单号（`orderNo`），取值用商号（`merchantNo`），避免柜号重复导致误选。
-- 日期范围：五个业务页继续使用 `DateRangeFilter.vue`，桌面与手机统一渲染单个
-  Element Plus `ElDatePicker` daterange，一个选择器同时选择开始与结束；对外
-  `v-model:start-date / end-date` 契约不变。DatePicker 与中文语言包随 Element Plus
-  共享分片加载（构建后约 256.51 KB / gzip 83.02 kB）。
+- 通用表格：`DataTable.vue` 对外保持原有 props / 插槽（`cell-<key>` / `cell` / `footer` /
+  `sort` / `rowClass`）契约，内部用 `ElTable` 渲染（`sortable='custom'` +
+  `@sort-change` 映射回 `sortKey`，外部排序状态经 `table.sort()` 同步表头指示）。
+  窄屏卡片回退（`cards-on-narrow` / `data-labels`）已随手机端功能移除（ADR-052）。
+  注意：admin 端 `fruits_ana_admin` 的 DataTable 拷贝仍为手写表格，两端实现已分叉。
+- 日期范围：五个业务页继续使用 `DateRangeFilter.vue`，布局为「快捷下拉 + 常驻日历」
+  两个同行控件：下拉提供 自定义时间 / 近七天 / 近十四天 / 近三十天 / 近九十天 与
+  数据驱动的按年度 / 按月度分组选项（`utils/salePeriods.ts` 计算起止边界，近 N 天 =
+  今天 - N 天 至 今天）；选中快捷选项即把区间写入右侧 Element Plus `ElDatePicker`
+  daterange 并触发 `change` 供父级自动查询，日历常驻不随方式切换隐藏。起止日期等于
+  某快捷选项边界时下拉自动回显该选项，手动改日历回到「自定义时间」（`autoMatchMode`
+  关闭时不回显，卖得怎么样默认自定义 + 预填当年）。对外
+  `v-model:start-date / end-date` 契约不变。
 - 品牌对比选择器：`SettlementPicker.vue` 按「品类 → 品牌 → 同品牌结算单」三步选择；
   品类来自 `SettlementListItem.fruitType`，品牌仍沿用单号中文前缀口径。
 - 单号展示口径（ADR-015）：统一用适配后单号 `orderNoNormalized`，
@@ -234,10 +257,13 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   其余可单个关闭或「关闭其他」，关闭当前页签时优先激活右侧邻居；页签只保留当前会话，不写入
   `sessionStorage`，登录或刷新后从首页重新开始；纯逻辑在 `utils/shellTabs.ts`
   （`frontend/tests/shell-tabs.test.ts`）。
-  业务页面滚动后右下角显示「回顶部」悬浮按钮；移动端（≤820px）隐藏左侧导航，改用顶部 header +
-  底部大按钮导航，页签栏保持可见并可横向滚动，回顶按钮自动抬到底部导航上方。
+  业务页面滚动后右下角显示「回顶部」悬浮按钮。移动端外壳（≤820px 隐藏侧栏、底部大按钮
+  导航、「更多」面板）已随手机端功能整体移除（ADR-052）。
+- 手机访问分流：`frontend/index.html` `<head>` 内联脚本按 UA（Android / iPhone / iPad /
+  iPod / HarmonyOS / Mobile）整站 `location.replace` 跳转独立移动版站点
+  （手机端由独立项目负责）；URL 带 `?desktop=1` 可强制留在桌面版（见 ADR-052）。
 - 桌面端全局字号基线用 `clamp()` 随视口宽度平滑缩放（15px–17px），主要控件、外壳与卡片尺寸
-  改为 `rem`；移动端固定 17px，避免用固定 `zoom` 造成横向溢出或非标缩放。
+  改为 `rem`。
 
 ### Error Recovery（ADR-040）
 
@@ -291,8 +317,8 @@ LoginView
   → auth.py 校验 Argon2 哈希
   → 创建 user_session（存 token_hash；默认 7 天，remember_me=true 时 30 天）
   → Set-Cookie: fruit_session (HttpOnly，同步会话期限)
-  → 前端 currentUser 更新（含 menus 导航项）→ 跳转 /overview
-  → AppShell 用 menus 覆盖本地兜底文案与图标，停用菜单整项隐藏
+  → 前端 currentUser 更新（含 menus 两级导航项）→ 跳转 /overview
+  → AppShell 按 parent_id 组装分组侧栏，覆盖本地兜底文案与图标，停用菜单整项隐藏
 ```
 
 ### 数据导入（新模板）
@@ -348,7 +374,7 @@ OverviewView / SettlementView / SettlementComparisonView / SettlementListView
 | `entry_field_option` | 市场 / 品种下拉字典，业务端只读、管理端维护 |
 | `entry_draft` | 手工录单暂存草稿，按用户唯一，正式保存前可跨刷新恢复 |
 | `admin_field_conversion_rule` | 管理端字段转换规则（当前用于等级 `grade`，如 `BC→C`） |
-| `admin_menu` / `admin_role_menu` | 管理端维护的业务菜单与角色菜单关系，业务端只读（驱动侧边导航名称与图标，ADR-036） |
+| `admin_menu` / `admin_role_menu` | 管理端维护的业务菜单（含 directory 分组）与角色菜单关系，业务端只读（驱动两级侧边导航，ADR-036、ADR-051） |
 | `admin_role` / `admin_permission` / `admin_user_role` / `admin_role_permission` | 管理端维护的业务 RBAC，业务端只读 |
 
 ## Constraints
@@ -366,6 +392,7 @@ OverviewView / SettlementView / SettlementComparisonView / SettlementListView
   迁移脚本 `backend/scripts/add_merchant_no_normalized.py`（基于 `column_backfill.py`）幂等可重跑。
 - 必须保持：MySQL schema 变更需提供可重复执行的迁移脚本（参考 `backend/scripts/`）。
 - 不得提交：`backend/data/`、`.env`、`backend/.env`、真实结算单与业务附件。
-- 暂不引入：状态管理库、完整 UI 组件库、容器化与 CI（如引入需先记录 ADR）；
-  图表已按 ADR-038 引入 ECharts，`SearchableSelect` / `DateRangeFilter` 已试点 Element Plus，
-  其余表单、表格、弹层与移动端卡片仍保持自研。
+- 暂不引入：状态管理库、容器化与 CI（如引入需先记录 ADR）；
+  图表按 ADR-038 使用 ECharts；UI 控件层 2026-09-29 起全量使用 Element Plus
+  （弹窗/消息/下拉/输入/分页/抽屉/表格，主题映射到全站令牌），按钮与外壳页签栏保持自研，
+  DataTable 的窄屏卡片化布局保留手写回退。

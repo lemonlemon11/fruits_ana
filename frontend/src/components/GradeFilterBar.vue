@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { ElCheckbox } from 'element-plus'
+import 'element-plus/es/components/checkbox/style/css'
+
 import { gradeColors, gradeLabel, type Grade } from '../utils/grades'
 
 const props = defineProps<{
@@ -23,16 +26,17 @@ function toggle(grade: Grade) {
 <template>
   <div class="grade-filter-bar" aria-label="选择要展示的等级">
     <span class="grade-filter-label">展示等级</span>
-    <label v-for="grade in grades" :key="grade" class="grade-filter-chip">
-      <input
-        type="checkbox"
-        :checked="isChecked(grade)"
-        :aria-label="`展示${gradeLabel(grade)}`"
-        @change="toggle(grade)"
-      />
+    <ElCheckbox
+      v-for="grade in grades"
+      :key="grade"
+      class="grade-filter-chip"
+      :model-value="isChecked(grade)"
+      :aria-label="`展示${gradeLabel(grade)}`"
+      @change="toggle(grade)"
+    >
       <i :style="{ backgroundColor: gradeColors[grade] }" aria-hidden="true" />
       <span>{{ gradeLabel(grade) }}</span>
-    </label>
+    </ElCheckbox>
   </div>
 </template>
 
@@ -51,31 +55,35 @@ function toggle(grade: Grade) {
   font-weight: 800;
 }
 
+/* 等级筛选胶囊：ElCheckbox 承载选中态与无障碍，去掉默认方框只留色点+文字。 */
 .grade-filter-chip {
-  display: inline-flex;
+  height: auto;
   min-height: 34px;
-  align-items: center;
-  gap: 7px;
+  margin-right: 0;
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
-  color: var(--ink);
-  cursor: pointer;
   font-size: .82rem;
-  font-weight: 800;
   user-select: none;
 }
 
-.grade-filter-chip:has(input:checked) {
+.grade-filter-chip.is-checked {
   border-color: var(--primary);
   background: var(--primary-soft);
 }
 
-.grade-filter-chip input {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--primary);
+.grade-filter-chip .el-checkbox__inner {
+  display: none;
+}
+
+.grade-filter-chip .el-checkbox__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+  font-size: .82rem;
+  font-weight: 800;
 }
 
 .grade-filter-chip i {

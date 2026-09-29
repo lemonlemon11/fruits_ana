@@ -4,10 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#17663f" />
     <meta name="description" content="SLD-水果市场销售分析：按 A/B/C 等级查看销量、销售额与结算单行情。" />
     <title>SLD-水果市场销售分析</title>
+    <script>
+      // 手机浏览器整站跳转独立移动版站点；URL 带 ?desktop=1 可强制留在桌面版。
+      // 需在主 bundle 之前同步执行，用 replace 避免返回键弹回本站再次被跳转。
+      (function () {
+        if (/[?&]desktop=1/.test(window.location.search)) return
+        if (!/Android|iPhone|iPad|iPod|HarmonyOS|Mobile/i.test(navigator.userAgent)) return
+        window.location.replace('http://8.134.219.84:54001/')
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

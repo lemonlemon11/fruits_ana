@@ -235,22 +235,6 @@ export async function generateSeriesAnalysis(
   return normalizeSeriesAnalysis(await request(path, jsonRequest(body)))
 }
 
-/** 按勾选的结算单生成「等级细分」AI 小结；相同条件会直接返回后端缓存。 */
-export async function generateGradeDetailAnalysis(
-  merchantNos: string[],
-  filters: AnalyticsFilters = {},
-  options: { refresh?: boolean } = {},
-): Promise<SeriesAnalysisResult> {
-  const body = {
-    merchant_no: merchantNos,
-    start_date: filters.startDate || null,
-    end_date: filters.endDate || null,
-    refresh: options.refresh === true,
-  }
-  const path = `${API_ROOT}/analytics/grade-detail/analysis`
-  return normalizeSeriesAnalysis(await request(path, jsonRequest(body)))
-}
-
 /** 生成当前结算单与同品牌其他结算单的对比分析；相同条件会返回缓存。 */
 export async function generateSettlementAnalysis(
   merchantNo: string,
@@ -612,7 +596,15 @@ function normalizeAuthMenus(value: unknown): AuthMenu[] {
     .map((entry) => {
       const item = entry as JsonRecord
       const routePath = String(item.route_path ?? item.routePath ?? '').trim()
-      if (!routePath) return null
+      const menuType = String(item.menu_type ?? item.menuType ?? 'menu')
+      // directory（一级菜单）本身没有路由，保留下来给侧栏分组用；
+      // 其余没有路由的条目（button 等）不进导航。
+      if (!routePath && menuType !== 'directory') return null
+      const id = Number(item.id)
+      // 目录必须带 id，子菜单才能通过 parentId 挂回分组。
+      if (menuType === 'directory' && !Number.isFinite(id)) return null
+      const parentIdRaw = item.parent_id ?? item.parentId
+      const parentId = parentIdRaw === null || parentIdRaw === undefined ? null : Number(parentIdRaw)
       const icon = item.icon === null || item.icon === undefined ? null : String(item.icon)
       const permissionCode =
         item.permission_code === null || item.permission_code === undefined
@@ -620,8 +612,11 @@ function normalizeAuthMenus(value: unknown): AuthMenu[] {
           : String(item.permission_code)
       const sortOrder = Number(item.sort_order ?? item.sortOrder ?? 0)
       return {
-        routePath,
+        id: Number.isFinite(id) ? id : 0,
+        routePath: routePath || null,
         name: String(item.name ?? ''),
+        parentId: parentId !== null && Number.isFinite(parentId) ? parentId : null,
+        menuType,
         icon,
         permissionCode,
         sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,

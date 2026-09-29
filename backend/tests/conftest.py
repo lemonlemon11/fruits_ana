@@ -23,3 +23,18 @@ def prepare_pytest_basetemp(tmp_path_factory):
 
     tmp_path_factory._given_basetemp = BACKEND_DIR / ".pytest-tmp" / "runtime"
     tmp_path_factory.getbasetemp()
+
+
+@pytest.fixture(autouse=True)
+def clear_process_caches():
+    """每个用例前后清空进程内短 TTL 缓存（权限/菜单/筛选选项等）。
+
+    缓存键只含业务维度（user_id、日期窗口等），而全部用例共用同一个
+    sqlite 文件，不清缓存会把上一用例的结果泄漏进下一用例。
+    """
+
+    from app import cache as result_cache
+
+    result_cache.clear_all()
+    yield
+    result_cache.clear_all()

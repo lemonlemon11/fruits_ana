@@ -123,42 +123,15 @@ test('对话窗保持已确认形态：无登录门、无常见问题、不显�
 test('输入框随内容长高且不出现滚动条', () => {
   const widget = read('components', 'AskWidget.vue')
 
-  assert.match(widget, /scrollHeight \+ 4/)
-  assert.match(widget, /clientHeight \?\? 0\) \* 0\.6/)
-  assert.match(read('components', 'ask-widget.css'), /\.composer textarea \{[^}]*overflow-y: hidden/)
+  // 输入框改用 ElInput textarea + autosize（1~5 行自动长高），不再手写 autoGrow。
+  assert.match(widget, /type="textarea"/)
+  assert.match(widget, /:autosize="\{ minRows: 1, maxRows: 5 \}"/)
+  assert.match(read('components', 'ask-widget.css'), /\.composer \.composer-input \.el-textarea__inner/)
 })
 
 test('答案只来自后端 /api/ask，前端不自行取数', () => {
   assert.match(read('api', 'client.ts'), /`\$\{API_ROOT\}\/ask`/)
   assert.doesNotMatch(read('components', 'AskWidget.vue'), /analytics\//)
-})
-
-test('移动端对话窗跟随可视视口，软键盘弹出时不遮挡输入框', () => {
-  const css = read('components', 'ask-widget.css')
-  const widget = read('components', 'AskWidget.vue')
-  const mobile = css.match(/@media \(max-width: 820px\) \{[\s\S]*?\n\}/)?.[0] ?? ''
-
-  assert.match(mobile, /top: var\(--ask-vv-top, 0px\)/)
-  assert.match(mobile, /height: var\(--ask-vv-height, 100dvh\)/)
-  assert.match(widget, /function syncVisualViewport\(\): void/)
-  assert.match(widget, /const height = viewport \? Math\.round\(viewport\.height\) : 0/)
-  assert.match(widget, /node\.style\.setProperty\('--ask-vv-height', `\$\{height\}px`\)/)
-  assert.match(widget, /node\.style\.setProperty\('--ask-vv-top', `\$\{Math\.max\(0, Math\.round\(viewport\.offsetTop\)\)\}px`\)/)
-  // 可视视口不可用或高度非法时清掉变量，回落到整屏，避免对话窗塌成内容高度
-  assert.match(widget, /!viewport \|\| !Number\.isFinite\(height\) \|\| height <= 0/)
-  assert.match(widget, /node\.style\.removeProperty\('--ask-vv-height'\)/)
-  assert.match(widget, /window\.visualViewport\?\.addEventListener\('resize', syncVisualViewport\)/)
-  assert.match(widget, /window\.visualViewport\?\.removeEventListener\('resize', syncVisualViewport\)/)
-})
-
-test('移动端对话窗避让刘海与底部横条，且不会裁掉自己的输入区', () => {
-  const css = read('components', 'ask-widget.css')
-  const mobile = css.match(/@media \(max-width: 820px\) \{[\s\S]*?\n\}/)?.[0] ?? ''
-
-  assert.match(mobile, /\.ask-panel__head \{ padding-top: calc\(12px \+ env\(safe-area-inset-top, 0px\)\); \}/)
-  assert.match(mobile, /\.ask-panel__foot \{ padding-bottom: calc\(12px \+ env\(safe-area-inset-bottom, 0px\)\); \}/)
-  // 消息区可收缩：面板高度不足时优先保留完整输入区，而不是被 overflow 裁掉
-  assert.match(css, /\.ask-panel__scroll \{\s*flex: 1 1 auto; min-height: 0;/)
 })
 
 test('站内通知横幅不在顺仔对话窗打开时压住窗口', () => {
@@ -177,7 +150,7 @@ test('悬浮入口默认收起来，悬停 / 聚焦 / 打开对话窗时弹性�
   assert.match(css, /\.ask-fab__label \{[^}]*width: calc\(3\.9rem \* var\(--ask-open\)\)/)
   // 三处触发共用 --ask-open，收回与展开走同一条过渡。
   assert.match(css, /\.ask-fab\.is-open,\n\.ask-fab:focus-visible \{ --ask-open: 1; \}/)
-  assert.match(css, /@media \(hover: hover\) \{\n  \.ask-fab:hover \{ --ask-open: 1; \}\n\}/)
+  assert.match(css, /\.ask-fab:hover \{ --ask-open: 1; \}/)
   // 弹性曲线：回弹收尾，不是生硬闪现。
   assert.match(css, /--ask-ease: cubic-bezier\(\.34, 1\.42, \.64, 1\)/)
   // 收起态仍要能看清（触摸目标不小于 44px）且提示可点。

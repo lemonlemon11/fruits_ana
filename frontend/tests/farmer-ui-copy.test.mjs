@@ -24,18 +24,6 @@ test('菜单使用确认后的中文入口', () => {
   assert.doesNotMatch(navLabels, /经营总览|单柜详情|导入数据|货柜对比|货柜详情|销售总览|数据明细/)
 })
 
-test('移动端用底部大按钮导航，完整功能收进「更多」', () => {
-  const shell = fs.readFileSync(path.join(root, 'AppShell.vue'), 'utf8')
-  assert.match(shell, /class="mobile-tabbar"/)
-  assert.match(shell, /mobile-tabbar-more/)
-  assert.match(shell, /const moreNavItems(:\s*\w+\[])? = \[[\s\S]*?\]/)
-  for (const label of ['销售详情', '品牌对比']) {
-    const match = shell.match(/const moreNavItems(?::\s*\w+\[])? = \[([\s\S]*?)\]/)
-    assert.ok(match, 'moreNavItems definition not found')
-    assert.match(match[1], new RegExp(label))
-  }
-})
-
 test('页面内部不出现跨菜单跳转入口', () => {
   const pageFiles = ['OverviewView.vue']
     .map((file) => path.join(root, 'views', file))
@@ -198,13 +186,15 @@ test('导入结果明确区分失败、重复和成功', () => {
 test('结算单选择器收进抽屉，靠搜索与品牌折叠定位，不平铺全部结算单', () => {
   const picker = fs.readFileSync(path.join(root, 'components', 'SettlementPicker.vue'), 'utf8')
   const pickerCss = fs.readFileSync(path.join(root, 'components', 'SettlementPicker.css'), 'utf8')
-  const checkbox = pickerCss.match(/\.series-option input\[type='checkbox'\] \{[^}]*\}/)?.[0] ?? ''
   const options = pickerCss.match(/\.series-options \{[^}]*\}/)?.[0] ?? ''
 
-  assert.match(checkbox, /appearance:\s*none/)
-  assert.match(pickerCss, /:checked \{[\s\S]{0,240}data:image\/svg\+xml/)
+  // 抽屉本体改用 ElDrawer，结算单选项改用 ElCheckbox（选中态用 is-checked 类表达）。
+  assert.match(picker, /<ElDrawer/)
+  assert.match(picker, /direction="rtl"/)
+  assert.match(picker, /<ElCheckbox[\s\S]*?class="series-option"/)
+  assert.match(picker, /:model-value="draft\.includes\(item\.merchantNo\)"/)
+  assert.match(pickerCss, /\.series-option\.is-checked/)
   assert.match(options, /repeat\(auto-fill,\s*minmax\(\d+px,\s*1fr\)\)/)
-  assert.match(picker, /:class="\{ selected: draft\.includes\(item\.merchantNo\) \}"/)
   // 单量变大后要靠搜索和折叠定位，并且只在点「确定」时刷新一次。
   assert.match(picker, /placeholder="搜品牌名"/)
   assert.match(picker, /placeholder="搜商号、单号或柜号"/)
@@ -294,7 +284,6 @@ test('区块标题下的辅助说明文案已清理（状态类提示保留）',
     ['components/DailySalesTrendChart.vue', /按销售日期汇总当日/],
     ['components/GradePieChart.vue', /按件数占比/],
     ['components/SeriesGradeTables.vue', /各等级独立核算/],
-    ['components/SeriesGradeDetail.vue', /把等级再拆成号别/],
     ['views/ImportView.vue', /只在需要时展开问题明细/],
   ]
   for (const [file, pattern] of sweptNotes) {

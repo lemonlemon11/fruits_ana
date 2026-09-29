@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SLD 双端布局重设计（第三稿·沿用 09-22 版式）· 视觉伴侣</title>
+<style>
+  :root {
+    --brand-950:#07281a; --brand-900:#0c3a24; --brand-800:#115233;
+    --brand-700:#177a45; --brand-600:#1d9253; --brand-500:#28a861;
+    --brand-100:#e2f3e7; --brand-50:#f0f8f2;
+    --accent:#e8862e; --accent-strong:#cf6f16;
+    --bg:#edf3ec; --card:#fff; --ink:#182b1f; --muted:#5c6f61;
+    --faint:#8ba190; --line:#dfe9df; --line-strong:#c4d6c5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #f2f7f0 0%, var(--bg) 320px) fixed, var(--bg);
+    color: var(--ink); font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; }
+
+  header.companion-bar {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 18px;
+    background: linear-gradient(120deg, var(--brand-950), var(--brand-700));
+    color: #fff;
+  }
+  .bar-brand { display: flex; align-items: center; gap: 10px; }
+  .bar-brand .logo { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
+    background: rgba(255,255,255,.16); font-size: .95rem; font-weight: 900; }
+  .bar-brand b { font-size: .96rem; font-weight: 900; }
+  .bar-brand small { display: block; font-size: .68rem; color: #9dc3ab; font-weight: 700; }
+  .app-switch { display: flex; gap: 4px; margin-left: 8px; padding: 4px;
+    background: rgba(255,255,255,.14); border-radius: 12px; }
+  .app-switch button { border: 0; border-radius: 9px; padding: 8px 13px;
+    background: transparent; color: #cfe3d5; font: 800 .84rem/1 inherit; cursor: pointer; white-space: nowrap; }
+  .app-switch button.on { background: #fff; color: var(--brand-900); }
+  .devices { margin-left: auto; display: flex; gap: 6px;
+    background: rgba(255,255,255,.14); padding: 4px; border-radius: 12px; }
+  .devices button { border: 0; border-radius: 9px; padding: 8px 12px;
+    background: transparent; color: #cfe3d5; font: 800 .84rem/1 inherit; cursor: pointer; }
+  .devices button.on { background: #fff; color: var(--brand-900); }
+  .bar-link { font-size: .78rem; font-weight: 800; color: #bfe0c9; padding: 8px 10px; border-radius: 9px; }
+  .bar-link:hover { background: rgba(255,255,255,.1); color: #fff; }
+
+  .wrap { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; padding: 18px 18px 34px; }
+  aside { display: grid; gap: 8px; align-content: start; position: sticky; top: 70px; }
+  .menu-group { margin: 10px 4px 0; font-size: .7rem; font-weight: 900; letter-spacing: .14em; color: var(--faint); }
+  .menu-item { display: flex; gap: 12px; align-items: flex-start; padding: 11px 13px;
+    border: 1px solid var(--line); border-radius: 13px; background: var(--card); cursor: pointer;
+    box-shadow: 0 1px 2px rgba(9,44,26,.05), 0 5px 16px -10px rgba(9,44,26,.12); }
+  .menu-item:hover { border-color: var(--brand-600); }
+  .menu-item.on { border-color: var(--brand-600); box-shadow: 0 0 0 3px rgba(29,146,83,.16); }
+  .menu-item .n { flex: none; width: 26px; height: 26px; border-radius: 8px;
+    display: grid; place-items: center; background: var(--brand-100); color: var(--brand-700);
+    font-weight: 900; font-size: .78rem; }
+  .menu-item.on .n { background: var(--brand-700); color: #fff; }
+  .menu-item b { display: block; font-size: .92rem; }
+  .menu-item span { display: block; margin-top: 3px; font-size: .76rem; color: var(--muted); line-height: 1.5; }
+
+  .stage { min-width: 0; }
+  .stage-bar { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .stage-bar h2 { margin: 0; font-size: 1.08rem; font-weight: 900; }
+  .stage-bar .open { margin-left: auto; font-size: .8rem; font-weight: 800; color: var(--brand-700); }
+  .points { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .points span { font-size: .75rem; font-weight: 800; color: var(--brand-900);
+    background: var(--brand-100); padding: 5px 11px; border-radius: 999px; }
+  .points span.alt { background: #fdeeda; color: #a85f0e; }
+
+  .frame-box { display: flex; justify-content: center; }
+  .phone { width: 404px; border: 8px solid #14261b; border-radius: 46px; overflow: hidden;
+    box-shadow: 0 24px 60px -20px rgba(9,44,26,.4); background: #fff; }
+  .phone iframe { width: 388px; height: 82vh; min-height: 640px; border: 0; display: block; }
+  .desktop { width: 100%; border: 8px solid #14261b; border-radius: 18px; overflow: hidden;
+    box-shadow: 0 24px 60px -20px rgba(9,44,26,.35); background: #fff; }
+  .desktop iframe { width: 100%; height: calc(100vh - 250px); min-height: 620px; border: 0; display: block; }
+  .frame-box.is-phone .desktop { display: none; }
+  .frame-box:not(.is-phone) .phone { display: none; }
+
+  /* 设计说明 */
+  .spec { display: grid; gap: 16px; }
+  .spec-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 20px; box-shadow: 0 1px 2px rgba(9,44,26,.05), 0 10px 26px -18px rgba(9,44,26,.14); }
+  .spec-card h3 { margin: 0 0 12px; font-size: .95rem; font-weight: 900; }
+  .spec p { margin: 0; font-size: .86rem; color: var(--muted); line-height: 1.75; }
+  .spec p strong { color: var(--ink); }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+  .swatch { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); }
+  .swatch i { display: block; height: 42px; }
+  .swatch div { padding: 7px 10px; font-size: .72rem; line-height: 1.45; color: var(--muted); }
+  .swatch b { display: block; font-size: .78rem; color: var(--ink); }
+  .spec-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+
+  @media (max-width: 980px) {
+    .wrap { grid-template-columns: minmax(0, 1fr); }
+    aside { position: static; display: flex; overflow: auto; gap: 8px; padding-bottom: 4px; }
+    .menu-item { flex: none; width: 230px; }
+    .menu-group { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="companion-bar">
+  <div class="bar-brand">
+    <span class="logo">果</span>
+    <span><b>视觉伴侣 · 双端布局重设计（第三稿）</b><small>2026-09-28 · 沿用 09-22 已评审版式 · 数据虚构</small></span>
+  </div>
+  <nav class="app-switch" id="app-switch">
+    <button data-app="user" class="on">用户端 fruits_ana</button>
+    <button data-app="admin">管理端 fruits_ana_admin</button>
+    <button data-app="spec">设计说明</button>
+  </nav>
+  <div class="devices" id="devices">
+    <button data-device="desktop" class="on">🖥 桌面</button>
+    <button data-device="phone">📱 手机</button>
+  </div>
+  <a class="bar-link" href="../index.html" title="返回视觉伴侣索引">索引 ↗</a>
+</header>
+
+<div class="wrap">
+  <aside id="menu"></aside>
+
+  <main class="stage">
+    <section id="stage-view">
+      <div class="stage-bar">
+        <h2 id="stage-title">用户端 · 登录</h2>
+        <a class="open" id="stage-open" href="login.html" target="_blank">单独打开 ↗</a>
+      </div>
+      <div class="points" id="stage-points"></div>
+      <div class="frame-box" id="frame-box">
+        <div class="desktop"><iframe id="frame" title="设计稿预览" src="login.html"></iframe></div>
+        <div class="phone"><iframe title="设计稿预览（手机）" src="login.html"></iframe></div>
+      </div>
+    </section>
+
+    <section id="spec-view" hidden>
+      <div class="spec">
+        <div class="spec-card">
+          <h3>这一稿的来源</h3>
+          <p><strong>直接沿用 2026-09-22 全站布局重设计（redesign-20260922，业务在 53001/53002 评审过的版本）的版式与视觉</strong>，
+          第三稿只做两件事：① 把该版式完整套到双端九个代表屏；② 为管理端补齐同风格的表格、页签、抽屉与通知组件。
+          配色回到亮色（燕麦绿画布 + 深绿骨架 + 琥珀主操作），排版骨架与 09-22 完全一致：</p>
+          <p style="margin-top:10px">
+          · 桌面：<strong>深绿渐变侧栏（品牌块 + 三分组导航 + 底部用户）+ 浅色毛玻璃顶栏（页标题 + 日期/商号筛选 chip + 通知 + 用户）</strong>；<br>
+          · 手机：<strong>渐变绿 appbar + 底部五格 tabbar，中间格琥珀凸起 FAB（录单主操作）</strong>；<br>
+          · 内容节奏：<strong>KPI 卡带 4px 左色条、首卡琥珀 hero 放大</strong> → section-title（标题+more）→ 圆角卡（16px、柔影、浅描边）；<br>
+          · 列表：<strong>桌面表格卡（brand-50 表头）+ 手机单据卡（大金额 + A/B/C 三段占比条）</strong>；等级用 grade-tag 徽标与三段迷你条表达。</p>
+        </div>
+        <div class="spec-card">
+          <h3>色彩令牌（与 09-22 一致）</h3>
+          <div class="swatches">
+            <div class="swatch"><i style="background:#edf3ec"></i><div><b>bg 画布</b>#edf3ec</div></div>
+            <div class="swatch"><i style="background:#ffffff;border-bottom:1px solid #dfe9df"></i><div><b>card</b>#ffffff</div></div>
+            <div class="swatch"><i style="background:#0c3a24"></i><div><b>brand-900</b>#0c3a24 侧栏/hero</div></div>
+            <div class="swatch"><i style="background:#177a45"></i><div><b>brand-700</b>#177a45 强调</div></div>
+            <div class="swatch"><i style="background:#1d9253"></i><div><b>brand-600</b>#1d9253 主按钮</div></div>
+            <div class="swatch"><i style="background:#e8862e"></i><div><b>accent 琥珀</b>#e8862e FAB/hero</div></div>
+            <div class="swatch"><i style="background:#177454"></i><div><b>A 果</b>#177454</div></div>
+            <div class="swatch"><i style="background:#d9812a"></i><div><b>B 果</b>#d9812a</div></div>
+            <div class="swatch"><i style="background:#c2483a"></i><div><b>C 果（含 BC）</b>#c2483a</div></div>
+            <div class="swatch"><i style="background:#182b1f"></i><div><b>ink</b>#182b1f</div></div>
+          </div>
+        </div>
+        <div class="spec-cols">
+          <div class="spec-card">
+            <h3>管理端同风格扩展</h3>
+            <p>· 侧栏沿用深绿渐变与同款导航项（选中态白 13% 底 + 琥珀左指示条）；<br>
+               · 顶栏去掉筛选 chip，换成<strong>日期时钟 + 账号 chip + 退出</strong>，下方加下划线页签行；<br>
+               · 列表工具条（搜索 + 下拉 + 主操作）与表格卡沿用用户端表格样式；<br>
+               · 新增右侧抽屉示意（虚线框）：表单字段、角色勾选卡、启用开关。</p>
+          </div>
+          <div class="spec-card">
+            <h3>与 09-22 原版的差异</h3>
+            <p>· 原版仅用户端 8 页，本稿补齐管理端 4 屏与登录双端；<br>
+               · 原版外壳由 redesign.js 注入，本稿为纯静态 markup（评审稿更直读）；<br>
+               · 组件令牌零改动，落地时两端可直接复用 redesign-20260922/redesign.css。</p>
+          </div>
+        </div>
+        <div class="spec-card">
+          <h3>落地方式</h3>
+          <p>确认后：用户端按 redesign-20260922 的既有计划合入 styles.css 与 AppShell；
+          管理端把 redesign.css 令牌段与表格/工具条样式合入 fruits_ana_admin 的 styles.css 与 AdminLayout。
+          等级色、口径文案、接口均不动，只改布局与样式。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const SCREENS = {
+  user: [
+    { group: '用户端 fruits_ana · 果农视角（09-22 版式）' },
+    { file: 'login.html', name: '登录', desc: '左品牌 hero + 右表单，手机端卡片上叠' },
+    { file: 'overview.html', name: '卖得怎么样', desc: '筛选 chip + KPI hero + 趋势/等级环图' },
+    { file: 'settlements.html', name: '每一单', desc: '桌面表格卡 + 手机单据卡与占比条' },
+    { file: 'settlement-detail.html', name: '结算单详情', desc: 'hero 金额卡 + 信息格 + 等级明细' },
+    { file: 'imports.html', name: '录单 / 导入', desc: '双入口 tile + 上传区 + 最近批次' },
+  ],
+  admin: [
+    { group: '管理端 fruits_ana_admin · 同风格扩展' },
+    { file: 'admin-login.html', name: '管理端登录', desc: '同款 login-shell，文案更克制' },
+    { file: 'admin-dashboard.html', name: '工作台', desc: '快捷入口 + 数据健康度 + 动态流' },
+    { file: 'admin-users.html', name: '用户管理', desc: '页签 + 工具条 + 表格卡 + 抽屉' },
+    { file: 'admin-notifications.html', name: '通知管理', desc: '通知卡 + 阅读进度' },
+  ],
+  spec: [],
+};
+
+const menu = document.getElementById('menu');
+const frame = document.getElementById('frame');
+const phoneFrame = document.querySelector('.phone iframe');
+const frameBox = document.getElementById('frame-box');
+const stageTitle = document.getElementById('stage-title');
+const stagePoints = document.getElementById('stage-points');
+const stageOpen = document.getElementById('stage-open');
+const stageView = document.getElementById('stage-view');
+const specView = document.getElementById('spec-view');
+const NAMES = { user: '用户端 fruits_ana', admin: '管理端 fruits_ana_admin' };
+let currentApp = 'user';
+
+function renderMenu() {
+  menu.innerHTML = '';
+  SCREENS[currentApp].forEach((item) => {
+    if (item.group) {
+      const g = document.createElement('div');
+      g.className = 'menu-group'; g.textContent = item.group;
+      menu.appendChild(g);
+      return;
+    }
+    const a = document.createElement('a');
+    a.className = 'menu-item';
+    a.innerHTML = `<span class="n">${item.name.slice(0, 1)}</span><span><b>${item.name}</b><span>${item.desc}</span></span>`;
+    a.onclick = () => openScreen(item, a);
+    menu.appendChild(a);
+  });
+}
+
+function openScreen(item, el) {
+  menu.querySelectorAll('.menu-item').forEach((n) => n.classList.remove('on'));
+  if (el) el.classList.add('on');
+  stageTitle.textContent = `${NAMES[currentApp]} · ${item.name}`;
+  stageOpen.href = item.file;
+  frame.src = item.file;
+  phoneFrame.src = item.file;
+  stagePoints.innerHTML = (item.points || []).map((p) => `<span${p.startsWith('!') ? ' class="alt"' : ''}>${p.replace(/^!/, '')}</span>`).join('');
+}
+
+document.getElementById('app-switch').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-app]');
+  if (!button) return;
+  document.querySelectorAll('#app-switch button').forEach((n) => n.classList.remove('on'));
+  button.classList.add('on');
+  currentApp = button.dataset.app;
+  const isSpec = currentApp === 'spec';
+  stageView.hidden = isSpec;
+  specView.hidden = !isSpec;
+  document.getElementById('devices').style.visibility = isSpec ? 'hidden' : 'visible';
+  renderMenu();
+  if (!isSpec) {
+    const first = menu.querySelector('.menu-item');
+    if (first) first.click();
+  }
+});
+
+document.getElementById('devices').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-device]');
+  if (!button) return;
+  document.querySelectorAll('#devices button').forEach((n) => n.classList.remove('on'));
+  button.classList.add('on');
+  frameBox.classList.toggle('is-phone', button.dataset.device === 'phone');
+});
+
+requestAnimationFrame(() => menu.querySelector('.menu-item')?.click());
+</script>
+</body>
+</html>

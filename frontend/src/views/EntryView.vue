@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElDatePicker, ElDialog, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
+import 'element-plus/es/components/date-picker/style/css'
+import 'element-plus/es/components/dialog/style/css'
+import 'element-plus/es/components/input/style/css'
+import 'element-plus/es/components/message/style/css'
+import 'element-plus/es/components/option/style/css'
+import 'element-plus/es/components/select/style/css'
 import {
   ApiError,
   deleteEntryDraft,
@@ -29,26 +36,15 @@ const saving = ref(false)
 const draftSaving = ref(false)
 const savingAsOverwrite = ref(false)
 const error = ref('')
-const toast = ref('')
 const restoredDraft = ref(false)
 const conflictOpen = ref(false)
-/** 手机端分区折叠：窄屏默认只展开「基本信息」，其余按需展开，减少长表单滚动。 */
-const narrowQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-  ? window.matchMedia('(max-width: 820px)')
-  : null
-const isNarrow = ref(narrowQuery?.matches ?? false)
-const collapsedBlocks = reactive<Record<string, boolean>>({})
+/** 表单分区锚点：点击滚动到对应分区。 */
 const BLOCK_IDS = ['basic', 'sales', 'after', 'fees', 'summary'] as const
 type BlockId = (typeof BLOCK_IDS)[number]
-function isCollapsed(id: BlockId) { return isNarrow.value && (collapsedBlocks[id] ?? id !== 'basic') }
-function toggleBlock(id: BlockId) { collapsedBlocks[id] = !isCollapsed(id) }
-function expandAllBlocks() { for (const id of BLOCK_IDS) collapsedBlocks[id] = false }
 async function jumpToBlock(id: BlockId) {
-  collapsedBlocks[id] = false
   await nextTick()
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
-function onNarrowChange(event: MediaQueryListEvent) { isNarrow.value = event.matches }
 const conflictMessage = ref('')
 const marketOptions = ref<string[]>([])
 
@@ -149,7 +145,8 @@ async function saveDraftNow() {
   if (draftSaving.value || saving.value) return
   draftSaving.value = true
   const saved = await flushDraft()
-  showToast(saved ? '已暂存，可稍后继续录单' : '暂存失败，请稍后重试')
+  if (saved) showToast('已暂存，可稍后继续录单')
+  else showToast('暂存失败，请稍后重试', 'error')
   draftSaving.value = false
 }
 
@@ -193,14 +190,13 @@ function applyDraft(draft: EntryDraft) {
 watch(form, () => scheduleDraftSave(), { deep: true })
 
 onBeforeUnmount(() => {
-  narrowQuery?.removeEventListener('change', onNarrowChange)
   if (draftTimer) window.clearTimeout(draftTimer)
   void flushDraft()
 })
 
-function showToast(message: string) {
-  toast.value = message
-  window.setTimeout(() => { if (toast.value === message) toast.value = '' }, 1800)
+/** 全局消息统一走 ElMessage；保留函数名便于调用点语义化。 */
+function showToast(message: string, type: 'success' | 'error' | 'warning' = 'success') {
+  ElMessage({ message, type, duration: 1800 })
 }
 
 function addSale() {
@@ -279,8 +275,7 @@ async function submit(overwrite = false) {
   if (saving.value || draftSaving.value) return
   const validation = validate()
   if (validation) {
-    expandAllBlocks()
-    showToast(validation)
+    showToast(validation, 'error')
     return
   }
   saving.value = true
@@ -364,14 +359,13 @@ async function loadEntry() {
 }
 
 onMounted(() => {
-  narrowQuery?.addEventListener('change', onNarrowChange)
   void loadEntry()
 })
 </script>
 
 
 <template>
-  <section class="entry-page review-entry-page mobile-form-page">
+  <section class="entry-page review-entry-page">
     <header class="entry-head">
       <div>
         <p class="eyebrow">结算单录入</p>
@@ -402,88 +396,107 @@ onMounted(() => {
         <a href="#summary" @click.prevent="jumpToBlock('summary')">结算核对</a>
       </nav>
 
-      <section class="block" :class="{ 'is-collapsed': isCollapsed('basic') }" id="basic">
-        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('basic') : undefined" @click="toggleBlock('basic')"><h2>基本信息</h2><span>来源：手工录入</span></div>
-        <div v-show="!isCollapsed('basic')" class="block-body">
+      <section class="block" id="basic">
+        <div class="block-title"><h2>基本信息</h2><span>来源：手工录入</span></div>
+        <div class="block-body">
         <div class="basic-grid">
           <label class="field">
             <span>商号 *</span>
-            <input v-model="form.merchantNo" :disabled="Boolean(editingMerchantNo)" aria-label="商号" />
+            <ElInput v-model="form.merchantNo" :disabled="Boolean(editingMerchantNo)" aria-label="商号" />
           </label>
           <label class="field">
             <span>柜号 *</span>
-            <input v-model="form.containerNo" aria-label="柜号" />
+            <ElInput v-model="form.containerNo" aria-label="柜号" />
           </label>
           <label class="field">
             <span>单号 *</span>
-            <input v-model="form.orderNo" aria-label="单号" />
+            <ElInput v-model="form.orderNo" aria-label="单号" />
           </label>
           <label class="field">
             <span>转运公司 / 车牌号 *</span>
-            <input v-model="form.vehicleNo" aria-label="转运公司 / 车牌号" />
+            <ElInput v-model="form.vehicleNo" aria-label="转运公司 / 车牌号" />
           </label>
           <label class="field">
             <span>国家 *</span>
-            <input v-model="form.country" aria-label="国家" placeholder="如 越南" />
+            <ElInput v-model="form.country" aria-label="国家" placeholder="如 越南" />
           </label>
           <label class="field">
             <span>市场 *</span>
-            <select v-if="marketOptions.length" v-model="form.market" aria-label="市场">
-              <option disabled value="">请选择</option>
-              <option v-for="item in marketOptions" :key="item">{{ item }}</option>
-            </select>
-            <input v-else v-model="form.market" placeholder="请先由 fruit_admin 配置市场" aria-label="市场" />
+            <ElSelect
+              v-if="marketOptions.length"
+              v-model="form.market"
+              placeholder="请选择"
+              aria-label="市场"
+              class="field-control"
+            >
+              <ElOption v-for="item in marketOptions" :key="item" :label="item" :value="item" />
+            </ElSelect>
+            <ElInput v-else v-model="form.market" placeholder="请先由 fruit_admin 配置市场" aria-label="市场" />
           </label>
           <label class="field">
             <span>到达市场日期 *</span>
-            <input v-model="form.arrivalDate" type="date" aria-label="到达市场日期" />
+            <ElDatePicker
+              v-model="form.arrivalDate"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="选择日期"
+              aria-label="到达市场日期"
+              class="field-control"
+            />
           </label>
           <label class="field" :class="{ error: salesExceedArrival }">
             <span>来货数量（件） *</span>
-            <input v-model.number="form.arrivalQuantity" type="number" min="0" step="1" aria-label="来货数量（件）" />
+            <ElInput v-model.number="form.arrivalQuantity" type="number" min="0" step="1" aria-label="来货数量（件）" />
             <span v-if="salesExceedArrival" class="field-hint">销售数量合计 {{ totals.totalPieces }} 件已超过来货数量 {{ form.arrivalQuantity }} 件，请核对后再保存</span>
           </label>
         </div>
         </div>
       </section>
 
-      <section class="block" :class="{ 'is-collapsed': isCollapsed('sales') }" id="sales">
-        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('sales') : undefined" @click="toggleBlock('sales')"><h2>销售明细 <small>· {{ form.sales.length }} 行</small></h2><button class="outline" type="button" @click.stop="addSale">添加销售行</button></div>
-        <div v-show="!isCollapsed('sales')" class="block-body">
+      <section class="block" id="sales">
+        <div class="block-title"><h2>销售明细 <small>· {{ form.sales.length }} 行</small></h2><button class="outline" type="button" @click.stop="addSale">添加销售行</button></div>
+        <div class="block-body">
         <DataTable
           class="review-table sale-table"
           :columns="saleColumns"
           :rows="form.sales"
           :row-key="saleRowKey"
           bordered
-          cards-on-narrow
           caption="销售明细录入"
           min-width="1080px"
           empty-text="还没有销售行，点「添加销售行」开始录入"
         >
           <template #cell-saleDate="{ row }">
-            <input v-model="row.saleDate" type="date" aria-label="销售日期" />
+            <ElDatePicker
+              v-model="row.saleDate"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="日期"
+              aria-label="销售日期"
+              class="cell-control"
+              :clearable="false"
+            />
           </template>
           <template #cell-variety="{ row }">
-            <input v-model="row.variety" aria-label="品种" placeholder="可选，如 金枕" />
+            <ElInput v-model="row.variety" aria-label="品种" placeholder="可选，如 金枕" />
           </template>
           <template #cell-grade="{ row }">
-            <input v-model="row.grade" aria-label="等级" placeholder="可选，如 A、AB、BC" />
+            <ElInput v-model="row.grade" aria-label="等级" placeholder="可选，如 A、AB、BC" />
           </template>
           <template #cell-headCount="{ row }">
-            <input v-model="row.headCount" :class="{ 'spec-invalid': invalidSpec(row.headCount) }" placeholder="可选，如 3/4" aria-label="规格（头数）" />
+            <ElInput v-model="row.headCount" :class="{ 'spec-invalid': invalidSpec(row.headCount) }" placeholder="可选，如 3/4" aria-label="规格（头数）" />
           </template>
           <template #cell-specKg="{ row }">
-            <input v-model="row.specKg" :class="{ 'spec-invalid': invalidSpecKg(row.specKg) }" placeholder="可选，如 10" aria-label="规格（KG）" />
+            <ElInput v-model="row.specKg" :class="{ 'spec-invalid': invalidSpecKg(row.specKg) }" placeholder="可选，如 10" aria-label="规格（KG）" />
           </template>
           <template #cell-remark="{ row }">
-            <input v-model="row.remark" aria-label="备注" />
+            <ElInput v-model="row.remark" aria-label="备注" />
           </template>
           <template #cell-salesQuantity="{ row }">
-            <input v-model.number="row.salesQuantity" type="number" min="0" step="0.01" inputmode="decimal" aria-label="数量（件）" />
+            <ElInput v-model.number="row.salesQuantity" type="number" min="0" step="0.01" inputmode="decimal" aria-label="数量（件）" />
           </template>
           <template #cell-unitPrice="{ row }">
-            <input v-model.number="row.unitPrice" type="number" min="0" step="0.01" inputmode="decimal" aria-label="单价（元）" placeholder="空白按 0" />
+            <ElInput v-model.number="row.unitPrice" type="number" min="0" step="0.01" inputmode="decimal" aria-label="单价（元）" placeholder="空白按 0" />
           </template>
           <template #cell-amount="{ row }">
             <strong class="money-amount">{{ saleAmount(row) }}</strong>
@@ -499,28 +512,27 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="block" :class="{ 'is-collapsed': isCollapsed('after') }" id="after">
-        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('after') : undefined" @click="toggleBlock('after')"><h2>售后明细 <small v-if="form.afterSales.length">· {{ form.afterSales.length }} 行</small></h2><button class="outline" type="button" @click.stop="addAfterSale">添加售后行</button></div>
-        <div v-show="!isCollapsed('after')" class="block-body">
+      <section class="block" id="after">
+        <div class="block-title"><h2>售后明细 <small v-if="form.afterSales.length">· {{ form.afterSales.length }} 行</small></h2><button class="outline" type="button" @click.stop="addAfterSale">添加售后行</button></div>
+        <div class="block-body">
         <DataTable
           class="review-table smaller after-sale-table"
           :columns="afterSaleColumns"
           :rows="form.afterSales"
           :row-key="afterSaleRowKey"
           bordered
-          cards-on-narrow
           caption="售后明细录入"
           min-width="540px"
           empty-text="还没有售后行，点「添加售后行」开始录入"
         >
           <template #cell-content="{ row }">
-            <input v-model="row.content" aria-label="售后内容" />
+            <ElInput v-model="row.content" aria-label="售后内容" />
           </template>
           <template #cell-summary="{ row }">
-            <input v-model="row.summary" aria-label="售后摘要" />
+            <ElInput v-model="row.summary" aria-label="售后摘要" />
           </template>
           <template #cell-amount="{ row }">
-            <input v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" aria-label="售后金额（元）" />
+            <ElInput v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" aria-label="售后金额（元）" />
           </template>
           <template #cell-actions="{ row }">
             <button class="delete-row" type="button" @click="removeAfterSale(form.afterSales.indexOf(row))">删除</button>
@@ -530,25 +542,24 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="block" :class="{ 'is-collapsed': isCollapsed('fees') }" id="fees">
-        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('fees') : undefined" @click="toggleBlock('fees')"><h2>支出费用 <small>· 合计 {{ money(totals.feeAmount) }} 元</small></h2><button class="outline" type="button" @click.stop="addCustomFee">添加费用行</button></div>
-        <div v-show="!isCollapsed('fees')" class="block-body">
+      <section class="block" id="fees">
+        <div class="block-title"><h2>支出费用 <small>· 合计 {{ money(totals.feeAmount) }} 元</small></h2><button class="outline" type="button" @click.stop="addCustomFee">添加费用行</button></div>
+        <div class="block-body">
         <DataTable
           class="review-table smaller fee-table"
           :columns="feeColumns"
           :rows="form.fees"
           :row-key="feeRowKey"
           bordered
-          cards-on-narrow
           caption="支出费用录入"
           min-width="540px"
         >
           <template #cell-name="{ row }">
-            <input v-if="row.isCustom" v-model="row.name" aria-label="费用摘要" />
+            <ElInput v-if="row.isCustom" v-model="row.name" aria-label="费用摘要" />
             <span v-else>{{ row.name }}</span>
           </template>
           <template #cell-amount="{ row }">
-            <input v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :aria-label="`${row.name}金额（元）`" />
+            <ElInput v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :aria-label="`${row.name}金额（元）`" />
           </template>
           <template #cell-actions="{ row }">
             <button v-if="row.isCustom" class="delete-row" type="button" @click="removeCustomFee(customFeeIndex(row))">删除</button>
@@ -558,9 +569,9 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="block" :class="{ 'is-collapsed': isCollapsed('summary') }" id="summary">
-        <div class="block-title" :class="{ 'is-collapsible': isNarrow }" :aria-expanded="isNarrow ? !isCollapsed('summary') : undefined" @click="toggleBlock('summary')"><h2>结算核对 <small>· 应付 {{ money(totals.payable) }} 元</small></h2></div>
-        <div v-show="!isCollapsed('summary')" class="block-body">
+      <section class="block" id="summary">
+        <div class="block-title"><h2>结算核对 <small>· 应付 {{ money(totals.payable) }} 元</small></h2></div>
+        <div class="block-body">
         <div class="summary-table manual-summary">
           <div class="summary-head"><span>核对项目</span><span>系统计算</span></div>
           <div class="summary-line"><span>总件数</span><span><strong>{{ totals.totalPieces }}</strong></span></div>
@@ -575,23 +586,28 @@ onMounted(() => {
       </section>
 
       <div class="actions">
-        <span class="toast">{{ toast }}</span>
         <button class="subtle" type="button" :disabled="draftSaving || saving" @click="saveDraftNow">{{ draftSaving ? '暂存中…' : '暂存' }}</button>
         <button class="primary" type="button" :disabled="saving || draftSaving" @click="submit(false)">{{ saving ? (savingAsOverwrite ? '覆盖中…' : '保存中…') : editingMerchantNo ? '保存修改' : '确认保存' }}</button>
       </div>
     </template>
 
-    <div v-if="conflictOpen" class="overlay" role="dialog" aria-modal="true">
-      <section class="dialog">
-        <p class="eyebrow">商号冲突</p>
-        <h2>商号 {{ form.merchantNo }} 已存在</h2>
-        <p>{{ conflictMessage }}。确认覆盖后，旧数据将被本次录入内容替换。</p>
+    <ElDialog
+      :model-value="conflictOpen"
+      title="商号冲突"
+      width="min(520px, 92vw)"
+      append-to-body
+      :close-on-click-modal="false"
+      @update:model-value="(value) => { if (!value) conflictOpen = false }"
+    >
+      <p class="dialog-lead">商号 {{ form.merchantNo }} 已存在</p>
+      <p>{{ conflictMessage }}。确认覆盖后，旧数据将被本次录入内容替换。</p>
+      <template #footer>
         <div class="dialog-actions">
           <button class="subtle" type="button" @click="conflictOpen = false">取消</button>
           <button class="danger-button" type="button" :disabled="saving" @click="submit(true)">{{ savingAsOverwrite ? '覆盖中…' : '确认覆盖并保存' }}</button>
         </div>
-      </section>
-    </div>
+      </template>
+    </ElDialog>
   </section>
 </template>
 
@@ -621,16 +637,39 @@ onMounted(() => {
 .primary { border: 1px solid var(--primary); background: var(--primary); color: #fff; }
 .basic-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px; }
 .field { display: flex; flex-direction: column; min-width: 0; gap: 6px; color: var(--muted); font-size: .78rem; font-weight: 700; }
-.field input, .field select { width: 100%; min-height: 38px; padding: 6px 9px; border: 1px solid var(--line-strong); border-radius: 6px; background: #fff; color: var(--ink); font: inherit; }
-.field input:focus, .field select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); outline: none; }
-.field.error input { border-color: var(--danger); background: #fff5f5; }
+/* 表单里的 EP 控件对齐原 38px 手写输入；field-control 让 select / date 占满格。 */
+.field .field-control { width: 100%; }
+.field :deep(.el-input__wrapper),
+.field :deep(.el-select__wrapper),
+.field :deep(.el-date-editor.el-input) { min-height: 38px; }
+.field :deep(.el-input__wrapper),
+.field :deep(.el-select__wrapper) { padding: 0 9px; border-radius: 6px; }
+.field :deep(.el-input__wrapper) { box-shadow: 0 0 0 1px var(--line-strong) inset; background: #fff; }
+.field :deep(.el-input__wrapper.is-focus) { box-shadow: 0 0 0 1px var(--primary) inset, 0 0 0 2px var(--primary-soft); }
+.field :deep(.el-date-editor.el-input .el-input__wrapper) { box-shadow: 0 0 0 1px var(--line-strong) inset; background: #fff; }
+.field.error :deep(.el-input__wrapper) { box-shadow: 0 0 0 2px var(--danger) inset; background: #fff5f5; }
 .field-hint { color: var(--danger); font-size: .72rem; font-weight: 400; }
 .section-foot .exceed-error, .section-foot .exceed-error strong { color: var(--danger); font-weight: 800; }
 .review-table :deep(.data-table td) { padding: .38rem .5rem; }
 .review-table :deep(.data-table thead th) { padding: .5rem .6rem; }
-.review-table input { width: 100%; min-height: 36px; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 5px; background: #fff; color: var(--ink); font: inherit; }
-.review-table input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); outline: none; }
-.review-table input.spec-invalid { border-color: var(--danger); background: #fff5f5; }
+/* 可编辑表格内的 EP 输入：36px 紧凑尺寸，等价原手写 cell input。 */
+.review-table .cell-control { width: 100%; }
+.review-table :deep(.el-input__wrapper),
+.review-table :deep(.el-select__wrapper),
+.review-table :deep(.el-date-editor.el-input) { min-height: 36px; }
+.review-table :deep(.el-input__wrapper),
+.review-table :deep(.el-date-editor.el-input .el-input__wrapper) {
+  padding: 0 7px;
+  border-radius: 5px;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--line-strong) inset;
+}
+.review-table :deep(.el-input__wrapper.is-focus),
+.review-table :deep(.el-date-editor.el-input .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px var(--primary) inset, 0 0 0 2px var(--primary-soft);
+}
+.review-table :deep(.el-date-editor.el-input .el-input__prefix) { display: none; }
+.review-table .spec-invalid :deep(.el-input__wrapper) { box-shadow: 0 0 0 2px var(--danger) inset; background: #fff5f5; }
 .review-table :deep(.data-table td:last-child) { white-space: nowrap; }
 .money-amount { color: var(--primary-dark); font-weight: 800; }
 .delete-row { border: 0; background: transparent; color: var(--danger); font-weight: 800; white-space: nowrap; }
@@ -648,24 +687,12 @@ onMounted(() => {
 .summary-line.total strong { font-size: 1rem; }
 .summary-note { margin: 10px 1px 0; color: var(--muted); font-size: .76rem; }
 .actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
-.actions span { margin-right: auto; color: var(--muted); font-size: .78rem; }
 .empty-card, .error-card { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .error-card { color: var(--danger); }
-.overlay { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgb(24 49 42 / 45%); padding: 16px; }
-.dialog { width: min(520px, 100%); padding: 20px; border-radius: 14px; background: #fff; box-shadow: 0 16px 40px rgb(0 0 0 / 18%); }
-.dialog h2 { margin: 8px 0 12px; font-size: 1.2rem; }
-.dialog p { line-height: 1.6; }
+.dialog-lead { margin: 0 0 8px; font-size: 1.1rem; font-weight: 800; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .danger-button { min-height: 36px; padding: 7px 12px; border: 0; border-radius: 6px; background: var(--danger); color: #fff; font-weight: 800; }
 @media (max-width: 900px) {
   .basic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 620px) {
-  .entry-head { align-items: flex-start; flex-direction: column; }
-  .basic-grid { grid-template-columns: 1fr; }
-  .summary-head, .summary-line { grid-template-columns: 1fr .95fr 1fr; gap: 6px; padding: 10px 8px; font-size: .76rem; }
-  .manual-summary .summary-head,
-  .manual-summary .summary-line { grid-template-columns: 1fr 1fr; }
-  .actions span { flex-basis: 100%; }
 }
 </style>

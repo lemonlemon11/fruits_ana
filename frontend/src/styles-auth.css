@@ -172,54 +172,33 @@
 .auth-field > label { color: var(--ink); font-size: .86rem; font-weight: 700; }
 
 .auth-input { position: relative; display: flex; align-items: center; }
-.auth-input input {
+/* 登录/注册/找回的 EP 输入：对齐原手写输入（2.94rem 高、圆角、描边）。 */
+.auth-input .el-input__wrapper {
   width: 100%;
   min-height: 2.94rem;
   padding: 0 .82rem;
-  border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
-  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--line-strong) inset;
 }
-.auth-input input:hover { border-color: #8d9c92; }
-.auth-input.has-toggle input { padding-right: 2.82rem; }
-.auth-input input[aria-invalid="true"] { border-color: var(--danger); background: #fdf6f5; }
-
-.password-toggle {
-  position: absolute;
-  right: .29rem;
-  display: grid;
-  width: 2.35rem;
-  height: 2.35rem;
-  place-items: center;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--muted);
-}
-.password-toggle:hover { background: var(--surface-soft); color: var(--primary-dark); }
+.auth-input .el-input__wrapper:hover { box-shadow: 0 0 0 1px #8d9c92 inset; }
+.auth-input .el-input__wrapper.is-focus { box-shadow: 0 0 0 1px var(--primary) inset; }
+.auth-input.is-error .el-input__wrapper { box-shadow: 0 0 0 1px var(--danger) inset; background: #fdf6f5; }
+.auth-input .el-input__inner { color: var(--ink); }
+.auth-input .el-input__password { color: var(--muted); }
 
 .auth-field .field-error { color: var(--danger); font-size: .85rem; }
 .auth-field .field-hint { color: var(--muted); font-size: .85rem; }
 
 .auth-remember {
-  display: inline-flex;
   min-height: 2.59rem;
-  width: fit-content;
+  height: auto;
   max-width: 100%;
-  align-items: center;
-  gap: .59rem;
   color: var(--ink);
-  cursor: pointer;
   font-size: .88rem;
   font-weight: 700;
 }
-.auth-remember input {
-  width: 1.18rem;
-  height: 1.18rem;
-  margin: 0;
-  accent-color: var(--primary);
-}
+.auth-remember .el-checkbox__label { font-size: .88rem; font-weight: 700; color: var(--ink); }
 
 .auth-form .form-message { grid-column: auto; margin: 0; padding: .59rem .71rem; border-radius: var(--radius-sm); font-size: .85rem; }
 .auth-form .form-message.warning { background: #fff4e0; color: var(--warning); }
@@ -228,7 +207,7 @@
 .auth-switch a { color: var(--primary-dark); font-weight: 700; }
 .auth-note { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.6; text-align: center; }
 
-/* 平板与手机：视觉区收成顶部横幅 */
+/* 平板：视觉区收成顶部横幅 */
 
 @media (max-width: 1000px) {
   .portal { grid-template-columns: minmax(0, 1fr); }
@@ -245,16 +224,6 @@
   .portal-features { margin-top: 14px; }
   .portal-panel { padding: 30px 18px 46px; }
   .portal-panel-inner { max-width: 460px; }
-}
-
-@media (max-width: 560px) {
-  .portal-visual { padding: 22px 20px 24px; }
-  .portal-kicker { margin-bottom: 12px; font-size: .8rem; }
-  .portal-lede,
-  .portal-features { display: none; }
-  .portal-form-card { padding: 22px 18px 24px; }
-  .portal-hero h1 { font-size: 1.85rem; }
-  .auth-form header h2 { font-size: 1.5rem; }
 }
 
 .auth-links-row {

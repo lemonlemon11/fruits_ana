@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import Eye from '@lucide/vue/dist/esm/icons/eye.mjs'
-import EyeOff from '@lucide/vue/dist/esm/icons/eye-off.mjs'
 import { computed, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { ElCheckbox, ElInput } from 'element-plus'
+import 'element-plus/es/components/checkbox/style/css'
+import 'element-plus/es/components/input/style/css'
 
 import { login } from '../api/client'
 import { safeRedirect, setCurrentUser } from '../auth'
@@ -13,7 +14,6 @@ const router = useRouter()
 const form = reactive({ displayName: '', password: '', rememberMe: false })
 const errors = reactive({ displayName: '', password: '' })
 const submitting = ref(false)
-const passwordVisible = ref(false)
 const error = ref('')
 
 const registerLink = computed(() => ({
@@ -52,49 +52,36 @@ async function submit() {
       </header>
       <div class="auth-field">
         <label for="login-username">用户名 / 邮箱</label>
-        <div class="auth-input">
-          <input
-            id="login-username"
-            v-model.trim="form.displayName"
-            type="text"
-            autocomplete="username"
-            maxlength="80"
-            :aria-invalid="Boolean(errors.displayName)"
-            :aria-describedby="errors.displayName ? 'login-username-error' : undefined"
-            autofocus
-          />
-        </div>
+        <ElInput
+          id="login-username"
+          v-model.trim="form.displayName"
+          class="auth-input"
+          :class="{ 'is-error': Boolean(errors.displayName) }"
+          autocomplete="username"
+          maxlength="80"
+          :aria-invalid="Boolean(errors.displayName)"
+          :aria-describedby="errors.displayName ? 'login-username-error' : undefined"
+          autofocus
+        />
         <small v-if="errors.displayName" id="login-username-error" class="field-error">{{ errors.displayName }}</small>
       </div>
       <div class="auth-field">
         <label for="login-password">密码</label>
-        <div class="auth-input has-toggle">
-          <input
-            id="login-password"
-            v-model="form.password"
-            :type="passwordVisible ? 'text' : 'password'"
-            autocomplete="current-password"
-            :aria-invalid="Boolean(errors.password)"
-            :aria-describedby="errors.password ? 'login-password-error' : undefined"
-          />
-          <button
-            class="password-toggle"
-            type="button"
-            :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
-            :aria-pressed="passwordVisible"
-            @click="passwordVisible = !passwordVisible"
-          >
-            <EyeOff v-if="passwordVisible" :size="18" aria-hidden="true" />
-            <Eye v-else :size="18" aria-hidden="true" />
-          </button>
-        </div>
+        <ElInput
+          id="login-password"
+          v-model="form.password"
+          type="password"
+          show-password
+          class="auth-input"
+          :class="{ 'is-error': Boolean(errors.password) }"
+          autocomplete="current-password"
+          :aria-invalid="Boolean(errors.password)"
+          :aria-describedby="errors.password ? 'login-password-error' : undefined"
+        />
         <small v-if="errors.password" id="login-password-error" class="field-error">{{ errors.password }}</small>
       </div>
       <div class="auth-links-row">
-        <label class="auth-remember">
-          <input v-model="form.rememberMe" type="checkbox" :disabled="submitting">
-          <span>30 天内免登录</span>
-        </label>
+        <ElCheckbox v-model="form.rememberMe" class="auth-remember" :disabled="submitting">30 天内免登录</ElCheckbox>
         <RouterLink class="forgot-link" to="/forgot-password">忘记密码？</RouterLink>
       </div>
       <p v-if="noAccess" class="form-message warning" role="alert">当前账号暂未分配菜单，请联系管理员授权后再使用。</p>

@@ -81,6 +81,7 @@ def test_empty_overview_has_stable_shape(client):
         "sales_quantity": 0.0,
         "sales_amount": 0.0,
         "weighted_avg_price": None,
+        "container_count": 0,
     }
     assert body["grades"] == []
     assert body["trend"] == []
@@ -105,6 +106,8 @@ def test_standard_filters_apply_to_overview_numerator_and_denominator(client):
     body = response.json()
 
     assert body["total"]["sales_quantity"] == 8.0
+    # 总柜数口径 = 结算单数（import_batch_id 去重），这里只有 M2 一张结算单。
+    assert body["total"]["container_count"] == 1
     assert [item["grade"] for item in body["grades"]] == ["B"]
     assert body["grades"][0]["sales_quantity"] == 8.0
     assert body["grades"][0]["quantity_share"] == 1.0

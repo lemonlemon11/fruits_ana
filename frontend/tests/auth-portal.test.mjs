@@ -20,11 +20,10 @@ test('登录和注册共用同一个 Portal 骨架', () => {
 })
 
 test('认证页面提供可访问的密码显示切换', () => {
+  // 密码显示切换改由 ElInput 的 show-password 内建眼睛按钮承担。
   for (const view of [login, register]) {
-    assert.match(view, /passwordVisible/)
-    assert.match(view, /显示密码/)
-    assert.match(view, /隐藏密码/)
-    assert.match(view, /aria-pressed/)
+    assert.match(view, /type="password"/)
+    assert.match(view, /show-password/)
   }
 })
 
@@ -48,7 +47,7 @@ test('提交前做字段校验并就近提示', () => {
 
 test('登录页提供默认未勾选的 30 天免登录选项', () => {
   assert.match(login, /rememberMe:\s*false/)
-  assert.match(login, /type="checkbox"/)
+  assert.match(login, /<ElCheckbox v-model="form\.rememberMe"/)
   assert.match(login, /30 天内免登录/)
   assert.match(login, /form\.rememberMe/)
 })

@@ -244,7 +244,7 @@ onBeforeUnmount(() => {
       :grades="gradeBreakdown?.grades ?? []"
       :records="gradeBreakdown?.records ?? []"
       :loading="gradeBreakdownLoading"
-      title="等级销售分析"
+      title="销售分析"
       variant="overview"
       :grade-order="breakdownGradeOrder"
     >
@@ -316,26 +316,11 @@ onBeforeUnmount(() => {
 }
 .alert-pagination button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); }
 .alert-pagination button:disabled { cursor: not-allowed; opacity: .45; }
-.mobile-detail-toggle { display: none; }
-.overview-detail-sections { display: grid; gap: 18px; }
-
 @media (max-width: 1180px) {
   .overview-filter { grid-template-columns: minmax(240px, 1.4fr) minmax(130px, 1fr) minmax(130px, 1fr) auto; }
 }
 
 @media (max-width: 1020px) {
   .overview-trend-layout { grid-template-columns: 1fr; }
-}
-
-@media (min-width: 561px) {
-  .overview-detail-sections { display: grid !important; }
-}
-
-@media (max-width: 560px) {
-  .page-stack { gap: 6px; }
-  .mobile-detail-toggle { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--primary-dark); font-size: .95rem; font-weight: 800; }
-  .overview-detail-sections { gap: 6px; }
-  .overview-grade-summary,
-  .overview-trend-layout > .dashboard-section { padding: 8px; }
 }
 </style>

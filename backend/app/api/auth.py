@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -86,11 +86,23 @@ def _find_user_by_email(db: Session, email: str) -> User | None:
 
 
 def _find_user_by_name_or_email(db: Session, login_id: str) -> User | None:
-    """先按邮箱查，再按用户名查。"""
-    user = _find_user_by_email(db, login_id)
-    if user is not None:
-        return user
-    return _find_user_by_name(db, login_id)
+    """单条 OR 查询同时匹配邮箱或用户名。
+
+    原先「先邮箱后用户名」是两次串行查询；数据库在远程公网时每次往返
+    ~50ms，登录热路径合并为一条。
+    """
+
+    normalized = login_id.strip().lower()
+    return (
+        db.query(User)
+        .filter(
+            or_(
+                func.lower(User.email) == normalized,
+                func.lower(User.display_name) == normalized,
+            )
+        )
+        .first()
+    )
 
 
 def _user_payload(user: User, db: Session) -> dict[str, UserRead]:

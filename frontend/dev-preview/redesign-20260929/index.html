@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>双端重设计 · 三方案选型 · 视觉伴侣</title>
+<style>
+  :root { color-scheme: dark;
+    --bg:#0d1512; --card:#131c17; --line:rgba(255,255,255,.08);
+    --g500:#2fae6b; --g100:rgba(47,174,107,.13);
+    --ink:#e8f0ea; --muted:#93a59b; --faint:#5f7069; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:radial-gradient(900px 400px at 85% -10%, rgba(47,174,107,.1), transparent 60%), var(--bg);
+    color:var(--ink); font-family:"PingFang SC","Microsoft YaHei",sans-serif; }
+  header.bar { position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:10px 18px; background:rgba(10,16,13,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); }
+  header.bar b { font-size:.96rem; } header.bar small { display:block; color:var(--faint); font-size:.68rem; font-weight:700; }
+  .opts { display:flex; gap:4px; margin-left:8px; padding:4px; background:rgba(255,255,255,.07); border-radius:10px; }
+  .opts button { border:0; border-radius:7px; padding:8px 14px; background:transparent; color:var(--muted);
+    font:800 .84rem/1 inherit; cursor:pointer; }
+  .opts button.on { background:#fff; color:#122019; }
+  .back { margin-left:auto; font-size:.78rem; font-weight:800; color:var(--muted); padding:8px 10px; border-radius:8px; }
+  .back:hover { background:rgba(255,255,255,.08); color:var(--ink); }
+  .wrap { display:grid; grid-template-columns:330px minmax(0,1fr); gap:16px; padding:16px 18px 34px; }
+  .cards { display:grid; gap:12px; align-content:start; position:sticky; top:70px; }
+  .opt-card { display:grid; gap:9px; padding:16px; border:1px solid var(--line); border-radius:14px;
+    background:var(--card); cursor:pointer; }
+  .opt-card:hover { border-color:var(--g500); }
+  .opt-card.on { border-color:var(--g500); background:linear-gradient(140deg, var(--g100), var(--card) 60%); }
+  .opt-card .badge { display:flex; align-items:center; gap:10px; }
+  .opt-card .letter { width:34px; height:34px; border-radius:10px; display:grid; place-items:center;
+    font-weight:900; font-size:1rem; color:#fff; }
+  .opt-card b { font-size:.98rem; }
+  .opt-card small { display:block; color:var(--faint); font-size:.68rem; font-weight:700; margin-top:2px; }
+  .opt-card p { font-size:.78rem; color:var(--muted); line-height:1.65; }
+  .pros { display:flex; flex-wrap:wrap; gap:5px; }
+  .pros span { font-size:.68rem; font-weight:800; padding:4px 9px; border-radius:99px;
+    background:rgba(255,255,255,.06); color:var(--muted); }
+  .pros span.good { background:var(--g100); color:var(--g500); }
+  .frame { border:7px solid #1c2a23; border-radius:16px; overflow:hidden; background:#fff;
+    box-shadow:0 30px 70px -24px rgba(0,0,0,.7); }
+  .frame iframe { width:100%; height:calc(100vh - 120px); min-height:600px; border:0; display:block; }
+  .tip { margin:0 0 10px; font-size:.78rem; color:var(--muted); line-height:1.7; }
+  .tip b { color:var(--ink); }
+  @media (max-width:1000px) { .wrap { grid-template-columns:minmax(0,1fr); } .cards { position:static; display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); } }
+</style>
+</head>
+<body>
+<header class="bar">
+  <span><b>布局重设计 · 三方案选型</b><small>2026-09-29 第三场评审会：数据看板 O/P/Q（突出重点数据 · 仅桌面）+ 前两场 I/J/K、L/M/N 存档</small></span>
+  <nav class="opts" id="opts">
+    <button data-v="variant-o.html" class="on">★ 方案 O 通栏大数带 · 看板定稿</button>
+    <button data-v="variant-p.html">方案 P 答案卡阵 · 看板定稿</button>
+    <button data-v="variant-q.html">方案 Q 结论长卷 · 看板定稿</button>
+    <button data-v="variant-l.html">方案 L 贴线精修 · 第二场存档</button>
+    <button data-v="variant-m.html">方案 M 紧凑工作台 · 第二场存档</button>
+    <button data-v="variant-n.html">方案 N 舒展分区 · 第二场存档</button>
+    <button data-v="variant-i.html">方案 I 掌柜账单 · 第一场存档</button>
+    <button data-v="variant-j.html">方案 J 打印台账 · 第一场存档</button>
+    <button data-v="variant-k.html">方案 K 图表报告 · 第一场存档</button>
+  </nav>
+</header>
+
+<div class="wrap">
+  <aside class="cards" id="cards">
+    <div class="opt-card on" data-v="variant-o.html">
+      <span class="badge"><span class="letter" style="background:linear-gradient(140deg,#1f7a52,#0d3a26)">O</span>
+        <span><b>通栏大数带 ★ 第三场定稿</b><small>数据看板 · 一条数字带回答本页问题</small></span></span>
+      <p>第三场定稿①（数据看板方向）：打开总览第一眼是<b>一条通栏数字带</b>——¥8,008,442.99 以约 2.25rem
+      深墨绿压住整页（29,771 件与均价 ¥269.00 同带次档），紧接约 300px <b>通栏趋势主图</b>（每日金额折线），
+      0.5 秒内同时回答「卖得怎么样」与「趋势如何」；结构分解（等级/市场/品牌）次之，明细表格后置弱化。
+      左侧菜单、线上实测数据、仅桌面端。</p>
+      <div class="pros"><span class="good">重点最突出</span><span class="good">通栏主图</span><span>看板范式</span><span>仅桌面</span></div>
+    </div>
+    <div class="opt-card" data-v="variant-p.html">
+      <span class="badge"><span class="letter" style="background:linear-gradient(140deg,#2f6f8f,#16323c)">P</span>
+        <span><b>答案卡阵 ★ 第三场定稿</b><small>数据看板 · 2×2 大卡一屏尽览</small></span></span>
+      <p>第三场定稿②：打开总览第一眼是<b>一组 2×2 答案大卡</b>——每张卡用一句短语标签加一个约 2rem
+      大数字直接回答一个问题（这批卖多少／哪个等级赚钱／趋势怎样／哪个市场品牌走得动），
+      1366×768 一屏尽览不用滚动；趋势图与结构分解随后，明细后置。左侧菜单、线上实测数据、仅桌面端。</p>
+      <div class="pros"><span class="good">一屏尽览</span><span class="good">问题式组织</span><span>看板范式</span><span>仅桌面</span></div>
+    </div>
+    <div class="opt-card" data-v="variant-q.html">
+      <span class="badge"><span class="letter" style="background:linear-gradient(140deg,#8f5a2f,#4a2c12)">Q</span>
+        <span><b>结论长卷 ★ 第三场定稿</b><small>数据看板 · 逐屏一问一答</small></span></span>
+      <p>第三场定稿③：打开总览第一眼是<b>一句结论</b>「这批共卖出 29,771 件、合计 ¥8,008,442.99、平均每件
+      ¥269.00」带着大数字，之后<b>每滚动一屏回答一个核心问题</b>（趋势→等级→市场品牌→明细），
+      像一份逐页读得懂的报告。左侧菜单、线上实测数据、仅桌面端。</p>
+      <div class="pros"><span class="good">结论先行</span><span class="good">阅读感强</span><span>看板范式</span><span>仅桌面</span></div>
+    </div>
+    <div class="opt-card" data-v="variant-l.html">
+      <span class="badge"><span class="letter" style="background:linear-gradient(140deg,#2f7d57,#14382a)">L</span>
+        <span><b>贴线精修 · 第二场存档</b><small>线上现状零结构改动 · 只落共识令牌</small></span></span>
+      <p>第二场定稿①（线上内容重排版 · 三案最低风险保底版）：<b>结构、密度、导航形态全部照旧</b>，
+      只把三方两轮共识逐条落到线上现状——一层白卡（total-strip / chart-block / market-chart 全部去内层描边）、
+      规格表深墨绿表头/合计行并入浅色方言、数字三级 hero 1.7 / block 1.2 / cell .95rem、文字五档 14px 硬底线、
+      圆角三档 4/6/999、AI 卡去左边条降为安静辅助区、页签保浅绿底仅去绿描边、label 保墨色降半档 .95rem。
+      DOM 与五页区块顺序零变化，每条规则可单独回滚。</p>
+      <div class="pros"><span class="good">风险最低</span><span class="good">逐条可回滚</span><span>贴线验收</span><span>PM 立场优先</span></div>
+    </div>
+    <div class="opt-card" data-v="variant-m.html">
+      <span class="badge"><span class="letter" style="background:linear-gradient(140deg,#3a7a8f,#16323c)">M</span>
+        <span><b>紧凑工作台 · 第二场存档</b><small>单屏密度推广全站 · chrome ~104px</small></span></span>
+      <p>第二场定稿②：把结算单列表页的「单屏工作台」密度推广到全站——header 3.3rem＋页签 2.82rem（<b>全部 rem 落地</b>，
+      特大字号档不裁字）、控件 44/36 两级、间距全站 12px 单档、<b>无边浮卡＋1px 发丝线</b>（卡内仍禁第二层框）、
+      KPI 改开放式排版（标签小字＋1.7rem 数字＋列间发丝线）、页签降中性胶囊去绿底，实心墨绿只属于侧栏激活与查询主按钮，
+      1080p 首屏装下筛选＋KPI 条＋图表行三段。</p>
+      <div class="pros"><span class="good">首屏密度</span><span class="good">工具气质</span><span>页签中性胶囊</span><span>rem 缩放兜底</span></div>
+    </div>
+    <div class="opt-card" data-v="variant-n.html">
+      <span class="badge"><span class="letter" style="background:linear-gradient(140deg,#1e7a4e,#123527)">N</span>
+        <span><b>舒展分区 · 第二场存档</b><small>三层底色 · 深色侧栏 · 限宽栅格</small></span></span>
+      <p>第二场定稿③（内容与顺序零改动前提下的最大胆排版重排）：<b>深墨绿侧栏</b>（全站唯一深色面，激活亮一档 primary＋左侧 3px 内标）→
+      加深一档灰绿页底（#eef3ef→#e6ede8）→ 纯白浮卡三层底色体系；hero 数字放大 1.8rem（金额锚点 1.4rem＋primary-dark）、
+      内容限宽 1720px 居中、页级间距 24px 舒展节奏、页签改墨字粗体＋2px 主色下边线芯片；「让最重的颜色表示我在哪」推到导航本身，
+      每页一眼一个结论。</p>
+      <div class="pros"><span class="good">视觉刷新</span><span class="good">答案先行</span><span>深色侧栏</span><span>限宽阅读</span></div>
+    </div>
+    <div class="opt-card" data-v="variant-i.html">
+      <span class="badge"><span class="letter" style="background:linear-gradient(140deg,#c9962e,#6e4f0e)">I</span>
+        <span><b>掌柜账单 · 第一场存档</b><small>微信账单心智 · 唯一深色报告头</small></span></span>
+      <p>2026-09-29 评审会议定稿①：<b>微信账单／手机银行心智的「大数字少层级」账单版</b>——满宽深墨绿报告头一屏给结论
+      （800.84 万 48px 大字＋结论句＋带数字要点，200px 内答三问），其余全白细线；单层顶栏大白话导航
+      （卖得怎么样／每一单／品牌对比／录单），无侧栏无页签；A/B 果改<b>金额对照行</b>（¥546.9 万／¥253.9 万 · 待接口字段）；
+      详情页竖式收支单、应付金额最大字号；录单带实时小结回执。服务不常上网的果农。</p>
+      <div class="pros"><span class="good">结论最快</span><span class="good">账单心智</span><span>层级最少</span><span>果农优先</span></div>
+    </div>
+    <div class="opt-card" data-v="variant-j.html">
+      <span class="badge"><span class="letter" style="background:linear-gradient(140deg,#5d6b7a,#2f3945)">J</span>
+        <span><b>打印台账 · 第一场存档</b><small>纸质台账心智 · 全边框可打印</small></span></span>
+      <p>评审会议定稿②：<b>纸质台账／Excel 心智的全边框密表版</b>，结论即表格——全站 1px 全边框线网格、零圆角零阴影零底色行；
+      44px 细线顶栏＋36px 页签两层；报表头带「打印」按钮与 @media print 样式，<b>黑白打印可对账</b>；行高 32px 密度全站最高；
+      列表页补金额／均价列＋市场分组小计。PM 定调：「不美观的解法是秩序而不是装饰」。</p>
+      <div class="pros"><span class="good">打印对账</span><span class="good">密度最高</span><span>秩序感</span><span>核账信任</span></div>
+    </div>
+    <div class="opt-card" data-v="variant-k.html">
+      <span class="badge"><span class="letter" style="background:linear-gradient(140deg,#b0392f,#5f1c16)">K</span>
+        <span><b>图表报告 · 第一场存档</b><small>瑞士规则线 × 图表主视觉</small></span></span>
+      <p>评审会议定稿③：<b>瑞士规则线×现代 BI 的图表主视觉报告版</b>——总览三段式（结论层→趋势层→明细层）＋段标眉标＋三档间距；
+      无卡墙细分隔线分区（全站圆角仅控件 6px）；每日折线升 260~280px 唯一主视觉、等级环图例即 A/B 拆分层；
+      <b>每个关键数字自带基准</b>（vs 上一柜／vs 本期大盘）；补 1280~1440 中屏断点与勾选对比 (n/6) 批量工作流。贸易商与重度分析用户。</p>
+      <div class="pros"><span class="good">图表主视觉</span><span class="good">自带基准</span><span>三段式动线</span><span>响应式三档</span></div>
+    </div>
+    <p class="tip">第三场三套均为<b>数据看板范式</b>：内容与数值严格来自线上 53000 实测，菜单在左、仅桌面端。选定后按所选方案落地到 frontend/src。注：更早的 A–H 存档与方向罗盘文件已因 09-29 误删事故丢失（纪要第六节），入口已移除。</p>
+  </aside>
+  <main>
+    <div class="frame"><iframe id="frame" src="variant-o.html" title="方案预览"></iframe></div>
+  </main>
+</div>
+<script>
+const frame = document.getElementById('frame');
+function pick(v) {
+  document.querySelectorAll('[data-v]').forEach(n => n.classList.toggle('on', n.dataset.v === v));
+  frame.src = v;
+}
+document.getElementById('opts').addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]'); if (b) pick(b.dataset.v);
+});
+document.getElementById('cards').addEventListener('click', e => {
+  const c = e.target.closest('.opt-card[data-v]'); if (c) pick(c.dataset.v);
+});
+</script>
+</body>
+</html>

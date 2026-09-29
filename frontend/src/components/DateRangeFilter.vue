@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ElConfigProvider, ElDatePicker } from 'element-plus'
+import { ElConfigProvider, ElDatePicker, ElOption, ElOptionGroup, ElSelect } from 'element-plus'
 import 'element-plus/es/components/config-provider/style/css'
 import 'element-plus/es/components/date-picker/style/css'
+import 'element-plus/es/components/option/style/css'
+import 'element-plus/es/components/select/style/css'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 
 import {
   monthBounds,
   monthOptionLabel,
+  periodBoundsForOption,
+  recentBounds,
+  RECENT_DAY_OPTIONS,
   yearBounds,
   yearOptionLabel,
 } from '../utils/salePeriods.ts'
@@ -20,8 +25,8 @@ const props = defineProps<{
   /** 数据驱动快捷选项：有销售记录的月份（如 2026-09）。 */
   months?: string[]
   /**
-   * 起止日期等于年/月自然边界时是否自动回显对应方式；默认开启。
-   * 关闭后方式只随用户在方式下拉/快捷选项里的选择变化，
+   * 起止日期等于某快捷选项边界时是否自动回显该选项；默认开启。
+   * 关闭后选项只随用户在下拉里的选择变化，
    * 用于「默认停在自定义时间 + 预填当年起止」的场景（卖得怎么样）。
    */
   autoMatchMode?: boolean
@@ -30,17 +35,14 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:startDate': [value: string]
   'update:endDate': [value: string]
-  /** 年度/月度选项选中后触发；此时起止日期已同步更新，父级可直接刷新查询。 */
+  /** 快捷选项选中后触发；此时起止日期已同步更新，父级可直接刷新查询。 */
   change: []
 }>()
 
 const root = ref<HTMLElement | null>(null)
 
-/** 时间筛选三种方式：按年度 / 按月度 / 自定义时间。 */
-type QuickMode = 'year' | 'month' | 'custom'
-const mode = ref<QuickMode>('custom')
-const yearValue = ref('')
-const monthValue = ref('')
+/** 快捷选项值：`custom`（默认）/ `recent:7` / `year:2026` / `month:2026-09`。 */
+const quickValue = ref('custom')
 
 // 年度选项 = 数据年份 ∪ 当前年份（降序去重），保证无数据时也能选今年。
 const yearOptions = computed(() => {
@@ -63,8 +65,8 @@ const range = computed<[string, string] | null>({
   },
 })
 
-// 起止日期等于某个年/月自然边界时，控件回显对应方式与选项；否则视为自定义。
-// autoMatchMode 关闭时不做该回显（方式保持用户所选/初始值），供默认自定义+预填日期的页面使用。
+// 起止日期等于某个快捷选项边界时，下拉回显该选项；否则回到「自定义时间」。
+// autoMatchMode 关闭时不做该回显（选项保持用户所选/初始值），供默认自定义+预填日期的页面使用。
 watch(
   () => [props.startDate, props.endDate, yearOptions.value, monthOptions.value],
   () => {
@@ -76,8 +78,7 @@ watch(
         (year) => yearBounds(year).start === start && yearBounds(year).end === end,
       )
       if (matchedYear) {
-        mode.value = 'year'
-        yearValue.value = String(matchedYear)
+        quickValue.value = `year:${matchedYear}`
         return
       }
       const matchedMonth = monthOptions.value.find((month) => {
@@ -85,12 +86,19 @@ watch(
         return bounds !== null && bounds.start === start && bounds.end === end
       })
       if (matchedMonth) {
-        mode.value = 'month'
-        monthValue.value = matchedMonth
+        quickValue.value = `month:${matchedMonth}`
+        return
+      }
+      const matchedRecent = RECENT_DAY_OPTIONS.find((option) => {
+        const bounds = recentBounds(option.days)
+        return bounds !== null && bounds.start === start && bounds.end === end
+      })
+      if (matchedRecent) {
+        quickValue.value = `recent:${matchedRecent.days}`
         return
       }
     }
-    if (mode.value !== 'custom') mode.value = 'custom'
+    if (quickValue.value !== 'custom') quickValue.value = 'custom'
   },
   { immediate: true },
 )
@@ -101,30 +109,10 @@ function applyBounds(start: string, end: string) {
   emit('change')
 }
 
-function onModeChange() {
-  // 只切换展示方式不改日期；年度/月度选中具体选项（或自定义里手动改日期）才触发查询。
-  if (mode.value === 'year' && yearValue.value) {
-    const bounds = yearBounds(Number(yearValue.value))
-    if (props.startDate !== bounds.start || props.endDate !== bounds.end) {
-      applyBounds(bounds.start, bounds.end)
-    }
-  } else if (mode.value === 'month' && monthValue.value) {
-    const bounds = monthBounds(monthValue.value)
-    if (bounds && (props.startDate !== bounds.start || props.endDate !== bounds.end)) {
-      applyBounds(bounds.start, bounds.end)
-    }
-  }
-}
-
-function onYearChange() {
-  if (!yearValue.value) return
-  const bounds = yearBounds(Number(yearValue.value))
-  applyBounds(bounds.start, bounds.end)
-}
-
-function onMonthChange() {
-  if (!monthValue.value) return
-  const bounds = monthBounds(monthValue.value)
+function onQuickChange() {
+  // 选中快捷选项即把区间写入右侧日历并触发查询；「自定义时间」由用户在日历里手动选择。
+  if (quickValue.value === 'custom') return
+  const bounds = periodBoundsForOption(quickValue.value)
   if (bounds) applyBounds(bounds.start, bounds.end)
 }
 </script>
@@ -133,41 +121,29 @@ function onMonthChange() {
   <div ref="root" class="date-range-filter">
     <span class="date-range-label">销售日期</span>
     <div class="date-range-control">
-      <select
-        v-model="mode"
-        class="date-range-mode"
-        aria-label="时间筛选方式"
-        @change="onModeChange"
-      >
-        <option value="year">按年度</option>
-        <option value="month">按月度</option>
-        <option value="custom">自定义时间</option>
-      </select>
-      <select
-        v-if="mode === 'year'"
-        v-model="yearValue"
+      <ElSelect
+        v-model="quickValue"
         class="date-range-quick"
-        aria-label="选择年度"
-        @change="onYearChange"
+        aria-label="时间快捷选项"
+        @change="onQuickChange"
       >
-        <option v-if="!yearOptions.length" value="" disabled>暂无年度</option>
-        <option v-for="item in yearOptions" :key="`year-${item}`" :value="String(item)">
-          {{ yearOptionLabel(item) }}
-        </option>
-      </select>
-      <select
-        v-else-if="mode === 'month'"
-        v-model="monthValue"
-        class="date-range-quick"
-        aria-label="选择月度"
-        @change="onMonthChange"
-      >
-        <option v-if="!monthOptions.length" value="" disabled>暂无月度</option>
-        <option v-for="item in monthOptions" :key="`month-${item}`" :value="item">
-          {{ monthOptionLabel(item) }}
-        </option>
-      </select>
-      <ElConfigProvider v-else :locale="zhCn">
+        <ElOption value="custom" label="自定义时间" />
+        <ElOptionGroup label="快捷区间">
+          <ElOption
+            v-for="item in RECENT_DAY_OPTIONS"
+            :key="`recent-${item.days}`"
+            :value="`recent:${item.days}`"
+            :label="item.label"
+          />
+        </ElOptionGroup>
+        <ElOptionGroup v-if="yearOptions.length" label="按年度">
+          <ElOption v-for="item in yearOptions" :key="`year-${item}`" :value="`year:${item}`" :label="yearOptionLabel(item)" />
+        </ElOptionGroup>
+        <ElOptionGroup v-if="monthOptions.length" label="按月度">
+          <ElOption v-for="item in monthOptions" :key="`month-${item}`" :value="`month:${item}`" :label="monthOptionLabel(item)" />
+        </ElOptionGroup>
+      </ElSelect>
+      <ElConfigProvider :locale="zhCn">
         <ElDatePicker
           v-model="range"
           type="daterange"
@@ -206,33 +182,25 @@ function onMonthChange() {
   align-items: stretch;
 }
 
-/* 方式下拉固定宽度；年/月下拉与日期范围选择器都吃满剩余行宽——
-   切换不同选项（如 2026年 / 2026年9月）或切换方式时输入框长度保持不变。
-   width:auto 覆盖全局 .filter-bar select 的 100%，避免与 flex 撑宽叠加。 */
-.date-range-mode {
+/* 快捷下拉固定宽度（覆盖全局 .filter-bar select 的 100%），日期范围选择器吃满剩余行宽。 */
+.date-range-quick {
   flex: 0 0 auto;
-  width: auto;
-  min-width: 6.4rem;
-  min-height: 3.06rem;
-  padding: 0 .55rem;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
+  width: 11rem;
 }
 
-.date-range-quick {
-  flex: 1 1 auto;
-  width: auto;
-  min-width: 7.2rem;
+.date-range-quick :deep(.el-select__wrapper) {
   min-height: 3.06rem;
-  padding: 0 .55rem;
+  padding: 0 .65rem;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);
+  box-shadow: none;
+  font-size: 1.05rem;
+}
+
+.date-range-quick :deep(.el-select__placeholder),
+.date-range-quick :deep(.el-select__selected-item) {
   color: var(--ink);
-  font: inherit;
 }
 
 .date-range-picker {

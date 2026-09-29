@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 258 64" role="img" aria-label="方案一组合标：三色果柱">
+  <rect width="64" height="64" rx="15" fill="#17663f"/>
+  <rect x="12" y="54" width="40" height="2.6" rx="1.3" fill="#dcece2" opacity="0.85"/>
+  <rect x="12" y="37.5" width="11" height="15.5" rx="3.4" fill="#e58a7c"/>
+  <rect x="26.5" y="26.5" width="11" height="26.5" rx="3.4" fill="#f0c163"/>
+  <rect x="41" y="15.5" width="11" height="37.5" rx="3.4" fill="#8fd3a8"/>
+  <path d="M47.5 15.5c0-6.6 4.6-11 11-11 0 7-4.6 11-11 11z" fill="#ffffff"/>
+  <text x="78" y="31" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif" font-size="19" font-weight="800" fill="#104a2f" letter-spacing="1.5">水果市场销售分析</text>
+  <text x="78.5" y="49" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif" font-size="10" font-weight="500" fill="#5f7a6c" letter-spacing="2.5">分好级，卖好价</text>
+</svg>

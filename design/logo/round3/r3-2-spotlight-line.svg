@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="顺立达方案二：高光折线">
+  <path d="M8 54 H56" stroke="#17663f" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+  <path d="M16 40 H48" stroke="#17663f" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 4" opacity="0.18"/>
+  <circle cx="48" cy="13" r="9.4" fill="none" stroke="#e58a7c" stroke-width="1.6" opacity="0.45"/>
+  <path d="M24 46 C30 48, 33 44, 36 38 C39 32, 42 30, 45.5 23" fill="none" stroke="#17663f" stroke-width="4" stroke-linecap="round"/>
+  <g fill="#17663f">
+    <polygon points="15,34.5 12.3,38.4 17.7,38.4"/>
+    <polygon points="15,34.5 12.3,38.4 17.7,38.4" transform="rotate(45 15 45)"/>
+    <polygon points="15,34.5 12.3,38.4 17.7,38.4" transform="rotate(90 15 45)"/>
+    <polygon points="15,34.5 12.3,38.4 17.7,38.4" transform="rotate(135 15 45)"/>
+    <polygon points="15,34.5 12.3,38.4 17.7,38.4" transform="rotate(180 15 45)"/>
+    <polygon points="15,34.5 12.3,38.4 17.7,38.4" transform="rotate(225 15 45)"/>
+    <polygon points="15,34.5 12.3,38.4 17.7,38.4" transform="rotate(270 15 45)"/>
+    <polygon points="15,34.5 12.3,38.4 17.7,38.4" transform="rotate(315 15 45)"/>
+    <circle cx="15" cy="45" r="7.5"/>
+  </g>
+  <circle cx="15" cy="45" r="3.8" fill="#ffd93f"/>
+  <polygon points="43.8,15.6 48,22 52.2,15.6" fill="#e58a7c"/>
+  <circle cx="48" cy="13" r="6.2" fill="#e58a7c"/>
+  <circle cx="48" cy="13" r="2.6" fill="#f7faf8"/>
+</svg>

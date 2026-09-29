@@ -19,10 +19,17 @@ class ORMModel(BaseModel):
 
 
 class SidebarMenuRead(ORMModel):
-    """业务端侧边导航条目：名称与图标由管理端菜单维护。"""
+    """业务端侧边导航条目：名称与图标由管理端菜单维护。
 
-    route_path: str
+    ``directory`` 条目（一级菜单）没有 ``route_path``，业务端按 ``parent_id``
+    组装「一级分组 + 子菜单」的两级导航。
+    """
+
+    id: int
+    route_path: str | None = None
     name: str
+    parent_id: int | None = None
+    menu_type: str = "menu"
     icon: str | None = None
     permission_code: str | None = None
     sort_order: int = 0

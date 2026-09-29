@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 172 64" role="img" aria-label="顺立达组合标：环形干线">
+  <circle cx="32" cy="34" r="19" fill="none" stroke="#17663f" stroke-width="6.5" stroke-dasharray="104.7 14.7" transform="rotate(-40.9 32 34)"/>
+  <path d="M27 52.6 L20.9 49.8" stroke="#f7faf8" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M21 49.8 L16.2 45.1" stroke="#f7faf8" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M16.2 39 L13.4 45.1" stroke="#f7faf8" stroke-width="1.6" stroke-linecap="round"/>
+  <g fill="#17663f">
+    <polygon points="32,22.5 28.6,28 35.4,28"/>
+    <polygon points="32,22.5 28.6,28 35.4,28" transform="rotate(45 32 34)"/>
+    <polygon points="32,22.5 28.6,28 35.4,28" transform="rotate(90 32 34)"/>
+    <polygon points="32,22.5 28.6,28 35.4,28" transform="rotate(135 32 34)"/>
+    <polygon points="32,22.5 28.6,28 35.4,28" transform="rotate(180 32 34)"/>
+    <polygon points="32,22.5 28.6,28 35.4,28" transform="rotate(225 32 34)"/>
+    <polygon points="32,22.5 28.6,28 35.4,28" transform="rotate(270 32 34)"/>
+    <polygon points="32,22.5 28.6,28 35.4,28" transform="rotate(315 32 34)"/>
+    <circle cx="32" cy="34" r="7.8"/>
+  </g>
+  <circle cx="32" cy="34" r="4.1" fill="#ffd93f"/>
+  <polygon points="40.3,15.7 33.3,11.5 34.6,18.9" fill="#17663f"/>
+  <text x="78" y="34" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif" font-size="25" font-weight="900" fill="#104a2f" letter-spacing="2">顺立达</text>
+  <text x="78.5" y="50" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif" font-size="9" font-weight="500" fill="#5f7a6c" letter-spacing="4">SHUNLIDA</text>
+</svg>

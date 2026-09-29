@@ -84,19 +84,4 @@ h1 {
   color: var(--text-secondary, var(--muted));
 }
 
-@media (max-width: 820px) {
-  .welcome-lobby {
-    min-height: calc(100dvh - var(--app-header-height) - var(--mobile-tabbar-height) - 5rem);
-    padding-top: clamp(4rem, 15vh, 7rem);
-  }
-
-  .welcome-kicker {
-    font-size: .72rem;
-    letter-spacing: .11em;
-  }
-
-  h1 {
-    font-size: clamp(1.65rem, 8vw, 2.35rem);
-  }
-}
 </style>

@@ -6,6 +6,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app/backend
 
+# 结算单 PDF 由 PIL 渲染图片生成，容器内需要中文（Noto CJK）字体。
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY backend/pyproject.toml ./
 COPY backend/app ./app
 COPY backend/scripts ./scripts

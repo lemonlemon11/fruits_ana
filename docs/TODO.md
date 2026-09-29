@@ -1,7 +1,216 @@
 # TODO
 
+> 已完成（2026-09-29）：第三场布局评审会（数据看板 O/P/Q）+ 误删事故恢复。用户定调
+> 「数据看板思维、突出重点数据」→ 三套看板方案：O「通栏大数带」、P「答案卡阵」、
+> Q「结论长卷」（重点数据 hero 化/图表优先/明细后置，菜单左侧、仅桌面、实测数据）。
+> 同日发生 frontend 误删事故（清理嵌套符号链接目录跟随链接误删），git/构建/artifact/
+> /tmp 快照多路恢复：线上 53000 已恢复，设计稿 i–q 与纪要齐（A–H 历史存档不可恢复，
+> 入口已移除），详情见 HANDOFF 同日事故条目。**待办（设计）：用户从 O/P/Q 选型后落地
+> （仅桌面端）**。
+
 > 规则：只保留尚未完成的事项；完成后删除条目并在此留下简短留档。
 > 最后更新：2026-09-29
+
+> 已完成（2026-09-29）：侧栏一级菜单分组**支持收起 / 展开，默认展开**——分组标题改为
+> 可点击按钮（箭头指示、aria-expanded），折叠状态仅会话内记忆；图标收起模式与无标题
+> 一级入口行为不变。308 test / typecheck / build 通过（本会话无浏览器后端，交互以
+> 53001 实开点检为准）。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 待办（设计）：用户从第四轮 Logo 方案（`design/logo/round4/preview.html`，专业质感系列；
+> 前三轮归档于 design/logo/ 与 round2/、round3/）中选定后落地——重写 `BrandMark.vue`
+> （solid/inverse 同步）、替换 `public/favicon.svg`、字标换授权字体转曲线、补单色/反白版、
+> 登录页 hero 视方案调整；apple-touch-icon 遵循 ADR-052 默认不恢复；53003 静态服务用后即停。
+
+> 已完成（2026-09-29，第四轮）：**专业质感系列四方案 Logo**（`design/logo/round4/`：8 SVG +
+> preview.html）——去卡通/去塑料（深绿色阶+米白+香槟金，金色只给重点数据元素）。推荐「负形
+> 锯冠」为主标。导航 index.html 与 MEETING.md 已同步；53003 端口在线呈现。未改任何代码，
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：结算单列表**全列居中 + 分页靠右**——所有列（含动态等级列、
+> 操作列按钮组）表头与内容居中；分页 footer 与 ElPagination 改 flex-end（推翻旧
+> 「靠左避让顺仔」决策，实测仅 4px 角部相蹭不影响点击）。308 test / typecheck /
+> build 通过；浏览器：表头 12/12、单元格 120/120 居中，1440/1366/1280 复检全过。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 待办（设计）：用户从第三轮 Logo 方案（`design/logo/round3/preview.html`，数据看板思维×
+> 视觉伴侣；前两轮归档于 `design/logo/` 与 `round2/`）中选定后落地——重写 `BrandMark.vue`
+> （solid/inverse 同步）、替换 `public/favicon.svg`、中文授权字体转曲线、补单色/反白版、
+> 登录页 hero 视方案调整；apple-touch-icon 遵循 ADR-052 默认不恢复。
+
+> 已完成（2026-09-29，第三轮）：**「数据看板思维 × 视觉伴侣」四方案 Logo**（
+> `design/logo/round3/`：8 SVG + preview.html 主角-伴侣对照表）。重点数据做主角（箭头/
+> 高亮点/仪表/¥），榴莲+物流+顺立达字标做伴侣。推荐方案二「高光折线」为主标。未改任何
+> 代码，详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：结算单列表**移除「柜号」列**（caption 同步；腾出 ~146px，
+> 1920~1366 全档铺满零溢出）+ 顺带修复 fitWidth 多轮分配压破表头下限的回归
+> （每轮按剩余可压量封顶，新增真实输入回归测试）。308 test / typecheck / build
+> 通过；浏览器 8/8；element-plus 桌面 21 项全过。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 待办（设计）：用户从第二轮 Logo 方案（`design/logo/round2/preview.html`，顺立达×榴莲×
+> 物流三合一；第一轮已归档）中选定后落地——重写 `BrandMark.vue`（solid/inverse 同步）、
+> 替换 `public/favicon.svg`、中文授权字体转曲线、补单色/反白版、登录页 hero 视方案调整；
+> apple-touch-icon 遵循 ADR-052 默认不恢复。
+
+> 已完成（2026-09-29，第二轮）：**按「顺立达 × 榴莲 × 物流」重做四方案 Logo**（
+> `design/logo/round2/`：8 SVG + preview.html 三要素对照表）。第一轮被用户整体否决后归档
+> 于 `design/logo/` 根目录。推荐方案一「顺达航线」为主标、方案三「达字果标」为门头/商标
+> 组合。未改任何代码，详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：第二场布局评审会议 · L/M/N 三套（线上内容重排版）。内容基准＝
+> tmp/live53000/ 线上 53000 实测（11 份 JSON+README，gitignore）+ views 源码；铁律＝菜单
+> 保留左侧、只做排版样式、禁止外来叙事。产出 variant-l「贴线精修」（低风险保底）、
+> variant-m「紧凑工作台」（密度推广全站）、variant-n「舒展分区」（大胆重排：深墨绿侧栏
+> +三层底色+答案数字放大）；三稿已按用户要求移除手机端切换（手机端有单独项目）；
+> 选型页默认 variant-l；纪要 review-meeting-20260929-round2.md。机器检查+质检内容基准
+> 一致性均通过。**待办（设计）：用户从 L/M/N 选型后落地到 frontend/src（仅桌面端）**。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：第二场布局评审会议 · L/M/N 三套（线上内容重排版）。内容基准＝
+> tmp/live53000/ 线上 53000 实测（11 份 JSON+README，gitignore）+ views 源码；铁律＝菜单
+> 保留左侧、只做排版样式、禁止外来叙事。产出 variant-l「贴线精修」（低风险保底）、
+> variant-m「紧凑工作台」（密度推广全站）、variant-n「舒展分区」（大胆重排：深墨绿侧栏
+> +三层底色+答案数字放大）；三稿已按用户要求移除手机端切换（手机端有单独项目）；
+> 选型页默认 variant-l；纪要 review-meeting-20260929-round2.md。机器检查+质检内容基准
+> 一致性均通过。**待办（设计）：用户从 L/M/N 选型后落地到 frontend/src（仅桌面端）**。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：第二场布局评审会议 · L/M/N 三套（线上内容重排版）。内容基准＝
+> tmp/live53000/ 线上 53000 实测（11 份 JSON+README，gitignore）+ views 源码；铁律＝菜单
+> 保留左侧、只做排版样式、禁止外来叙事。产出 variant-l「贴线精修」（低风险保底）、
+> variant-m「紧凑工作台」（密度推广全站）、variant-n「舒展分区」（大胆重排：深墨绿侧栏
+> +三层底色+答案数字放大）；三稿已按用户要求移除手机端切换（手机端有单独项目）；
+> 选型页默认 variant-l；纪要 review-meeting-20260929-round2.md。机器检查+质检内容基准
+> 一致性均通过。**待办（设计）：用户从 L/M/N 选型后落地到 frontend/src（仅桌面端）**。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 待办（设计）：用户从四个 Logo 方案（`design/logo/preview.html`）中选定后落地——重写
+> `BrandMark.vue`（solid/inverse 同步）、替换 `public/favicon.svg`、中文字标换授权字体并
+> 转曲线、补单色/反白版、登录页 hero 视方案调整；apple-touch-icon 遵循 ADR-052 默认不恢复。
+
+> 已完成（2026-09-29）：**品牌 Logo 设计讨论会产出四方案设计稿**（`design/logo/`：8 个
+> SVG + preview.html + MEETING.md 会议纪要）。四角色评审（设计师/产品经理/果农用户代表/
+> 前端）；推荐方案三「榴莲切面占比环」为主标、方案四「顺仔徽章」为营销资产；SLD 字母
+> 不进主标。未改任何代码，详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：结算单列表**操作按钮被裁修复**——并行改动把操作列拆成两枚
+> 按钮（自然宽 ~134px）超出 136px 列宽被裁；列宽 136→184px，全屏宽按钮零裁切，
+> 宽屏铺满无滚动、窄屏（≤1440）回退滚动+冻结。307 test / typecheck / build 通过；
+> 浏览器 6/6 + fit-width 复检 15/15（verify_element_plus 旧脚本 21/24，3 项 390px
+> 移动检查在 ADR-052 后过时非回归）。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29，ADR-052）：**删除本站全部手机端功能**（手机端由独立移动版承担，
+> 保留 index.html UA 跳转桥接）。删 styles-mobile.css/底部 tabbar/「更多」面板/
+> DataTable 窄屏卡片回退/顺仔软键盘适配/各页 ≤820px 断点/apple-touch-icon；保留全部
+> ≥860px 窄桌面断点与 821 侧栏收起。前端 307 test（-17 纯手机断言）/typecheck/build
+> 通过；1920+1440 双宽度 12 页改前后截图像素比对零布局变化（差异仅时钟与吉祥物动画）。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 待办（用户侧，手册收口时一并处理）：功能说明书/用户操作手册（md + docx）中关于
+> 手机端底部导航、手机卡片视图、手机分区折叠的章节需同步删除/改写为「手机端跳转
+> 独立移动版」（本轮按既有惯例未改 docx）。
+
+> 已完成（2026-09-29）：销售对比页紧凑化——总览表单行居中紧凑（商号+单号、件数+占比条
+> +占比单行，行高 42→34px）、等级独立对比卡内零横向滚动条（栅格
+> `minmax(min(600px,100%),1fr)` 随分辨率自动增减列数）、DataTable 新增 `center` 对齐与
+> `compact` 模式并修复插槽列被 EP 弹性分配挤压截断（doLayout 后 + 有界延迟复测）、对比
+> 筛选栏改自适应模板修 900 档日期占位符切字（编辑器 158→374px）。前端 324 test /
+> typecheck / build 通过；浏览器 22/22 + 视觉验收 agent 两轮全过。详见 `docs/HANDOFF.md`
+> 顶部同日记录。
+
+> 已完成（2026-09-29）：结算单列表**列宽自适应**——DataTable 新增 fitWidth（opt-in）：
+> 内容超宽时按「理想宽→表头下限（克隆表头实测）」平方加权压缩恰好铺满容器，被压单元
+> 格省略号+悬浮提示；表头也放不下（≤1280）才回退滚动+冻结列；分配算法抽
+> `utils/tableColumnFit.ts` 纯函数。列表页启用 fit-width，操作列 176→136px。前端 324
+> test / typecheck / build 通过；浏览器 16/16（1920/1600/1440 铺满溢出 0、1280 回退）
+> + 回归 24/24。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：手机浏览器整站跳转独立移动版。`index.html` `<head>` 内联
+> 脚本 UA 识别（Android/iPhone/iPad/iPod/HarmonyOS/Mobile）→ `location.replace`
+> 跳 `http://8.134.219.84:54001/`，`?desktop=1` 逃生口；新增
+> `mobile-redirect.test.mjs` 5 项。前端 314 test / typecheck / build 通过；真实浏览器
+> 5/5。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：结算单列表**恢复操作列冻结**（用户要求，推翻同日早前「去冻结
+> 对齐 admin」的决定）——操作列 `fixed: 'right'`，横向滚动时操作按钮钉在面板右缘，
+> EP 原生滚动阴影分隔。前端 309 test / typecheck / build 通过；浏览器 7/7 +
+> element-plus 回归 24/24。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：结算单列表对齐 admin 用户管理形态——删除「销售日期」列、
+> 操作列去掉冻结（不再遮挡任何列，超宽整体横向滚动）、列宽自适应防蠕动（仅溢出采信
+> DOM 测量 + canvas 裕量 1.12/下限 80），零截断稳定。前端 309 test / typecheck /
+> build 通过；浏览器 13/13 + 24/24。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：布局设计评审会议 · 三套新方案（dynamic workflow 多智能体：
+> 主持人开题 12 痛点 → UI/UX/PM 三方两轮交锋 53 条意见 → 收敛三套任务书 → 设计师落地
+> +机器检查+质检回修）。产出 `redesign-20260929/`：variant-i「掌柜账单」（微信账单
+> 心智·大数字少层级·果农友好）、variant-j「打印台账」（全边框密表·黑白可对账）、
+> variant-k「图表报告」（三段式·自带基准·专业高效），均五屏+双端+真实数据；
+> 会议纪要 review-meeting-20260929.md；选型页默认切到方案I。**待用户选型**（I/J/K
+> 或与 A–H 杂交）后再展开全页面与落地。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：查看明细改页签展示 + 销售明细聚合。/import-review 去 modal
+> meta、ShellTab 支持自定义标题（查看明细/导入确认）、ImportReviewView 遮罩弹窗改
+> 普通页面；只读销售明细按「同日/同品种/同等级/同头数/同KG/同单价/同备注」聚合
+> （utils/salesAggregation.ts，与后端导出 _merge_sales_rows 同规则，52 行 → 32 行，
+> 文件行显示 13~15 区间）；列宽测量加防蠕动护栏（仅溢出时采信 DOM 测量）+
+> doLayout 重排。前端 309 test / typecheck / build 通过；浏览器 13/13 + 24/24。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：结算单操作列合并 + 只读回填黑字。「查看明细」并入操作下拉
+> （操作 ▾：查看明细/Excel/PDF，列宽 176px）；查看明细只读页回填数据全局改墨色黑字
+> （覆盖 EP 禁用态 text-fill-color）。前端 304 test / typecheck / build 通过；
+> 浏览器 13/13 + 只读页颜色探针。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：结算单列表三项修复——行内导出改 ElDropdown（修「点不动」：
+> 子菜单曾被单元格 overflow hidden 裁掉）、fillHeight + fixed-height-list 撑满面板
+> （分页条钉底）、横向滚动条常驻可拖 + fit 纳入表头测量（表头零截断）。前端 304
+> test / typecheck / build 通过；浏览器 13/13 + 全页面回归 24/24。详见
+> `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：「卖得怎么样」规格件数与均价表新增**品牌/等级筛选**（仅
+> overview 版式，聚合前过滤、小计/合计/占比随筛选重算；详情页不受影响）；「每日
+> 销售金额」确认现状即折线图未改。前端 303 test/typecheck/build 通过；Playwright
+> 实测品牌/等级/叠加/重置与详情页隔离全部通过。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：结算单列表 ElTable 化后的换行/留白/截断修复。单元格默认
+> nowrap、列宽改为「canvas 估算 + 挂载后读 scrollWidth 二次校准（rAF 重试 + fitEpoch
+> 重建）」、操作列 288px + fixed right、受控排序态 header-cell-class-name 上色。前端
+> 302 test / typecheck / build 通过；浏览器 9/9 + 全页面回归 24/24。14 列内容总宽
+> 约 2100px，宽屏仍有少量表内横向滚动（与管理端行为一致）。详见 `docs/HANDOFF.md`
+> 顶部同日记录。
+
+> 已完成（2026-09-29）：布局重设计 **方案H · 系统图表版** demo——
+> `dev-preview/redesign-20260929/variant-h.html`：方案A 侧栏精修骨架 + 系统同款
+> ECharts 图表（GradePieChart 环图 / DailySalesTrendChart 灰调折线带金额件数切换 /
+> MarketSalesAnalysis 市场环图+品牌柱 / SettlementDailyPriceChart 柱线双轴 /
+> SettlementGradeBreakdown 规格七列表全量 56 组），数据 53000 实测；SSR 渲染验证
+> 6 图全过。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：**移除「品牌对比」页「按等级号别」视图**——删切换按钮与
+> grade 面板、删除 SeriesGradeDetail / GradeDetailAiAnalysis 组件与 gradeDetails
+> 前端数据链路（types/normalize/client/utils）及 grade-detail.test.ts；后端接口
+> 按规则保留未动。前端 302 test 中 301 过（1 失败＝并行在途）、typecheck/build
+> 通过；Playwright 验证无按钮、品牌视图直接渲染。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：「品牌对比 · 等级均价对比」横轴标签完整显示——
+> `overflow: 'truncate', width: 90` 改 `overflow: 'break', width: 150`（放不下换行、
+> 不截断成「…」；全站唯一 truncate 用点）。前端 305 test/typecheck/build 通过；
+> Playwright 用单号最长的三张单实测完整显示无省略号。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：用户端自研 UI 组件全量替换 Element Plus。弹窗×4→ElDialog、
+> 局部 toast×2→ElMessage、原生 select→ElSelect、分页→ElPagination、表单输入→
+> ElInput/ElCheckbox/ElDatePicker、SettlementPicker→ElDrawer、DataTable 内部→ElTable
+> （对外 API 不变；窄屏卡片/data-label 模式保留手写表格回退）；全局 ElConfigProvider +
+> styles-element.css 主题令牌。前端 304 test / typecheck / build 通过，dist 已重建；
+> Playwright 24/24 + AI 视觉验收通过（截图 `tmp/element-plus/`）。admin 端 DataTable
+> 拷贝未同步、两端自此分叉。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：每日销售折线图（金额/件数）补 Y 轴——浅色刻度 + 万级缩写标签，
+> 两个模式共用。前端 303 项 test、typecheck、build 通过，dist 已重建。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
 
 > 已完成（2026-09-29）：结算单导出（xlsx/PDF）销售明细同键行合并（同一天+同规格头数+
 > 同 KG+同单价，品种/等级/备注一致才并），数量与金额汇总、合计不变。真实单 650 52→32 行、
@@ -28,10 +237,28 @@
 
 ## 进行中
 
-- [ ] 「品牌对比 · 等级独立对比」图表化：评估 demo 已出
+> 已完成（2026-09-29）：「品牌对比 · 等级均价对比」换成**柱线双轴组合图、折线黑色**
+> （demo 方案B 落地）：柱=件数（左轴、等级色）+ 黑色折线=每件均价（右轴、15% 放宽
+> 不从 0）；图例 4 项、悬浮给 件数+均价；移动端两轮修复标签叠压（标签列宽 64 +
+> grid 边距 6，仍换行不截断）。前端 302 test/typecheck/build 通过；Playwright 9/9
+> （像素断言+提示数值与库一致）+ 视觉验收双端通过，截图 `tmp/series-price-combo/`。
+> 详见 `docs/HANDOFF.md` 顶部同日记录。
+
+- [ ] 「品牌对比 · 等级独立对比」图表化：评估 demo 已出并切换**真实库数据**
   （`frontend/dev-preview/grade-tables-chart-demo.html`，推荐 A 分面小图：柱=件数 +
   折线=每件均价），**待用户在 A/B/C 三方案中拍板**后替换 `SeriesGradeTables.vue`
   表格主体（原表折叠进「查看数据表」；「其他」等级建议与均价图一致隐藏）。
+
+> 已完成（2026-09-29）：demo 方案B 加均价折线——分组柱改双轴（柱=件数左轴 + 同色
+> 折线=均价右轴，系列名「A果·件数/均价」），y 轴去轴名避免与图例叠压；Playwright +
+> 视觉验收双页通过（折线数值逐点与真实库一致）。详见 `docs/HANDOFF.md` 顶部同日记录。
+
+> 已完成（2026-09-29）：图表化 demo 数据切换**真实库**——`grade-tables-chart-demo.data.js`
+> （本地不入库，已加 .gitignore）由 `tmp/grade-tables-chart-demo/gen_data.py` 直连
+> get_series_comparison 生成（香香全部 14 单，等级仅 A/B 无 C，其他占 0.2% 剔除）；
+> 三方案全部真实数据，>8 单 x 标签斜排、提示给适配单号+日期+真实占比。node --check +
+> URL 200 + Playwright 双端 + 视觉验收（y 轴名改短名「元/件」）双页通过，截图
+> `tmp/grade-tables-chart-demo/`。详见 `docs/HANDOFF.md` 顶部同日记录。
 
 > 已完成（2026-09-29）：「品牌对比 · 等级独立对比（grade-tables）」图表化评估 demo——
 > 三方案静态稿（A 分面小图 推荐 / B 分组柱状 / C 量价散点，同份虚构数据可对照，

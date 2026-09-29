@@ -17,7 +17,6 @@
   --ask-radius: 8px;
   --ask-gap: 24px;
   --ask-lift: 64px;
-  --ask-tabbar: var(--mobile-tabbar-height, 56px);
   --ask-shadow: 0 18px 44px rgba(16, 74, 47, .2);
 }
 
@@ -46,10 +45,7 @@
 .ask-fab:focus-visible { outline: 3px solid rgba(23, 102, 63, .28); outline-offset: 4px; border-radius: 999px; }
 .ask-fab.is-open,
 .ask-fab:focus-visible { --ask-open: 1; }
-/* 触屏没有悬停，靠点击（打开 / 收起对话窗）切换；用 hover: hover 把悬停展开限定在鼠标设备。 */
-@media (hover: hover) {
-  .ask-fab:hover { --ask-open: 1; }
-}
+.ask-fab:hover { --ask-open: 1; }
 
 /* 名字标签：宽度从 0 撑开，配合轻微位移做出「弹出来」的手感。 */
 .ask-fab__label {
@@ -198,49 +194,24 @@
   border-top: 1px solid var(--ask-line); background: var(--ask-surface);
 }
 .composer { display: flex; align-items: flex-end; gap: 8px; }
-.composer textarea {
-  flex: 1; min-height: 40px; padding: 9px 11px;
+/* 顺仔输入框（ElInput textarea）：对齐原手写样式。 */
+.composer .composer-input { flex: 1; }
+.composer .composer-input .el-textarea__inner {
+  min-height: 40px !important; padding: 9px 11px;
   border: 1px solid var(--ask-line); border-radius: var(--ask-radius);
+  background: var(--ask-surface); color: var(--ask-ink, var(--ink));
   font: inherit; font-size: .86rem; line-height: 1.5; resize: none;
-  overflow-y: hidden;
+  box-shadow: none;
 }
-.composer textarea:focus { outline: none; border-color: var(--ask-primary); box-shadow: 0 0 0 3px rgba(23, 102, 63, .12); }
+.composer .composer-input .el-textarea__inner:focus {
+  outline: none; border-color: var(--ask-primary); box-shadow: 0 0 0 3px rgba(23, 102, 63, .12);
+}
 .composer button {
   flex: none; height: 40px; padding: 0 18px;
   border: 1px solid var(--ask-primary-dark); border-radius: var(--ask-radius);
   background: var(--ask-primary); color: #fff; font: inherit; font-size: .86rem; cursor: pointer;
 }
 .composer button:disabled { opacity: .5; cursor: not-allowed; }
-
-@media (max-width: 820px) {
-  .ask-fab {
-    --ask-tuck: 8px;
-    right: 0;
-    bottom: calc(var(--ask-tabbar) + env(safe-area-inset-bottom) + 74px);
-  }
-  .ask-fab__avatar { width: 62px; height: 62px; }
-  .ask-panel__close { width: 34px; height: 34px; }
-  /* 全屏对话窗：高度与位置跟随「可视视口」（--ask-vv-height / --ask-vv-top 由 AskWidget
-     监听 visualViewport 写入），软键盘弹出时整窗收缩，输入区始终留在键盘上方；
-     100vh 只作为不支持 dvh 的老浏览器兜底。 */
-  .ask-panel {
-    top: var(--ask-vv-top, 0px);
-    right: 0;
-    bottom: auto;
-    left: 0;
-    width: auto;
-    height: 100vh;
-    height: var(--ask-vv-height, 100dvh);
-    max-height: none;
-    border: 0;
-    border-radius: 0;
-  }
-  /* 刘海 / 灵动岛与底部横条：顶部与底部各让出安全区，避免遮挡关闭按钮与输入框。 */
-  .ask-panel__head { padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
-  .ask-panel__foot { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
-  .ask-panel__scroll { padding: 12px; }
-  .msg-main { max-width: 84%; }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .ask-fab__avatar::after { animation: none; }

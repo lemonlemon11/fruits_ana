@@ -11,8 +11,9 @@ from typing import Callable
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from fastapi import Depends, HTTPException, Request, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
+from .cache import get as cache_get, put as cache_put
 from .db import get_db
 from .models import (
     AdminMenu,
@@ -86,7 +87,11 @@ def _as_utc(value: datetime) -> datetime:
 
 
 def get_current_user(request: Request, db: Session) -> User | None:
-    """根据 Cookie 查找有效用户，并清理过期或禁用用户的会话。"""
+    """根据 Cookie 查找有效用户，并清理过期或禁用用户的会话。
+
+    joinedload 把「会话 + 用户」合并为一条查询：数据库在远程公网时，
+    懒加载的第二条查询是每个请求 ~50ms 的纯往返开销。
+    """
 
     raw_token = request.cookies.get(SESSION_COOKIE)
     if not raw_token:
@@ -94,6 +99,7 @@ def get_current_user(request: Request, db: Session) -> User | None:
 
     session = (
         db.query(UserSession)
+        .options(joinedload(UserSession.user))
         .filter(UserSession.token_hash == _hash_token(raw_token))
         .first()
     )
@@ -120,8 +126,12 @@ def require_current_user(
 
 
 def get_permission_codes(db: Session, user_id: int) -> set[str]:
-    """读取用户在管理端维护的业务 RBAC 权限码（只读）。"""
+    """读取用户在管理端维护的业务 RBAC 权限码（只读，60s 短缓存）。"""
 
+    cache_key = f"rbac:perm:{user_id}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
     rows = (
         db.query(AdminPermission.code)
         .join(
@@ -138,18 +148,28 @@ def get_permission_codes(db: Session, user_id: int) -> set[str]:
         .distinct()
         .all()
     )
-    return {row[0] for row in rows}
+    codes = {row[0] for row in rows}
+    cache_put(cache_key, codes)
+    return codes
 
 
 def get_menu_items(db: Session, user_id: int) -> list[AdminMenu]:
-    """读取用户在管理端被授权的业务菜单（只读）。
+    """读取用户在管理端被授权的业务菜单（只读，60s 短缓存）。
 
-    只返回配置了路由的菜单，按管理端排序输出；`is_active=False` 的菜单照常
-    返回，由业务端决定隐藏，便于前端区分「停用」与「未授权」。管理员改名或
-    改图标后，业务端侧边导航随之更新。
+    同时返回 ``directory``（一级菜单）与 ``menu``（叶子）两级条目，业务端按
+    ``parent_id`` 组装分组导航；``button`` 不下发。按管理端排序输出；
+    ``is_active=False`` 的菜单照常返回，由业务端决定隐藏，便于前端区分
+    「停用」与「未授权」。管理员改名或改图标后，业务端侧边导航随之更新。
+
+    缓存返回的是已加载全部列属性、与会话脱钩的实体快照——AdminMenu 无
+    relationship 定义，调用方只做列属性序列化，脱钩访问安全。
     """
 
-    return (
+    cache_key = f"rbac:menu:{user_id}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+    menus = (
         db.query(AdminMenu)
         .join(AdminRoleMenu, AdminRoleMenu.menu_id == AdminMenu.id)
         .join(AdminRole, AdminRole.id == AdminRoleMenu.role_id)
@@ -157,12 +177,14 @@ def get_menu_items(db: Session, user_id: int) -> list[AdminMenu]:
         .filter(
             AdminUserRole.user_id == user_id,
             AdminRole.is_active.is_(True),
-            AdminMenu.route_path.isnot(None),
+            AdminMenu.menu_type.in_(("directory", "menu")),
         )
         .order_by(AdminMenu.sort_order, AdminMenu.id)
         .distinct()
         .all()
     )
+    cache_put(cache_key, menus)
+    return menus
 
 
 def require_permission(permission_code: str) -> Callable:

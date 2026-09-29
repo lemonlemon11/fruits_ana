@@ -271,7 +271,7 @@ def _spreadsheet_safe(value):
 
 @router.get("/settlements/{merchant_no}/template.pdf")
 def export_settlement_template_pdf(merchant_no: str, db: Session = Depends(get_db)):
-    """结算单 PDF：与 Excel 同一工作簿经 LibreOffice 另存，版式一致。"""
+    """结算单 PDF：PIL 按 xlsx 同款财务版式渲染图片后输出，A4 横向自动分页。"""
 
     try:
         payload = build_settlement_template_pdf(db, merchant_no)

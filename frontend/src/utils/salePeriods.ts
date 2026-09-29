@@ -1,8 +1,9 @@
 /**
- * 销售日期快速筛选：年度/月度选项的编码与起止日期计算。
+ * 销售日期快速筛选：快捷区间/年度/月度选项的编码与起止日期计算。
  *
- * 选项值约定：`year:2026` / `month:2026-09`；对应起止日期为该年/月的
- * 自然边界（年 1-1~12-31，月 1 日~月末）。纯函数，不依赖接口。
+ * 选项值约定：`recent:7` / `year:2026` / `month:2026-09`；对应起止日期为
+ * 近 N 天（今天 - N 天 至 今天）或该年/月的自然边界（年 1-1~12-31，月 1 日~月末）。
+ * 纯函数，不依赖接口。
  */
 
 export interface SalePeriodBounds {
@@ -32,8 +33,11 @@ export function monthBounds(month: string): SalePeriodBounds | null {
   return { start: dayKey(year, monthIndex, 1), end: dayKey(year, monthIndex, lastDay) }
 }
 
-/** 解析下拉选项值（`year:2026` / `month:2026-09`）为起止日期；非快捷选项返回 null。 */
+/** 解析下拉选项值（`recent:7` / `year:2026` / `month:2026-09`）为起止日期；非快捷选项返回 null。 */
 export function periodBoundsForOption(optionValue: string): SalePeriodBounds | null {
+  if (optionValue.startsWith('recent:')) {
+    return recentBounds(Number(optionValue.slice(7)))
+  }
   if (optionValue.startsWith('year:')) {
     const year = Number(optionValue.slice(5))
     return Number.isInteger(year) && year > 0 ? yearBounds(year) : null
@@ -52,4 +56,25 @@ export function monthOptionLabel(month: string): string {
   const match = /^(\d{4})-(\d{2})$/.exec(month)
   if (!match) return month
   return `${match[1]}年${Number(match[2])}月`
+}
+
+/** 相对快捷选项：近 N 天（起点 = 今天 - N 天，止点 = 今天）。 */
+export const RECENT_DAY_OPTIONS: readonly { days: number; label: string }[] = [
+  { days: 7, label: '近七天' },
+  { days: 14, label: '近十四天' },
+  { days: 30, label: '近三十天' },
+  { days: 90, label: '近九十天' },
+]
+
+function localDateKey(date: Date): string {
+  return dayKey(date.getFullYear(), date.getMonth() + 1, date.getDate())
+}
+
+/** 近 N 天区间：七天前到今天（以浏览器本地时区计算自然日，不含时分秒）。 */
+export function recentBounds(days: number): SalePeriodBounds | null {
+  if (!Number.isInteger(days) || days <= 0) return null
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - days)
+  return { start: localDateKey(start), end: localDateKey(end) }
 }

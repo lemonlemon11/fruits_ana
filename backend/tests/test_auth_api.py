@@ -15,8 +15,10 @@ from sqlalchemy import text
 from app.db import Base, SessionLocal, engine
 from app.main import app
 from app.models import (
+    AdminMenu,
     AdminPermission,
     AdminRole,
+    AdminRoleMenu,
     AdminRolePermission,
     AdminUserRole,
     User,
@@ -411,6 +413,12 @@ def test_login_and_me_return_business_rbac_permissions(client):
         db.add(AdminUserRole(user_id=user.id, role_id=role.id))
         db.commit()
 
+    # 权限/菜单走 60s 进程内缓存；管理端（另一进程）改库后最迟 TTL 后生效，
+    # 这里清缓存模拟 TTL 到期后的重新登录。
+    from app import cache as result_cache
+
+    result_cache.clear_all()
+
     client.post("/api/auth/logout")
     login = client.post("/api/auth/login", json=_credentials())
     me = client.get("/api/auth/me")
@@ -419,3 +427,62 @@ def test_login_and_me_return_business_rbac_permissions(client):
     assert login.json()["user"]["permissions"] == ["entry:view"]
     assert me.status_code == 200
     assert me.json()["user"]["permissions"] == ["entry:view"]
+
+
+def test_login_and_me_return_directory_and_menu_hierarchy(client):
+    with SessionLocal() as db:
+        _setup_register(db)
+    registered = client.post("/api/auth/register", json=_credentials())
+    assert registered.status_code == 201
+
+    with SessionLocal() as db:
+        user = db.query(User).one()
+        role = AdminRole(code="fruit_admin", name="水果系统管理员", is_active=True)
+        db.add(role)
+        db.flush()
+        directory = AdminMenu(
+            name="销售单管理", menu_type="directory", sort_order=20, is_active=True
+        )
+        db.add(directory)
+        db.flush()
+        child = AdminMenu(
+            parent_id=directory.id,
+            name="每一单",
+            menu_type="menu",
+            route_path="/settlements",
+            sort_order=10,
+            is_active=True,
+        )
+        button = AdminMenu(
+            parent_id=child.id,
+            name="导出结算单",
+            menu_type="button",
+            permission_code="settlement:export",
+            sort_order=10,
+            is_active=True,
+        )
+        db.add_all([child, button])
+        db.flush()
+        for menu in (directory, child, button):
+            db.add(AdminRoleMenu(role_id=role.id, menu_id=menu.id))
+        db.add(AdminUserRole(user_id=user.id, role_id=role.id))
+        db.commit()
+
+    # 同上：清进程内菜单缓存，模拟管理端改库后 TTL 到期的重新登录。
+    from app import cache as result_cache
+
+    result_cache.clear_all()
+
+    client.post("/api/auth/logout")
+    login = client.post("/api/auth/login", json=_credentials())
+    me = client.get("/api/auth/me")
+
+    for payload in (login.json()["user"], me.json()["user"]):
+        by_type = {menu["menu_type"]: menu for menu in payload["menus"]}
+        assert set(by_type) == {"directory", "menu"}
+        directory_menu, leaf_menu = by_type["directory"], by_type["menu"]
+        assert directory_menu["route_path"] is None
+        assert directory_menu["parent_id"] is None
+        assert directory_menu["name"] == "销售单管理"
+        assert leaf_menu["route_path"] == "/settlements"
+        assert leaf_menu["parent_id"] == directory_menu["id"] is not None

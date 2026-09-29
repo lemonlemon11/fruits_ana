@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 
 import type { SeriesAnalysisResult } from '../api/types'
 import { formatDateTime } from '../utils/format'
@@ -36,25 +36,14 @@ const props = withDefaults(defineProps<{
 })
 
 const analysis = ref<SeriesAnalysisResult | null>(null)
-/** 手机端结论文本很长，默认只露出前几屏内容，展开后再看全文。 */
-const narrowQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-  ? window.matchMedia('(max-width: 820px)')
-  : null
-const isNarrow = ref(narrowQuery?.matches ?? false)
-const expanded = ref(false)
-function onNarrowChange(event: MediaQueryListEvent) { isNarrow.value = event.matches }
 const loading = ref(false)
 const error = ref('')
 const askedOnce = ref(false)
-// 同一页可能同时挂载两张卡片（按品牌 / 按等级号别），标题 id 必须唯一。
+// 标题 id 保持唯一，避免多卡片场景（如未来同页复用）锚点冲突。
 const titleId = `ai-analysis-title-${useId()}`
 
 const sections = computed(() => parseAnalysisSections(analysis.value?.content ?? '', props.headings))
 
-watch(analysis, () => { expanded.value = false })
-
-onMounted(() => narrowQuery?.addEventListener('change', onNarrowChange))
-onBeforeUnmount(() => narrowQuery?.removeEventListener('change', onNarrowChange))
 const generatedAtText = computed(() => formatDateTime(analysis.value?.generatedAt ?? ''))
 const buttonText = computed(() => props.generateText ?? '生成分析')
 const loadingHint = computed(() => props.loadingText ?? '正在生成，请稍候，大约需要半分钟')
@@ -132,7 +121,7 @@ async function generate(refresh = false) {
     </div>
 
     <template v-else-if="analysis">
-      <div class="ai-sections" :class="{ 'is-clamped': isNarrow && !expanded }">
+      <div class="ai-sections">
         <article
           v-for="section in sections"
           :key="section.title"
@@ -153,13 +142,6 @@ async function generate(refresh = false) {
           </ul>
         </article>
       </div>
-      <button
-        v-if="isNarrow"
-        type="button"
-        class="ai-expand-toggle"
-        :aria-expanded="expanded"
-        @click="expanded = !expanded"
-      >{{ expanded ? '收起结论' : '展开全部结论' }}</button>
       <p class="ai-meta">
         模型 {{ analysis.model }} · 生成于 {{ generatedAtText }}<span v-if="analysis.cached"> · 本次直接使用上次结果</span>
       </p>
@@ -227,36 +209,4 @@ async function generate(refresh = false) {
 .ai-block.is-advice .ai-num { color: var(--warning); }
 .ai-meta { margin: 0; color: var(--muted); font-size: .85rem; }
 
-/* 手机端折叠：默认只露出开头，底部渐隐提示还有内容。 */
-.ai-sections.is-clamped { position: relative; max-height: 17rem; overflow: hidden; }
-.ai-sections.is-clamped::after {
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 4.5rem;
-  background: linear-gradient(to bottom, rgb(255 255 255 / 0), color-mix(in srgb, var(--primary-soft) 45%, white));
-  content: '';
-  pointer-events: none;
-}
-.ai-expand-toggle {
-  min-height: 42px;
-  border: 1px solid var(--primary);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--primary-dark);
-  font: inherit;
-  font-size: .88rem;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-@media (max-width: 820px) {
-  .ai-section { padding: 12px; border-left-width: 5px; gap: 10px; }
-  .ai-heading h2 { font-size: 1.02rem; }
-  .ai-sections { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .ai-block { padding: 10px 12px; }
-  .ai-block h3 { margin-bottom: 8px; font-size: .96rem; }
-  .ai-block ul { gap: 8px; }
-  .ai-text { font-size: .92rem; line-height: 1.6; }
-  .ai-meta { font-size: .78rem; }
-}
 </style>

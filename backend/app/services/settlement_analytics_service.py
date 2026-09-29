@@ -26,6 +26,8 @@ from .analytics_core import (
     settlement_anomalies,
     settlement_map,
     share,
+    short_cache_get,
+    short_cache_put,
 )
 from .order_no_naming import order_no_display, series_name
 from .merchant_no_naming import merchant_no_display
@@ -67,12 +69,15 @@ def get_grade_breakdown(
     brand: str | None = None,
     country: str | None = None,
     market: str | None = None,
+    include_records: bool = True,
 ) -> dict:
     """返回等级图表所需的数据：等级汇总与销售明细。
 
     ``market_brand_containers`` 是「卖得怎么样」页市场销售分析的数据源：
     按市场 × 品牌统计结算单（商号）数量——柜号存在一柜两单，不能按柜号去重；
     跟随全部筛选（含 market），前端按返回数据切换全部/单市场两种展示。
+    ``include_records=False`` 时省略逐条销售明细（移动端首页只需要市场柜数
+    聚合，明细会让响应膨胀到 150KB+）。
     """
 
     filtered = _records(
@@ -93,12 +98,13 @@ def get_grade_breakdown(
         market_name = batch.market or "未标注市场"
         market_brand_counts[(market_name, batch_brand(batch))] += 1
     record_payloads = []
-    for record in filtered:
-        payload = record_payload(record, include_piece_count=True)
-        batch = batches.get(record.import_batch_id)
-        # 品牌口径与柜数统计一致（brand 列优先，回退单号中文前缀）。
-        payload["brand"] = batch_brand(batch) if batch is not None else None
-        record_payloads.append(payload)
+    if include_records:
+        for record in filtered:
+            payload = record_payload(record, include_piece_count=True)
+            batch = batches.get(record.import_batch_id)
+            # 品牌口径与柜数统计一致（brand 列优先，回退单号中文前缀）。
+            payload["brand"] = batch_brand(batch) if batch is not None else None
+            record_payloads.append(payload)
     return {
         "grades": grade_metrics(filtered),
         "records": record_payloads,
@@ -224,8 +230,15 @@ def get_filter_options(
     刻意不接受 brand/country/market 入参，保证筛选后选项列表依然稳定完整；
     品牌/国家/市场沿用调用方日期窗口（默认最近一个销售月），年/月选项则
     扫全量销售日期——快捷下拉的意义就是跳到窗口外的历史期间，不能被窗口截断。
+
+    结果按 (日期窗口, 商号) 做 60s 进程内缓存：底层是多次远程库往返的全量
+    聚合，而选项列表本就以分钟级新鲜度足够。
     """
 
+    cache_key = f"filter-options:{start_date}:{end_date}:{merchant_no}"
+    cached = short_cache_get(cache_key)
+    if cached is not None:
+        return cached
     filtered = _records(
         db, start_date=start_date, end_date=end_date, merchant_no=merchant_no
     )
@@ -265,13 +278,15 @@ def get_filter_options(
             for name, count in counter.most_common()
         ]
 
-    return {
+    payload = {
         "brands": options(brand_counts),
         "countries": options(country_counts),
         "markets": options(market_counts),
         "years": sorted(years, reverse=True),
         "months": sorted(months, reverse=True),
     }
+    short_cache_put(cache_key, payload)
+    return payload
 
 
 def get_settlement_comparison(

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>用户管理 · SLD 管理员端（设计稿）</title>
+<link rel="stylesheet" href="design.css" />
+<style>
+  .drawer-form { display: grid; gap: 13px; }
+  .role-checks { display: grid; gap: 7px; }
+  .role-check { display: flex; align-items: center; gap: 9px; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card);
+    font-size: .85rem; font-weight: 700; cursor: pointer; }
+  .role-check:has(input:checked) { border-color: var(--g500); background: var(--g50); }
+  .role-check input { width: 16px; height: 16px; accent-color: var(--g700); }
+  .role-check small { margin-left: auto; color: var(--faint); font-size: .7rem; font-weight: 700; }
+  .switch-row { display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 13px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card); }
+  .switch { position: relative; width: 42px; height: 24px; border-radius: 999px; background: var(--g700); }
+  .switch::after { content: ""; position: absolute; top: 3px; right: 3px; width: 18px; height: 18px;
+    border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+  .switch.off { background: var(--line-strong); }
+  .switch.off::after { right: auto; left: 3px; }
+</style>
+</head>
+<body>
+<div class="admin">
+  <header class="admin-top">
+    <div class="brand">
+      <span class="avatar" style="width:34px;height:34px;border-radius:11px;background:var(--g900);color:#fff;display:grid;place-items:center;font-weight:900;font-size:.72rem">SLD</span>
+      <span><b>SLD 管理端</b><span>系统运营控制台</span></span>
+    </div>
+    <span class="crumb">用户管理</span>
+    <span class="admin-clock">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span class="hide-m">2026-09-28 星期一&nbsp;&nbsp;</span><b>10:31:08</b>
+    </span>
+    <div class="admin-account">
+      <span class="avatar">A</span>
+      <b>admin</b>
+      <button class="btn btn-ghost btn-sm">退出</button>
+    </div>
+  </header>
+
+  <div class="admin-body">
+    <aside class="admin-side">
+      <div class="group">总览</div>
+      <a href="admin-dashboard.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        工作台
+      </a>
+      <div class="group">权限管理</div>
+      <a class="is-on" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        用户管理
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+        角色管理
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+        菜单管理
+      </a>
+      <div class="group">内容与数据</div>
+      <a href="admin-notifications.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        通知管理
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
+        业务数据
+      </a>
+      <div class="group">系统运维</div>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        审计日志
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        系统配置
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        录单字段配置
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+        字段转换配置
+      </a>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-tabs">
+        <a class="is-on" href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          用户管理
+        </a>
+        <a href="#">角色管理</a>
+        <a href="#">菜单管理</a>
+      </div>
+
+      <div class="admin-toolbar">
+        <div class="search-box" style="width:220px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input class="input" placeholder="用户名或邮箱" />
+        </div>
+        <select class="select" style="width:130px"><option>全部角色</option></select>
+        <select class="select" style="width:110px"><option>全部状态</option></select>
+        <button class="btn btn-soft btn-sm">查询</button>
+        <span class="spacer"></span>
+        <span class="tag">共 36 人</span>
+        <button class="btn btn-primary btn-sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          新增用户
+        </button>
+      </div>
+
+      <div class="drawer-demo">
+        <div class="table-wrap">
+          <table class="grid">
+            <thead>
+              <tr>
+                <th class="num">ID</th><th>用户名</th><th>邮箱</th><th>角色</th>
+                <th>状态</th><th>最后登录</th><th>创建时间</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="num">36</td><td><b class="row-title">liuziwei</b></td><td>liu@taiyuan.cn</td>
+                <td><span class="tag">录单员</span></td>
+                <td><span class="tag success dot">启用</span></td>
+                <td class="num">—</td><td class="num">2026-09-26</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>编辑</button>
+                    <button class="icon-btn danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>删除</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="num">35</td><td><b class="row-title">chenlaoban</b></td><td>chen@taiyuan.cn</td>
+                <td><span class="tag">业务主管理员</span></td>
+                <td><span class="tag success dot">启用</span></td>
+                <td class="num">09-27 08:12</td><td class="num">2026-08-30</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="icon-btn">编辑</button>
+                    <button class="icon-btn danger">删除</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="num">34</td><td><b class="row-title">wangdata</b></td><td>wang@shudi.cn</td>
+                <td><span class="tag">录单员</span> <span class="tag">只读分析员</span></td>
+                <td><span class="tag success dot">启用</span></td>
+                <td class="num">09-26 19:44</td><td class="num">2026-08-22</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="icon-btn">编辑</button>
+                    <button class="icon-btn danger">删除</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="num">33</td><td><b class="row-title">zhaogui</b></td><td>zhao@shudi.cn</td>
+                <td><span class="tag">运营人员</span></td>
+                <td><span class="tag success dot">启用</span></td>
+                <td class="num">09-25 14:03</td><td class="num">2026-08-15</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="icon-btn">编辑</button>
+                    <button class="icon-btn danger">删除</button>
+                  </div>
+                </td>
+              </tr>
+              <tr style="opacity:.62">
+                <td class="num">32</td><td><b class="row-title">oldoperator</b></td><td>—</td>
+                <td><span class="tag">运营人员</span></td>
+                <td><span class="tag danger dot">禁用</span></td>
+                <td class="num">08-02 10:11</td><td class="num">2026-06-11</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="icon-btn">编辑</button>
+                    <button class="icon-btn danger">删除</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="num">1</td><td><b class="row-title">admin</b> <span class="tag accent">内置</span></td><td>—</td>
+                <td><span class="tag">业务主管理员</span></td>
+                <td><span class="tag success dot">启用</span></td>
+                <td class="num">09-28 10:24</td><td class="num">2026-09-14</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="icon-btn">编辑</button>
+                    <button class="icon-btn danger" disabled style="opacity:.4">删除</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <aside class="card drawer-card">
+          <div class="card-head" style="padding-top:14px">
+            <div class="card-title">
+              <span class="eyebrow">右侧抽屉 · 编辑用户</span>
+              <h2 class="h2">wangdata</h2>
+            </div>
+            <span class="tag">ID 34</span>
+          </div>
+          <div class="card-body drawer-form">
+            <label class="field"><span>用户名</span><input class="input" value="wangdata" /></label>
+            <div class="field">
+              <span>角色（可多选）</span>
+              <div class="role-checks">
+                <label class="role-check"><input type="checkbox" /><span>新注册用户</span><small>无权限</small></label>
+                <label class="role-check"><input type="checkbox" /><span>业务主管理员</span><small>全部业务</small></label>
+                <label class="role-check"><input type="checkbox" /><span>运营人员</span><small>分析+导入</small></label>
+                <label class="role-check"><input type="checkbox" checked /><span>只读分析员</span><small>只读</small></label>
+                <label class="role-check"><input type="checkbox" checked /><span>录单员</span><small>导入+录入</small></label>
+              </div>
+            </div>
+            <div class="switch-row">
+              <span style="font-size:.86rem;font-weight:800">启用账号</span>
+              <span class="switch"></span>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:2px">
+              <button class="btn btn-ghost btn-sm">取消</button>
+              <button class="btn btn-primary btn-sm">保存用户</button>
+            </div>
+            <p class="note" style="border-top:1px dashed var(--line-strong);padding-top:10px">
+              抽屉内容区独立滚动，按 Esc 关闭；保存后列表就地刷新，操作写入审计日志。</p>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="preview-banner">设计稿 · 2026-09-28 · 数据虚构</div>
+</body>
+</html>

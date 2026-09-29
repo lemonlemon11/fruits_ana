@@ -1,9 +1,11 @@
 /**
  * 侧边导航槽位与管理端菜单的合并规则。
  *
- * 导航的「位置」（哪个进主导航、哪个进更多、手机底部放几个）仍由前端槽位决定，
- * 避免管理端误加菜单时把已确认的移动端布局挤坏；管理端菜单只负责覆盖名称、
- * 图标与启用状态，这样「菜单管理」改名后业务端立即生效。
+ * 「分组结构」由管理端菜单树（directory 一级菜单）驱动：目录决定一级分组，
+ * 叶子菜单决定组内条目。本地槽位继续提供路由高亮规则（matches）、权限码与
+ * 兜底文案/图标——路由本身仍由前端工程定义，管理端新增未知路由的菜单不会
+ * 进入导航，避免出现死链接；名称、图标与停用状态以管理端为准，这样「菜单
+ * 管理」改名后业务端立即生效。
  */
 import type { AuthMenu } from '../api/types'
 
@@ -17,15 +19,23 @@ export interface ShellMenuSlot {
   permission?: string
 }
 
+/** 侧栏一级分组：label 为 null 表示未挂目录的一级入口，直接平铺。 */
+export interface ShellNavGroup {
+  label: string | null
+  items: ShellMenuSlot[]
+}
+
 export interface ApplyMenuItemsOptions {
   /** 非主导航的辅助页签可保留本地槽位（例如手工录单）。 */
   keepUnmatched?: boolean
 }
 
-/** 按路由路径索引管理端返回的菜单，便于槽位逐个匹配。 */
+/** 按路由路径索引管理端返回的叶子菜单，便于槽位逐个匹配。 */
 export function buildMenusByPath(menus: readonly AuthMenu[]): Map<string, AuthMenu> {
   const map = new Map<string, AuthMenu>()
-  for (const menu of menus) map.set(menu.routePath, menu)
+  for (const menu of menus) {
+    if (menu.routePath) map.set(menu.routePath, menu)
+  }
   return map
 }
 
@@ -56,4 +66,73 @@ export function applyMenuItems(
     })
   }
   return result
+}
+
+function compareMenus(a: AuthMenu, b: AuthMenu): number {
+  return a.sortOrder - b.sortOrder || a.id - b.id
+}
+
+/**
+ * 把管理端菜单树组装成「一级分组 + 子菜单」的侧栏结构：
+ * - directory 作为分组标题，叶子按 parentId 归到所属目录下；
+ * - 未挂目录（或目录未授权 / 已停用）的叶子作为无标题一级入口，
+ *   按管理端排序与目录穿插，兜底旧数据或目录漏授权的场景；
+ * - 叶子必须命中本地槽位才渲染（高亮规则与权限码来自槽位），
+ *   名称与图标以管理端菜单为准；
+ * - 没有可见子菜单的目录整组丢弃。
+ */
+export function buildMenuGroups(
+  menus: readonly AuthMenu[],
+  slots: readonly ShellMenuSlot[],
+  resolveIcon: (name: string | null) => unknown | null,
+): ShellNavGroup[] {
+  const slotByPath = new Map(slots.map((slot) => [slot.path, slot]))
+  const sorted = [...menus].sort(compareMenus)
+  const directories = sorted.filter(
+    (menu) => menu.menuType === 'directory' && menu.isActive && menu.id > 0,
+  )
+  const directoryIds = new Set(directories.map((menu) => menu.id))
+
+  const toSlot = (menu: AuthMenu): ShellMenuSlot | null => {
+    if (!menu.routePath) return null
+    const slot = slotByPath.get(menu.routePath)
+    if (!slot) return null
+    return {
+      ...slot,
+      label: menu.name || slot.label,
+      icon: resolveIcon(menu.icon) || slot.icon,
+    }
+  }
+
+  const groups: ShellNavGroup[] = []
+  let loose: ShellMenuSlot[] = []
+  const flushLoose = () => {
+    if (loose.length > 0) {
+      groups.push({ label: null, items: loose })
+      loose = []
+    }
+  }
+  for (const menu of sorted) {
+    if (directoryIds.has(menu.id)) {
+      const children = sorted.filter(
+        (item) =>
+          item.menuType === 'menu' &&
+          item.isActive &&
+          item.parentId === menu.id,
+      )
+      const items = children
+        .map(toSlot)
+        .filter((item): item is ShellMenuSlot => item !== null)
+      if (items.length === 0) continue
+      flushLoose()
+      groups.push({ label: menu.name || '', items })
+      continue
+    }
+    if (menu.menuType !== 'menu' || !menu.isActive || !menu.routePath) continue
+    if (menu.parentId !== null && directoryIds.has(menu.parentId)) continue
+    const item = toSlot(menu)
+    if (item) loose.push(item)
+  }
+  flushLoose()
+  return groups
 }

@@ -24,7 +24,7 @@ const tablePageSize = 8
 const tablePage = ref(1)
 
 const tableColumns: DataTableColumn<TrendPoint>[] = [
-  { key: 'date', label: '销售日期', rowHeader: true, emphasis: true },
+  { key: 'date', label: '销售日期', emphasis: true },
   { key: 'salesQuantity', label: '销量', numeric: true, value: (point) => formatNumber(point.salesQuantity) },
   { key: 'salesAmount', label: '销售金额', numeric: true, value: (point) => formatCurrency(point.salesAmount) },
   { key: 'weightedAvgPrice', label: '每件均价', numeric: true, value: (point) => formatPrice(point.weightedAvgPrice) },
@@ -157,7 +157,6 @@ watch(() => props.points.length, () => {
           :row-key="(point) => point.date"
           caption="所选范围的趋势数据"
           min-width="480px"
-          cards-on-narrow
         >
           <template #footer>
             <div v-if="totalTablePages > 1" class="trend-table-pagination">
@@ -200,7 +199,4 @@ watch(() => props.points.length, () => {
 .trend-table-pagination button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); }
 .trend-table-pagination button:disabled { cursor: not-allowed; opacity: .45; }
 
-@media (max-width: 560px) {
-  .trend-chart-shell { min-height: 220px; }
-}
 </style>

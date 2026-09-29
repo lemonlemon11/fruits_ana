@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>卖得怎么样 · SLD 水果市场销售分析（第三稿）</title>
+<link rel="stylesheet" href="design.css" />
+</head>
+<body data-page="overview">
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="side-brand"><div class="logo-mark">果</div><div><b>果销分析</b><span>水果市场销售分析</span></div></div>
+    <div class="side-group"><span>经营</span><nav class="side-nav">
+      <a class="side-item is-on" href="overview.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 13l3-3 4 4 5-6"/></svg>卖得怎么样</a>
+      <a class="side-item" href="settlements.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>每一单</a>
+    </nav></div>
+    <div class="side-group"><span>分析</span><nav class="side-nav">
+      <a class="side-item" href="settlement-detail.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>结算单详情</a>
+      <a class="side-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3L4 7l4 4"/><path d="M4 7h16"/><path d="M16 21l4-4-4-4"/><path d="M20 17H4"/></svg>结算单对比</a>
+      <a class="side-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 8.3L12 13l8.7-4.7M12 13v9"/></svg>品牌对比</a>
+    </nav></div>
+    <div class="side-group"><span>录入</span><nav class="side-nav">
+      <a class="side-item" href="imports.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>录单 / 导入</a>
+      <a class="side-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>手工录单</a>
+    </nav></div>
+    <div class="side-user"><div class="avatar">李</div><div><b>果农李叔</b><span>嘉兴水果市场</span></div></div>
+  </aside>
+
+  <div class="shell-main">
+    <header class="topbar">
+      <h1>卖得怎么样</h1>
+      <button class="chip" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>2026-08-11 ~ 09-09</button>
+      <button class="chip" type="button">全部商号<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="spacer"></div>
+      <button class="icon-btn" type="button" aria-label="站内通知"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><i class="dot"></i></button>
+      <div class="user-chip"><div class="avatar">李</div>李叔</div>
+    </header>
+
+    <header class="appbar">
+      <div class="logo-mark">果</div>
+      <div class="appbar-title"><b>卖得怎么样</b><span>果销分析 · 卖果明白账</span></div>
+      <button class="icon-btn" type="button" aria-label="站内通知"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><i class="dot"></i></button>
+    </header>
+
+    <main class="page">
+      <div class="page-head">
+        <h1>卖得怎么样</h1>
+        <p>近 30 天，4 张结算单的汇总口径；C 果已含 BC 组合等级。</p>
+      </div>
+
+      <div class="filter-scroll mobile-only">
+        <button class="chip is-on" type="button">近 30 天</button>
+        <button class="chip" type="button">近 7 天</button>
+        <button class="chip" type="button">全部商号</button>
+        <button class="chip" type="button">全部品牌</button>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi kpi-hero">
+          <div class="kpi-label">销售金额</div>
+          <div class="kpi-value">160.83<small> 万元</small></div>
+          <div class="kpi-sub"><span class="up">▲ 12.4%</span> · 共 ¥1,608,260</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">销量</div>
+          <div class="kpi-value">3,704<small> 件</small></div>
+          <div class="kpi-sub"><span class="up">▲ 6.1%</span> 较上一周期</div>
+        </div>
+        <div class="kpi" style="--kpi-color:#d9812a">
+          <div class="kpi-label">每件均价</div>
+          <div class="kpi-value">434.20<small> 元/件</small></div>
+          <div class="kpi-sub"><span class="up">▲ 5.9%</span> 较上一周期</div>
+        </div>
+        <div class="kpi" style="--kpi-color:#2c5f9e">
+          <div class="kpi-label">结算单</div>
+          <div class="kpi-value">4<small> 张</small></div>
+          <div class="kpi-sub">08-11 ~ 09-09</div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card card-pad trend-card">
+          <div class="section-title" style="margin-top:0">
+            <h2>每日销售金额</h2>
+            <div class="chip-row">
+              <button class="chip is-on" type="button" style="min-height:32px;font-size:.8rem">金额</button>
+              <button class="chip" type="button" style="min-height:32px;font-size:.8rem">件数</button>
+            </div>
+          </div>
+          <svg viewBox="0 0 640 200" role="img" aria-label="近 30 天每日销售金额走势">
+            <defs>
+              <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#28a861" stop-opacity=".28"/>
+                <stop offset="1" stop-color="#28a861" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <g stroke="#dfe9df" stroke-width="1">
+              <line x1="0" y1="40" x2="640" y2="40"/><line x1="0" y1="90" x2="640" y2="90"/><line x1="0" y1="140" x2="640" y2="140"/>
+            </g>
+            <path d="M10,150 L60,132 L110,138 L160,104 L210,118 L260,78 L310,92 L360,54 L410,70 L460,36 L510,52 L560,30 L610,44 L610,200 L10,200 Z" fill="url(#tg)"/>
+            <path d="M10,150 L60,132 L110,138 L160,104 L210,118 L260,78 L310,92 L360,54 L410,70 L460,36 L510,52 L560,30 L610,44" fill="none" stroke="#1d9253" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <g fill="#fff" stroke="#1d9253" stroke-width="2">
+              <circle cx="260" cy="78" r="3.5"/><circle cx="460" cy="36" r="3.5"/><circle cx="560" cy="30" r="4" stroke="#e8862e" stroke-width="2.5"/>
+            </g>
+          </svg>
+          <p class="note" style="margin-top:8px">09-06 金秋-002 开柜，单日 40.7 万为近 30 天最高。</p>
+        </div>
+
+        <div class="card card-pad">
+          <div class="section-title" style="margin-top:0"><h2>等级结构</h2><span class="more">A / B / C（含 BC）</span></div>
+          <div class="donut-wrap">
+            <div class="donut" role="img" aria-label="等级占比：A 26.9%，B 42.5%，C 30.6%"></div>
+            <div class="donut-legend">
+              <div class="row"><span class="grade-tag grade-a">A</span> 995 件 <b>26.9%</b></div>
+              <div class="row"><span class="grade-tag grade-b">B</span> 1,575 件 <b>42.5%</b></div>
+              <div class="row"><span class="grade-tag grade-c">C</span> 1,134 件 <b>30.6%</b></div>
+              <div class="divider"></div>
+              <div class="row" style="font-weight:800">合计 <b>3,704 件</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-card" style="margin-top:16px">
+        <div class="ai-avatar">顺仔</div>
+        <div class="ai-body">
+          <b>顺仔 · 本期结论</b>
+          <p>本期 <strong>A 果占比 26.9%</strong>，比上期回落 4.2 个百分点，<span class="hl-b">B 果扛起大梁（42.5%）</span>，均价 434.2 元/件仍稳中有升；
+          <span class="hl-c">C 果（含 BC）30.6% 偏高</span>，其中 BC 集中在金秋-002 一柜，出手拖到了第 6 天，拉低该柜均价约 11 元/件。
+          建议下一柜 A 货占比回三成以上，BC 货当天出手。</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" type="button">追问顺仔</button>
+      </div>
+
+      <div class="grid-2-even" style="margin-top:16px">
+        <div class="card card-pad">
+          <div class="section-title" style="margin-top:0"><h2>市场排名</h2><span class="more">按销售金额</span></div>
+          <div class="hbar-row"><span>嘉兴</span><div class="hbar"><i style="width:100%;background:linear-gradient(90deg,#1d9253,#28a861)"></i></div><b>76.2万</b></div>
+          <div class="hbar-row"><span>广州江南</span><div class="hbar"><i style="width:58%;background:linear-gradient(90deg,#1d9253,#28a861)"></i></div><b>44.1万</b></div>
+          <div class="hbar-row"><span>海吉星</span><div class="hbar"><i style="width:31%;background:linear-gradient(90deg,#1d9253,#28a861)"></i></div><b>23.6万</b></div>
+          <div class="hbar-row"><span>红星</span><div class="hbar"><i style="width:17%;background:linear-gradient(90deg,#1d9253,#28a861)"></i></div><b>12.9万</b></div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="section-title" style="margin-top:0"><h2>需要留意</h2></div>
+          <div class="alert-list">
+            <div class="alert-item"><i style="background:var(--grade-c)"></i><p>金秋-002 的 BC 货出货周期 6 天，拉低该柜均价约 11 元/件。</p><time>09-08</time></div>
+            <div class="alert-item"><i style="background:var(--grade-b)"></i><p>海吉星 B 果报价连续两周下行，建议对比 8 月同等级出货节奏。</p><time>09-05</time></div>
+            <div class="alert-item"><i style="background:var(--brand-600)"></i><p>金秋-004 批次导入有 3 条警告：规格字段缺失已按默认值计入。</p><time>09-02</time></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <nav class="tabbar">
+    <a class="tab is-on" href="overview.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 13l3-3 4 4 5-6"/></svg><span>看板</span></a>
+    <a class="tab" href="settlements.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg><span>每一单</span></a>
+    <a class="tab tab-center" href="imports.html"><span class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span>录单</span></a>
+    <a class="tab" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3L4 7l4 4"/><path d="M4 7h16"/><path d="M16 21l4-4-4-4"/><path d="M20 17H4"/></svg><span>对比</span></a>
+    <a class="tab" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 8.3L12 13l8.7-4.7M12 13v9"/></svg><span>品牌</span></a>
+  </nav>
+</div>
+<div class="preview-banner">第三稿 · 沿用 09-22 版式 · 数据虚构</div>
+</body>
+</html>

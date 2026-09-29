@@ -52,7 +52,9 @@ export function firstAllowedPath(
 ): string | null {
   const allowedMenuPaths = new Set(
     menus
-      .filter((menu) => menu.isActive && Boolean(routePermission(menu.routePath)))
+      // directory（一级菜单）没有路由，只有叶子菜单能作为默认入口。
+      .filter((menu): menu is AuthMenu & { routePath: string } =>
+        menu.isActive && menu.routePath !== null && Boolean(routePermission(menu.routePath)))
       .filter((menu) => !menu.permissionCode || permissions.includes(menu.permissionCode))
       .map((menu) => menu.routePath),
   )

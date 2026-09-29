@@ -32,7 +32,8 @@ echo "后端：http://$BACKEND_HOST:$BACKEND_PORT"
 "$PYTHON_BIN" -m uvicorn app.main:app \
   --app-dir "$PROJECT_DIR/backend" \
   --host "$BACKEND_HOST" \
-  --port "$BACKEND_PORT" &
+  --port "$BACKEND_PORT" \
+  --workers "${BACKEND_WORKERS:-2}" &
 BACKEND_PID=$!
 
 echo "前端：http://127.0.0.1:$FRONTEND_PORT（$FRONTEND_MODE）"

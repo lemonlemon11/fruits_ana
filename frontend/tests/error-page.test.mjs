@@ -23,13 +23,12 @@ test('默认错误页不依赖 API，并提供明确恢复操作', () => {
   assert.match(source, /styles-error\.css/)
 })
 
-test('错误页样式复用现有语义变量并保证移动端触控尺寸', () => {
+test('错误页样式复用现有语义变量', () => {
   const source = fs.readFileSync(errorStylesPath, 'utf8')
 
   assert.match(source, /var\(--surface\)/)
   assert.match(source, /var\(--primary\)/)
   assert.match(source, /min-height:\s*2\.82rem/)
-  assert.match(source, /@media \(max-width:\s*820px\)/)
 })
 
 test('静态兜底页自包含，不依赖 Vue、API 或外部资源', () => {

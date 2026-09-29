@@ -3,7 +3,7 @@
 > 记录「为什么这么做」，防止不同模型反复推翻彼此的设计。
 > 规则：已接受的决策若要推翻，必须新增一条 ADR 并说明原因，不要直接改写历史条目。
 > 历史来源：`design/fruit-analysis 关键决策记录.md`（原型阶段，保持原样，不再续写）。
-> 最后更新：2026-09-17
+> 最后更新：2026-09-28
 
 状态取值：`Accepted`（已生效）/ `Proposed`（待确认）/ `Superseded`（被取代）。
 
@@ -900,6 +900,9 @@
 - Consequences：1) 管理端新增菜单不会自动出现在业务端，需前端补对应路由与槽位；
   2) 停用菜单会隐藏业务端入口；3) 未命中菜单时仍显示本地兜底项。
 
+> 修订（2026-09-29，ADR-052）：本 ADR 提到的「移动端底部导航」已随手机端功能整体
+> 移除；槽位防挤坏移动端布局的顾虑不复存在，桌面导航决策不变。
+
 ## ADR-037 — 手工录单暂存由浏览器 localStorage 改为数据库存储
 
 - Date：2026-09-20
@@ -1219,3 +1222,84 @@
    `brandContainers`；3) `overview-merchant-filter.test.ts` 重写为
    `overview-filters.test.ts`；4) `filter-options` 的年/月选项改为扫全量销售日期
    （修复在途快捷年月任务被默认「最近一个销售月」窗口截断的问题）。
+
+## ADR-050 — 结算单 PDF 改为 PIL 渲染图片生成（放弃 LibreOffice 转换）
+
+- Date：2026-09-28
+- Status：Accepted
+- Context：PDF 曾按「xlsx 经 LibreOffice headless 另存」实现（当时部署机装有
+  libreoffice-calc）。环境重建后本机与 alinux4 官方源均无 LibreOffice，导出 PDF 报
+  「服务器未安装 LibreOffice」；用户明确不安装额外软件，改为「渲染成图片再转 PDF」。
+- Decision：`render_entry_pdf` 用 Pillow（venv 已有）按 xlsx 同款财务版式把结算单画成
+  A4 横向位图（1pt=2px、144dpi、JPEG quality=95），多页时按行边界分页并在新页重画
+  表头，最后由 PIL 直接输出多页 PDF；`build_settlement_template_pdf` 不再经过 xlsx
+  与外部命令。中文字体用系统 Noto Sans CJK（yum 包 `google-noto-cjk-fonts`，ttc
+  index=2 简体），缺失时报可操作错误。
+- Why：满足「不引入新软件依赖」；图片→PDF 由 PIL 原生完成，无外部命令、无并发
+  profile 问题；版式逻辑与 xlsx 渲染器同源（列宽估宽、备注封顶换行、信息行跨列
+  同算法），视觉验收通过。
+- Alternatives：安装 LibreOffice（用户否决）；fpdf2 矢量渲染（旧方案已删且版式过期，
+  且与「图片转 PDF」的方向不符）。
+- Consequences：1) PDF 变为位图内容（文字不可选中/检索），打印与屏幕查看不受影响；
+  2) 运行依赖新增 `pillow>=10`（声明进 `backend/pyproject.toml`，venv 原已安装）与
+  系统字体 `google-noto-cjk-fonts`（部署机/Docker 镜像需安装）；3) LibreOffice 相关
+  代码（`render_entry_pdf_from_workbook`）删除。
+
+
+
+## ADR-051 — 侧边导航升级为管理端目录驱动的两级菜单
+
+- Date：2026-09-29
+- Status：Accepted
+- Context：业务侧要求「一级菜单 + 子菜单」两级导航（销售单管理→每一单/录单导入、
+  销售分析→结算单详情/品牌对比），分组在管理端「菜单管理」维护。原契约只下发带
+  route_path 的扁平叶子菜单（目录被丢弃），且导航位置完全由前端本地槽位决定，管理端
+  无法调整分组。
+- Decision：`/api/auth/me`（及 login / register）的 `SidebarMenuRead` 扩展为
+  `id / route_path(可空) / parent_id / menu_type`，`get_menu_items` 下发
+  directory + menu 两级（button 仍不下发）；前端 `AuthMenu` 同步扩字段，
+  `normalizeAuthMenus` 保留目录节点，新增 `shellMenu.buildMenuGroups()` 按
+  `parent_id` 组装「分组标题 + 子菜单」：分组结构与排序以管理端菜单树为准，本地槽位
+  降级为「路由高亮规则（matches）、权限码、兜底文案/图标」来源，未命中槽位的叶子不
+  渲染（路由仍由前端工程定义，防死链）；未挂目录或目录未授权/停用的叶子退化为无标题
+  一级入口。移动端底部 tabbar 维持固定主槽位不动，仅「更多」面板改为分组展示。
+- Why：分组完全由管理端数据驱动（改名/重排/停用即时生效），同时不把未知路由放进
+  导航、不破坏已确认的移动端布局；旧后端（无目录下发）时自动退化为原扁平一级导航。
+- Alternatives：前端硬编码分组（管理端无法调整，否决）；目录也带 route_path 走路由
+  懒加载（用户端无目录页概念，过度设计）。
+- Consequences：1) 接口契约变更，旧字段全部保留、纯增量；2) 目录需随角色授权下发，
+  授权树要求「目录 + 子菜单」成对授权（管理端种子已按此更新）；3) `firstAllowedPath`
+  只把带路由的叶子当默认入口。
+
+> 修订（2026-09-29，ADR-052）：移动端底部 tabbar 与「更多」面板已随手机端功能整体
+> 移除，本 ADR 中「tabbar 固定主槽位 / 不破坏移动端布局」的约束不再适用；桌面侧栏
+> 两级菜单的数据驱动决策不变。
+
+
+## ADR-052 — 移除本站手机端适配，手机端由独立移动版承担
+
+- Date：2026-09-29
+- Status：Accepted
+- Context：手机端已由另外单独的项目负责（独立移动版站点，`http://8.134.219.84:54001/`）。
+  本站自 2026-09-20 起内建的手机适配层（`styles-mobile.css` ≤820px 设计系统、底部
+  tabbar 与「更多」面板、表格窄屏卡片回退、顺仔软键盘/刘海适配、各页手机断点）与
+  独立移动版职责重叠；且 2026-09-29 起 `index.html` 已按手机 UA 整站跳转独立移动版
+  （`?desktop=1` 逃生口），手机访客不再到达本站手机样式。用户要求删除手机端功能，
+  且不得影响 PC 端功能与页面。
+- Decision：以 820px（本项目手机设计系统边界）划线，删除全部内建手机端代码：
+  `styles-mobile.css` 整文件、AppShell 底部导航与「更多」面板、`--mobile-tabbar-height`
+  变量链、DataTable `cards-on-narrow` / `data-labels` 窄屏卡片回退（含消费方属性与
+  `rowHeader` 列语义）、Entry / ImportReview / Import 的 `matchMedia(820)` 分区折叠、
+  SettlementList / SeriesOverview 手机卡片、图表组件 ≤820px 断点块、顺仔
+  `visualViewport` / `safe-area` 适配、`apple-touch-icon`；保留 `index.html` UA 跳转
+  脚本（桥接独立移动版）与全部 ≥860px 窄桌面断点、821px 侧栏收起、`prefers-reduced-motion`
+  无障碍。
+- Why：职责收敛到单一来源（独立移动版），本站专注桌面；被删层全部只在 ≤820px 生效，
+  桌面渲染路径零触碰（改前/改后 1920 与 1440 双宽度 12 页截图像素比对，差异仅为页头
+  时钟与顺仔呼吸动画）。
+- Alternatives：保留手机样式仅靠 UA 跳转「隔离」（死代码持续腐化，否决）；连 UA 跳转
+  一起删除（手机访客将看到无适配的桌面页，用户选择保留跳转）。
+- Consequences：1) PC 浏览器窗口缩到 <820px 时呈现桌面布局（可能出现横向滚动），
+  属预期；2) 手机 UA 直接跳独立移动版，`?desktop=1` 强制桌面版时无手机适配；3) 前端
+  测试 324→307（删除 17 项纯手机断言）；4) ADR-036 / ADR-051 中「移动端 tabbar 布局」
+  约束随 tabbar 删除失效（见两 ADR 文末修订注记）。

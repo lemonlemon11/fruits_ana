@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="顺立达专业方案三：果径环">
+  <circle cx="32" cy="33" r="22.5" fill="none" stroke="#17663f" stroke-width="3.6" stroke-dasharray="120.17 21.2" transform="rotate(-23 32 33)"/>
+  <polygon points="43.9,12.7 37.8,8.0 36.3,14.2" fill="#c9a06a"/>
+  <g transform="rotate(-18 32 33)">
+    <path d="M32,18 C39,26 39,40 32,48 C25,40 25,26 32,18 Z" fill="#17663f"/>
+    <path d="M32,21.5 C35,27 35,39 32,44.5" fill="none" stroke="#f2ede3" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>
+  </g>
+</svg>

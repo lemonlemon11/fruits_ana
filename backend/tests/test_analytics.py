@@ -323,4 +323,6 @@ def test_overview_reads_filtered_records_once(monkeypatch):
         overview = get_overview(db)
 
     assert overview["total"]["sales_quantity"] == 2.0
+    # 总柜数 = 结算单数口径：两条销售记录同属一张结算单，计 1。
+    assert overview["total"]["container_count"] == 1
     assert len(calls) == 1

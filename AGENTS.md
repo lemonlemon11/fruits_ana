@@ -14,8 +14,9 @@
   - Language：Python 3.11+ / TypeScript 5.6
   - Backend：FastAPI + SQLAlchemy 2.0 + Uvicorn，入口 `backend/app/main.py`
   - Database：MySQL（PyMySQL 驱动），连接配置见 `backend/.env.example`
-  - Frontend：Vue 3 + Vue Router + Vite，无状态管理库、无完整 UI 组件库
-    （`SearchableSelect` / `DateRangeFilter` 内部试点 Element Plus）
+  - Frontend：Vue 3 + Vue Router + Vite，无状态管理库；UI 控件层全量使用
+    Element Plus（弹窗/消息/下拉/输入/分页/抽屉/表格，主题映射到全站令牌，
+    2026-09-29 起；按钮与外壳页签栏保持自研）
   - Charts：ECharts（`frontend/src/components/BaseEChart.vue` 统一封装；图表组件保留现有 props）
   - Test：pytest（后端）/ `node:test` + `--experimental-strip-types`（前端）
   - Deployment：本地同机启动前后端，见 `start.sh`；暂无容器化 / CI

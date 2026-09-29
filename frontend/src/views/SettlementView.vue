@@ -5,6 +5,7 @@ import { entryExportUrl, generateSettlementAnalysis, getSettlementDetail, type G
 import DateRangeFilter from '../components/DateRangeFilter.vue'
 import GradeFilterBar from '../components/GradeFilterBar.vue'
 import GradeSummary from '../components/GradeSummary.vue'
+import SettlementDailyPriceChart from '../components/SettlementDailyPriceChart.vue'
 import SettlementGradeBreakdown from '../components/SettlementGradeBreakdown.vue'
 import AiAnalysisCard from '../components/AiAnalysisCard.vue'
 import SearchableSelect from '../components/SearchableSelect.vue'
@@ -276,14 +277,23 @@ onBeforeUnmount(() => {
             </section>
           </template>
         </GradeSummary>
-        <SettlementGradeBreakdown
-          :grades="detail?.grades ?? []"
-          :records="detail?.records ?? []"
-          :loading="loading"
-          :grade-order="visibleGradeOrder"
-          :title="`${sectionTitlePrefix} 规格件数与均价`"
-          :brand="detail?.brand"
-        />
+        <!-- 按日均价走势与规格件数与均价同行：图左窄、表右宽；窄屏/移动端回落单列（图在上）。 -->
+        <div class="detail-row-layout">
+          <SettlementDailyPriceChart
+            :records="detail?.records ?? []"
+            :loading="loading"
+            :grade-order="visibleGradeOrder"
+            :title="`${sectionTitlePrefix} 按日均价走势`"
+          />
+            <SettlementGradeBreakdown
+            :grades="detail?.grades ?? []"
+            :records="detail?.records ?? []"
+            :loading="loading"
+            :grade-order="visibleGradeOrder"
+            :title="`${sectionTitlePrefix} 规格件数与均价`"
+            :brand="detail?.brand"
+          />
+        </div>
       </section>
       <AiAnalysisCard
         :title="`${sectionTitlePrefix} 同品牌经营分析`"
@@ -297,12 +307,45 @@ onBeforeUnmount(() => {
         empty-hint="同品牌只有这一张结算单，暂无可对比数据；新增同品牌结算单后即可生成。"
       />
     </template>
+
+    <div v-if="manualExporting" class="export-mask" role="status" aria-live="polite">
+      <span class="export-mask-spinner" aria-hidden="true"></span>
+      <strong>正在导出结算单，请稍候</strong>
+      <small>文件生成后会自动开始下载，请不要重复点击。</small>
+    </div>
   </div>
 </template>
 
 
 <style scoped>
 .settlement-dashboard { display: grid; gap: 18px; }
+/* 导出模板期间整页内容盖上遮罩：防止重复点击与误触筛选等操作。 */
+.settlement-dashboard { position: relative; }
+.export-mask {
+  position: absolute;
+  z-index: 20;
+  inset: -6px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 9px;
+  padding: 22px;
+  border-radius: var(--radius-sm);
+  background: rgb(255 255 255 / 88%);
+  backdrop-filter: blur(2px);
+  text-align: center;
+}
+.export-mask strong { color: var(--ink); font-size: 1.05rem; }
+.export-mask small { color: var(--muted); font-size: .88rem; line-height: 1.5; }
+.export-mask-spinner {
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 3px solid rgb(43 94 74 / 25%);
+  border-top-color: var(--primary-dark);
+  border-radius: 50%;
+  animation: export-mask-spin .7s linear infinite;
+}
+@keyframes export-mask-spin { to { transform: rotate(360deg); } }
 .panel,
 .settlement-fact-grid { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 /* 手工录单操作行：banner 已删，按钮右对齐收在基础信息条下方。 */
@@ -317,6 +360,16 @@ onBeforeUnmount(() => {
 .settlement-fact strong { overflow-wrap: anywhere; font-size: .92rem; font-variant-numeric: tabular-nums; }
 .panel { min-width: 0; padding: 16px; }
 .grade-summary-panel :deep(.dashboard-section) { padding-top: 0; border-top: 0; }
+/* 按日均价走势与规格表同行：图左窄（260px 起）、表右宽，两块等高拉伸（图随表高撑满，
+   组件内 min-height 280px 兜底）；规格表 min-width 700px、窄列时容器内横向滚动；
+   <1080px 回落单列（图在上表在下，图回到固定高度）。
+   面板内 dashboard-section 的 padding-top/分隔线已被清零，此行与上方「销售表现」的
+   间隔由这里的 margin-top 提供（用户要求间隔大一点）。 */
+.detail-row-layout { display: grid; grid-template-columns: minmax(260px, .6fr) minmax(0, 1.4fr); gap: 14px; align-items: stretch; margin-top: 24px; }
+
+@media (max-width: 1079px) {
+  .detail-row-layout { grid-template-columns: minmax(0, 1fr); }
+}
 /* 经营指标条插在「销售表现」标题与等级卡片之间：6 项按 3 列排布。 */
 .metric-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 2px 0 14px; }
 

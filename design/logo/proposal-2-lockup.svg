@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 258 64" role="img" aria-label="方案二组合标：榴莲果仓">
+  <g fill="#17663f">
+    <polygon points="32,5 26.4,15 37.6,15"/>
+    <polygon points="32,5 26.4,15 37.6,15" transform="rotate(30 32 34)"/>
+    <polygon points="32,5 26.4,15 37.6,15" transform="rotate(60 32 34)"/>
+    <polygon points="32,5 26.4,15 37.6,15" transform="rotate(90 32 34)"/>
+    <polygon points="32,5 26.4,15 37.6,15" transform="rotate(120 32 34)"/>
+    <polygon points="32,5 26.4,15 37.6,15" transform="rotate(150 32 34)"/>
+    <polygon points="32,5 26.4,15 37.6,15" transform="rotate(180 32 34)"/>
+    <polygon points="32,5 26.4,15 37.6,15" transform="rotate(210 32 34)"/>
+    <polygon points="32,5 26.4,15 37.6,15" transform="rotate(240 32 34)"/>
+    <polygon points="32,5 26.4,15 37.6,15" transform="rotate(270 32 34)"/>
+    <polygon points="32,5 26.4,15 37.6,15" transform="rotate(300 32 34)"/>
+    <polygon points="32,5 26.4,15 37.6,15" transform="rotate(330 32 34)"/>
+    <circle cx="32" cy="34" r="23"/>
+  </g>
+  <circle cx="32" cy="34" r="17" fill="#fdf6e3"/>
+  <rect x="23.6" y="34" width="4.6" height="8.5" rx="1.6" fill="#e58a7c"/>
+  <rect x="29.7" y="29.5" width="4.6" height="13" rx="1.6" fill="#f0c163"/>
+  <rect x="35.8" y="25" width="4.6" height="17.5" rx="1.6" fill="#8fd3a8"/>
+  <g transform="rotate(-8 32 6)">
+    <rect x="30.4" y="1.5" width="3.4" height="7" rx="1.7" fill="#8a5417"/>
+  </g>
+  <ellipse cx="39" cy="5.5" rx="5.2" ry="2.7" fill="#5aa03a" transform="rotate(24 39 5.5)"/>
+  <text x="78" y="31" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif" font-size="19" font-weight="800" fill="#104a2f" letter-spacing="1.5">水果市场销售分析</text>
+  <text x="78.5" y="49" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif" font-size="10" font-weight="500" fill="#5f7a6c" letter-spacing="2.5">一柜一账，卖得明白</text>
+</svg>

@@ -343,8 +343,4 @@ const barAriaLabel = computed(() =>
 .market-legend small { grid-column: 2 / 4; margin-top: -4px; color: var(--muted); font-size: .78rem; }
 .empty-inline { padding: 12px 2px; color: var(--muted); font-size: .9rem; }
 
-@media (max-width: 820px) {
-  .market-charts { grid-template-columns: minmax(0, 1fr); }
-  .market-pie-layout { grid-template-columns: minmax(110px, .9fr) minmax(0, 1.1fr); }
-}
 </style>

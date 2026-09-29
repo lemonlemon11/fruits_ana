@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>方向罗盘 · 六个全新方向 · 用户端选向</title>
+<style>
+/* ============================================================
+   方向罗盘：摒弃此前全部思路后的新一轮选向。
+   六个方向全部：亮色 · 左侧菜单 · 同一屏「销售总览」· 真实数据。
+   目的：请业务指出方向（或组合 / 或给参照产品），再全量展开。
+   ============================================================ */
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:#eceee9; font-family:"PingFang SC","Microsoft YaHei",sans-serif; color:#1c2420; padding:18px 20px 50px; }
+.intro { max-width:1560px; margin:0 auto 16px; }
+.intro h1 { font-size:18px; font-weight:800; }
+.intro p { margin-top:6px; font-size:13px; color:#5a665e; line-height:1.7; }
+.intro b { color:#1c2420; }
+.board { max-width:1560px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(480px,1fr)); gap:18px; }
+.tile { background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 14px 34px -22px rgba(20,32,24,.28); }
+.tlabel { display:flex; align-items:baseline; gap:10px; padding:12px 16px 10px; border-bottom:1px solid #eee; }
+.tlabel b { font-size:14px; }
+.tlabel span { font-size:11.5px; color:#8a958d; }
+.tlabel .no { display:grid; place-items:center; width:24px; height:24px; border-radius:7px; background:#1c2420; color:#fff; font-size:12px; font-weight:800; }
+.tscene { padding:14px; background:#f2f3ef; }
+.mock { border-radius:10px; overflow:hidden; border:1px solid rgba(0,0,0,.08); box-shadow:0 8px 20px -14px rgba(0,0,0,.3); }
+.pick-hint { padding:10px 16px 14px; font-size:12px; color:#6a756d; line-height:1.6; }
+.mock a { text-decoration:none; }
+
+/* ============ 方向 1 蓝鲸 · 企业 BI（标准企业后台气质） ============ */
+.t1 .mock { display:flex; flex-direction:column; height:520px; font-size:12px; background:#f0f2f5; }
+.t1 .h { display:flex; align-items:center; gap:10px; height:44px; padding:0 14px; background:#fff; border-bottom:1px solid #e8e8e8; color:#262626; font-weight:700; }
+.t1 .h .logo { display:grid; place-items:center; width:24px; height:24px; border-radius:5px; background:#1677ff; color:#fff; font-size:11px; }
+.t1 .h .crumb { font-weight:400; color:#8c8c8c; font-size:11.5px; }
+.t1 .h .sp { flex:1; }
+.t1 .h .av { width:24px; height:24px; border-radius:50%; background:#1677ff; color:#fff; display:grid; place-items:center; font-size:10px; }
+.t1 .bd { display:flex; flex:1; min-height:0; }
+.t1 .side { width:150px; background:#fff; border-right:1px solid #e8e8e8; padding:10px 8px; }
+.t1 .side .g { font-size:10px; color:#8c8c8c; padding:8px 8px 4px; }
+.t1 .side a { display:block; padding:8px 10px; border-radius:5px; color:#3b3b3b; font-size:12px; }
+.t1 .side a.on { background:#e6f4ff; color:#1677ff; font-weight:600; }
+.t1 .side .n { float:right; font-size:10px; color:#8c8c8c; }
+.t1 .ct { flex:1; padding:12px; display:grid; gap:10px; align-content:start; }
+.t1 .t { font-size:14px; font-weight:700; color:#262626; }
+.t1 .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.t1 .kpi { background:#fff; border:1px solid #e8e8e8; border-radius:6px; padding:10px; }
+.t1 .kpi .k { font-size:10.5px; color:#8c8c8c; }
+.t1 .kpi .v { margin-top:4px; font-size:15px; font-weight:700; color:#262626; }
+.t1 .kpi .v b { color:#1677ff; }
+.t1 .kpi .d { font-size:10px; margin-top:2px; color:#52c41a; }
+.t1 .card { background:#fff; border:1px solid #e8e8e8; border-radius:6px; }
+.t1 .ch { padding:9px 12px; font-size:12px; font-weight:600; border-bottom:1px solid #f0f0f0; color:#3b3b3b; }
+.t1 .bars { display:flex; align-items:flex-end; gap:7px; height:110px; padding:10px 12px 4px; }
+.t1 .bars i { flex:1; background:#bae0ff; border-radius:2px 2px 0 0; }
+.t1 .bars i.hi { background:#1677ff; }
+.t1 table { width:100%; border-collapse:collapse; font-size:11.5px; }
+.t1 th { text-align:left; padding:7px 12px; background:#fafafa; color:#8c8c8c; font-weight:600; font-size:10.5px; border-bottom:1px solid #f0f0f0; }
+.t1 td { padding:7px 12px; border-bottom:1px solid #f5f5f5; color:#3b3b3b; }
+.t1 td.n { text-align:right; font-variant-numeric:tabular-nums; }
+.t1 .tg { display:inline-block; padding:1px 7px; border-radius:3px; background:#f0f5ff; color:#1677ff; font-size:10.5px; }
+
+/* ============ 方向 2 瑞士极简 · 黑白红 ============ */
+.t2 .mock { height:520px; background:#fff; color:#111; font-size:12px; display:flex; flex-direction:column; }
+.t2 .h { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:2.5px solid #111; }
+.t2 .h .logo { font-weight:900; font-size:14px; letter-spacing:-.02em; }
+.t2 .h .logo i { display:inline-block; width:10px; height:10px; background:#e63946; margin-right:6px; }
+.t2 .h .sp { flex:1; }
+.t2 .h .u { font-size:11px; letter-spacing:.14em; color:#111; font-weight:700; }
+.t2 .bd { display:flex; flex:1; min-height:0; }
+.t2 .side { width:150px; border-right:1px solid #e7e7e7; padding:16px 0; }
+.t2 .side .g { padding:0 16px 6px; font-size:9.5px; letter-spacing:.22em; color:#999; }
+.t2 .side a { display:block; padding:9px 16px; font-size:12.5px; color:#111; border-left:3px solid transparent; }
+.t2 .side a.on { border-left-color:#e63946; font-weight:800; background:#fafafa; }
+.t2 .side a .n { float:right; color:#999; font-size:10px; }
+.t2 .ct { flex:1; padding:18px 20px; }
+.t2 .k { font-size:10px; letter-spacing:.2em; color:#888; }
+.t2 .big { display:grid; grid-template-columns:1.3fr 1fr 1fr; gap:0; border-top:2.5px solid #111; margin-top:10px; }
+.t2 .big > div { padding:14px 16px 12px 0; border-right:1px solid #e7e7e7; }
+.t2 .big > div:last-child { border-right:0; padding-left:16px; }
+.t2 .big .v { margin-top:6px; font-size:30px; font-weight:900; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
+.t2 .big .v small { font-size:11px; font-weight:600; color:#888; margin-left:3px; }
+.t2 .big .v em { font-style:normal; color:#e63946; }
+.t2 .sec { margin-top:18px; }
+.t2 .sec .tt { display:flex; align-items:center; gap:8px; font-size:10px; letter-spacing:.2em; color:#111; font-weight:800; padding-bottom:6px; border-bottom:1px solid #111; }
+.t2 .bars { display:flex; align-items:flex-end; gap:6px; height:96px; margin-top:10px; }
+.t2 .bars i { flex:1; background:#111; }
+.t2 .bars i.hi { background:#e63946; }
+.t2 table { width:100%; border-collapse:collapse; margin-top:10px; font-size:11.5px; }
+.t2 th { text-align:left; padding:6px 8px; font-size:9.5px; letter-spacing:.12em; color:#888; border-bottom:1px solid #111; }
+.t2 td { padding:7px 8px; border-bottom:1px solid #e7e7e7; }
+.t2 td.n { text-align:right; font-variant-numeric:tabular-nums; }
+
+/* ============ 方向 3 晨报 · 编辑/报纸风 ============ */
+.t3 .mock { height:520px; background:#faf7f0; color:#1c1a16; font-size:12px; display:flex; flex-direction:column; }
+.t3 .h { padding:12px 18px 10px; border-bottom:3px double #1c1a16; display:flex; align-items:baseline; gap:12px; }
+.t3 .h .logo { font-family:Georgia,"Songti SC","STSong",serif; font-weight:900; font-size:17px; letter-spacing:.06em; }
+.t3 .h .dt { font-size:10.5px; color:#6d675c; font-family:Georgia,"Songti SC",serif; }
+.t3 .h .sp { flex:1; }
+.t3 .h .u { font-family:Georgia,"Songti SC",serif; font-size:11px; }
+.t3 .bd { display:flex; flex:1; min-height:0; }
+.t3 .side { width:150px; border-right:1px solid #d8d2c4; padding:14px 0; }
+.t3 .side .g { padding:0 14px 5px; font-size:9.5px; letter-spacing:.24em; color:#8a8476; }
+.t3 .side a { display:block; padding:8px 14px; font-family:Georgia,"Songti SC",serif; font-size:12.5px; color:#1c1a16; }
+.t3 .side a.on { font-weight:800; background:#efe9db; border-left:3px solid #8b2f2f; }
+.t3 .ct { flex:1; padding:16px 18px; }
+.t3 .kicker { font-size:9.5px; letter-spacing:.26em; color:#8b2f2f; font-weight:700; }
+.t3 h2.sh { font-family:Georgia,"Songti SC",serif; font-size:20px; font-weight:900; margin-top:4px; }
+.t3 .lede { margin-top:6px; font-size:11px; color:#6d675c; line-height:1.6; }
+.t3 .figs { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:12px; }
+.t3 .fig { border-top:2px solid #1c1a16; padding-top:8px; }
+.t3 .fig .k { font-size:9.5px; letter-spacing:.14em; color:#8a8476; }
+.t3 .fig .v { font-family:Georgia,"Songti SC",serif; font-size:24px; font-weight:900; margin-top:3px; font-variant-numeric:tabular-nums; }
+.t3 .fig .v small { font-size:10px; color:#6d675c; }
+.t3 .chart { margin-top:14px; border-top:1px solid #d8d2c4; padding-top:8px; }
+.t3 .chart .bars { display:flex; align-items:flex-end; gap:6px; height:86px; }
+.t3 .chart i { flex:1; background:#c9c0ac; }
+.t3 .chart i.hi { background:#8b2f2f; }
+.t3 table { width:100%; border-collapse:collapse; margin-top:12px; font-size:11px; font-family:Georgia,"Songti SC",serif; }
+.t3 th { text-align:left; padding:5px 6px; font-size:9.5px; letter-spacing:.08em; color:#6d675c; border-top:2px solid #1c1a16; border-bottom:1px solid #1c1a16; }
+.t3 td { padding:6px; border-bottom:1px solid #e4ddcd; }
+.t3 td.n { text-align:right; font-variant-numeric:tabular-nums; }
+
+/* ============ 方向 4 掌柜 · 清爽金融 App ============ */
+.t4 .mock { height:520px; background:#f5f7fa; color:#17233d; font-size:12px; display:flex; flex-direction:column; }
+.t4 .h { display:flex; align-items:center; gap:10px; height:46px; padding:0 14px; background:linear-gradient(100deg,#1552f0,#2f7bff); color:#fff; }
+.t4 .h .logo { display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; }
+.t4 .h .logo i { display:grid; place-items:center; width:24px; height:24px; border-radius:8px; background:rgba(255,255,255,.2); font-style:normal; font-size:11px; }
+.t4 .h .sp { flex:1; }
+.t4 .h .bell { position:relative; }
+.t4 .h .bell::after { content:""; position:absolute; top:-2px; right:-2px; width:6px; height:6px; border-radius:50%; background:#ffcf3f; }
+.t4 .h .av { width:24px; height:24px; border-radius:50%; background:#ffcf3f; color:#8a5b00; display:grid; place-items:center; font-size:10px; font-weight:800; }
+.t4 .bd { display:flex; flex:1; min-height:0; }
+.t4 .side { width:150px; background:#fff; border-right:1px solid #edf0f4; padding:12px 8px; }
+.t4 .side .g { font-size:9.5px; color:#9aa6bd; padding:8px 10px 4px; }
+.t4 .side a { display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:10px; color:#43526e; font-size:12px; }
+.t4 .side a .dot { width:7px; height:7px; border-radius:3px; background:#d7deea; }
+.t4 .side a.on { background:#eaf1ff; color:#1552f0; font-weight:700; }
+.t4 .side a.on .dot { background:#1552f0; }
+.t4 .ct { flex:1; padding:12px; display:grid; gap:10px; align-content:start; }
+.t4 .hero { background:linear-gradient(120deg,#1552f0,#2f7bff); border-radius:14px; padding:14px 16px; color:#fff; display:flex; align-items:center; gap:16px; }
+.t4 .hero .k { font-size:11px; opacity:.85; }
+.t4 .hero .v { font-size:24px; font-weight:800; margin-top:3px; font-variant-numeric:tabular-nums; }
+.t4 .hero .sub { margin-left:auto; text-align:right; font-size:10.5px; opacity:.85; line-height:1.7; }
+.t4 .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.t4 .kpi { background:#fff; border-radius:12px; padding:11px 12px; box-shadow:0 6px 16px -12px rgba(23,35,61,.25); }
+.t4 .kpi .k { font-size:10.5px; color:#9aa6bd; }
+.t4 .kpi .v { margin-top:4px; font-size:16px; font-weight:800; color:#17233d; }
+.t4 .kpi .v em { font-style:normal; color:#0fa36b; font-size:10px; margin-left:4px; }
+.t4 .card { background:#fff; border-radius:12px; box-shadow:0 6px 16px -12px rgba(23,35,61,.25); }
+.t4 .ch { padding:10px 14px 4px; font-size:12px; font-weight:700; color:#17233d; }
+.t4 .bars { display:flex; align-items:flex-end; gap:7px; height:96px; padding:8px 14px 10px; }
+.t4 .bars i { flex:1; background:#d9e6ff; border-radius:4px 4px 0 0; }
+.t4 .bars i.hi { background:linear-gradient(180deg,#2f7bff,#1552f0); }
+
+/* ============ 方向 5 台账 · 报表/打印风 ============ */
+.t5 .mock { height:520px; background:#fff; color:#16191c; font-size:11.5px; display:flex; flex-direction:column; font-family:"PingFang SC","Microsoft YaHei",sans-serif; }
+.t5 .h { display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid #b9bfc6; border-left:4px solid #16191c; }
+.t5 .h .logo { font-weight:800; font-size:13px; }
+.t5 .h .meta { margin-left:auto; font-size:10px; color:#6a737d; }
+.t5 .bd { display:flex; flex:1; min-height:0; }
+.t5 .side { width:148px; border-right:1px solid #b9bfc6; }
+.t5 .side .g { padding:9px 12px 4px; font-size:9.5px; color:#8a939d; letter-spacing:.1em; border:1px solid #e3e6ea; border-right:0; background:#f6f8fa; }
+.t5 .side a { display:flex; justify-content:space-between; padding:8px 12px; border:1px solid #e3e6ea; border-right:0; border-top:0; color:#16191c; }
+.t5 .side a.on { background:#eef1f4; font-weight:800; box-shadow:inset 3px 0 0 #16191c; }
+.t5 .side .n { color:#8a939d; font-size:10px; }
+.t5 .ct { flex:1; padding:12px 14px; }
+.t5 .sum { width:100%; border-collapse:collapse; margin-bottom:10px; }
+.t5 .sum th { background:#f6f8fa; border:1px solid #b9bfc6; padding:6px 10px; font-size:10px; color:#4a535d; text-align:left; }
+.t5 .sum td { border:1px solid #b9bfc6; padding:8px 10px; font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; }
+.t5 .sum td small { font-size:9.5px; font-weight:600; color:#6a737d; margin-left:2px; }
+.t5 .chart { border:1px solid #b9bfc6; margin-bottom:10px; }
+.t5 .chart .cap { padding:6px 10px; background:#f6f8fa; border-bottom:1px solid #b9bfc6; font-weight:700; font-size:11px; }
+.t5 .bars { display:flex; align-items:flex-end; gap:6px; height:84px; padding:8px 10px; }
+.t5 .bars i { flex:1; background:#9db3c8; }
+.t5 .bars i.hi { background:#16191c; }
+.t5 table.lst { width:100%; border-collapse:collapse; }
+.t5 .lst th { background:#f6f8fa; border:1px solid #b9bfc6; padding:5px 8px; font-size:9.5px; color:#4a535d; text-align:left; }
+.t5 .lst td { border:1px solid #d6dadf; padding:5px 8px; font-size:11px; }
+.t5 .lst td.n { text-align:right; font-variant-numeric:tabular-nums; }
+.t5 .dot { display:inline-block; width:7px; height:7px; border-radius:2px; margin-right:4px; }
+
+/* ============ 方向 6 展台 · 大数字现代 SaaS ============ */
+.t6 .mock { height:520px; background:#fbfbfd; color:#0f1318; font-size:12px; display:flex; flex-direction:column; }
+.t6 .h { display:flex; align-items:center; gap:14px; padding:12px 18px; }
+.t6 .h .logo { display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; letter-spacing:-.01em; }
+.t6 .h .logo i { width:22px; height:22px; border-radius:7px; background:#4f46e5; display:inline-block; }
+.t6 .h nav { display:flex; gap:2px; }
+.t6 .h nav a { padding:6px 10px; border-radius:8px; color:#6b7280; font-size:12px; }
+.t6 .h nav a.on { color:#0f1318; background:#f0f0f4; font-weight:600; }
+.t6 .h .sp { flex:1; }
+.t6 .h .u { width:26px; height:26px; border-radius:50%; background:#e4e4ec; display:grid; place-items:center; font-size:10px; color:#4f46e5; font-weight:700; }
+.t6 .bd { display:flex; flex:1; min-height:0; }
+.t6 .side { width:150px; padding:12px 10px; }
+.t6 .side .g { font-size:9.5px; color:#9ca3af; padding:10px 10px 4px; letter-spacing:.1em; }
+.t6 .side a { display:block; padding:8px 10px; border-radius:9px; color:#4b5563; font-size:12.5px; }
+.t6 .side a.on { color:#0f1318; font-weight:700; background:#fff; box-shadow:0 1px 2px rgba(15,19,24,.06),0 6px 14px -10px rgba(15,19,24,.16); }
+.t6 .ct { flex:1; padding:6px 20px 16px; }
+.t6 .k { font-size:10.5px; color:#9ca3af; }
+.t6 .row { display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr; gap:24px; padding:18px 0 14px; border-bottom:1px solid #ececf1; }
+.t6 .row .v { font-size:34px; font-weight:300; letter-spacing:-.03em; color:#0f1318; font-variant-numeric:tabular-nums; }
+.t6 .row .v b { font-weight:600; }
+.t6 .row .v small { font-size:11px; color:#9ca3af; font-weight:500; margin-left:3px; }
+.t6 .row .d { font-size:10.5px; color:#0f9d6b; margin-top:4px; }
+.t6 .sec { display:flex; align-items:baseline; gap:10px; padding:16px 0 8px; }
+.t6 .sec h3 { font-size:13px; font-weight:600; }
+.t6 .sec span { font-size:10.5px; color:#9ca3af; }
+.t6 .bars { display:flex; align-items:flex-end; gap:8px; height:92px; }
+.t6 .bars i { flex:1; background:#e3e3ec; border-radius:3px 3px 0 0; }
+.t6 .bars i.hi { background:#4f46e5; }
+.t6 table { width:100%; border-collapse:collapse; margin-top:6px; font-size:11.5px; }
+.t6 th { text-align:left; padding:6px 8px; font-size:10px; color:#9ca3af; font-weight:500; border-bottom:1px solid #ececf1; }
+.t6 td { padding:8px; border-bottom:1px solid #f4f4f8; color:#374151; }
+.t6 td.n { text-align:right; font-variant-numeric:tabular-nums; }
+
+@media (max-width:1040px){ .board{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>方向罗盘 · 六个全新方向（用户端「销售总览」同屏对比）</h1>
+  <p>此前 A~G 全部推翻后重新出发：以下六个方向<b>没有任何一个沿用旧思路</b>，全部为亮色、菜单在左、同一屏真实数据
+  （29,771 件 · ¥8,008,442.99 · 均价 269.00 · A 63.5% / B 36.3% · 15 张结算单）。<b>请指方向</b>——可以选一个、
+  说两个的组合（如「2 的骨架 + 4 的颜色」），或直接给一个你喜欢的参照产品名，我按它全量展开成完整设计稿。</p>
+</div>
+
+<div class="board">
+
+  <!-- 1 蓝鲸 -->
+  <div class="tile t1">
+    <div class="tlabel"><span class="no">1</span><b>蓝鲸 · 企业 BI</b><span>标准企业后台气质 · 蓝主色 · 密表格</span></div>
+    <div class="tscene"><div class="mock">
+      <div class="h"><span class="logo">果</span>果销分析<span class="crumb">／ 销售总览</span><span class="sp"></span><span class="av">T</span></div>
+      <div class="bd">
+        <aside class="side">
+          <div class="g">销售分析</div>
+          <a class="on" href="#">销售总览</a><a href="#">结算单列表<span class="n">15</span></a><a href="#">结算单详情</a><a href="#">品牌对比</a>
+          <div class="g">录入</div><a href="#">录单 / 导入</a>
+        </aside>
+        <div class="ct">
+          <div class="t">销售总览 <span style="font-weight:400;font-size:11px;color:#8c8c8c">09-02 ~ 09-19 · 15 张结算单</span></div>
+          <div class="kpis">
+            <div class="kpi"><div class="k">总销售额（元）</div><div class="v num"><b>8,008,442</b>.99</div><div class="d">▲ 29,771 件</div></div>
+            <div class="kpi"><div class="k">加权均价（元/件）</div><div class="v num">269.00</div><div class="d">= 销售额÷销量</div></div>
+            <div class="kpi"><div class="k">A 果（件）</div><div class="v num">18,907</div><div class="d">占 63.5%</div></div>
+            <div class="kpi"><div class="k">B 果（件）</div><div class="v num">10,819</div><div class="d">占 36.3%</div></div>
+          </div>
+          <div class="card">
+            <div class="ch">每日销售金额（万元）</div>
+            <div class="bars"><i style="height:29%"></i><i style="height:29%"></i><i style="height:30%"></i><i style="height:23%"></i><i style="height:7%"></i><i style="height:21%"></i><i style="height:9%"></i><i style="height:19%"></i><i style="height:16%"></i><i style="height:21%"></i><i class="hi" style="height:74%"></i><i style="height:14%"></i><i class="hi" style="height:100%"></i><i class="hi" style="height:46%"></i><i style="height:37%"></i></div>
+          </div>
+          <div class="card">
+            <table><thead><tr><th>商号</th><th>单号</th><th>品牌</th><th>到货</th><th class="n">件数</th></tr></thead>
+            <tbody>
+              <tr><td>单650</td><td>香香-L011RXRK03</td><td><span class="tg">香香</span></td><td>09-15</td><td class="n">1,977</td></tr>
+              <tr><td>单651</td><td>香香-L013RXRK05</td><td><span class="tg">香香</span></td><td>09-17</td><td class="n">1,977</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <div class="pick-hint">像 AntD / 钉钉后台：规矩、蓝白灰、信息密度高，谁看都眼熟的企业软件气质。</div>
+  </div>
+
+  <!-- 2 瑞士 -->
+  <div class="tile t2">
+    <div class="tlabel"><span class="no">2</span><b>瑞士极简 · 黑白红</b><span>无卡片 · 粗规则线 · 大数字</span></div>
+    <div class="tscene"><div class="mock">
+      <div class="h"><span class="logo"><i></i>果销分析</span><span class="sp"></span><span class="u">TEST · 嘉兴</span></div>
+      <div class="bd">
+        <aside class="side">
+          <div class="g">销售分析</div>
+          <a class="on" href="#">销售总览</a><a href="#">结算单列表 <span class="n">15</span></a><a href="#">结算单详情</a><a href="#">品牌对比</a>
+          <div class="g">录入</div><a href="#">录单 / 导入</a>
+        </aside>
+        <div class="ct">
+          <div class="k">OVERVIEW / 销售总览</div>
+          <div class="big">
+            <div><div class="k">总销售额</div><div class="v num">800.84<small>万元</small></div></div>
+            <div><div class="k">总销量</div><div class="v num">29,771<small>件</small></div></div>
+            <div><div class="k">A 果占比</div><div class="v num"><em>63.5%</em></div></div>
+          </div>
+          <div class="sec">
+            <div class="tt">每日销售金额（万元）</div>
+            <div class="bars"><i style="height:29%"></i><i style="height:29%"></i><i style="height:30%"></i><i style="height:23%"></i><i style="height:7%"></i><i style="height:21%"></i><i style="height:9%"></i><i style="height:19%"></i><i style="height:16%"></i><i style="height:21%"></i><i style="height:74%"></i><i style="height:14%"></i><i class="hi" style="height:100%"></i><i style="height:46%"></i><i style="height:37%"></i></div>
+          </div>
+          <div class="sec">
+            <div class="tt">结算单</div>
+            <table><thead><tr><th>商号</th><th>品牌</th><th>到货</th><th class="n">件数</th></tr></thead>
+            <tbody>
+              <tr><td>单650</td><td>香香</td><td>09-15</td><td class="n">1,977</td></tr>
+              <tr><td>单653</td><td>晴牌</td><td>09-17</td><td class="n">2,011</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <div class="pick-hint">黑白为主、一点红：没有卡片没有阴影，全靠规则线与超大数字，海报感/瑞士平面设计风。</div>
+  </div>
+
+  <!-- 3 晨报 -->
+  <div class="tile t3">
+    <div class="tlabel"><span class="no">3</span><b>晨报 · 编辑风</b><span>报纸排版 · 衬线大数字 · 双细线</span></div>
+    <div class="tscene"><div class="mock">
+      <div class="h"><span class="logo">果销分析</span><span class="dt">2026 年 9 月 29 日 · 星期二</span><span class="sp"></span><span class="u">订户：test</span></div>
+      <div class="bd">
+        <aside class="side">
+          <div class="g">版面</div>
+          <a class="on" href="#">销售总览</a><a href="#">结算单列表</a><a href="#">结算单详情</a><a href="#">品牌对比</a>
+          <div class="g">录事</div><a href="#">录单 / 导入</a>
+        </aside>
+        <div class="ct">
+          <div class="kicker">销售总览 · 本期要数</div>
+          <h2 class="sh">十五柜金枕，半月八百万</h2>
+          <p class="lede">9 月 2 日至 19 日，15 张结算单合计 29,771 件、销售额 8,008,442.99 元；A 果占 63.5% 撑起大盘，月中两日集中开柜。</p>
+          <div class="figs">
+            <div class="fig"><div class="k">总销售额</div><div class="v num">800.84<small> 万元</small></div></div>
+            <div class="fig"><div class="k">加权均价</div><div class="v num">269.00<small> 元/件</small></div></div>
+            <div class="fig"><div class="k">A 果占比</div><div class="v num">63.5<small> %</small></div></div>
+          </div>
+          <div class="chart"><div class="k" style="font-size:9.5px;letter-spacing:.24em;color:#8a8476">每日销售金额（万元）</div>
+            <div class="bars"><i style="height:29%"></i><i style="height:29%"></i><i style="height:30%"></i><i style="height:23%"></i><i style="height:7%"></i><i style="height:21%"></i><i style="height:9%"></i><i style="height:19%"></i><i style="height:16%"></i><i style="height:21%"></i><i style="height:74%"></i><i style="height:14%"></i><i class="hi" style="height:100%"></i><i style="height:46%"></i><i style="height:37%"></i></div>
+          </div>
+          <table><thead><tr><th>商号</th><th>品牌</th><th>到货</th><th class="n">件数</th></tr></thead>
+          <tbody><tr><td>单650</td><td>香香</td><td>09-15</td><td class="n">1,977</td></tr><tr><td>单653</td><td>晴牌</td><td>09-17</td><td class="n">2,011</td></tr></tbody></table>
+        </div>
+      </div>
+    </div></div>
+    <div class="pick-hint">像财经报纸：衬线字大标题+导读+双细线分栏，数字像行情表，最有「被人认真做出来」的质感。</div>
+  </div>
+
+  <!-- 4 掌柜 -->
+  <div class="tile t4">
+    <div class="tlabel"><span class="no">4</span><b>掌柜 · 清爽金融 App</b><span>蓝色渐变 hero · 白卡圆角 · 亲和</span></div>
+    <div class="tscene"><div class="mock">
+      <div class="h"><span class="logo"><i>果</i>果销分析</span><span class="sp"></span><span class="bell">🔔</span><span class="av">T</span></div>
+      <div class="bd">
+        <aside class="side">
+          <div class="g">销售分析</div>
+          <a class="on" href="#"><span class="dot"></span>销售总览</a><a href="#"><span class="dot"></span>结算单列表</a><a href="#"><span class="dot"></span>结算单详情</a><a href="#"><span class="dot"></span>品牌对比</a>
+          <div class="g">录入</div><a href="#"><span class="dot"></span>录单 / 导入</a>
+        </aside>
+        <div class="ct">
+          <div class="hero">
+            <div><div class="k">近 30 天总销售额</div><div class="v num">¥800.84 万</div></div>
+            <div class="sub">29,771 件 · 15 张结算单<br />加权均价 269.00 元/件</div>
+          </div>
+          <div class="kpis">
+            <div class="kpi"><div class="k">A 果</div><div class="v num">18,907<em>63.5%</em></div></div>
+            <div class="kpi"><div class="k">B 果</div><div class="v num">10,819<em>36.3%</em></div></div>
+            <div class="kpi"><div class="k">结算单</div><div class="v num">15<em>香香14/晴牌1</em></div></div>
+          </div>
+          <div class="card">
+            <div class="ch">每日销售金额（万元）</div>
+            <div class="bars"><i style="height:29%"></i><i style="height:29%"></i><i style="height:30%"></i><i style="height:23%"></i><i style="height:7%"></i><i style="height:21%"></i><i style="height:9%"></i><i style="height:19%"></i><i style="height:16%"></i><i style="height:21%"></i><i class="hi" style="height:74%"></i><i style="height:14%"></i><i class="hi" style="height:100%"></i><i class="hi" style="height:46%"></i><i style="height:37%"></i></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <div class="pick-hint">像支付宝商家版/银行 App：蓝渐变金额 hero + 白卡圆角，果农最熟悉的手机银行气质。</div>
+  </div>
+
+  <!-- 5 台账 -->
+  <div class="tile t5">
+    <div class="tlabel"><span class="no">5</span><b>台账 · 报表打印风</b><span>全表格线 · 零装饰 · 最高密度</span></div>
+    <div class="tscene"><div class="mock">
+      <div class="h"><span class="logo">果销分析 · 销售总览</span><span class="meta">区间 2026-09-02~09-19 · 打印于 09-29</span></div>
+      <div class="bd">
+        <aside class="side">
+          <div class="g">销售分析</div>
+          <a class="on" href="#">销售总览</a><a href="#">结算单列表<span class="n">15</span></a><a href="#">结算单详情</a><a href="#">品牌对比</a>
+          <div class="g">录入</div><a href="#">录单 / 导入</a>
+        </aside>
+        <div class="ct">
+          <table class="sum"><thead><tr><th>总销售额（元）</th><th>总销量（件）</th><th>加权均价（元/件）</th><th>结算单（张）</th></tr></thead>
+          <tbody><tr><td class="num">8,008,442.99</td><td class="num">29,771</td><td class="num">269.00</td><td class="num">15</td></tr></tbody></table>
+          <div class="chart">
+            <div class="cap">每日销售金额（万元）· 09-02 ~ 09-19</div>
+            <div class="bars"><i style="height:29%"></i><i style="height:29%"></i><i style="height:30%"></i><i style="height:23%"></i><i style="height:7%"></i><i style="height:21%"></i><i style="height:9%"></i><i style="height:19%"></i><i style="height:16%"></i><i style="height:21%"></i><i style="height:74%"></i><i style="height:14%"></i><i class="hi" style="height:100%"></i><i style="height:46%"></i><i style="height:37%"></i></div>
+          </div>
+          <table class="lst"><thead><tr><th>商号</th><th>单号</th><th>品牌</th><th>柜号</th><th>到货</th><th class="n">件数</th><th class="n">记录</th></tr></thead>
+          <tbody>
+            <tr><td>单650</td><td>香香-L011RXRK03</td><td><span class="dot" style="background:#1f7a4d"></span>香香</td><td>EISU5674802</td><td>09-15</td><td class="n">1,977</td><td class="n">52</td></tr>
+            <tr><td>单651</td><td>香香-L013RXRK05</td><td><span class="dot" style="background:#1f7a4d"></span>香香</td><td>SNHU8010217</td><td>09-17</td><td class="n">1,977</td><td class="n">44</td></tr>
+            <tr><td>单653</td><td>晴牌-03</td><td><span class="dot" style="background:#c0832b"></span>晴牌</td><td>EMCU5364147</td><td>09-17</td><td class="n">2,011</td><td class="n">46</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </div></div>
+    <div class="pick-hint">像打印台账/Excel：一切皆表格、全边框线、零装饰，老一辈账房先生最信任的样子。</div>
+  </div>
+
+  <!-- 6 展台 -->
+  <div class="tile t6">
+    <div class="tlabel"><span class="no">6</span><b>展台 · 大数字现代 SaaS</b><span>细字重超大数字 · 极少边框 · 靛紫点缀</span></div>
+    <div class="tscene"><div class="mock">
+      <div class="h"><span class="logo"><i></i>果销分析</span>
+        <nav><a href="#" class="on">销售总览</a><a href="#">结算单列表</a><a href="#">品牌对比</a></nav>
+        <span class="sp"></span><span class="u">T</span>
+      </div>
+      <div class="bd">
+        <aside class="side">
+          <div class="g">销售分析</div>
+          <a class="on" href="#">销售总览</a><a href="#">结算单列表</a><a href="#">结算单详情</a><a href="#">品牌对比</a>
+          <div class="g">录入</div><a href="#">录单 / 导入</a>
+        </aside>
+        <div class="ct">
+          <div class="k">2026-09-02 → 09-19</div>
+          <div class="row">
+            <div><div class="k">总销售额</div><div class="v num"><b>¥800.84</b><small>万</small></div><div class="d">15 张结算单</div></div>
+            <div><div class="k">总销量</div><div class="v num">29,771<small>件</small></div></div>
+            <div><div class="k">加权均价</div><div class="v num">269.00<small>元</small></div></div>
+            <div><div class="k">A 果占比</div><div class="v num">63.5<small>%</small></div></div>
+          </div>
+          <div class="sec"><h3>每日销售金额</h3><span>万元 · 平时水平 53.4</span></div>
+          <div class="bars"><i style="height:29%"></i><i style="height:29%"></i><i style="height:30%"></i><i style="height:23%"></i><i style="height:7%"></i><i style="height:21%"></i><i style="height:9%"></i><i style="height:19%"></i><i style="height:16%"></i><i style="height:21%"></i><i style="height:74%"></i><i style="height:14%"></i><i class="hi" style="height:100%"></i><i style="height:46%"></i><i style="height:37%"></i></div>
+          <table><thead><tr><th>商号</th><th>品牌</th><th>到货</th><th class="n">件数</th></tr></thead>
+          <tbody><tr><td>单650</td><td>香香</td><td>09-15</td><td class="n">1,977</td></tr><tr><td>单653</td><td>晴牌</td><td>09-17</td><td class="n">2,011</td></tr></tbody></table>
+        </div>
+      </div>
+    </div></div>
+    <div class="pick-hint">像 Linear/Stripe：留白多、细字重超大数字、几乎无边框，最「当代互联网产品」的气质。</div>
+  </div>
+
+</div>
+</body>
+</html>

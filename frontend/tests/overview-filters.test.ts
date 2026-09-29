@@ -65,7 +65,7 @@ test('卖得怎么样区块改名并启用 overview 版式等级图表', () => {
   const breakdown = fs.readFileSync(path.join(src, 'components', 'SettlementGradeBreakdown.vue'), 'utf8')
 
   assert.match(view, /title="销售情况"/)
-  assert.match(view, /title="等级销售分析"/)
+  assert.match(view, /title="销售分析"/)
   assert.match(view, /variant="overview"/)
 
   // 等级均价图已整体删除；饼图（等级件数结构）仅 overview 保留，结算单详情不渲染。
@@ -92,6 +92,22 @@ test('卖得怎么样区块改名并启用 overview 版式等级图表', () => {
   assert.doesNotMatch(breakdown, /spec-list|spec-row/)
 })
 
+test('卖得怎么样规格表支持品牌与等级筛选，仅 overview 版式', () => {
+  const breakdown = fs.readFileSync(path.join(src, 'components', 'SettlementGradeBreakdown.vue'), 'utf8')
+
+  // 筛选行仅 overview 渲染；品牌口径与分组一致（详情页整单品牌优先）。
+  assert.match(breakdown, /<div v-if="isOverview" class="spec-filter-row">/)
+  assert.match(breakdown, /const specBrandFilter = ref\(''\)/)
+  assert.match(breakdown, /const specGradeFilter = ref<Grade \| ''>\(''\)/)
+  assert.match(breakdown, /function recordBrandLabel\(record: SettlementRecord\): string/)
+  // 过滤发生在聚合之前，合计/占比随筛选重算；详情版式不参与过滤。
+  assert.match(breakdown, /filteredSpecRecords\.value\.forEach\(\(record\) => \{/)
+  assert.match(breakdown, /if \(!isOverview\.value\) return props\.records/)
+  assert.match(breakdown, /recordBrandLabel\(record\) !== specBrandFilter\.value/)
+  assert.match(breakdown, /record\.grade !== specGradeFilter\.value/)
+  assert.match(breakdown, /filteredSpecRecords\.value\.reduce\(\(total, record\) => total \+ record\.quantity, 0\)/)
+})
+
 test('卖得怎么样等级销售分析与每日销售折线图同行，支持金额/件数切换', () => {
   const view = fs.readFileSync(path.join(src, 'views', 'OverviewView.vue'), 'utf8')
   const breakdown = fs.readFileSync(path.join(src, 'components', 'SettlementGradeBreakdown.vue'), 'utf8')
@@ -105,14 +121,18 @@ test('卖得怎么样等级销售分析与每日销售折线图同行，支持�
   assert.match(view, /requestErrors\.dailyTrend && `每日销售金额：\$\{requestErrors\.dailyTrend\}`/)
   assert.match(breakdown, /<slot name="overview-aside" \/>/)
   assert.match(breakdown, /\.breakdown-grid--overview \.overview-aside-block \{ grid-row: 1; grid-column: 2; \}/)
-  // 参考稿样式：隐藏 Y 轴、灰调平滑折线 + 面积渐变 + 末点空心圆，悬停按日看数值。
+  // 参考稿样式：灰调平滑折线 + 面积渐变 + 末点空心圆；Y 轴显示浅色刻度（万级缩写），悬停按日看数值。
   assert.match(chart, /const metricLabel = computed\(\(\) => \(isAmount\.value \? '销售金额' : '销售件数'\)\)/)
-  assert.match(chart, /yAxis: \{ type: 'value', show: false \}/)
+  // 标题带稳定 id 且容器 aria-labelledby 接线（与 settlement-grade-breakdown-title 同款约定）。
+  assert.match(chart, /aria-labelledby="daily-sales-trend-title"/)
+  assert.match(chart, /<h3 id="daily-sales-trend-title">/)
+  assert.match(chart, /yAxis: \{\s+type: 'value',\s+axisLine: \{ show: false \},\s+axisTick: \{ show: false \},\s+splitLine: \{ lineStyle: \{ color: echartTheme\.line \} \},\s+axisLabel: \{ color: echartTheme\.muted, fontSize: 10, formatter: formatAxisValue \},\s+\}/)
+  assert.match(chart, /function formatAxisValue\(value: number\): string \{\s+if \(value >= 10000\) return `\$\{\(value \/ 10000\)\.toFixed\(1\)\}万`/)
   assert.match(chart, /type: 'line'[\s\S]*?smooth: true/)
   assert.match(chart, /areaStyle/)
   assert.match(chart, /type: 'scatter'[\s\S]*?borderColor: LINE_COLOR/)
   // 右上角「金额 / 件数」分段切换（参考稿）：默认金额，切换后画 salesQuantity。
-  assert.match(chart, /<h3>每日\{\{ metricLabel \}\}<\/h3>/)
+  assert.match(chart, /<h3 id="daily-sales-trend-title">每日\{\{ metricLabel \}\}<\/h3>/)
   assert.match(chart, /\{ value: 'amount', label: '金额' \},\s*\n\s*\{ value: 'quantity', label: '件数' \},/)
   assert.match(chart, /:aria-pressed="mode === option\.value"/)
   assert.match(chart, /isAmount\.value \? point\.salesAmount : point\.salesQuantity/)

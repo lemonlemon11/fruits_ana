@@ -1,0 +1,160 @@
+/* Element Plus 组件主题统一：把 EP 设计变量映射到全站令牌（墨绿主色、4px 圆角、
+   17px 可读性字号基线），保证 ElDialog / ElMessage / ElInput / ElPagination /
+   ElDrawer / ElSelect 与既有手写控件视觉一致。
+   弹层类组件（dialog / message / drawer / select 下拉）渲染在 body 层，
+   :root 变量可正常级联到它们。 */
+
+:root {
+  --el-color-primary: var(--primary);
+  --el-color-primary-dark-2: var(--primary-dark);
+  --el-color-primary-light-3: color-mix(in srgb, var(--primary) 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, var(--primary) 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, var(--primary) 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, var(--primary) 20%, white);
+  --el-color-primary-light-9: var(--primary-soft);
+  --el-color-danger: var(--danger);
+  --el-color-error: var(--danger);
+  --el-border-color: var(--line-strong);
+  --el-border-color-light: var(--line);
+  --el-border-color-lighter: var(--line);
+  --el-border-radius-base: var(--radius-sm);
+  --el-border-radius-small: 3px;
+  --el-text-color-primary: var(--ink);
+  --el-text-color-regular: var(--ink);
+  --el-text-color-secondary: var(--muted);
+  --el-fill-color-blank: var(--surface);
+  --el-fill-color-light: var(--surface-soft);
+  --el-bg-color: var(--surface);
+  --el-bg-color-overlay: var(--surface);
+  --el-font-size-base: 1rem;
+  --el-box-shadow-light: 0 6px 18px rgb(24 49 42 / 12%);
+  --el-box-shadow: 0 8px 24px rgb(24 49 42 / 14%);
+}
+
+/* ---------- 输入类：与 .filter-bar input / .field input 同尺寸 ---------- */
+
+.el-input .el-input__wrapper,
+.el-textarea .el-textarea__inner {
+  min-height: 3.06rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+.el-input .el-input__wrapper {
+  box-shadow: 0 0 0 1px var(--line-strong) inset;
+  padding: 0 .65rem;
+}
+.el-input .el-input__wrapper.is-focus,
+.el-textarea .el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--primary) inset;
+}
+.el-input .el-input__wrapper.is-disabled,
+.el-textarea.is-disabled .el-textarea__inner {
+  background: var(--surface-soft);
+  color: var(--muted);
+  box-shadow: 0 0 0 1px var(--line) inset;
+}
+.el-textarea .el-textarea__inner {
+  box-shadow: 0 0 0 1px var(--line-strong) inset;
+  padding: .5rem .65rem;
+  line-height: 1.5;
+}
+/* 表单错误态沿用页面既有 .field.error 包裹：2px 红描边，与手写输入一致。 */
+.field.error .el-input .el-input__wrapper,
+.field.error .el-textarea .el-textarea__inner {
+  box-shadow: 0 0 0 2px var(--danger) inset;
+}
+.field .el-input, .field .el-select, .field .el-textarea { width: 100%; }
+
+/* 只读文本（原 .readonly-input 的替代展示） */
+.el-input.readonly-input .el-input__wrapper {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+/* 禁用/只读回填数据用墨色显示（EP 默认置灰且 -webkit-text-fill-color 锁色，
+   查看明细等只读页面的数据要黑字、明显可读）。 */
+.el-input.is-disabled .el-input__inner,
+.el-textarea.is-disabled .el-textarea__inner {
+  color: var(--ink);
+  -webkit-text-fill-color: var(--ink);
+  opacity: 1;
+}
+.el-date-editor.el-input.is-disabled .el-input__inner {
+  color: var(--ink);
+  -webkit-text-fill-color: var(--ink);
+}
+
+/* ---------- 弹窗：外描边 + 墨绿标题，替换手写 .overlay ---------- */
+
+.el-overlay { background: rgb(24 49 42 / 42%); }
+.el-dialog {
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.el-dialog__title { color: var(--ink); font-weight: 800; font-size: 1.2rem; }
+.el-dialog__header { padding: .9rem 1.06rem; }
+.el-dialog__body { padding: .94rem 1.06rem; color: var(--ink); }
+.el-dialog__footer { padding: .71rem 1.06rem; }
+
+/* ---------- 全局消息：贴全站卡片质感 ---------- */
+
+.el-message {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: 0 6px 18px rgb(24 49 42 / 14%);
+}
+
+/* ---------- 分页 ---------- */
+
+.el-pagination { --el-pagination-font-size: 1rem; color: var(--ink); }
+.el-pagination .el-pager li,
+.el-pagination button {
+  height: 2.4rem;
+  min-width: 2.4rem;
+  font-weight: 700;
+}
+.el-pagination .el-select .el-input__wrapper { min-height: 2.4rem; }
+
+/* ---------- 抽屉 ---------- */
+
+.el-drawer { --el-drawer-padding-primary: 1rem; }
+.el-drawer__header {
+  margin-bottom: 0;
+  padding: .9rem 1rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 800;
+}
+.el-drawer__body { padding: .94rem 1rem; }
+
+/* ---------- ElTable：对齐原 DataTable 视觉（表头色块、隔行底纹、悬停、吸顶表头） ---------- */
+
+.el-table {
+  --el-table-border-color: color-mix(in srgb, var(--line-strong) 45%, transparent);
+  --el-table-header-bg-color: color-mix(in srgb, var(--primary-soft) 55%, var(--surface));
+  --el-table-header-text-color: var(--primary-dark);
+  --el-table-row-hover-bg-color: color-mix(in srgb, var(--primary-soft) 50%, white);
+  --el-table-bg-color: var(--surface);
+  --el-table-tr-bg-color: var(--surface);
+  --el-table-text-color: var(--ink);
+  --el-table-header-text-color: var(--primary-dark);
+  font-size: .95rem;
+}
+.el-table .el-table__cell { padding: .4rem .8rem; }
+.el-table th.el-table__cell {
+  font-size: .88rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--el-table-header-bg-color);
+}
+.el-table td.el-table__cell { color: var(--ink); }
+/* 隔行底纹与数字等宽：沿用原 DataTable 的节奏。 */
+.el-table .el-table__body tr.el-table__row:nth-child(even) td.el-table__cell {
+  background: color-mix(in srgb, var(--surface-soft) 45%, white);
+}
+.el-table td.el-table__cell.is-numeric { font-variant-numeric: tabular-nums; }
+.el-table td.el-table__cell.is-emphasis { font-weight: 700; color: var(--ink); }

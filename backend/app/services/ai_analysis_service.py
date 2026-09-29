@@ -25,13 +25,15 @@ from .series_analytics_service import get_series_comparison
 
 FEATURE = "series-comparison"
 # 提示词版本参与缓存键：改动提示词后自动生成新结论，不会读到旧口径。
+# v11：结论里提到结算单一律用「称呼」（适配后单号，如 香香-001），数据包去掉
+# 商号编号与原始单号/原始商号，杜绝结论用数字商号或「第N张」这类称谓。
 # v7：移除价差数据包，并将等级扩展到 A-F + 其他、价格改为整数，旧结论口径不再适用。
 # v6：数据包把「系列」标签统一改为「品牌」，旧结论可能仍沿用旧叫法，因此让缓存失效。
 # v5：单号序号不再保留字母标记（`宝贝L004` → `宝贝-004`），数据包里的单号随之变化，
 # 旧结论可能仍在正文里写 `宝贝-L004`，因此提升版本让缓存失效。
 # v4：数据包改用适配后单号 / 适配后商号，并补充「原始单号」「原始商号」
 # （ADR-015 / ADR-016），旧缓存自动失效。
-PROMPT_VERSION = "v10"
+PROMPT_VERSION = "v11"
 # 低于该样本量时禁止下趋势/规律结论，只描述这批货本身。
 MIN_TREND_SAMPLES = 5
 # 部分模型会先消耗「思考」token，输出上限需要留足余量，避免正文被截断。
@@ -61,6 +63,8 @@ SYSTEM_PROMPT = """你是水果销售数据分析助手，服务对象是果农�
 10. 「可以留意的地方」必须写 2 到 3 条能直接照做的事，例如下一批怎么分选、
     哪个号可以试着提价、哪张单值得复盘；每条都要带上数字，不要写「继续关注」这类空话。
 11. 样本结算单少于 5 张时，只能说「这批货」的情况，禁止写「趋势」「规律」「一直」「通常」。
+12. 提到某一张结算单时，一律用数据里该单的「称呼」字段（例如 香香-001），
+    禁止用数字商号（637）、「第N张」「1号单」等编号或抽象称谓。
 小标题固定为下面 9 个，顺序不要变；数据中没有的等级要写「暂无数据」：
 整体行情
 A果
@@ -146,6 +150,14 @@ def _price_of(row: dict) -> float | None:
     return (row.get("total") or {}).get("weighted_avg_price")
 
 
+def _settlement_label(row: dict) -> str:
+    """结论里对结算单的称呼：适配后单号（如 香香-001），缺单号时退回商号。"""
+
+    return (
+        row.get("order_no_normalized") or row.get("order_no") or row.get("merchant_no")
+    )
+
+
 def _settlement_price_ranking(comparison: dict) -> list[dict]:
     """各结算单按每件均价排名，并给出与本次平均的差，方便直接引用。"""
 
@@ -157,8 +169,7 @@ def _settlement_price_ranking(comparison: dict) -> list[dict]:
             continue
         rows.append(
             {
-                "商号": row.get("merchant_no_normalized") or row.get("merchant_no"),
-                "原始商号": row.get("merchant_no"),
+                "称呼": _settlement_label(row),
                 "品牌": row.get("series"),
                 "件数": (row.get("total") or {}).get("sales_quantity"),
                 "每件均价": price,
@@ -231,11 +242,9 @@ def build_analysis_payload(
         "合计": _aggregate_payload(comparison.get("total") or {}),
         "结算单": [
             {
+                "称呼": _settlement_label(row),
                 "品牌": row.get("series"),
                 "单号": row.get("order_no_normalized") or row.get("order_no"),
-                "原始单号": row.get("order_no"),
-                "商号": row.get("merchant_no_normalized") or row.get("merchant_no"),
-                "原始商号": row.get("merchant_no"),
                 "到达日期": f"{row.get('start_date')} 至 {row.get('end_date')}",
                 **_aggregate_payload(row),
             }

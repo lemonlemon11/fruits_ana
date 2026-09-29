@@ -7,8 +7,11 @@ import type { AuthMenu } from '../src/api/types.ts'
 
 function menu(overrides: Partial<AuthMenu> & Pick<AuthMenu, 'routePath'>): AuthMenu {
   return {
+    id: 1,
     routePath: overrides.routePath,
     name: '菜单',
+    parentId: null,
+    menuType: 'menu',
     icon: null,
     permissionCode: null,
     sortOrder: 0,
@@ -24,6 +27,24 @@ const imports = menu({ routePath: '/imports', permissionCode: 'import:view', sor
 test('默认入口只从角色已分配菜单选择，不因残留权限打开卖得怎么样', () => {
   assert.equal(
     firstAllowedPath(['overview:view', 'settlement:list'], [settlements]),
+    '/settlements',
+  )
+})
+
+test('目录条目没有路由，不参与默认入口选择', () => {
+  const directory: AuthMenu = {
+    id: 20,
+    routePath: null,
+    name: '销售单管理',
+    parentId: null,
+    menuType: 'directory',
+    icon: null,
+    permissionCode: null,
+    sortOrder: 5,
+    isActive: true,
+  }
+  assert.equal(
+    firstAllowedPath(['settlement:list'], [directory, settlements]),
     '/settlements',
   )
 })

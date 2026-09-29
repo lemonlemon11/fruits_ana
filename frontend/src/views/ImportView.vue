@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { ElDialog } from 'element-plus'
+import 'element-plus/es/components/dialog/style/css'
 
 import { deleteEntryDraft, getEntryDraft, getImportIssues, getImports, issuesCsvUrl, previewImports, resolveImportIssue, type EntryDraft, type ImportBatch, type ImportIssue } from '../api/client'
 import { currentUser } from '../auth'
@@ -45,15 +47,7 @@ const downloadingIssuesBatch = ref('')
 const issueDownloadNotice = ref('')
 const issueDownloadError = ref('')
 const dragging = ref(false)
-const detailOpen = ref(false)
 let dragDepth = 0
-
-// 手机端没有拖拽能力，文案与桌面端区分，避免承诺做不到的交互。
-const narrowQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-  ? window.matchMedia('(max-width: 820px)')
-  : null
-const isNarrow = ref(narrowQuery?.matches ?? false)
-function onNarrowChange(event: MediaQueryListEvent) { isNarrow.value = event.matches }
 
 const warningBatches = computed(() => batches.value.filter((batch) => batch.warningCount > 0).length)
 const failedBatches = computed(() => batches.value.filter((batch) => batch.failureCount > 0 || batch.status.toLowerCase() === 'failed').length)
@@ -100,9 +94,7 @@ function selectFiles(files: File[]) {
 
 function onInput(event: Event) {
   selectFiles(Array.from((event.target as HTMLInputElement).files ?? []))
-  // 桌面上选文件即导入，少一次点击；手机上没有撤销入口，误选会直接把文件推上去，
-  // 因此手机端停在「已选 N 个文件 + 开始导入」这一步，由用户确认（也顺带让清空选择有用）。
-  if (isNarrow.value) return
+  // 选文件即导入，少一次点击。
   if (selectedFiles.value.length) void submit()
 }
 function openFilePicker() { fileInput.value?.click() }
@@ -341,12 +333,10 @@ onMounted(() => {
   // 拖到拖拽区外时避免浏览器直接打开文件、把单页应用顶掉。
   window.addEventListener('dragover', preventBrowserFileOpen)
   window.addEventListener('drop', preventBrowserFileOpen)
-  narrowQuery?.addEventListener('change', onNarrowChange)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('dragover', preventBrowserFileOpen)
   window.removeEventListener('drop', preventBrowserFileOpen)
-  narrowQuery?.removeEventListener('change', onNarrowChange)
 })
 </script>
 
@@ -358,7 +348,7 @@ onBeforeUnmount(() => {
           <h2 id="upload-title">上传结算单</h2>
           <span>仅支持表格文件上传</span>
         </div>
-        <p class="mode-desc">{{ isNarrow ? '选择文件上传后会自动解析并生成待确认草稿，导入记录就在下方查看。' : '拖入文件会自动解析并生成待确认草稿，导入记录就在下方查看。' }}</p>
+        <p class="mode-desc">拖入文件会自动解析并生成待确认草稿，导入记录就在下方查看。</p>
         <div
           class="file-picker-panel"
           :class="{ 'is-dragging': dragging }"
@@ -418,9 +408,7 @@ onBeforeUnmount(() => {
       <div><span>等级口径</span><strong>按管理端转换规则</strong><small>统计等级动态生成，明细保留原文</small></div>
     </section>
 
-    <button type="button" class="mobile-detail-toggle" :aria-expanded="detailOpen" aria-controls="import-mobile-history" @click="detailOpen = !detailOpen">{{ detailOpen ? '收起导入记录' : '查看导入记录' }}</button>
-
-    <div v-show="detailOpen" id="import-mobile-history" class="import-mobile-history">
+    <div class="import-history">
       <section class="dashboard-section" aria-labelledby="history-title">
         <header class="section-heading"><div><h2 id="history-title">导入记录</h2></div><button class="secondary-button" type="button" :disabled="loading" @click="loadBatches">重新加载</button></header>
         <p v-if="issueDownloadError" class="form-message error" role="alert">{{ issueDownloadError }}</p>
@@ -451,13 +439,6 @@ onBeforeUnmount(() => {
                     <span class="issue-severity" :class="severityTone(row.severity)">{{ severityLabel(row.severity) }}</span>
                   </template>
                 </DataTable>
-                <div class="mobile-issue-cards">
-                  <article v-for="issue in issuesByBatch[String(batch.id)]" :key="issue.id" class="mobile-issue-card">
-                    <header><span class="issue-severity" :class="severityTone(issue.severity)">{{ severityLabel(issue.severity) }}</span><strong>{{ issueTypeLabel(issue.issueType) }}</strong><small>行 {{ issue.rowNumber ?? '—' }} · {{ fieldLabel(issue.fieldName) }}</small></header>
-                    <p>{{ issue.message }}</p>
-                    <p v-if="issue.rawValue" class="mobile-issue-raw">原始值：{{ issue.rawValue }}</p>
-                  </article>
-                </div>
               </div>
             </div>
           </article>
@@ -469,29 +450,34 @@ onBeforeUnmount(() => {
         </nav>
       </section>
     </div>
-    <div v-if="confirmBatch" class="issue-confirm-overlay" role="dialog" aria-modal="true" aria-label="确认无误">
-      <section class="issue-confirm-dialog">
-        <header class="issue-confirm-head">
-          <div><h2>确认无误</h2><p>{{ batchTitle(confirmBatch) }}</p></div>
-          <button class="issue-confirm-close" type="button" aria-label="关闭确认框" @click="closeConfirmDialog">×</button>
-        </header>
-        <p class="issue-confirm-prompt">请确认是否对警告项知悉，并且确认无误。</p>
-        <div v-if="loadingIssues === String(confirmBatch.id)" class="section-note" aria-live="polite">正在加载问题明细</div>
-        <div v-else-if="issueErrors[String(confirmBatch.id)]" class="issue-load-error" role="alert"><span>{{ issueErrors[String(confirmBatch.id)] }}</span><button type="button" class="text-button" @click="loadIssues(confirmBatch.id)">重试</button></div>
-        <div v-else class="issue-confirm-list">
-          <p v-if="!confirmWarningIssues.length" class="section-note">该批次没有待确认的警告项。</p>
-          <article v-for="issue in confirmWarningIssues" :key="issue.id" class="issue-confirm-row" :class="{ resolved: issue.resolved }">
-            <header><span class="issue-severity" :class="severityTone(issue.severity)">{{ severityLabel(issue.severity) }}</span><strong>{{ issueTypeLabel(issue.issueType) }}</strong><small>行 {{ issue.rowNumber ?? '—' }} · {{ fieldLabel(issue.fieldName) }}</small></header>
-            <p>{{ issue.message }}<span v-if="issue.rawValue" class="issue-confirm-raw">原始值：{{ issue.rawValue }}</span></p>
-            <button class="secondary-button compact-button" type="button" :disabled="confirmIssueBusy === String(issue.id) || issue.resolved" @click="confirmIssue(confirmBatch.id, issue)">{{ issue.resolved ? '已确认处理' : confirmIssueBusy === String(issue.id) ? '处理中…' : '确认处理' }}</button>
-          </article>
-        </div>
-        <footer class="issue-confirm-actions">
+    <ElDialog
+      :model-value="confirmBatch !== null"
+      title="确认无误"
+      width="min(720px, 94vw)"
+      append-to-body
+      :close-on-click-modal="false"
+      aria-label="确认无误"
+      @update:model-value="(value) => { if (!value) closeConfirmDialog() }"
+    >
+      <p class="issue-confirm-subtitle">{{ confirmBatch ? batchTitle(confirmBatch) : '' }}</p>
+      <p class="issue-confirm-prompt">请确认是否对警告项知悉，并且确认无误。</p>
+      <div v-if="confirmBatch && loadingIssues === String(confirmBatch.id)" class="section-note" aria-live="polite">正在加载问题明细</div>
+      <div v-else-if="confirmBatch && issueErrors[String(confirmBatch.id)]" class="issue-load-error" role="alert"><span>{{ issueErrors[String(confirmBatch.id)] }}</span><button type="button" class="text-button" @click="loadIssues(confirmBatch.id)">重试</button></div>
+      <div v-else class="issue-confirm-list">
+        <p v-if="!confirmWarningIssues.length" class="section-note">该批次没有待确认的警告项。</p>
+        <article v-for="issue in confirmWarningIssues" :key="issue.id" class="issue-confirm-row" :class="{ resolved: issue.resolved }">
+          <header><span class="issue-severity" :class="severityTone(issue.severity)">{{ severityLabel(issue.severity) }}</span><strong>{{ issueTypeLabel(issue.issueType) }}</strong><small>行 {{ issue.rowNumber ?? '—' }} · {{ fieldLabel(issue.fieldName) }}</small></header>
+          <p>{{ issue.message }}<span v-if="issue.rawValue" class="issue-confirm-raw">原始值：{{ issue.rawValue }}</span></p>
+          <button class="secondary-button compact-button" type="button" :disabled="confirmIssueBusy === String(issue.id) || issue.resolved" @click="confirmIssue(confirmBatch!.id, issue)">{{ issue.resolved ? '已确认处理' : confirmIssueBusy === String(issue.id) ? '处理中…' : '确认处理' }}</button>
+        </article>
+      </div>
+      <template #footer>
+        <div class="issue-confirm-actions">
           <button class="secondary-button" type="button" @click="closeConfirmDialog">取消</button>
           <button class="primary-button" type="button" @click="closeConfirmDialog">确认</button>
-        </footer>
-      </section>
-    </div>
+        </div>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
@@ -585,19 +571,11 @@ onBeforeUnmount(() => {
 .batch-error { grid-column: 1 / -1; }
 /* 问题明细可能几十行：限高后滚动留在表格内部，页面不被撑长。 */
 .batch-issues :deep(.data-table) { max-height: 22rem; }
-.mobile-issue-cards { display: none; }
-.mobile-detail-toggle { display: none; }
-.import-mobile-history { display: grid; gap: 18px; }
+.import-history { display: grid; gap: 18px; }
 .issue-severity { display: inline-flex; padding: 4px 7px; border-radius: var(--radius-sm); font-size: .85rem; font-weight: 700; }
 .issue-warning { background: #f8edda; color: var(--warning); }
 .issue-error { background: #f8e4e2; color: var(--danger); }
-.issue-confirm-overlay { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 18px; background: rgb(24 49 42 / 52%); }
-.issue-confirm-dialog { width: min(720px, 100%); max-height: min(80vh, 720px); display: flex; flex-direction: column; padding: 18px; border-radius: 14px; background: #fff; box-shadow: 0 16px 44px rgb(0 0 0 / 22%); }
-.issue-confirm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
-.issue-confirm-head h2 { margin: 0; font-size: 1.15rem; }
-.issue-confirm-head p { margin: 3px 0 0; color: var(--muted); font-size: .84rem; }
-.issue-confirm-close { flex: none; min-height: 34px; padding: 0 11px; border: 1px solid var(--line-strong); border-radius: 999px; background: #fff; color: var(--ink); font-weight: 800; }
-.issue-confirm-close:hover { border-color: var(--danger); color: var(--danger); }
+.issue-confirm-subtitle { margin: 0; color: var(--muted); font-size: .84rem; }
 .issue-confirm-prompt { margin: 14px 0 10px; padding: 10px 12px; border-left: 4px solid var(--warning); background: var(--warning-soft); color: var(--ink); font-weight: 800; line-height: 1.5; }
 .issue-confirm-list { flex: 1; min-height: 0; overflow: auto; display: grid; gap: 9px; padding-right: 4px; }
 .issue-confirm-row { display: grid; gap: 7px; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); }
@@ -613,52 +591,4 @@ onBeforeUnmount(() => {
 .overwrite-prompt span { color: #5c5545; font-size: .88rem; line-height: 1.5; }
 .overwrite-prompt strong { display: block; color: var(--ink); font-size: .92rem; }
 
-@media (max-width: 820px) {
-  .entry-modes { grid-template-columns: 1fr; }
-  .quality-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .quality-summary > div:nth-child(2) { border-right: 0; }
-  .quality-summary > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
-  .batch-row { grid-template-columns: minmax(0, 1fr) auto; }
-  .batch-counts,
-  .batch-error,
-  .batch-actions { grid-column: 1 / 3; }
-  .batch-actions { justify-content: flex-start; }
-}
-
-@media (min-width: 561px) {
-  .import-mobile-history { display: grid !important; }
-}
-
-@media (max-width: 560px) {
-  .mobile-detail-toggle { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--primary-dark); font-size: .95rem; font-weight: 800; }
-  .import-mobile-history { gap: 12px; }
-  .entry-modes { gap: 12px; }
-  .mode-card { padding: 14px; }
-  .file-picker-panel { min-height: 64px; padding: 12px; }
-  .quality-summary > div { gap: 2px; padding: 8px; }
-  .quality-summary small { display: none; }
-  .file-picker-panel { align-items: stretch; flex-direction: column; }
-  .quality-summary > div { padding: 12px; }
-  .batch-row { padding: 12px; }
-  .batch-actions { flex-wrap: nowrap; }
-  .batch-actions .compact-button { flex: 0 0 auto; }
-  .dashboard-section > .section-heading {
-    position: sticky;
-    z-index: 20;
-    top: calc(var(--app-header-height) + var(--app-tabs-height) + 8px);
-    padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, .95);
-  }
-  .issue-results { min-width: 0; }
-  .issue-results :deep(.data-table) { display: none; }
-  .mobile-issue-cards { display: grid; gap: 8px; }
-  .mobile-issue-card { display: grid; gap: 7px; padding: 11px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); }
-  .mobile-issue-card header { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
-  .mobile-issue-card header strong { font-size: .95rem; }
-  .mobile-issue-card header small { color: var(--muted); font-size: .8rem; }
-  .mobile-issue-card p { margin: 0; line-height: 1.5; }
-  .mobile-issue-raw { color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; }
-}
 </style>

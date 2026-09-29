@@ -21,7 +21,6 @@ test('正式入口统一使用 SLD 品牌与本地品牌资产', () => {
   assert.match(portal, /BrandMark/)
   assert.match(preview, /BrandMark/)
   assert.match(index, /href="\/favicon\.svg"/)
-  assert.match(index, /href="\/apple-touch-icon\.png"/)
   assert.match(authStyles, /url\('\/auth-portal-durian\.jpg'\)/)
   assert.match(authStyles, /url\('\/auth-portal-durian\.webp'\)/)
   assert.doesNotMatch(authStyles, /https?:\/\//)

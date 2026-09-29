@@ -124,12 +124,4 @@ const chartOption = computed<EChartsOption>(() => ({
 .pie-legend small { grid-column: 2 / 4; margin-top: -4px; color: var(--muted); font-size: .76rem; }
 .pie-skeleton { min-height: 116px; }
 
-@media (max-width: 560px) {
-  .pie-layout { grid-template-columns: 100px minmax(0, 1fr); gap: 8px; }
-}
-
-@media (max-width: 380px) {
-  .pie-layout { grid-template-columns: 1fr; gap: 8px; }
-  .pie-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
-}
 </style>

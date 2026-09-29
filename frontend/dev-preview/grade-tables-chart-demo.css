@@ -1,0 +1,85 @@
+/* 与正式页同一套令牌（frontend/src/styles.css），demo 自带一份避免依赖构建产物。 */
+:root {
+  font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 17px;
+  color: #1f2923;
+  background: #eef3ef;
+  --ink: #1f2923;
+  --muted: #56635b;
+  --line: #c8d2cd;
+  --line-strong: #8aa095;
+  --surface: #f7faf8;
+  --surface-soft: #e8eee9;
+  --primary: #17663f;
+  --primary-dark: #104a2f;
+  --grade-a: #177454;
+  --grade-b: #9a6514;
+  --grade-c: #a8463d;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; padding: 22px clamp(12px, 3vw, 34px) 40px; }
+h1, h2, h3 { color: var(--primary-dark); margin: 0; }
+p { margin: 0; }
+code { padding: 1px 5px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface-soft); font-size: .85em; }
+
+.page-head { max-width: 1180px; margin: 0 auto 16px; }
+.eyebrow { color: var(--muted); font-size: .82rem; letter-spacing: .05em; margin-bottom: 6px; }
+.page-head h1 { font-size: 1.5rem; margin-bottom: 8px; }
+.lead { color: var(--muted); font-size: .92rem; line-height: 1.65; max-width: 72ch; }
+.data-note { color: var(--muted); font-size: .84rem; line-height: 1.6; margin-top: 6px; max-width: 82ch; }
+
+.card {
+  max-width: 1180px;
+  margin: 0 auto 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.verdict { border-left: 5px solid var(--primary); }
+.verdict h2 { font-size: 1.08rem; margin-bottom: 8px; }
+.verdict ul { margin: 0 0 10px; padding-left: 1.3em; color: var(--ink); }
+.verdict li { margin: 4px 0; line-height: 1.6; }
+.verdict-note { color: var(--muted); font-size: .88rem; }
+
+.plan-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.plan-head h2 { font-size: 1.02rem; }
+.section-note { color: var(--muted); font-size: .85rem; margin-top: 3px; }
+
+.scale-toggle { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); overflow: hidden; }
+.scale-toggle button {
+  border: 0; padding: 7px 12px; font-size: .82rem; color: var(--muted);
+  background: var(--surface); cursor: pointer;
+}
+.scale-toggle button + button { border-left: 1px solid var(--line); }
+.scale-toggle button[aria-pressed="true"] { background: var(--primary); color: #fff; font-weight: 700; }
+
+.facet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 14px; }
+.facet-card { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.facet-card h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: .95rem; margin: 0 0 2px; }
+.facet-sum { color: var(--muted); font-size: .82rem; font-variant-numeric: tabular-nums; }
+.grade-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.facet-chips { display: flex; gap: 14px; color: var(--muted); font-size: .78rem; margin: 0 0 4px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; }
+.swatch-bar { display: inline-block; width: 12px; height: 9px; border-radius: 2px; background: var(--line-strong); }
+.swatch-line { display: inline-block; width: 14px; height: 0; border-top: 2.5px solid var(--ink); }
+.facet-chart { height: 205px; min-width: 0; }
+
+.chart-wide { height: 300px; min-width: 0; }
+
+.plan-notes { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.plan-notes p { color: var(--muted); font-size: .86rem; line-height: 1.65; margin: 3px 0; }
+.plan-notes strong { color: var(--ink); }
+
+.page-foot { max-width: 1180px; margin: 0 auto; color: var(--muted); font-size: .82rem; line-height: 1.7; }
+.page-foot p { margin: 2px 0; }
+
+@media (max-width: 560px) {
+  .facet-grid { grid-template-columns: minmax(0, 1fr); }
+  .chart-wide { height: 260px; }
+  .plan-head { flex-direction: column; align-items: flex-start; }
+}

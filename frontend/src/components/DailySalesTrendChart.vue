@@ -12,7 +12,7 @@ const props = defineProps<{
   loading?: boolean
 }>()
 
-// 参考稿的极简灰调折线：隐藏 Y 轴、淡面积渐变、只标末点空心圆，悬停按日看数值。
+// 参考稿的极简灰调折线：浅 Y 轴刻度、淡面积渐变、只标末点空心圆，悬停按日看数值。
 const LINE_COLOR = '#6b7280'
 
 type TrendMode = 'amount' | 'quantity'
@@ -29,13 +29,19 @@ function formatValue(value: number): string {
   return isAmount.value ? formatCurrency(value) : `${formatNumber(value)} 件`
 }
 
+/** Y 轴刻度用紧凑写法：万级缩写成「x.x万」，避免长数字挤压绘图区。 */
+function formatAxisValue(value: number): string {
+  if (value >= 10000) return `${(value / 10000).toFixed(1)}万`
+  return formatNumber(value)
+}
+
 const chartOption = computed<EChartsOption>(() => {
   const dates = props.points.map((point) => formatDate(point.date))
   const values = props.points.map((point) => (isAmount.value ? point.salesAmount : point.salesQuantity))
   const lastIndex = props.points.length - 1
   return {
     aria: { enabled: true },
-    grid: { left: 10, right: 18, top: 16, bottom: 26 },
+    grid: { left: 46, right: 18, top: 16, bottom: 26 },
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'line', lineStyle: { color: echartTheme.lineStrong } },
@@ -55,7 +61,13 @@ const chartOption = computed<EChartsOption>(() => {
       axisTick: { show: false },
       axisLabel: { color: echartTheme.muted, hideOverlap: true },
     },
-    yAxis: { type: 'value', show: false },
+    yAxis: {
+      type: 'value',
+      axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: { lineStyle: { color: echartTheme.line } },
+      axisLabel: { color: echartTheme.muted, fontSize: 10, formatter: formatAxisValue },
+    },
     series: [
       {
         type: 'line',
@@ -151,8 +163,4 @@ const ariaLabel = computed(() =>
 .daily-skeleton { flex: 1; min-height: 180px; }
 .empty-inline { padding: 12px 2px; color: var(--muted); font-size: .9rem; }
 
-@media (max-width: 560px) {
-  .daily-sales-heading { flex-direction: column; align-items: stretch; }
-  .daily-mode-toggle { align-self: flex-end; }
-}
 </style>

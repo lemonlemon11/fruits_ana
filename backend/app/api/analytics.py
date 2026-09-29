@@ -117,9 +117,12 @@ def filter_options(filters: dict = Depends(_filters), db: Session = Depends(get_
 @router.get("/grade-breakdown")
 def grade_breakdown(
     filters: dict = Depends(_filters),
+    include_records: bool = True,
     db: Session = Depends(get_db),
 ):
-    return get_grade_breakdown(db, **filters)
+    """``include_records=false`` 时省略逐条销售明细，只留等级汇总与市场柜数。"""
+
+    return get_grade_breakdown(db, **filters, include_records=include_records)
 
 
 @router.get("/grade-spec-breakdown")

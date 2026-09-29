@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SLD 品牌 Logo 方案预览 · 2026-09-29 设计讨论会</title>
+<style>
+  :root {
+    --primary: #17663f; --primary-dark: #104a2f; --ink: #1f2923;
+    --surface: #f7faf8; --surface-soft: #e8eee9; --line: #d7e2da;
+    --muted: #5f7a6c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 2rem 1.5rem 4rem; background: var(--surface-soft);
+    color: var(--ink); font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; }
+  header { max-width: 1080px; margin: 0 auto 1.8rem; }
+  header h1 { margin: 0 0 .4rem; font-size: 1.5rem; color: var(--primary-dark); }
+  header p { margin: 0; color: var(--muted); font-size: .9rem; }
+  .card { max-width: 1080px; margin: 0 auto 1.6rem; padding: 1.6rem 1.8rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+  .card > h2 { margin: 0 0 .2rem; font-size: 1.15rem; color: var(--primary-dark); }
+  .card .tag { display: inline-block; margin: .4rem 0 1rem; padding: .15rem .6rem;
+    border-radius: 999px; background: #dcece2; color: var(--primary-dark); font-size: .78rem; font-weight: 700; }
+  .desc { margin: 0 0 1.2rem; font-size: .9rem; line-height: 1.7; color: #33463c; }
+  .row { display: flex; flex-wrap: wrap; gap: 1.6rem; align-items: flex-end; }
+  .slot { display: grid; gap: .5rem; justify-items: center; }
+  .slot span { font-size: .72rem; color: var(--muted); }
+  .dark { background: #123526; border-radius: 12px; padding: 1rem 1.2rem;
+    display: flex; gap: 1.6rem; align-items: flex-end; flex-wrap: wrap; }
+  .lockup { margin-top: 1.2rem; padding-top: 1.1rem; border-top: 1px dashed var(--line); }
+  .lockup img { width: 330px; max-width: 100%; height: auto; }
+  .lockup.dark-lockup { background: #123526; border: 0; border-radius: 12px; padding: 1rem 1.2rem; }
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.2rem;
+    font-size: .85rem; line-height: 1.7; }
+  .pros-cons div { padding: .7rem .9rem; border-radius: 10px; }
+  .pros { background: #eef7f0; } .cons { background: #fdf3ec; }
+  .pros b { color: var(--primary-dark); } .cons b { color: #a2542f; }
+  footer { max-width: 1080px; margin: 0 auto; color: var(--muted); font-size: .8rem; line-height: 1.8; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SLD-水果市场销售分析 · 品牌 Logo 方案预览</h1>
+  <p>2026-09-29 设计讨论会产出 · 四个方案（图形标 64 viewBox，与现有 favicon / BrandMark.vue 同规格）· 详见 <a href="MEETING.md">会议纪要</a></p>
+</header>
+
+<section class="card">
+  <h2>方案一 · 三色果柱（延续升级）</h2>
+  <span class="tag">专业延续 · 设计师推荐</span>
+  <p class="desc">在现有 favicon 基础上升级：深果绿圆角底，红 / 黄 / 绿三根上升柱对应 A / B / C 三级与销量上涨，顶柱生一片叶（生机），底部加一条浅绿基线（行情坐标）。用户认知零成本，品牌资产完全延续。</p>
+  <div class="row">
+    <div class="slot"><img src="proposal-1-grade-bars.svg" width="128" height="128" alt="方案一 128px" /><span>128px</span></div>
+    <div class="slot"><img src="proposal-1-grade-bars.svg" width="48" height="48" alt="方案一 48px" /><span>48px</span></div>
+    <div class="slot"><img src="proposal-1-grade-bars.svg" width="32" height="32" alt="方案一 32px" /><span>32px</span></div>
+    <div class="slot"><img src="proposal-1-grade-bars.svg" width="16" height="16" alt="方案一 16px" /><span>16px</span></div>
+    <div class="dark">
+      <div class="slot"><img src="proposal-1-grade-bars.svg" width="48" height="48" alt="方案一深底" /><span style="color:#a8c7b4">深底 48px</span></div>
+    </div>
+  </div>
+  <div class="lockup"><img src="proposal-1-lockup.svg" alt="方案一组合标" /></div>
+  <div class="pros-cons">
+    <div class="pros"><b>优势：</b>承接现有 favicon，切换成本最低；A/B/C 分级语义最直白；16px 可辨识；几何扁平，延展成本低。</div>
+    <div class="cons"><b>风险：</b>「图表感」最强，用户代表直言不愿转发到果农群；独特性一般，商标显著性弱。</div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>方案二 · 榴莲果仓（榴莲藏三柱）</h2>
+  <span class="tag">品类折中 · 品牌资产融合</span>
+  <p class="desc">榴莲轮廓（绿壳 + 十二根刺 + 果柄绿叶）居中开一枚奶杏色「果仓」窗口，内藏 A / B / C 三色上升柱。榴莲给品类识别与好感，窗口里的三柱保留分级分析语义——两派诉求的折中解。</p>
+  <div class="row">
+    <div class="slot"><img src="proposal-2-durian-vault.svg" width="128" height="128" alt="方案二 128px" /><span>128px</span></div>
+    <div class="slot"><img src="proposal-2-durian-vault.svg" width="48" height="48" alt="方案二 48px" /><span>48px</span></div>
+    <div class="slot"><img src="proposal-2-durian-vault.svg" width="32" height="32" alt="方案二 32px" /><span>32px</span></div>
+    <div class="slot"><img src="proposal-2-durian-vault.svg" width="16" height="16" alt="方案二 16px" /><span>16px</span></div>
+    <div class="dark">
+      <div class="slot"><img src="proposal-2-durian-vault.svg" width="48" height="48" alt="方案二深底" /><span style="color:#a8c7b4">深底 48px</span></div>
+    </div>
+  </div>
+  <div class="lockup"><img src="proposal-2-lockup.svg" alt="方案二组合标" /></div>
+  <div class="pros-cons">
+    <div class="pros"><b>优势：</b>榴莲识别 + 分级语义兼得；稳重（盾徽感）契合 40-60 岁用户；圆形适合头像 / 水印。</div>
+    <div class="cons"><b>风险：</b>16px 下窗口内三柱基本不可见，退化为「绿刺球」；元素较多，小尺寸层次易糊。</div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>方案三 · 榴莲切面占比环（主持人推荐主标）</h2>
+  <span class="tag">概念合一 · 独特性最强</span>
+  <p class="desc">把「榴莲横切面」直接画成「环形占比图」：绿壳尖刺是外环，切面里 A / B / C 三色弧段就是数量占比，中心一枚果核。「榴莲 = 数据」一个图形说完整，既是果也是图，商标显著性与故事性最佳。</p>
+  <div class="row">
+    <div class="slot"><img src="proposal-3-durian-donut.svg" width="128" height="128" alt="方案三 128px" /><span>128px</span></div>
+    <div class="slot"><img src="proposal-3-durian-donut.svg" width="48" height="48" alt="方案三 48px" /><span>48px</span></div>
+    <div class="slot"><img src="proposal-3-durian-donut.svg" width="32" height="32" alt="方案三 32px" /><span>32px</span></div>
+    <div class="slot"><img src="proposal-3-durian-donut.svg" width="16" height="16" alt="方案三 16px" /><span>16px</span></div>
+    <div class="dark">
+      <div class="slot"><img src="proposal-3-durian-donut.svg" width="48" height="48" alt="方案三深底" /><span style="color:#a8c7b4">深底 48px</span></div>
+    </div>
+  </div>
+  <div class="lockup"><img src="proposal-3-lockup.svg" alt="方案三组合标" /></div>
+  <div class="pros-cons">
+    <div class="pros"><b>优势：</b>品类（榴莲切面）与业务（占比分析）合一；独特、易注册、易讲故事；圆形徽标延展（头像 / 水印 / 启动图）顺滑；16px 仍有环 + 三色可辨。</div>
+    <div class="cons"><b>风险：</b>切面偏「生榴莲果核」意象需向用户求证（忌讳裂果烂果，此为完整切面，风险低但需确认）；与现有 favicon 形态差异最大。</div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>方案四 · 顺仔徽章（亲和营销线）</h2>
+  <span class="tag">用户代表最爱 · 建议作营销资产</span>
+  <p class="desc">吉祥物「顺仔」简化为徽章头像：黄色果脸 + 五根刺冠 + 果柄绿叶，右下角一枚白色小徽章画上涨箭头（帮你看行情）。定位为登录页 / 公众号 / 社群 / 周边的营销资产，与主标形成主从体系（呼应产品经理建议）。</p>
+  <div class="row">
+    <div class="slot"><img src="proposal-4-shunzai-badge.svg" width="128" height="128" alt="方案四 128px" /><span>128px</span></div>
+    <div class="slot"><img src="proposal-4-shunzai-badge.svg" width="48" height="48" alt="方案四 48px" /><span>48px</span></div>
+    <div class="slot"><img src="proposal-4-shunzai-badge.svg" width="32" height="32" alt="方案四 32px" /><span>32px</span></div>
+    <div class="slot"><img src="proposal-4-shunzai-badge.svg" width="16" height="16" alt="方案四 16px" /><span>16px</span></div>
+    <div class="dark">
+      <div class="slot"><img src="proposal-4-shunzai-badge.svg" width="48" height="48" alt="方案四深底" /><span style="color:#a8c7b4">深底 48px</span></div>
+    </div>
+  </div>
+  <div class="lockup"><img src="proposal-4-lockup.svg" alt="方案四组合标" /></div>
+  <div class="pros-cons">
+    <div class="pros"><b>优势：</b>目标用户（果农）最有好感、最愿意转发；延续顺仔既有情感资产；社群传播力最强。</div>
+    <div class="cons"><b>风险：</b>卡通门面削弱正式工具的信任感（产品经理反对其做主标）；正式场景（报表 / 对账单）不适用；商标注册需与主标分开。</div>
+  </div>
+</section>
+
+<footer>
+  说明：组合标中的中文字暂以系统字体渲染（PingFang SC / 微软雅黑），最终定稿需替换为授权字体并<b>转曲线</b>；
+  A/B/C 三色沿用全站既有等级色（#e58a7c / #f0c163 / #8fd3a8），主色 #17663f 与 styles.css 令牌一致。
+  apple-touch-icon 是否恢复需遵循 ADR-052（手机端已由独立移动版承担）。
+</footer>
+</body>
+</html>

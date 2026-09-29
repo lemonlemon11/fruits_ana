@@ -3,6 +3,526 @@
 Last updated：2026-09-29 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-29 **第三场布局评审会（数据看板 O/P/Q）+ 误删事故与恢复**（未提交）。① 用户
+> 否决第二场 L/M/N（「布局还要改，向数据看板思维去想，突出重点的数据」），第三场以
+> 看板范式重做：允许按重点数据优先重排区块、KPI hero 化、图表优先、明细后置；菜单
+> 左侧、仅桌面、数据仍严格来自 tmp/live53000 实测。产出 `redesign-20260929/`
+> variant-o「通栏大数带」（2.25rem 通栏数字带+300px 趋势主图）、variant-p「答案卡阵」
+> （2×2 大卡一屏尽览）、variant-q「结论长卷」（结论句+逐屏一问一答）；选型页默认
+> variant-o；纪要 review-meeting-20260929-round3.md。② **事故**：工作流机器检查受
+> 会话 cwd 影响误报 MISSING，修复环节在错误目录创建的嵌套目录内含指向真实 frontend/
+> 的符号链接，清理脚本跟随符号链接**误删 frontend/ 全部未提交内容**。恢复：已跟踪
+> 文件 git checkout 全量恢复（**并行会话在途的未提交修改丢失**，仅存 HEAD 版本）；
+> node_modules/dist 经 npm ci+build 重建，线上 53000 已恢复 200；设计稿 i/j/k/l/m/n
+> 与两份纪要从 workflow artifact 快照恢复、variant-q 从设计师 /tmp 快照+工具调用重放
+> 恢复、variant-o/p 由幸存内联 JS（/tmp/variant_o_inline.js、/tmp/variantp_inline.js）
+> 反向重建（后台代理进行中）；**不可恢复**：variant-a–h、compass.html、
+> redesign-20260922/、redesign-20260928/、dev-preview 下 fixture.json 等本地数据文件
+> （均未跟踪无快照，属已否决历史存档）。选型页已移除丢失存档入口。教训记录：清理
+> 目录前必须 lstat 检查符号链接；会话 cwd 变更后相对路径命令全部失效，务必绝对路径。
+> ③ 验证：九份稿子 node 机器检查（语法/标签/数据锚点）通过（l/m/n 含不可达手机死
+> 样式、i/j/k 为双端历史稿仅菜单措辞不同，均不影响打开）；53001 vite 已重启 200。
+> 待用户从 O/P/Q 选型后落地（仅桌面端）。
+
+> 2026-09-29 侧栏一级菜单分组**可收起 / 展开，默认展开**（未提交；用户要求「左侧菜单
+> 一级菜单需要可以收起展开，默认展开」）。① `AppShell.vue`：分组标题从静态 `<p>` 改为
+> `<button class="nav-group-label">`（带 ChevronDown 箭头、aria-expanded / aria-controls），
+> 子菜单包进 `.nav-group-items` 容器，折叠状态由 `collapsedNavGroups`（Set<string>，仅会话内
+> 记忆、不落 localStorage）控制 v-show——无标题一级入口（root 组）不可折叠；侧栏图标收起
+> 模式下分组标题本就隐藏，子项始终平铺，不受折叠状态影响。② `styles-shell.css`：
+> `.nav-group-label` 按钮化（flex 两端对齐、去边框、hover 变 ink 色）、新增 `.nav-group-items`
+> grid 与箭头 `.nav-group-chevron` 旋转过渡（收起时 -90°）。验证：前端 308 项 test、
+> typecheck、build 通过；本会话无浏览器后端（agent.browsers.list 为空），无法真实浏览器
+> 截图复验，请以 53001 实开人工点检「默认全展开 → 点击标题收起 → 再点展开」。
+
+> 2026-09-29 **品牌 Logo 第四轮：专业质感系列（去卡通/去塑料，对标苹果式克制）**（未提交；
+> 未改代码）。用户批评前三轮「卡通、塑料，要苹果级专业」。处方：删拟人元素与外扎尖刺；
+> 配色改深绿色阶（#0E4A30/#125033/#17663F/#1F6B45/#2E7D54）+ 米白 #F2EDE3 + 一处香槟金
+> #C9A06A（金色只给「重点数据/达成」元素）；每案一个主体一次点睛，全可单色；A/B/C 高饱和
+> 等级色退出 logo 仅保留在系统图表。产出 `design/logo/round4/`：墨绿果钻（切面宝石）、
+> **负形锯冠（推荐主标：深绿圆角块+米白榴莲负形，冠部上升锯齿=尖刺=折线=路径，金箭头
+> 脱果而出）**、果径环（细环+金箭头+果核杏仁）、三瓣果徽（三果肉瓣=A/B/C=顺立达），各含
+> 64 viewBox 图形标 + 组合标共 8 SVG + `preview.html`（含自我诊断/处方/色板）。`index.html`
+> 导航与 `MEETING.md` 第四轮纪要已同步，静态服务 53003 端口在线呈现（`python3 -m http.server
+> 53003 --directory design/logo`，后台）。**验证**：curl 200 全页面；静态资源不触代码路径。
+
+> 2026-09-29 结算单列表**全列居中 + 分页靠右**（未提交；用户要求「分页放在右边，
+> 列表中的标题和内容都居中」）。① 所有列 `align: 'center'`（含动态等级列与操作列；
+> 数值列保留 `numeric` 等宽数字）；操作列按钮组 `.table-actions` 加
+> `justify-content: center`（flex 容器不受单元格 text-align 影响）。② 分页
+> `.list-pagination` 及内部 `.el-pagination` 改 `justify-content: flex-end`——推翻旧
+> 「靠左避让顺仔」决策（用户明确要求靠右）；实测顺仔悬浮钮与分页最后一枚箭头仅
+> 4px×21px 角部相蹭，箭头完全可点，功能无碍。测试：`settlement-export.test.ts` 两处
+> 断言同步（align center / flex-end）。验证：前端 308 项 test、typecheck、build 通过；
+> dist 已重建；真实浏览器：表头 12/12 居中、单元格 120/120 居中、分页距面板右缘 13px；
+> 1440/1366/1280 复检溢出/表头截断/居中全过；截图
+> `tmp/settlement-table-fix/centered-{1920,bottom-1920}.png`。
+
+> 2026-09-29 **品牌 Logo 第三轮：数据看板思维 × 视觉伴侣四方案**（未提交；未改代码）。
+> 用户否决第二轮并给出新方向「向数据看板思维去，突出重点的数据，logo 用视觉伴侣呈现」。
+> 体系：重点数据做主角（大箭头/高亮点/仪表指针/¥），榴莲（源头）、物流（终点）、
+> 顺立达字标与 A/B/C 等级色做视觉伴侣。产出 `design/logo/round3/`：方案一「看板 KPI 卡」
+> （卡片即看板）、方案二「高光折线」（榴莲起点→爬升→高亮红定位销终点，**推荐主标**）、
+> 方案三「仪表果速」（量程+指针+榴莲轴心）、方案四「金额飙升」（大 ¥+红箭头，注意货币
+> 符号商标类别限制），各含 64 viewBox 图形标 + 顺立达/SHUNLIDA 组合标共 8 SVG +
+> `preview.html`（主角-伴侣对照表）。`MEETING.md` 已追加第三轮纪要。前两轮归档于
+> `design/logo/` 根目录与 `round2/`。**验证**：静态资源无需构建，不触代码路径。
+> 待用户选定后按第一轮落地清单执行。
+
+> 2026-09-29 结算单列表**移除「柜号」列 + fitWidth 多轮分配回归修复**（未提交；用户指示
+> 「柜号不需要展示」）。① `SettlementListView.vue` 删 containerNo 列（caption 同步去
+> 「柜号」；API 类型与后端不动，品牌对比选择器搜「柜号」属另一页面保留）。② 移除后
+> 复测发现 **1366 档表头截断**：`fitColumnWidths` 多轮分摊 bug——某列第一轮承担压缩后，
+> 后续轮次仍按完整 slack 封顶，累计压破表头下限（到达市场日期 109 < 128）。修复：每轮
+> 封顶改「剩余可压量」（slack − 已承担），并用浏览器实测导出的 1366 真实输入新增回归
+> 测试（`table-column-fit.test.ts` 8 项）。③ `computeFittedWidths` 理想宽兜底不低于实测
+> 表头需求（canvas 估算偏小时以实测表头兜底），下限＝表头下限。效果：柜号腾出 ~146px，
+> 1920/1600/1440/1400/1366 全部铺满零溢出、按钮零裁切、表头零截断；1320/1280 回退
+> 滚动 + 操作列冻结。验证：前端 308 项 test、typecheck、build 通过；dist 已重建；真实
+> 浏览器 8/8（柜号移除 + 七档屏宽三指标）；element-plus 桌面 21 项全过（3 项 390px 移动
+> 检查为 ADR-052 后过时项）；截图 `tmp/settlement-table-fix/no-container-{1366,1440,1920}.png`。
+
+> 2026-09-29 **品牌 Logo 第二轮：按「顺立达 × 榴莲 × 物流」重做四方案**（未提交；未改代码）。
+> 用户否决第一轮（纯产品视角），新简报为公司名「顺立达」（SLD 缩写由来）+ 榴莲 + 物流
+> 三合一。产出 `design/logo/round2/`：方案一「顺达航线」（榴莲启运→S 形干线→定位销送达，
+> **推荐主标**）、方案二「榴莲专送」（快递箱+微笑榴莲+此面向上+速度线）、方案三「达字
+> 果标」（「大」化为挺立榴莲、「辶」化为公路箭头，名称入图最深）、方案四「环形干线」
+> （链路环+环心榴莲+出环箭头，徽章形），各含 64 viewBox 图形标 + 「顺立达/SHUNLIDA」
+> 组合标共 8 SVG + `preview.html`（含三要素对照表）。第一轮归档于 `design/logo/` 根目录，
+> `MEETING.md` 已追加第二轮纪要与命名解读（顺=启运顺畅/立=果立枝头/达=使命必达）。
+> **验证**：静态 SVG + 纯 HTML，无需构建，不触代码路径。待用户选定后按第一轮落地清单执行。
+
+> 2026-09-29 **第二场布局评审会议 · 三套新方案 L/M/N（线上内容重排版）**（未提交；
+> 用户否决第一场全部方案，原话「严格按照 http://8.134.219.84:53000 test 12345678
+> 页面显示的内容重新设计排版布局和样式，菜单还是保留在左侧，重新开会讨论，之前的
+> 完全不行」，后补充「不用考虑手机端的设计，手机端有单独的项目」）。① **内容基准
+> 实测**：新增 `tmp/live53000/`（gitignore，含真实经营数据禁止提交）——2026-09-29
+> 11:40 从线上 8.134.219.84:53000 test 账号逐接口拉取：login（菜单树：销售总览｜
+> 销售单管理>结算单列表+录单/导入｜销售分析>结算单详情+销售对比）、overview、
+> settlements（15 单+brand_totals）、settlement-detail-650、settlement-comparison、
+> trend、grade-breakdown、filter-options 等 11 份 JSON + README 对应说明；数值与此前
+> 一致（29,771 件/¥8,008,442.99/均价 269.00，A 18,907 63.51%/B 10,819 36.34%，单650
+> 1,977 件 ¥569,120.00 均 287.87）。② **会议**（dynamic workflow 第二场，铁律＝
+> 内容严格对齐线上实测+views 源码、菜单保留左侧、只做排版样式、禁止账单/台账/报告
+> 化叙事）：主持人 12 痛点 → 三方两轮交锋 → 收敛三套任务书 → 三设计师落地 → 机器
+> 检查+质检回修（L 7/M 6/N 10 项问题均回修通过）→ 整合发布。③ **产出**
+> `redesign-20260929/`：variant-l.html（106KB「贴线精修」：结构/密度/导航全照旧，
+> 仅落令牌与层级矫正，低风险保底）、variant-m.html（94KB「紧凑工作台」：列表页
+> 单屏密度推广全站，1080p 首屏装下筛选+KPI+图表行）、variant-n.html（97KB「舒展
+> 分区」：内容顺序零改动下最大胆重排——深墨绿侧栏+三层底色+1.8rem 答案数字+限宽
+> 阅读栅格）；系统 ECharts option 零改动仅调尺寸摆位；`review-meeting-20260929-
+> round2.md`（45KB 纪要）；`index.html` 选型页新增 L/M/N 排最前、默认 variant-l。
+> ④ **手机端移除**（应用户「不用考虑手机端」）：三稿删除 vdev 桌面/手机切换与
+> innerWidth<700 自动手机模式，强制桌面态。验证：node 机器检查三稿+选型页全过
+> （内联 JS 语法、24 类标签配平、数据锚点、菜单锚点、echarts 路径）；质检员只读
+> 核对内容基准一致性（左侧菜单分组/五页区块顺序对齐 views 源码/数值对齐实测）；
+> 浏览器后端本环境不可用无法截图，请以 53001 实开为准：
+> `npm --prefix frontend run dev -- --port 53001 --strictPort` 后打开
+> `/dev-preview/redesign-20260929/index.html`。待用户从 L/M/N 选型后落地（仅桌面端）。
+
+> 2026-09-29 **品牌 Logo 设计讨论会：产出四方案设计稿**（未提交；**未改任何代码**）。
+> 以四角色评审（品牌视觉设计师 / 产品经理 / 用户代表·果农 / 前端工程师），盘点现有品牌
+> 资产（主色 #17663f、等级色 A/B/C = #e58a7c/#f0c163/#8fd3a8、favicon、吉祥物顺仔、
+> `BrandMark.vue` solid/inverse 双 palette）后产出 `design/logo/`：方案一「三色果柱」
+> （现 favicon 延续升级）、方案二「榴莲果仓」、方案三「榴莲切面占比环」（**推荐主标**）、
+> 方案四「顺仔徽章」（营销资产），各含 64 viewBox 图形标 + 横版组合标共 8 个 SVG，另
+> `preview.html`（128/48/32/16px × 深浅底对比）与 `MEETING.md`（纪要、方案对比表、
+> 裁定建议）。关键结论：SLD 字母不进主 logo（用户不认字母）；主标 = 图形 + 中文字标
+> 「水果市场销售分析」；口号「分好级，卖好价」；顺仔与主标为主从双资产体系。
+> **验证**：均为静态 SVG + 纯 HTML 预览页，无需构建，不触前端代码路径（test/typecheck
+> 不受影响）。待用户选定后落地：重写 BrandMark.vue、替换 favicon.svg、中文授权字体
+> 转曲线、单色/反白版；apple-touch-icon 遵循 ADR-052 默认不恢复。
+
+> 2026-09-29 结算单列表**操作按钮被裁修复**（未提交；用户反馈「右侧的按钮显示不全，
+> 而且不是冻结按钮吗怎么没有冻结」）。根因：并行会话 14:06 把操作列拆成「操作下拉 +
+> 独立删除」两枚按钮（内容自然宽 ~134px），而上午定的列宽 136px 扣除单元格内边距后
+> 可视仅 89~113px——按钮被裁；且用户屏宽处于自适应铺满模式（无滚动），被裁部分滚
+> 不过去、冻结也无从体现。修复：操作列宽 136→**184px**（两按钮 + 正常内边距实测
+> 需求，`SettlementListView.vue` + `settlement-export.test.ts` 断言同步）。行为边界：
+> 宽屏（1920/1600）表格铺满无滚动，按钮完整可见（无滚动即无「冻结」表现，操作列
+> 本就在右缘）；放不下时（≤1440）回退横向滚动 + 操作列冻结右缘。验证：前端 307 项
+> test、typecheck、build 通过；dist 已重建；真实浏览器 6/6（1920/1600/1440/1366/1280
+> 五档按钮组零裁切 + 1280 滚动 500px 操作列钉右缘）+ fit-width 复检 15/15（各档表头
+> 零截断）。备注：`tmp/verify_element_plus.py` 旧回归 21/24——3 项 390px 移动检查在
+> 同日 ADR-052（删除本站手机端）后已过时，非回归；桌面 21 项全过。截图
+> `tmp/settlement-table-fix/actions-184-{1920,1280-scrolled}.png`。
+
+> 2026-09-29 **删除本站全部手机端功能**（未提交；用户指示「手机端有另外单独的项目负责，
+> 不能影响 PC 端的功能和页面」，ADR-052）。以本项目手机设计系统边界 **820px** 划线：
+> ① 全局层：删 `styles-mobile.css` 整文件（739 行）及 AppShell 引用；AppShell 删底部
+> tabbar + 移动「更多」面板（`mobileNavOpen`/`morePanelNavGroups` 等派生，**保留**
+> `moreNavItems`——桌面两级侧栏仍复用）；`styles-shell.css` 删 820/560/430 块与
+> `--mobile-tabbar-height` 变量（下游 6 处 calc 引用一并清理：styles-responsive/
+> styles-error/WelcomeView/SettlementPicker.css/ask-widget.css）；styles-responsive 删
+> 820/560/380 块（保留 1100）、styles-auth 删 560 块（保留 1000 平板档）、styles-error
+> 删 820 块（保留 reduced-motion）。② 组件层：`DataTable` 删 `cards-on-narrow`/
+> `data-labels` props、`matchMedia(560)` 窄屏回退（手写表格模板+样式）与 `rowHeader`
+> 列语义，ElTable 单路径（消费方 SeriesGradeTables/TrendChart/Entry×3/
+> ImportReview×3 的属性同步删）；AskWidget 删 `visualViewport` 软键盘跟随链与 820 块、
+> `@media(hover:hover)` 简化为普通 `:hover`；SettlementPicker 删吸底操作条（720/560 块）；
+> AiAnalysisCard 删窄屏折叠、SeriesGradePriceChart 删 isNarrow(720) 分支（固定
+> labelWidth 150/gridMargin 46）、SeriesOverviewTable 删手机卡片；六个图表组件删各自
+> ≤820 断点块（SettlementGradeBreakdown 保留 900/899）。③ 视图层：OverviewView 删残留
+> 手机 CSS；SettlementView 删 560 块（保留 1079/920）；SeriesComparisonView 删
+> `detailOpen` 折叠与 820/561/560 块；ImportView 删 isNarrow(820)（选文件不自动导入分支、
+> 拖拽文案分支、mobile-issue-cards/查看导入记录折叠）；Entry/ImportReview 删分区折叠
+> （`jumpToBlock` 保留为纯锚点滚动）、`.mobile-form-page`、620 块（保留 900）；
+> SettlementListView 删 `.mobile-settlement-cards` 模板与 560 块（保留 min-861/860）；
+> Welcome/PublicPreview 删手机块（PublicPreview 保留 860）。④ `index.html` 删
+> `apple-touch-icon` + `public/apple-touch-icon.png`；**保留** UA 跳转脚本（用户确认：
+> 桥接独立移动版）与 viewport。⑤ 测试：删 `mobile-form-layout.test.mjs`/
+> `responsive-guards.test.mjs`/`series-grade-tables-mobile.test.ts` 整文件（17 项），
+> `mobile-redirect.test.mjs` 保留；更新 data-table/ask-widget/shell-header/
+> farmer-ui-copy/settlement-export/error-page/branding/series-grade-price-chart 中手机断言。
+> **验证**：前端 307/307 test、typecheck、build 通过（改前 324 项，-17 为纯手机断言）；
+> **桌面前后截图像素比对**（1920×1080 + 1440×900，登录/总览/每一单/销售详情/品牌对比/
+> 导入/录单/欢迎 12 页 ×2 轮，`/tmp/mobile-removal/`）：全部差异仅页头时钟数字与顺仔
+> 呼吸动画，**零布局变化**；console 报错与改前一致（仅登录前 401 噪音）。预期行为变化：
+> PC 窗口 <820px 呈现桌面布局（可能横向滚动）；手机 UA 跳独立移动版。文档同步：
+> ADR-052 + ADR-036/051 修订注记、ARCHITECTURE 四处改写并补记 UA 跳转、README 页面
+> 操作三条。未提交（工作区有并行在途改动，避免混入）；后端零改动。
+
+> 2026-09-29 销售对比页紧凑化 + 多分辨率自适应（未提交；用户要求 总览数据紧凑不换行
+> 内容居中、等级独立对比紧凑无滚动条自适应分辨率）。① 共享 `DataTable` 增强：列
+> `align` 支持 `'center'`（`justifyOf` 同步排序表头排布）、新增 `compact` prop（单元格
+> 内边距 .4/.8rem→.28/.5rem、列宽补偿 28→16、下限 76/80→56，`is-compact` 同时收紧
+> ElTable 与窄屏回退两条路径）。**修复插槽列被弹性分配挤压截断**：EP 首帧后的富余分配
+> 晚于挂载测量且无完成事件/RO 信号，量不出内容的插槽列（总览等级占比列只有表头可估）
+> 会被压到内容宽以下出「…」且不自愈（1366 档实测 3 处）——`relayoutTable` 在 doLayout
+> 后追加一次 refit，挂载/行变化/RO 再加 160/480ms 有界延迟复测（refit 快照相同即收敛，
+> 无蠕动风险；与同日 fitWidth 改动同文件合流，互不影响）。② `SeriesOverviewTable`：
+> 全部列显式居中、启用 compact、整表 min-width 720→560；商号+单号、件数+占比条+占比
+> 改单行 inline-flex（占比条类名 `share-track`→`share-bar`：`styles-dashboard.css` 全局
+> `.share-track{margin:.88rem 0}` 是等级卡片竖排规则，会把单行单元格撑到 33px；条宽
+> 72→48）。③ `SeriesGradeTables`：启用 compact；卡片栅格
+> `minmax(400px,1fr)`→`minmax(min(600px,100%),1fr)`——600 大于 5 列（单号/件数/金额/
+> 每件均价/金额占比）紧凑列宽总和，任何分辨率下每行卡片都装得下整张表（卡内零横向
+> 滚动、放不下自动减列数），min(…,100%) 兜住 561–599px 容器防页面溢出；卡片内边距
+> 12/14→10/12。④ `SeriesComparisonView` 筛选栏：旧三轨模板（为双输入日期筛选设计）
+> 把按钮塞进 1fr 轨道拉伸、900 档日期编辑器被挤到 158px 占位符切字——改
+> `minmax(0,1fr) auto`（筛选自适应伸缩、按钮内容宽），≤820px（对齐全局 .filter-bar
+> 断点）收单列。⑤ 防回归断言：data-table.test（center/compact/紧凑内边距）、
+> series-comparison.test（总览单行居中、等级栅格钳制）。
+> 验证：前端 324 test、typecheck、build 通过，dist 已重建；真实浏览器 22/22
+> （`tmp/verify_series_compact.py`：1920/1366/900 等级卡片内零横向滚动+零截断、总览
+> 单行居中零截断、900 档日期编辑器 158→374px、375 移动端无横向溢出）；视觉验收 agent
+> 两轮（首轮发现 1366 占比列「50.3%…」截断、900 日期占位符切字，回修后复检全过），
+> 截图 `tmp/series-compact/`。结算单列表回归 12/13：唯一失败「零截断」系并行会话
+> fitWidth 的设计态（压缩+省略号+悬浮提示，`is-width-fitted` 生效、容器恰好铺满），
+> 非本改动回归。备注：900 档右缘悬浮吉祥物压住表格右缘属全站既有悬浮挂件，未处理。
+
+> 2026-09-29 结算单列表**列宽自适应**（未提交；用户问「为什么打开页面列表就要滚动了，
+> 要做到自适应」——13 列内容总宽 1878px 在 1920/1600/1440 屏均超出容器 196~666px）。
+> ① **DataTable 新增 `fitWidth` prop**（opt-in）：内容理想宽（零截断 min）总和超出容器时，
+> 把弹性列按「理想宽 → 表头下限」压缩到**恰好铺满容器**——赤字按 (理想−下限)² 加权，
+> 长文本列（单号/柜号/录单时间）多担、数值列尽量保完整；被压缩单元格由
+> `show-overflow-tooltip` 省略号+悬浮提示看全值；压缩模式收紧内边距
+> （td .3rem .5rem、.cell 0 4px）。**表头下限用克隆表头 .cell 实测自然宽**
+> （`measureHeaderWidths`：隐藏量宽容器 + width:auto，真实字体/加粗/排序箭头），
+> canvas 估算偏大 15~20% 会把本可铺满的宽度误判成回退。连表头下限都放不下
+> （≤1280 屏）时回退原行为（min-width 全内容 + 横向滚动 + 操作列冻结）。
+> 分配算法抽纯函数 `utils/tableColumnFit.ts`（fitColumnWidths：null=放得下/
+> 放不下两义回退，取整误差补给最宽列保证 Σ===预算）。granted 与内容宽同快照比较，
+> 容器（RO）/内容任一变化重建表格，实测多轮刷新/拉扯窗口收敛无振荡。
+> ② **SettlementListView 启用 `fit-width`，操作列宽 176→136px**（按钮实测仅 ~81px）。
+> 测试：新增 `table-column-fit.test.ts` 7 项；`data-table.test.ts` 增 fitWidth 断言；
+> `settlement-export.test.ts` 操作列断言同步 136px + fit-width。注意：并行会话同日在
+> DataTable 加了 compact/居中对齐（给销售对比总览用），与本改动已融合、互不依赖。
+> 验证：前端 324 项 test、typecheck、build 通过；dist 已重建（53000 生效）；真实浏览器
+> 16/16（`tmp/verify_fit_width.py`：1920/1600/1440 压缩铺满溢出 0px 且表头零截断、
+> 1280 回退滚动+冻结列可见、截断单元格悬浮出完整值提示）+ 3 次刷新收敛 + 窗口
+> 1440↔1920 往返收敛 + 控制台无 JS 错误 + element-plus 回归 24/24；截图
+> `tmp/settlement-table-fix/fit-width-{1920,1600,1440}.png`、`fit-width-fallback-1280.png`。
+
+> 2026-09-29 手机浏览器整站跳转独立移动版（未提交；用户确认 `8.134.219.84:54001`
+> 为完全独立、可单独访问的移动站，选 index.html 内联脚本方案）。`frontend/index.html`
+> `<head>` 增加同步内联脚本：UA 命中 `/Android|iPhone|iPad|iPod|HarmonyOS|Mobile/i`
+> 即 `window.location.replace('http://8.134.219.84:54001/')`（replace 不写历史，
+> 防返回键弹回再跳转），URL 带 `?desktop=1` 为逃生口强制留在桌面版；脚本位于主
+> bundle 之前，nginx/dev/preview/docker 各服务形态行为一致。iPadOS 13+ 报桌面 UA
+> 的 iPad 按桌面版处理（有意）。注意：主站原有 820px 自适应样式（styles-mobile.css、
+> 移动端 tabbar）对跳转后的手机用户不再可见，属本方案预期行为。目标 IP 硬编码在
+> 脚本内，后续若移动站换地址需改 index.html。新增 `frontend/tests/mobile-redirect.test.mjs`
+> （vm 沙箱执行真实 index.html 内联脚本，5 项：手机 UA 跳转（iPhone/Android/微信
+> 内置/HarmonyOS）/ 桌面 UA 不跳 / desktop=1 逃生口 / 脚本位于主 bundle 前 /
+> 用 replace 不用 href）。验证：前端 314 项 test、typecheck、build 通过；dist 已
+> 重建（53000 生效，curl 已确认线上 HTML 含跳转脚本）；真实浏览器 5/5
+> （`tmp/verify_mobile_redirect.py`：桌面 UA 留站且渲染正常、iPhone 13 设备描述符
+> 访问 /login 跳转至移动站根路径且内容渲染、`?desktop=1` 留在桌面版）；截图
+> `tmp/mobile-redirect/`（desktop-stays / iphone-redirected / iphone-desktop-escape）。
+
+> 2026-09-29 结算单列表恢复操作列冻结（未提交；用户要求「结算单列表冻结操作按钮」，
+> 推翻同日早前「去冻结对齐 admin」的决定）。`SettlementListView.vue` 操作列
+> `{ key: 'actions', ... width: '176px', fixed: 'right' }`——DataTable 的 `fixed`
+> prop 本就保留（透传 ElTableColumn），EP 2.14 原生 sticky + 滚动态阴影
+> （`is-scrolling-left/middle` 时固定列左缘 `--el-table-fixed-right-column` 投影）
+> 与行背景继承开箱可用，未加自定义 CSS。之前「实体背景盖住中间列」的观感属冻结列
+> 固有行为（中间列从其下方滚过），本次以阴影分隔改善辨识。测试：
+> `settlement-export.test.ts` 的 `doesNotMatch /fixed: 'right'/` 反断言改为正向断言。
+> 验证：前端 309 项 test、typecheck、build 通过；dist 已重建（53000 生效）；真实
+> 浏览器 7/7（`tmp/verify_frozen_actions.py`：表头+10 行全挂 fixed-column--right、
+> position=sticky、横滚 400px 后操作列钉在面板右缘（right 1421 vs 1423）而商号列
+> 208→-192 正常滚过、滚动中固定列左缘阴影生效、按钮可见可点）+ element-plus 回归
+> 24/24（含移动端 390px 无横向溢出，冻结不作用于窄屏卡片回退）；截图
+> `tmp/settlement-table-fix/frozen-actions-{scrolled,rest}.png`。
+
+> 2026-09-29 结算单列表对齐 admin 用户管理形态（未提交；用户反馈 销售日期列多余/
+> 品牌列有遮挡/为什么不像 admin 用户管理的列表）。① **删除「销售日期」列**
+> （salesPeriod 函数保留，移动端卡片仍用）；② **操作列去掉 fixed right 冻结**——
+> 冻结列横向滚动时会以实体背景盖住中间列（用户看到的「遮住内容」），对齐 admin
+> 用户管理列表「无冻结列、超宽整体横向滚动」的形态；列定义测试断言同步。③
+> **列宽自适应防蠕动 + 收敛护栏**：refit 的 DOM 测量只用于上调实际溢出的列
+> （未溢出时 scrollWidth===clientWidth，采信会 +28/轮无限蠕动）；每列 min 取
+> 「上一轮校准值/canvas 估算」较大者为稳定基线，canvas 裕量 1.04→1.12、下限
+> 76→80（headless 字体回退下 measureText 系统性偏小 ~10% 的修正）。结果：零截断
+> 稳定（三轮复检 truncated=0），总宽超容器时整体滚动（无任何列被遮挡），操作列
+> 滚到最右完整可见。验证：前端 309 项 test、typecheck、build 通过；真实浏览器
+> 13/13（`tmp/verify_settlement_table.py`）+ element-plus 回归 24/24；截图
+> `tmp/settlement-table-fix/admin-style-final.png`（13 列：商号/品牌/单号/柜号/
+> 到达市场日期/总件数/A果/B果/其他件数/销售金额/每件均价/录单时间/操作）。
+
+> 2026-09-29 **布局设计评审会议 · 三套新方案 I/J/K**（未提交，应用户要求「主持人
+> 组织会议，多个 UI/UX 与产品经理共同探讨布局排版，视觉伴侣出 3 套方案」；用
+> dynamic workflow 编排 9 个智能体：主持人开题 12 条痛点/8 条议题 → UI视觉/UX交互/
+> 产品经理三方两轮评审交锋共 53 条意见 → 主持人收敛三套差异化任务书 → 三位设计师
+> 并行落地 → 机器检查+质检回修+整合发布）：新增 `redesign-20260929/variant-i.html`
+> （75KB「掌柜账单」：微信账单/手机银行心智，唯一深色报告头一屏结论、大数字少层级，
+> 服务不常上网的果农）、`variant-j.html`（78KB「打印台账」：纸质台账/Excel 心智，
+> 全边框密表、黑白打印可对账）、`variant-k.html`（91KB「图表报告」：瑞士规则线×
+> 现代 BI，三段式结论→走势→明细、无卡墙细分隔线、关键数字自带基准）——均单文件
+> 自包含、五屏（总览/列表/详情/对比/录单）+ 桌面/手机切换、echarts 直连
+> node_modules、复用方案H真实数据（29,771 件/¥8,008,442.99/均价 269/单650 明细）；
+> `review-meeting-20260929.md`（36KB 会议纪要）；`index.html` 选型页更新：I/J/K
+> 卡片与按钮排最前、默认选中 variant-i，既有 A–H 卡片未动。验证：node 机器检查
+> 三稿+选型页全过（内联 JS 语法、24 类标签配平、viewport、真实数据锚点、echarts
+> 路径存在）；质检员只读核对任务书一致性（J 5 项、K 3 项问题均已回修复查通过）；
+> 浏览器后端本环境不可用无法截图，请以 53001 实开为准：
+> `npm --prefix frontend run dev -- --port 53001 --strictPort` 后打开
+> `/dev-preview/redesign-20260929/index.html`。待用户从 I/J/K（或与 A–H 杂交）选型
+> 后再展开全页面与落地。
+
+> 2026-09-29 查看明细改页签 + 销售明细聚合（未提交；用户指示 不用弹窗、新开页签、
+> 按同日/同规格/同重量/同单价/同备注合并、检查导出逻辑）。① **页签化**：/import-review
+> 去掉 `modal: true`，AppShell 路由监视不再跳过该路径；ShellTab 新增可选 `title`
+> （openTab 传参，readonly=1 →「查看明细」，否则「导入确认」），navItemFor 为
+> /import-review 提供合成导航项（Table2 图标、页签激活正确命中），restoreTabs 的
+> isKnownPath 放行该前缀。ImportReviewView 由全屏遮罩弹窗改普通页面（.review-modal
+> 变 page 容器、.review-dialog 去固定高/内滚、.review-foot sticky 吸底；类名保留
+> 兼容 styles-mobile 覆盖）。② **聚合**：新增 `utils/salesAggregation.ts`
+> （aggregateSaleRows：同日/同品种/同等级/同头数/同KG/同单价/同备注 合并、数量金额
+> 汇总、sourceRow 记录 min~max 区间 + saleSourceText 展示「13~15」）——与后端导出
+> `_merge_sales_rows` 同一规则；只读模式 sales 表行改 displayedSales（52 行 → 32 行），
+> 标题提示合并口径；编辑模式保持原始行（逐行校验/留痕依赖原行）。③ **列宽自适应
+> 蠕动修复**：refit 采信 DOM 测量时只在「实际溢出（scrollWidth > clientWidth）」时
+> 上调——不溢出时 scrollWidth===clientWidth，+28 补偿会让 min 每轮自增、随 RO 触发
+> 无限蠕动（此前 120px 溢出的根源）；另 EP 挂载瞬间可能量到布局未稳的容器宽且不自愈，
+> 挂载/容器变化时 relayoutTable()（doLayout）强制重排。④ **导出逻辑检查**：后端
+> xlsx/PDF 均已按同规则聚合（entry_export `_merge_sales_rows`，xlsx L331 / pdf L891），
+> 由并行会话提交 6ba6c5d 落地——前端口径与其一致；test_exports 的
+> settlement_list_xlsx 用例失败在 stash 前后一致，属并行会话在途基线（本轮未改后端）。
+> 验证：前端 309 项 test、typecheck、build 通过（新增 sales-aggregation.test.ts 5 项）；
+> 真实浏览器 13/13（`tmp/verify_settlement_table.py`：页签打开/聚合 52→32/零溢出
+> 单价金额列可见/黑字/操作菜单/钉底/移动端）+ element-plus 回归 24/24；截图
+> `tmp/settlement-table-fix/review-aggregated-final.png`。
+
+> 2026-09-29 结算单操作列合并 + 只读回填黑字（未提交，承接同日操作菜单）。① 每一行
+> 的「查看明细」并入操作下拉（触发按钮改「操作 ▾」，菜单项 = 查看明细/Excel/PDF），
+> 独立查看明细按钮删除，操作列宽 288px→176px（fixed right 保留）；移动端卡片动作栏
+> 不变。② 查看明细（/import-review readonly=1）回填数据改**墨色黑字**：全局覆盖
+> EP 禁用态输入（`.el-input/.el-textarea/.el-date-editor is-disabled`）的
+> `-webkit-text-fill-color` 锁色为 `var(--ink)`、opacity 1——基本信息与三张明细表
+> 的只读数据全部黑字明显可读（录单页编辑态禁用的商号字段同样受益）。验证：前端
+> 304 项 test、typecheck、build 通过；真实浏览器 13/13（菜单项含 查看明细，触发
+> Excel 导出请求成功）+ 只读页探针（基本信息/表格输入 computed color 与
+> text-fill-color 均 rgb(31,41,35)）+ 截图 `tmp/settlement-table-fix/readonly-black-text.png`。
+
+> 2026-09-29 结算单列表三项修复（未提交，承接同日 ElTable 化；用户反馈 导出点不动/
+> 表格没占满右侧空白/冻结列左侧拖不动看不全）。① **导出点不动**：根因＝EP 单元格
+> `.cell` overflow hidden 把手写导出下拉子菜单裁掉了。行内导出改 **ElDropdown**
+> （trigger=click，菜单 teleport 到 body，popper 样式进 styles-element.css），删除
+> openExportMenu/toggleExportMenu/全局点击关闭逻辑与 .export-sub 死 CSS；菜单项保留
+> isExporting 禁用态与「导出中…」文案。② **表格撑满**：`.fixed-height-list` 由固定
+> 31rem 改 `height:100% + min-height:31rem`，DataTable 新增 `fillHeight` prop
+> （ElTable `height="100%"`，表体内部滚动、footer 插槽钉在面板底部），每单一传
+> fill-height。③ **看不全**：EP 滚动条默认 hover 才出现，用户不知道右侧还有列——
+> `.data-table-el` 横向滚动条常驻（opacity 1、加高 10px 可拖）。④ 顺手修表头截断：
+> fitColumnsFromDom 原来只量正文 td，现把 `.el-table__header th` 一并测量（表头含
+> 排序 caret 更宽）。验证：前端 304 项 test、typecheck、build 通过；真实浏览器
+> 13/13（`tmp/verify_settlement_table.py` 新增 导出菜单打开/点 Excel 触发下载请求/
+> 滚动条常驻/分页钉底，表头零截断断言）+ 全页面回归 24/24；1920 截图
+> `tmp/settlement-table-fix/final-v2-1920.png`（表头正文均完整、撑满高度）。
+> 14 列内容总宽 ~2100px 的横向滚动仍在（操作列固定），拖常驻滚动条可看全。
+
+> 2026-09-29 「卖得怎么样」规格表新增**品牌/等级筛选**（未提交，应用户要求）：
+> `SettlementGradeBreakdown.vue` 规格表上方（**仅 overview 版式**）加本地筛选行——
+> 品牌、等级两个原生 select（品牌口径与分组一致：记录级 brand 回退「未识别品牌」；
+> 等级选项=specGradeOrder）。实现：`filteredSpecRecords` 在聚合**之前**过滤 records，
+> `overviewSpecGroups`/占比基数 `totalQuantity` 均改用过滤后集合→小计/合计/占比随
+> 筛选重算；详情版式（isOverview=false）不参与过滤、无筛选行，行为不变；页面其他
+> 板块（KPI/饼图/每日销售金额）不受影响，仍按页面级 国家/市场 筛选口径。纯前端，
+> 无后端改动。同请求中「每日销售金额用折线图」确认**现状即折线图**
+> （DailySalesTrendChart 平滑线+面积渐变+末点标记+金额/件数切换），未改。
+> 测试：`overview-filters.test.ts` 新增筛选用例（v-if isOverview、聚合前过滤、
+> 详情不参与）。验证：前端 303 项 test、typecheck、build 通过，dist 已重建；
+> Playwright（临时账号已清理）实测：未筛选 2 品牌/43 行/合计 29,726 件 ¥269，
+> 品牌=香香→38 行/27,718 件 ¥267，叠加 等级=B果→15 行/9,997 件 ¥233，重置恢复，
+> 销售详情页无筛选行；截图 `tmp/daily-price-chart/spec-filter-*.png`。
+
+> 2026-09-29 「品牌对比 · 等级均价对比」**换成柱线双轴组合图、折线黑色**（未提交；用户
+> 指定按 demo 方案B 落地到此区块）：`SeriesGradePriceChart.vue` 由纯折线改为——每等级
+> 一组柱＝件数（左轴「件」，min 0，等级色）+ 每等级一条**黑色折线**＝每件均价（右轴
+> 「元/件」，沿用既有 priceAxisBounds 15% 放宽不从 0 开始；`echartTheme.ink`，圆点同色），
+> 缺等级柱缺失/线断开；图例改 4 项（X果·件数 block 等级色 + X果·均价 line 黑）；悬浮
+> 提示按等级列「件数 N 件 · 均价 ¥X」；说明文案与 aria（组合图）同步。**移动端修复两
+> 轮**：横轴长单号（香香-L012RXRK04）标签叠压——①标签列宽 150→64（≤720px，仍
+> overflow:break 换行不截断）②grid 左右边距 46→6（每格绘图区原本被压到 ~60px），终版
+> 每格 ~87px、标签间 28-32px 间隙。测试：`series-grade-price-chart.test.mjs` 重写/新增
+> 4 项（柱线双轴结构、折线黑/柱等级色、窄屏列宽+grid 边距、原 OTHER 过滤与标签不截断
+> 保留）。验证：前端 302 test/typecheck/build 通过、dist 重建（53000 生效）；Playwright
+> 真实浏览器 9/9（canvas 像素断言 A柱 #16856b=7954px/B柱 #bd7414=5651px/黑线 #1f2923=
+> 4546px、悬浮「649·香香-L012RXRK04：A 1,027 件·均价 ¥311 / B 1,012 件·¥248」与库一致、
+> 移动端 overflow=0），脚本 `tmp/verify_series_price_combo*.py`；视觉验收桌面区块+移动端
+> 双页通过（full_page 截图的 fixed 顶栏拼接伪影不算缺陷，改视口截图留证），截图
+> `tmp/series-price-combo/`。
+
+> 2026-09-29 结算单列表 ElTable 化后的**换行/留白/截断修复**（未提交，承接同日「全量
+> 替换 Element Plus」；用户反馈 每列都换行+大片留白+与管理端列表不一致）。根因＝ElTable
+> 默认等分列宽且 `.cell` 可换行，丢了原 DataTable「单元格 nowrap + 列宽随内容」语义。
+> 修复（全部在 `DataTable.vue` ElTable 路径，对外 API 不变）：① 单元格默认 nowrap，
+> 仅 `wrap` 列折行；② 列宽两段式——先 canvas measureText 估 min-width 首帧，挂载后
+> `fitColumnsFromDom` 读单元格真实 `scrollWidth` 二次校准（EP 表体 td 晚于组件挂载
+> 渲染，按 rAF 重试至量到为止；EP 不响应已注册列的 min-width 变更，校准后递增
+> `fitEpoch` 重建表格）；③ 操作列等插槽列由调用方传 `width`（新增 `fixed` 列属性
+> 透传，结算单操作列 288px + fixed right，横向滚动时钉在右缘）；④ 受控排序态改
+> `header-cell-class-name` 注入 `is-sorted-asc/desc` 类给 caret 上色（EP 自身不反映
+> 外部排序态，`table.sort()` 回写有 sort-change 回环风险已移除）。验证：前端 302 项
+> test、typecheck、build 通过；真实浏览器 9/9（`tmp/verify_settlement_table.py`：行高
+> 统一无换行、零省略号截断、列宽极差 113px 按内容分配、操作列完整、1280 表内横滚、
+> 390 移动端卡片化无溢出）+ 全页面回归 24/24（`tmp/verify_element_plus.py`：排序请求/
+> 方向指示/翻页/抽屉/移动端）；1920 截图 `tmp/settlement-table-fix/final-1920-noscroll.png`。
+> 说明：14 列真实内容总宽约 2100px，1920 视口（工作区 ~1680px）仍有少量表内横向滚动，
+> 操作列固定可见——与 admin 端手写表格「超宽表内滚动」行为一致；admin 端仍是自己的
+> DataTable 拷贝（未 ElTable 化），两端实现维持分叉。全量测试计数随并行会话改
+> `SeriesGradePriceChart` 波动（非本改动文件，单跑本改动相关 9 文件 98 项全过）。
+
+> 2026-09-29 布局重设计 **方案H · 系统图表版**（未提交，dev-preview 静态稿；
+> 用户指定「浏览 54002 方案A + 结合系统图表功能重新设计 demo」）：新增
+> `frontend/dev-preview/redesign-20260929/variant-h.html`（72KB）——骨架沿用
+> demo-menu-redesign 方案A「侧栏精修版」（58px 深墨绿 header + 页签栏 + 232px 左侧
+> 白侧栏 active 左绿条 + 14px 圆角卡 + 顺仔/回顶部 + 手机 tabbar），**图表全部换成
+> 系统同款 ECharts 形态**（`<script src="../../node_modules/echarts/dist/echarts.min.js">`
+> 直连 6.1.0，不参与线上构建）：等级件数结构环图＝GradePieChart（radius 58-78%、
+> 中心总件数、图例右列）；每日销售金额折线＝DailySalesTrendChart（#6b7280 平滑线 +
+> 淡面积渐变 + 末点空心圆 + 右上「金额/件数」胶囊切换可用）；市场柜数环图＝
+> MarketSalesAnalysis（52-74%、最大扇区外扩）+ 品牌柜数柱图（PALETTE）；单650 每日
+> 「金额柱(主色 28% 透明) + 均价线」双轴＝SettlementDailyPriceChart；规格件数与均价
+> 七列表＝SettlementGradeBreakdown（#1f2923 深表头 + 等级徽章底色 + 4px 占比条 +
+> 品牌×等级小计 + #173c2c 合计行，总览页全量 56 组、详情页 10 组）。数据全部
+> 53000 实测（test 账号 API 拉取：总览 29,771 件/¥8,008,442.99/均价 269.00、A 63.5%/B
+> 36.3%/OTHER 45 件、15 天趋势、市场 海吉星 12/江南 3、品牌 香香 14 柜 27,760 件/晴牌
+> 1 柜 2,011 件、单650 1,977 件 ¥569,120 均 287.87、结算口径应付 536,890；
+> 单650 规格聚合后 B 果修正为 635 件/253.42、OTHER 7 件——此前 variant-g 里
+> 642/32.5%/0 为旧口径）。五个屏（总览/列表/详情/对比/录单）单壳切换、图表懒初始化 +
+> resize、桌面/手机切换。`index.html` 选型页方案 H 设为默认。验证：curl 200、标签
+> 平衡、node --check、**真实 echarts SSR 渲染 6 张图全部通过**（node vm + stub DOM 跑
+> 内联脚本，SVG 含 29,771/总件数/09-17/销售金额/每件均价/海吉星等真实标注）、规格表
+> 63/14 行渲染正确；浏览器后端本环境不可用无法截图，请以 53004 实开为准：
+> http://182.61.41.228:53004/dev-preview/redesign-20260929/variant-h.html
+> （聚合脚本 /tmp/build_demo_payload.py 临时不提交）。
+
+
+> 2026-09-29 **移除「品牌对比」页「按等级号别」视图**（未提交，应用户要求；默认/仅剩
+> 按品牌对比）：① `SeriesComparisonView.vue` 删视图切换 tablist 与 grade 面板，
+> 品牌视图（等级独立核算表 / 等级均价对比图 / AI 分析）直接展示，`SeriesAiAnalysis`
+> 不再传 `:active`；② **删除组件** `SeriesGradeDetail.vue`、`GradeDetailAiAnalysis.vue`
+> 与测试文件 `grade-detail.test.ts`；③ 数据链路清理：`types.ts` 删
+> `SeriesComparisonData.gradeDetails` 与 `GradeDetailBucket/GradeDetailData`，
+> `normalize.ts` 删 `normalizeGradeDetails`，`client.ts` 删
+> `generateGradeDetailAnalysis`，`utils/seriesAnalysis.ts` 删 `GRADE_DETAIL_HEADINGS`；
+> `chart-tooltip` / `farmer-ui-copy` 清单同步，`series-comparison.test.ts` 新增移除
+> 防回归断言；`AiAnalysisCard` 过时注释更新。④ **后端未动**：`/api/analytics/
+> grade-detail/analysis` 接口与 `grade_detail_analysis_service`、series-comparison
+> 响应的 `grade_details` 字段均保留（改 API 需明确要求；前端已不再消费）。
+> ⑤ `ARCHITECTURE.md` Frontend 视图清单同步。验证：前端 302 项 test 中 301 过、
+> 1 失败＝并行会话同刻在途的「均价折线统一黑色」用例（其自改自测，与本移除无关，
+> 本改动相关用例全过）、typecheck、build 通过，dist 已重建；Playwright（临时账号
+> 已清理）`?selected=单650,单651,单647` 实测无切换按钮、品牌视图直接渲染
+> （表/图/AI 齐全）、无横向溢出，截图 `tmp/daily-price-chart/series-no-tabs.png`。
+> 交付文档（功能说明书/用户操作手册中「按等级号别」章节）沿既有指示延后统一收口。
+
+> 2026-09-29 图表化 demo **方案B 加均价折线**（未提交，承接真实数据条目；用户要求）：
+> 分组柱状图改双轴——每等级一组柱（件数，左轴）+ 一条同色折线（每件均价，右轴
+> scale 自适应、不画网格线），series 名改「A果·件数 / A果·均价 / …」，悬浮提示仍为
+> 按等级列 件数/均价/占比（自定义 formatter，不受新增系列影响）；两根 y 轴**不设轴名**
+> （轴名与顶部图例同带叠压，轴单位在区块说明与图例已标明）。页面说明同步。验证：
+> node --check、Playwright 双端无报错；视觉验收两轮（轴名叠图例→去轴名）后双页通过，
+> 且验收侧逐点核对折线数值与 real.json 一致，截图 `tmp/grade-tables-chart-demo/`。
+
+> 2026-09-29 「品牌对比 · 等级均价对比」**横轴标签不再截断**（未提交，承接同日 Y 轴
+> 条目；用户要求显示完全、不要「…」）：根因＝axisLabel `overflow: 'truncate',
+> width: 90`，而单号最长 17 字符（如 香香-L011RXRK03 ≈132px）必被截断。改为
+> `overflow: 'break', width: 150`——放不下换行显示、不截断（全站唯一 truncate 用点，
+> 已 grep 确认无其他）。`series-grade-price-chart.test.mjs` 补防回归断言。验证：前端
+> 305 项 test、typecheck、build 通过，dist 已重建；Playwright（临时账号已清理）
+> `?selected=单650,单651,单647`（单号最长的三张）实测横轴完整显示
+> 「650/香香-L011RXRK03」等三组两行标签、无省略号，截图
+> `tmp/daily-price-chart/xlabel-series-price.png`。
+
+> 2026-09-29 用户端自研 UI 组件**全量替换为 Element Plus**（未提交；用户指示「都替换掉」）。
+> 前置排查结论＝全站仅 SearchableSelect/DateRangeFilter 试点 EP，其余自研。本轮落地：
+> ① **全局基座**：`AppShell` 根包 `ElConfigProvider(zhCn)`（分页/弹窗等中文文案），新增
+> `styles-element.css` 把 EP 设计变量映射到全站令牌（墨绿主色/4px 圆角/17px 字号基线，
+> 弹层渲染在 body 也能继承），并统一 ElInput/ElDialog/ElMessage/ElPagination/ElDrawer/
+> ElTable 的全站尺寸与视觉（表头色块、隔行底纹、吸顶表头、错误态 2px 红描边）。
+> ② **弹窗 ×4 → ElDialog**：EntryView 商号冲突、ImportReviewView 提交确认（含问题表）、
+> ImportView 批次问题确认、AppShell 通知详情（焦点陷阱/Esc/滚动锁定交给组件）。
+> ③ **toast ×2 → ElMessage**：EntryView / ImportReviewView 局部 toast 删除，showToast
+> 包装 ElMessage（success/error，1800ms）。④ **下拉全走 ElSelect**：复核待确认文件
+> （filterable）、市场（Entry/ImportReview）、每页条数、DateRangeFilter 快捷下拉
+> （ElOptionGroup 分组，宽度 11rem 固定）。⑤ **分页 → ElPagination**（每一单，
+> layout="sizes, prev, pager, next"，保留「共 N 张」摘要）。⑥ **表单输入 → EP**：
+> Entry/ImportReview 全部 input（含可编辑表格单元格，date 类 → ElDatePicker）、
+> Login/Register/Forgot（密码 show-password 内建切换、验证码/邮箱、ElCheckbox 免登录）、
+> AskWidget（textarea autosize 1~5 行，删手写 autoGrow）、GradeFilterBar（ElCheckbox
+> 胶囊，is-checked 驱动选中态）。⑦ **SettlementPicker → ElDrawer**（rtl 480px，
+> 手写焦点圈定/锁滚/Esc 全删，@open 聚焦搜索框；选项 ElCheckbox；内分页 ElPagination）。
+> ⑧ **DataTable 内部改 ElTable**：对外 props/插槽/emit 契约不变（cell-<key>/cell/footer/
+> sort/rowClass/bordered/emptyText 全保留，sortable→'custom'+@sort-change 映射回 sortKey，
+> 外部 activeSortKey 经 table.sort() 同步表头）；**窄屏（≤560px）且 cards-on-narrow /
+> data-labels 时回落原手写表格标记**——移动端卡片化布局 ElTable 表达不了，属有意保留
+> （消费者 CSS 已补 .el-table__cell 等价选择器）。页签栏/按钮未替换（无对应 EP 语义/全局
+> 按钮体系）。测试：8 个测试文件 12 项源码断言更新（含 data-table 新增 ElTable 渲染用例）。
+> 验证：前端 **304 项 test、typecheck、build** 通过，dist 已重建（主分片 337KB，EP 组件
+> 随全局基座进入主包，属预期增量）；真实浏览器（53000 preview + test 账号，
+> `tmp/verify_element_plus.py`）**24/24 通过**：EP 登录表单可登录、快捷下拉+日历近七天
+> 填充、ElTable 渲染/排序/翻页、录单 EP 控件+空表 ElMessage 校验、ElDrawer 选择器
+> （Esc 关闭、搜索框聚焦）、移动端 390px 三页无横向溢出；AI 视觉验收两轮通过
+> （墨绿主题无 EP 默认蓝残留，截图 `tmp/element-plus/`）。**注意**：admin 端
+> fruits_ana_admin 的 DataTable 拷贝未同步，两端实现自此分叉（用户端 ElTable 化）。
+> AGENTS「无完整 UI 组件库」描述已过时，见 ARCHITECTURE 更新。
+
+> 2026-09-29 「等级独立对比图表化 demo」数据切换为**真实库数据**（未提交，承接同日 demo
+> 条目）：用户反馈方案A数据不对——原稿为虚构 A/B/C（香香-001~003 等），而真实「香香」
+> 14 张单（2026-09-02~09-19）等级只有 A/B（无 C），件数千件级（单张约 1980 件）、
+> A 均价 263-314 / B 202-254 元，「其他」合计 42 件仅占 0.2%。改造：新增
+> `tmp/grade-tables-chart-demo/gen_data.py` 直连真实库调 `get_series_comparison`
+> （香香全部 14 单，按销售日期排序）导出 `frontend/dev-preview/grade-tables-chart-demo.data.js`
+> （真实经营数据，已加入 .gitignore 不入库，README 数据文件节同项）；demo JS 改为读该
+> 数据文件——等级动态生成、>8 张单时 x 标签斜排 45°、悬浮提示给 适配单号+日期+四指标
+> （占比用真实 grade_amount_shares）、分面/分组柱/散点三方案全部真实数据（散点气泡按
+> 真实金额 11 万~43 万映射直径）；页首动态注入数据来源与「其他」剔除说明。验证：
+> node --check、URL 200、Playwright 双端（4 canvas、无控制台错误、overflow=0、刻度切换
+> 正常）；视觉验收两轮（方案C y 轴长名左缘裁切→改短名「元/件」与正式页口径一致）后
+> 双页通过，截图 `tmp/grade-tables-chart-demo/`。
+
+> 2026-09-29 每日销售折线图（金额/件数）补 Y 轴（未提交）：原实现按参考稿做了极简风格，
+> `DailySalesTrendChart.vue` 的 yAxis 显式 `show: false`（用户问「为什么没有 Y 轴」）。
+> 改为显示浅色 Y 轴刻度：无轴线/刻度线、淡 splitLine（--line）、muted 色 10px 标签，
+> 万级数字缩写「x.x万」（`formatAxisValue`），grid.left 10→46 留出标签空间；金额/件数
+> 两模式共用。`overview-filters.test.ts` Y 轴断言同步改写。验证：前端 303 项 test、
+> typecheck、build 通过，dist 已重建（53000 直接生效）。期间 build 曾因并行会话在途修改
+> `AppShell.vue`（ElConfigProvider 未闭合）短暂失败，等待其完成后重试通过，与本改动无关。
+
 > 2026-09-29 结算单导出（xlsx/PDF）同键行合并（已提交）：应用户要求，「每一单」行导出与
 > 手工录单导出的销售明细中 **同一天 + 同规格（头数）+ 同重量（KG）+ 同单价**（且品种/
 > 等级/备注一致，避免不同备注被误并）的行合并为一行，数量汇总、金额随数量汇总，合计

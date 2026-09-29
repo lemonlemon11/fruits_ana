@@ -37,7 +37,7 @@ const router = createRouter({
     { path: '/containers', redirect: '/settlement-detail' },
     { path: '/entry-hub', redirect: '/imports' },
     { path: '/imports', component: () => import('./views/ImportView.vue'), meta: { requiresAuth: true, permission: 'import:view' } },
-    { path: '/import-review', component: () => import('./views/ImportReviewView.vue'), meta: { requiresAuth: true, modal: true, permission: 'import:view' } },
+    { path: '/import-review', component: () => import('./views/ImportReviewView.vue'), meta: { requiresAuth: true, permission: 'import:view' } },
     { path: '/entry', component: () => import('./views/EntryView.vue'), meta: { requiresAuth: true, permission: 'entry:view' } },
     {
       path: '/:pathMatch(.*)*',

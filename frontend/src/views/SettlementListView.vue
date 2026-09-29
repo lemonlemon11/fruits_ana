@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElPagination } from 'element-plus'
+import 'element-plus/es/components/dropdown/style/css'
+import 'element-plus/es/components/pagination/style/css'
 import Download from '@lucide/vue/dist/esm/icons/download.mjs'
 import FileSpreadsheet from '@lucide/vue/dist/esm/icons/file-spreadsheet.mjs'
 import FileText from '@lucide/vue/dist/esm/icons/file-text.mjs'
@@ -73,30 +76,32 @@ const deleteBusy = computed(() => Boolean(deletingMerchantNo.value))
 const totalFilteredQuantity = computed(() =>
   brandTotals.value.reduce((total, row) => total + row.totalQuantity, 0),
 )
+/** 导出进行中（列表导出或任意行的 Excel/PDF）：整个列表盖遮罩，防重复点击与误触其他操作。 */
+const exportingCount = computed(() => exportingKeys.value.size)
+const exportingAnything = computed(() => exportingKeys.value.size > 0)
 
 const visibleGrades = computed(() => scopeGrades.value)
 
-/** 列表列定义：等级列随筛选范围动态展开，保证翻页时列不跳变。 */
+/** 列表列定义：等级列随筛选范围动态展开，保证翻页时列不跳变；全列居中展示。 */
 const columns = computed<DataTableColumn<SettlementListItem>[]>(() => [
-  { key: 'merchantNo', label: '商号', emphasis: true },
-  { key: 'brand', label: '品牌', value: (item) => item.brand || '未识别品牌' },
-  { key: 'orderNo', label: '单号', emphasis: true, value: (item) => item.orderNoNormalized || item.orderNo || '—' },
-  { key: 'containerNo', label: '柜号', value: (item) => item.containerNo || '—' },
-  { key: 'arrivalDate', label: '到达市场日期', sortable: true, sortKey: 'arrival_date', value: (item) => item.arrivalDate || '—' },
-  { key: 'salePeriod', label: '销售日期', value: (item) => salesPeriod(item) },
-  { key: 'totalQuantity', label: '总件数', numeric: true, sortable: true, sortKey: 'total_quantity', value: (item) => formatNumber(item.totalQuantity) },
+  { key: 'merchantNo', label: '商号', align: 'center', emphasis: true },
+  { key: 'brand', label: '品牌', align: 'center', value: (item) => item.brand || '未识别品牌' },
+  { key: 'orderNo', label: '单号', align: 'center', emphasis: true, value: (item) => item.orderNoNormalized || item.orderNo || '—' },
+  { key: 'arrivalDate', label: '到达市场日期', align: 'center', sortable: true, sortKey: 'arrival_date', value: (item) => item.arrivalDate || '—' },
+  { key: 'totalQuantity', label: '总件数', align: 'center', numeric: true, sortable: true, sortKey: 'total_quantity', value: (item) => formatNumber(item.totalQuantity) },
   ...visibleGrades.value.map((grade) => ({
     key: `grade-${grade}`,
     label: `${gradeLabel(grade)}件数`,
+    align: 'center' as const,
     numeric: true,
     sortable: grade === 'A' || grade === 'B',
     sortKey: `grade_${grade.toLowerCase()}`,
     value: (item: SettlementListItem) => formatNumber(item.gradeQuantities[grade]),
   })),
-  { key: 'salesAmount', label: '销售金额', numeric: true, sortable: true, sortKey: 'sales_amount', value: (item) => formatCurrency(item.salesAmount) },
-  { key: 'averagePrice', label: '每件均价', numeric: true, sortable: true, sortKey: 'average_price', value: (item) => formatPrice(item.averagePrice) },
-  { key: 'confirmedAt', label: '录单时间', sortable: true, sortKey: 'confirmed_at', value: (item) => formatDateTime(item.confirmedAt) },
-  { key: 'actions', label: '操作', align: 'right' },
+  { key: 'salesAmount', label: '销售金额', align: 'center', numeric: true, sortable: true, sortKey: 'sales_amount', value: (item) => formatCurrency(item.salesAmount) },
+  { key: 'averagePrice', label: '每件均价', align: 'center', numeric: true, sortable: true, sortKey: 'average_price', value: (item) => formatPrice(item.averagePrice) },
+  { key: 'confirmedAt', label: '录单时间', align: 'center', sortable: true, sortKey: 'confirmed_at', value: (item) => formatDateTime(item.confirmedAt) },
+  { key: 'actions', label: '操作', align: 'center', width: '184px', fixed: 'right' },
 ])
 
 function mergeScopeGrades(items: SettlementListItem[]) {
@@ -139,28 +144,10 @@ function salesPeriod(item: SettlementListItem): string {
     : `${item.saleDateStart} 至 ${item.saleDateEnd}`
 }
 
-/** 当前展开导出菜单的商号（桌面端） */
-const openExportMenu = ref('')
-
-/** 切换导出下拉菜单 */
-function toggleExportMenu(merchantNo: string) {
-  openExportMenu.value = openExportMenu.value === merchantNo ? '' : merchantNo
-}
-
-/** 点击页面其他位置关闭导出菜单 */
-function onDocumentClick() {
-  openExportMenu.value = ''
-}
-
 const { quickYears, quickMonths, loadQuickPeriods } = useQuickPeriods()
 
 onMounted(() => {
-  document.addEventListener('click', onDocumentClick)
   void loadQuickPeriods()
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onDocumentClick)
 })
 
 function rowExportUrl(item: SettlementListItem, fmt: 'xlsx' | 'pdf' = 'xlsx'): string {
@@ -204,7 +191,6 @@ function runListExport() {
 }
 
 function runRowExport(item: SettlementListItem, fmt: 'xlsx' | 'pdf') {
-  openExportMenu.value = ''
   const extension = fmt === 'pdf' ? 'pdf' : 'xlsx'
   void runExport(
     rowExportKey(item, fmt),
@@ -332,10 +318,13 @@ function goPage(target: number) {
   refresh()
 }
 
-function onPageSizeChange(event: Event) {
-  const value = Number((event.target as HTMLSelectElement).value)
-  if (!Number.isFinite(value) || value === pageSize.value) return
-  pageSize.value = value
+function onPageChange(next: number) {
+  goPage(next)
+}
+
+function onSizeChange(size: number) {
+  if (!Number.isFinite(size) || size === pageSize.value) return
+  pageSize.value = size
   refresh({ resetPage: true })
 }
 
@@ -361,6 +350,13 @@ onBeforeUnmount(() => {
 <template>
   <div class="page-stack settlement-list-page">
     <form class="filter-bar settlement-list-filter" @submit.prevent="refresh({ resetPage: true })">
+      <DateRangeFilter
+        v-model:start-date="filters.startDate"
+        v-model:end-date="filters.endDate"
+        :years="quickYears"
+        :months="quickMonths"
+        @change="refresh({ resetPage: true })"
+      />
       <SearchableSelect
         v-model="filters.merchantNo"
         :options="merchantSelectOptions"
@@ -377,13 +373,6 @@ onBeforeUnmount(() => {
         aria-label="品牌"
         placeholder="全部品牌"
         :loading="loading || sorting"
-        @change="refresh({ resetPage: true })"
-      />
-      <DateRangeFilter
-        v-model:start-date="filters.startDate"
-        v-model:end-date="filters.endDate"
-        :years="quickYears"
-        :months="quickMonths"
         @change="refresh({ resetPage: true })"
       />
       <button class="primary-button" type="submit" :disabled="loading || sorting">{{ loading ? '正在查询' : sorting ? '正在排序' : '查看结果' }}</button>
@@ -405,7 +394,7 @@ onBeforeUnmount(() => {
       <button type="button" @click="refresh()">重新查询</button>
     </div>
 
-    <section class="panel">
+    <section class="panel" :aria-busy="exportingAnything">
       <header class="panel-head">
         <h2>结算单列表</h2>
         <button
@@ -427,10 +416,12 @@ onBeforeUnmount(() => {
       <div v-else class="settlement-list-results">
         <DataTable
           class="settlement-table fixed-height-list"
+          fill-height
+          fit-width
           :columns="columns"
           :rows="settlements"
           :row-key="(item) => item.merchantNo"
-          caption="结算单列表：每张结算单的商号、单号、柜号、到达市场日期、销售日期、各等级件数、销售金额、每件均价与录单时间"
+          caption="结算单列表：每张结算单的商号、单号、到达市场日期、销售日期、各等级件数、销售金额、每件均价与录单时间"
           min-width="880px"
           :active-sort-key="sortBy"
           :sort-order="sortOrder"
@@ -444,28 +435,34 @@ onBeforeUnmount(() => {
           </template>
           <template #cell-actions="{ row }">
             <div class="table-actions">
-              <span class="export-dropdown">
-                <button class="table-action" type="button" @click.prevent.stop="toggleExportMenu(row.merchantNo)">
+              <ElDropdown class="export-dropdown" trigger="click" popper-class="export-dropdown-popper">
+                <button
+                  class="table-action"
+                  type="button"
+                  :disabled="isExporting(rowExportKey(row, 'xlsx')) || isExporting(rowExportKey(row, 'pdf'))"
+                  @click.stop
+                >
                   <Download :size="13" aria-hidden="true" />
-                  导出
+                  操作
+                  <span class="dropdown-caret" aria-hidden="true">▾</span>
                 </button>
-                <span class="export-sub" :class="{ visible: openExportMenu === row.merchantNo }">
-                  <button
-                    type="button"
-                    :disabled="isExporting(rowExportKey(row, 'xlsx'))"
-                    @click.stop="runRowExport(row, 'xlsx')"
-                  ><FileSpreadsheet :size="14" aria-hidden="true" /> {{ isExporting(rowExportKey(row, 'xlsx')) ? '导出中…' : 'Excel' }}</button>
-                  <button
-                    type="button"
-                    :disabled="isExporting(rowExportKey(row, 'pdf'))"
-                    @click.stop="runRowExport(row, 'pdf')"
-                  ><FileText :size="14" aria-hidden="true" /> {{ isExporting(rowExportKey(row, 'pdf')) ? '导出中…' : 'PDF' }}</button>
-                </span>
-              </span>
-              <button class="table-action" type="button" @click="openRecords(row)">
-                <ListTree :size="13" aria-hidden="true" />
-                查看明细
-              </button>
+                <template #dropdown>
+                  <ElDropdownMenu>
+                    <ElDropdownItem @click="openRecords(row)">
+                      <ListTree :size="14" aria-hidden="true" />
+                      查看明细
+                    </ElDropdownItem>
+                    <ElDropdownItem :disabled="isExporting(rowExportKey(row, 'xlsx'))" @click="runRowExport(row, 'xlsx')">
+                      <FileSpreadsheet :size="14" aria-hidden="true" />
+                      {{ isExporting(rowExportKey(row, 'xlsx')) ? '导出中…' : 'Excel' }}
+                    </ElDropdownItem>
+                    <ElDropdownItem :disabled="isExporting(rowExportKey(row, 'pdf'))" @click="runRowExport(row, 'pdf')">
+                      <FileText :size="14" aria-hidden="true" />
+                      {{ isExporting(rowExportKey(row, 'pdf')) ? '导出中…' : 'PDF' }}
+                    </ElDropdownItem>
+                  </ElDropdownMenu>
+                </template>
+              </ElDropdown>
               <button
                 class="table-action danger"
                 type="button"
@@ -479,70 +476,27 @@ onBeforeUnmount(() => {
           <template #footer>
             <footer v-if="totalCount" class="list-pagination" aria-label="结算单分页">
               <span class="pagination-summary">共 <b>{{ totalCount }}</b> 张 · 第 <b>{{ page }}</b> / {{ totalPages }} 页</span>
-              <label class="pagination-size">每页
-                <select :value="pageSize" :disabled="loading || sorting" @change="onPageSizeChange">
-                  <option v-for="size in PAGE_SIZE_OPTIONS" :key="size" :value="size">{{ size }}</option>
-                </select>
-                张
-              </label>
-              <div class="pagination-actions">
-                <button type="button" class="page-button" :disabled="loading || sorting || page <= 1" @click="goPage(page - 1)">上一页</button>
-                <button type="button" class="page-button" :disabled="loading || sorting || page >= totalPages" @click="goPage(page + 1)">下一页</button>
-              </div>
+              <ElPagination
+                :current-page="page"
+                :page-size="pageSize"
+                :page-sizes="PAGE_SIZE_OPTIONS"
+                :total="totalCount"
+                :disabled="loading || sorting"
+                layout="sizes, prev, pager, next"
+                aria-label="结算单分页"
+                @current-change="onPageChange"
+                @size-change="onSizeChange"
+              />
             </footer>
           </template>
         </DataTable>
 
-        <div class="mobile-settlement-cards">
-          <article v-for="item in settlements" :key="item.merchantNo" class="mobile-settlement-card">
-            <header>
-              <div>
-                <strong>{{ displayMerchantNo(item) }}</strong>
-                <small>
-                  {{ item.brand || '未识别品牌' }} · {{ item.orderNoNormalized || item.orderNo || '未登记单号' }} · {{ item.containerNo || '未登记柜号' }}
-                  <br />
-                  到达 {{ item.arrivalDate || '—' }} · 销售 {{ salesPeriod(item) }}
-                  <br />
-                  录单 {{ formatDateTime(item.confirmedAt) }}
-                </small>
-              </div>
-            </header>
-            <div class="mobile-settlement-stats">
-              <span>销售金额 <b>{{ formatCurrency(item.salesAmount) }}</b></span>
-              <span>销量 <b>{{ formatNumber(item.totalQuantity) }}</b></span>
-              <span>每件均价 <b>{{ formatPrice(item.averagePrice) }}</b></span>
-            </div>
-            <div class="mobile-settlement-grades">
-              <span v-for="grade in visibleGrades" :key="grade">
-                {{ gradeLabel(grade) }} <b>{{ formatNumber(item.gradeQuantities[grade]) }}</b>
-              </span>
-            </div>
-            <div class="mobile-card-actions-bar">
-              <button class="primary-button mobile-detail-button" type="button" @click="openRecords(item)">查看明细</button>
-              <button
-                class="text-button export-row-link"
-                type="button"
-                :disabled="isExporting(rowExportKey(item, 'xlsx'))"
-                @click="runRowExport(item, 'xlsx')"
-              ><FileSpreadsheet :size="14" aria-hidden="true" /> {{ isExporting(rowExportKey(item, 'xlsx')) ? '导出中…' : 'Excel' }}</button>
-              <button
-                class="text-button export-row-link"
-                type="button"
-                :disabled="isExporting(rowExportKey(item, 'pdf'))"
-                @click="runRowExport(item, 'pdf')"
-              ><FileText :size="14" aria-hidden="true" /> {{ isExporting(rowExportKey(item, 'pdf')) ? '导出中…' : 'PDF' }}</button>
-              <button
-                class="text-button delete-row-link"
-                type="button"
-                :disabled="deletingMerchantNo === item.merchantNo"
-                @click="requestDelete(item)"
-              >
-                {{ deletingMerchantNo === item.merchantNo ? '删除中…' : '删除' }}
-              </button>
-            </div>
-          </article>
-        </div>
+      </div>
 
+      <div v-if="exportingAnything" class="list-export-mask" role="status" aria-live="polite">
+        <span class="mask-spinner" aria-hidden="true"></span>
+        <strong>正在导出{{ exportingCount > 1 ? ` ${exportingCount} 个文件` : '' }}，请稍候</strong>
+        <small>文件生成后会自动开始下载，请不要重复点击。</small>
       </div>
     </section>
 
@@ -601,16 +555,41 @@ onBeforeUnmount(() => {
 .export-feedback { margin: 0; color: var(--primary-dark); font-size: .88rem; font-weight: 700; }
 .export-feedback.is-error { color: var(--danger); }
 .settlement-list-page .panel-head { margin-bottom: 10px; }
+/* 导出进行中整个列表盖上遮罩：挡住重复点击、排序翻页与删除等操作。 */
+.settlement-list-page .panel { position: relative; }
+.list-export-mask {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 9px;
+  padding: 22px;
+  background: rgb(255 255 255 / 88%);
+  backdrop-filter: blur(2px);
+  text-align: center;
+}
+.list-export-mask strong { color: var(--ink); font-size: 1.05rem; }
+.list-export-mask small { color: var(--muted); font-size: .88rem; line-height: 1.5; }
+.mask-spinner {
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 3px solid rgb(43 94 74 / 25%);
+  border-top-color: var(--primary-dark);
+  border-radius: 50%;
+  animation: export-spin .7s linear infinite;
+}
 /* 表格外观统一由 components/DataTable.vue 提供，本页只负责布局与分页。 */
 .fixed-height-list {
-  height: 31rem;
+  height: 100%;
   min-height: 31rem;
   overflow-y: hidden;
 }
 .text-button { min-height: 0; padding: 2px 8px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--primary-dark); cursor: pointer; font-size: .88rem; font-weight: 700; }
 .text-button:hover { border-color: var(--primary); background: var(--primary-soft); }
 /* 与管理端用户管理列表同款操作按钮：紧凑边框按钮，文案不换行。 */
-.table-actions { display: flex; flex-wrap: nowrap; gap: .35rem; }
+.table-actions { display: flex; flex-wrap: nowrap; gap: .35rem; justify-content: center; }
 .table-action {
   display: inline-flex;
   min-height: 2.35rem;
@@ -632,41 +611,10 @@ onBeforeUnmount(() => {
 .table-action:disabled { cursor: not-allowed; opacity: .5; }
 .table-action :deep(svg) { flex: 0 0 auto; }
 .export-row-link { text-decoration: none; }
-/* 导出下拉菜单 */
-.export-dropdown { position: relative; display: inline-flex; }
-.export-sub {
-  display: none;
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 30;
-  min-width: 100px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
-  overflow: hidden;
-}
-.export-sub.visible { display: block; }
-.export-sub button {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: .84rem;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.export-sub button:hover:not(:disabled) { background: var(--surface-soft); color: var(--primary); }
-.export-sub button:disabled { cursor: wait; opacity: .6; }
-.export-sub button svg { flex: 0 0 auto; }
-.export-sub button + button { border-top: 1px solid var(--line); }
+/* 操作菜单本体由 ElDropdown 渲染在 body（.export-dropdown-popper），这里只管触发按钮。 */
+.export-dropdown { display: inline-flex; }
+.dropdown-caret { margin-left: 2px; color: var(--muted); font-size: .72rem; }
+/* ElDropdown 菜单渲染在 body 层，菜单项样式走全局 styles-element.css。 */
 .delete-row-link { color: var(--danger); }
 .delete-error { margin: 0; color: var(--danger); font-size: .88rem; font-weight: 700; }
 .delete-confirm-overlay {
@@ -734,17 +682,12 @@ onBeforeUnmount(() => {
 .delete-confirm-submit:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 86%, black); }
 .delete-confirm-cancel:disabled,
 .delete-confirm-submit:disabled { opacity: .55; cursor: wait; }
-.mobile-settlement-cards { display: none; }
 /* 分页条由 DataTable 的 footer 插槽渲染，间距交给表内底栏的 padding。 */
-.list-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.list-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px 12px; }
 .pagination-summary { color: var(--muted); font-size: .84rem; }
 .pagination-summary b { color: var(--ink); font-variant-numeric: tabular-nums; }
-.pagination-size { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .84rem; }
-.pagination-size select { min-height: 28px; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; }
-.pagination-actions { display: inline-flex; gap: 8px; margin-left: auto; }
-.page-button { min-height: 28px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--primary-dark); cursor: pointer; font-size: .9rem; font-weight: 700; }
-.page-button:hover:not(:disabled) { border-color: var(--primary); }
-.page-button:disabled { border-color: var(--line); background: var(--surface); color: var(--muted); cursor: not-allowed; }
+/* 分页控件靠右排（用户要求）；页脚在面板内侧、距窗口右缘还有页边距，不与右下角顺仔悬浮入口重叠。 */
+.list-pagination .el-pagination { justify-content: flex-end; font-weight: 400; }
 
 /* 桌面端让列表至少撑满剩余视口；行数超过一屏时随内容向下扩展，
    由页面自然滚动，避免结算单列表被压在内部小滚动区里。
@@ -773,7 +716,7 @@ onBeforeUnmount(() => {
   .settlement-table :deep(td) { padding: .75rem .82rem; }
   .settlement-table :deep(thead th) { font-size: .92rem; }
   /* 翻页控件靠左排：窗口右下角是“顺仔”悬浮入口的地盘，右侧整段留空就不会被按钮盖住。 */
-  .pagination-actions { margin-left: 0; }
+  .list-pagination .el-pagination { flex-wrap: wrap; }
 }
 
 @media (max-width: 860px) {
@@ -782,108 +725,4 @@ onBeforeUnmount(() => {
   .fixed-height-list { height: auto; min-height: 24rem; }
 }
 
-@media (max-width: 560px) {
-  .settlement-list-results { min-width: 0; }
-  .settlement-list-page .range-note { display: none; }
-  .settlement-list-page .panel-head { display: none; }
-  .filter-bar.settlement-list-filter { display: flex; flex-wrap: nowrap; gap: 6px; padding: 4px; overflow-x: auto; scrollbar-width: none; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
-  .filter-bar.settlement-list-filter::-webkit-scrollbar { display: none; }
-  .filter-bar.settlement-list-filter > * { flex: 0 0 auto; }
-  .filter-bar.settlement-list-filter .primary-button { flex: 0 0 auto; min-height: 34px; padding: 0 .7rem; }
-  .filter-bar.settlement-list-filter input,
-  .filter-bar.settlement-list-filter select { min-height: 32px; font-size: .82rem; }
-
-
-  /* 移动端换成卡片：表格只隐藏数据区，表内底栏（分页）留着并排到卡片下方，
-     这样分页仍然只有一处，桌面 / 移动共用同一段标记。 */
-  .settlement-list-results { display: flex; flex-direction: column; gap: 8px; }
-  .settlement-list-results .settlement-table { order: 2; border: 0; border-radius: 0; background: none; }
-  .settlement-list-results .settlement-table :deep(.data-table-scroll) { display: none; }
-  .settlement-list-results .settlement-table :deep(.data-table-foot) { padding: 0; border-top: 0; background: none; }
-  .mobile-settlement-cards { order: 1; display: grid; gap: 8px; }
-  /* 卡片按「标题 → 指标 → 等级 → 操作」四段式排列，操作独立成行避免挤压标题。 */
-  .mobile-settlement-card {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    overflow: hidden;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--surface);
-  }
-  .mobile-settlement-card header { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px 8px; }
-  .mobile-settlement-card header > div:first-child { flex: 1 1 auto; min-width: 0; }
-  .mobile-settlement-card header > div { display: grid; gap: 2px; min-width: 0; }
-  .mobile-settlement-card header strong { font-size: 1.05rem; font-weight: 800; line-height: 1.25; }
-  .mobile-settlement-card header small { color: var(--muted); font-size: .72rem; line-height: 1.45; overflow-wrap: anywhere; }
-
-  .mobile-settlement-stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    padding: 8px 12px;
-    border-top: 1px solid var(--line);
-    background: var(--surface-soft);
-    color: var(--muted);
-    font-size: .7rem;
-    line-height: 1.3;
-  }
-  .mobile-settlement-stats span { display: block; min-width: 0; }
-  .mobile-settlement-stats b {
-    display: block;
-    margin-top: 2px;
-    color: var(--ink);
-    font-size: .92rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    overflow-wrap: anywhere;
-  }
-
-  .mobile-settlement-grades {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 8px 12px;
-    border-top: 1px solid var(--line);
-  }
-  .mobile-settlement-grades span {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 4px;
-    padding: 3px 8px;
-    border-radius: 999px;
-    background: var(--surface-soft);
-    color: var(--muted);
-    font-size: .72rem;
-    white-space: nowrap;
-  }
-  .mobile-settlement-grades b { color: var(--ink); font-size: .8rem; font-variant-numeric: tabular-nums; }
-
-  .mobile-card-actions-bar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px 10px;
-    border-top: 1px solid var(--line);
-  }
-  .mobile-detail-button { flex: 1 1 auto; min-height: 38px; padding: 0 12px; font-size: .82rem; }
-  .mobile-card-actions-bar .export-row-link {
-    display: inline-flex;
-    flex: 0 0 auto;
-    min-height: 38px;
-    align-items: center;
-    padding: 0 10px;
-    border: 1px solid var(--line-strong);
-    border-radius: 8px;
-    color: var(--primary-dark);
-    font-size: .82rem;
-  }
-  .mobile-card-actions-bar .delete-row-link { flex: 0 0 auto; min-height: 38px; padding: 0 8px; font-size: .82rem; }
-  .list-pagination { gap: 6px 10px; }
-  .pagination-summary { font-size: .78rem; }
-  .pagination-size { font-size: .78rem; }
-  .pagination-size select { min-height: 32px; }
-  .pagination-actions { width: 100%; margin-left: 0; }
-  .page-button { flex: 1 1 0; min-height: 40px; }
-}
 </style>
