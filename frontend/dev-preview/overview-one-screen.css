@@ -85,6 +85,10 @@ h1, h2, h3, p { margin: 0; }
   gap: var(--gap);
   min-height: calc(100vh - var(--topbar-h));
 }
+/* iPad Safari 动态工具栏下 100vh 偏高（底部被工具栏遮挡），用 dvh 校正 */
+@supports (height: 100dvh) {
+  .overview-preview { min-height: calc(100dvh - var(--topbar-h)); }
+}
 .overview-preview > .filter-bar,
 .overview-preview > .hero-band,
 .overview-preview > .trio-row { flex: 0 0 auto; }
@@ -435,11 +439,21 @@ h1, h2, h3, p { margin: 0; }
   .market-card { grid-column: 1 / -1; }
 }
 @media (max-width: 1120px) {
-  .trio-row { grid-template-columns: minmax(0, 1fr); }
-  .market-card { grid-column: auto; }
+  /* 三卡行沿用 <1560 的 2+1 布局（500px 卡宽足够），仅大数带转 2×2、摘要转单列 */
   .hero-cells { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hcell:nth-child(3) { border-left: 0; }
   .spec-groups { grid-template-columns: minmax(0, 1fr); }
+  /* 竖屏平板（iPad Pro 竖持）堆叠较高，收紧间距保一屏 */
+  .overview-preview { gap: 7px; padding: 7px 10px 10px; }
+  #trend-chart { min-height: 160px; }
+  .hero-band { padding: 4px 2px 3px; }
+  .hero-cells .hcell { padding: 2px 12px 4px; }
+  .hero-sub { padding: 4px 12px 3px; margin-top: 4px; }
+  .market-bars { gap: 4px; }
+  .legend-list { gap: 4px; }
+  .sum-row { padding: 2px 0; }
+  .spec-group { padding: 5px 9px 6px; }
+  .spec-group-foot { margin-top: 2px; padding-top: 3px; }
 }
 /* 矮屏（笔电 1366×768/900 等）：三卡保持横排、进一步压缩，保一屏 */
 @media (max-height: 960px) {
