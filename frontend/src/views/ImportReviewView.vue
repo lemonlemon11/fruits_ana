@@ -729,27 +729,32 @@ onMounted(() => {
         <div class="basic-grid">
           <label class="field" :class="{ error: basicFieldHasError('merchant_no') }">
             <span>商号 *</span>
-            <ElInput v-model="form.merchantNo" aria-label="商号" :disabled="isReadonly" />
+            <ElInput v-if="!isReadonly" v-model="form.merchantNo" aria-label="商号" />
+            <span v-else class="field-static">{{ form.merchantNo || '—' }}</span>
             <span v-if="basicFieldHint('merchant_no')" class="field-hint">{{ basicFieldHint('merchant_no') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('container_no') }">
             <span>柜号</span>
-            <ElInput v-model="form.containerNo" aria-label="柜号" :disabled="isReadonly" />
+            <ElInput v-if="!isReadonly" v-model="form.containerNo" aria-label="柜号" />
+            <span v-else class="field-static">{{ form.containerNo || '—' }}</span>
             <span v-if="basicFieldHint('container_no')" class="field-hint">{{ basicFieldHint('container_no') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('order_no') }">
             <span>单号 *</span>
-            <ElInput v-model="form.orderNo" aria-label="单号" :disabled="isReadonly" />
+            <ElInput v-if="!isReadonly" v-model="form.orderNo" aria-label="单号" />
+            <span v-else class="field-static">{{ form.orderNo || '—' }}</span>
             <span v-if="basicFieldHint('order_no')" class="field-hint">{{ basicFieldHint('order_no') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('vehicle_no') }">
             <span>转运公司 / 车牌号 *</span>
-            <ElInput v-model="form.vehicleNo" aria-label="转运公司 / 车牌号" :disabled="isReadonly" />
+            <ElInput v-if="!isReadonly" v-model="form.vehicleNo" aria-label="转运公司 / 车牌号" />
+            <span v-else class="field-static">{{ form.vehicleNo || '—' }}</span>
             <span v-if="basicFieldHint('vehicle_no')" class="field-hint">{{ basicFieldHint('vehicle_no') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('country') }">
             <span>国家 *</span>
-            <ElInput v-model="form.country" aria-label="国家" placeholder="如 越南" :disabled="isReadonly" />
+            <ElInput v-if="!isReadonly" v-model="form.country" aria-label="国家" placeholder="如 越南" />
+            <span v-else class="field-static">{{ form.country || '—' }}</span>
             <span v-if="basicFieldHint('country')" class="field-hint">{{ basicFieldHint('country') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('market') }">
@@ -765,26 +770,28 @@ onMounted(() => {
             >
               <ElOption v-for="item in marketOptions" :key="item" :label="item" :value="item" />
             </ElSelect>
-            <ElInput v-else :model-value="form.market || '—'" disabled aria-label="市场" />
+            <span v-else class="field-static">{{ form.market || '—' }}</span>
             <span v-if="basicFieldHint('market')" class="field-hint">{{ basicFieldHint('market') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('arrival_date') }">
             <span>到达市场日期 *</span>
             <ElDatePicker
+              v-if="!isReadonly"
               v-model="form.arrivalDate"
               type="date"
               value-format="YYYY-MM-DD"
               placeholder="选择日期"
               aria-label="到达市场日期"
               class="field-control"
-              :disabled="isReadonly"
               :clearable="false"
             />
+            <span v-else class="field-static">{{ form.arrivalDate || '—' }}</span>
             <span v-if="basicFieldHint('arrival_date')" class="field-hint">{{ basicFieldHint('arrival_date') }}</span>
           </label>
           <label class="field" :class="{ error: basicFieldHasError('arrival_quantity') }">
             <span>来货数量（件） *</span>
-            <ElInput v-model.number="form.arrivalQuantity" type="number" min="0" step="1" aria-label="来货数量（件）" :disabled="isReadonly" />
+            <ElInput v-if="!isReadonly" v-model.number="form.arrivalQuantity" type="number" min="0" step="1" aria-label="来货数量（件）" />
+            <span v-else class="field-static">{{ form.arrivalQuantity ?? '—' }}</span>
             <span v-if="basicFieldHint('arrival_quantity')" class="field-hint">{{ basicFieldHint('arrival_quantity') }}</span>
           </label>
         </div>
@@ -808,36 +815,44 @@ onMounted(() => {
           <template #cell-sourceRow="{ row }"><span class="source">{{ row.sourceRow ?? '新增' }}</span></template>
           <template #cell-saleDate="{ row }">
             <ElDatePicker
+              v-if="!isReadonly"
               v-model="row.saleDate"
               type="date"
               value-format="YYYY-MM-DD"
               placeholder="日期"
               :class="cellClass('sales', form.sales.indexOf(row) + 1, 'sale_date')"
               aria-label="销售日期"
-              :disabled="isReadonly"
               :clearable="false"
             />
+            <span v-else class="cell-text">{{ row.saleDate || '—' }}</span>
           </template>
           <template #cell-variety="{ row }">
-            <ElInput v-model="row.variety" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'variety')" aria-label="品种" placeholder="如 金枕" :disabled="isReadonly" />
+            <ElInput v-model="row.variety" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'variety')" aria-label="品种" placeholder="如 金枕" v-if="!isReadonly" />
+            <span v-else class="cell-text">{{ row.variety || '—' }}</span>
           </template>
           <template #cell-grade="{ row }">
-            <ElInput v-model="row.grade" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'grade')" aria-label="等级" placeholder="如 A、AB、BC" :disabled="isReadonly" />
+            <ElInput v-model="row.grade" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'grade')" aria-label="等级" placeholder="如 A、AB、BC" v-if="!isReadonly" />
+            <span v-else class="cell-text">{{ row.grade || '—' }}</span>
           </template>
           <template #cell-headCount="{ row }">
-            <ElInput v-model="row.headCount" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'head_count')" aria-label="规格（头数）" placeholder="如 3/4" :disabled="isReadonly" />
+            <ElInput v-model="row.headCount" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'head_count')" aria-label="规格（头数）" placeholder="如 3/4" v-if="!isReadonly" />
+            <span v-else class="cell-text">{{ row.headCount || '—' }}</span>
           </template>
           <template #cell-specKg="{ row }">
-            <ElInput v-model="row.specKg" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'spec_kg')" aria-label="规格（KG）" placeholder="如 10" :disabled="isReadonly" />
+            <ElInput v-model="row.specKg" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'spec_kg')" aria-label="规格（KG）" placeholder="如 10" v-if="!isReadonly" />
+            <span v-else class="cell-text">{{ row.specKg || '—' }}</span>
           </template>
           <template #cell-remark="{ row }">
-            <ElInput v-model="row.remark" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'remark')" aria-label="备注" :disabled="isReadonly" />
+            <ElInput v-model="row.remark" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'remark')" aria-label="备注" v-if="!isReadonly" />
+            <span v-else class="cell-text">{{ row.remark || '—' }}</span>
           </template>
           <template #cell-salesQuantity="{ row }">
-            <ElInput v-model.number="row.salesQuantity" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'sales_quantity')" aria-label="数量（件）" :disabled="isReadonly" />
+            <ElInput v-if="!isReadonly" v-model.number="row.salesQuantity" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'sales_quantity')" aria-label="数量（件）" />
+            <span v-else class="cell-text">{{ formatQuantity(Number(row.salesQuantity || 0)) }}</span>
           </template>
           <template #cell-unitPrice="{ row }">
-            <ElInput v-model.number="row.unitPrice" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'unit_price')" aria-label="单价（元）" placeholder="空白按 0" :disabled="isReadonly" />
+            <ElInput v-if="!isReadonly" v-model.number="row.unitPrice" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'unit_price')" aria-label="单价（元）" placeholder="空白按 0" />
+            <span v-else class="cell-text">{{ money(Number(row.unitPrice || 0)) }}</span>
           </template>
           <template #cell-amount="{ row }">
             <strong class="money-amount">{{ money(rowSalesAmount(row)) }}</strong>
@@ -867,9 +882,18 @@ onMounted(() => {
           empty-text="没有售后明细"
         >
           <template #cell-sourceRow="{ row }"><span class="source">{{ row.sourceRow ?? '新增' }}</span></template>
-          <template #cell-content="{ row }"><ElInput v-model="row.content" :class="cellClass('after_sales', form.afterSales.indexOf(row) + 1)" aria-label="售后内容" :disabled="isReadonly" /></template>
-          <template #cell-summary="{ row }"><ElInput v-model="row.summary" aria-label="售后摘要" :disabled="isReadonly" /></template>
-          <template #cell-amount="{ row }"><ElInput v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('after_sales', form.afterSales.indexOf(row) + 1)" aria-label="售后金额（元）" :disabled="isReadonly" /></template>
+          <template #cell-content="{ row }">
+            <ElInput v-model="row.content" :class="cellClass('after_sales', form.afterSales.indexOf(row) + 1)" aria-label="售后内容" v-if="!isReadonly" />
+            <span v-else class="cell-text">{{ row.content || '—' }}</span>
+          </template>
+          <template #cell-summary="{ row }">
+            <ElInput v-model="row.summary" aria-label="售后摘要" v-if="!isReadonly" />
+            <span v-else class="cell-text">{{ row.summary || '—' }}</span>
+          </template>
+          <template #cell-amount="{ row }">
+            <ElInput v-if="!isReadonly" v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('after_sales', form.afterSales.indexOf(row) + 1)" aria-label="售后金额（元）" />
+            <span v-else class="cell-text">{{ money(Number(row.amount || 0)) }}</span>
+          </template>
           <template #cell-actions="{ row }"><button v-if="!isReadonly" class="delete-row" type="button" @click="removeAfterSale(form.afterSales.indexOf(row))">删除</button></template>
         </DataTable>
         <div class="section-foot">售后合计 <strong>{{ money(totals.afterAmount) }}</strong> 元</div>
@@ -891,8 +915,14 @@ onMounted(() => {
           empty-text="没有费用明细"
         >
           <template #cell-sourceRow="{ row }"><span class="source">{{ row.sourceRow ?? '新增' }}</span></template>
-          <template #cell-name="{ row }"><ElInput v-model="row.name" :class="cellClass('fees', form.fees.indexOf(row) + 1)" aria-label="费用摘要" :disabled="isReadonly" /></template>
-          <template #cell-amount="{ row }"><ElInput v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('fees', form.fees.indexOf(row) + 1)" aria-label="费用金额（元）" :disabled="isReadonly" /></template>
+          <template #cell-name="{ row }">
+            <ElInput v-model="row.name" :class="cellClass('fees', form.fees.indexOf(row) + 1)" aria-label="费用摘要" v-if="!isReadonly" />
+            <span v-else class="cell-text">{{ row.name || '—' }}</span>
+          </template>
+          <template #cell-amount="{ row }">
+            <ElInput v-if="!isReadonly" v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('fees', form.fees.indexOf(row) + 1)" aria-label="费用金额（元）" />
+            <span v-else class="cell-text">{{ money(Number(row.amount || 0)) }}</span>
+          </template>
           <template #cell-actions="{ row }"><button v-if="!isReadonly" class="delete-row" type="button" @click="removeFee(form.fees.indexOf(row))">删除</button></template>
         </DataTable>
         <div class="section-foot">费用合计 <strong>{{ money(totals.feeAmount) }}</strong> 元</div>
@@ -1018,6 +1048,20 @@ onMounted(() => {
 .field :deep(.el-input__wrapper.is-disabled),
 .field :deep(.el-date-editor.el-input .el-input__wrapper.is-disabled) { background: var(--surface-soft); box-shadow: 0 0 0 1px var(--line) inset; }
 .field-hint { color: var(--danger); font-size: .72rem; font-weight: 400; }
+/* 只读查看（查看明细）：基本信息以纯文本呈现，不再整页灰色禁用输入框。 */
+.field-static {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font-size: .92rem;
+  word-break: break-all;
+}
+/* 只读查看：明细单元格直接呈现文本值（日期/规格等），数字列由 DataTable 的 numeric 对齐。 */
+.cell-text { display: inline-block; max-width: 100%; white-space: pre-wrap; word-break: break-word; }
 .review-table :deep(.data-table td) { padding: .38rem .5rem; }
 .review-table :deep(.data-table thead th) { padding: .5rem .6rem; }
 /* 可编辑表格内的 EP 输入：36px 紧凑尺寸，等价原手写 cell input。 */

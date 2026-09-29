@@ -21,6 +21,15 @@ test('导入二次确认品种保留用户原文输入，不使用下拉选择',
   assert.doesNotMatch(varietyCell, /<ElSelect v-model="row\.variety"/)
 })
 
+test('只读查看明细以纯文本呈现记录，不再满屏灰色禁用输入框', () => {
+  assert.doesNotMatch(review, /:disabled="isReadonly"/)
+  assert.match(review, /class="field-static"/)
+  assert.match(review, /class="cell-text"/)
+  // 编辑态（导入二次确认）的输入控件原样保留。
+  assert.match(review, /<ElInput v-model="row\.variety"/)
+  assert.match(review, /aria-label="数量（件）"/)
+})
+
 test('手工录单同步使用“数量（件）”文案', () => {
   assert.match(entry, /label: '数量（件）'/)
   assert.doesNotMatch(entry, /label: '销售数量'/)

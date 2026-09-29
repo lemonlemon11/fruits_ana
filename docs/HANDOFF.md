@@ -3,6 +3,21 @@
 Last updated：2026-09-30 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-30 凌晨（二）**「查看明细」只读态改纯文本展示（优化记录展示）**。用户要求
+> 「看看导入文件和查看明细的记录」并「优化记录」。现状盘点：`/import-review` 双形态
+> ——「导入文件」（待确认，可编辑表格）与「查看明细」（结算单列表 readonly=1 进入，
+> 原实现把全部 ElInput/ElDatePicker/ElSelect 以 disabled 灰显，满屏输入框不像记录页）。
+> 优化：只读态基本信息 8 字段改 `.field-static` 文本块；销售/售后/费用三表全部单元格改
+> `.cell-text` 纯文本（数量 formatQuantity、单价/金额 money），编辑态（导入二次确认）
+> 输入控件与校验高亮原样保留（28 处 v-if 守卫，`:disabled="isReadonly"` 全部移除）。
+> 数据层盘点（只读未改动）：15 张已入库结算单 / 533 行明细 / 29,771 件 / ¥8,008,442.99；
+> 另有 **12 条 pending 草稿**——10 条为已入库 650 单同文件 09-28~09-29 反复上传残留、
+> 1 条 658 单 88 项问题未确认（清理涉及删库数据，未获明确指示不动，已列 TODO 待办）。
+> **验证**：前端 **311/311** test（新增 1 项只读态断言：无 `:disabled="isReadonly"`、
+> field-static/cell-text 存在、编辑态控件保留）、typecheck、build 通过，dist 已重建
+> （53000 即时生效）；未做浏览器实测（无登录凭据）。涉及文件：
+> `frontend/src/views/ImportReviewView.vue`、`frontend/tests/import-review-copy.test.mjs`。
+
 > 2026-09-30 凌晨（一）**横坐标「下沉穿模到下方数值指标」根因修复（v4.2.3）——此前方向
 > 修偏**。用户红框截图指认：日期标签沉出趋势卡、压到下方三卡区数值——此前误判为标签
 > 与轴间距问题（调的是标签布局）。真因：**echarts.init 时机**——脚本顶部 init 时各区块
