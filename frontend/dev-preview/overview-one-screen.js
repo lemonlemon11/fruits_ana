@@ -147,6 +147,7 @@
           color: '#56635b',
           fontSize: 10.5,
           margin: 10,
+          hideOverlap: true,
           formatter: function (value) { return value.slice(5) },
           interval: Math.max(0, Math.floor(daily.length / 10) - 1),
         },
@@ -155,8 +156,8 @@
         show: false,
         type: 'value',
         splitLine: { show: false },
-        /* 标签全在点上方：上方多留（30%）、下方少留（8%，折线贴近底部也只留日期行间距） */
-        min: function (value) { return value.min - (value.max - value.min) * 0.08 },
+        /* 标签全在点上方：上方多留（30%）、下方少留（12%，兼顾 Windows 字体更高的渲染） */
+        min: function (value) { return value.min - (value.max - value.min) * 0.12 },
         max: function (value) { return value.max + (value.max - value.min) * 0.3 },
       },
       series: [{
