@@ -216,8 +216,8 @@ h1, h2, h3, p { margin: 0; }
   align-items: stretch;
 }
 
-/* CSS conic 环图 */
-.donut-layout { display: flex; align-items: center; gap: 12px; }
+/* CSS conic 环图（内容统一顶对齐：与等级均价横条、市场图例的第一行同高起步） */
+.donut-layout { display: flex; align-items: flex-start; gap: 12px; }
 .css-donut {
   position: relative;
   flex: 0 0 auto;
@@ -239,7 +239,7 @@ h1, h2, h3, p { margin: 0; }
 .legend-list .legend-value b { font-family: var(--num-font); font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 700; font-size: .95rem; }
 
 /* 等级均价横条 */
-.price-bars { display: grid; gap: 8px; }
+.price-bars { display: grid; gap: 8px; align-content: start; }
 .price-row {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr) 4.8rem;
@@ -252,8 +252,8 @@ h1, h2, h3, p { margin: 0; }
 .price-fill { display: block; height: 100%; border-radius: 999px; }
 .price-row .p-value { text-align: right; font-family: var(--num-font); font-variant-numeric: tabular-nums; font-size: 1rem; font-weight: 700; color: var(--primary-dark); }
 
-/* 市场销售分析：品牌环图 + 市场×品牌条形 */
-.market-body { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 12px; align-items: center; }
+/* 市场销售分析：品牌环图 + 市场×品牌条形（同样顶对齐，与左侧两卡内容线一致） */
+.market-body { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 12px; align-items: start; }
 .market-bars { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; min-width: 0; }
 .market-bar-row { display: grid; grid-template-columns: minmax(6.5rem, auto) minmax(0, 1fr) 3rem; gap: 8px; align-items: center; font-size: .84rem; }
 .market-bar-row .bar-label { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
