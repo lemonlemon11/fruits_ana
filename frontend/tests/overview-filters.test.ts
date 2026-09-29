@@ -46,6 +46,16 @@ test('卖得怎么样筛选条改为国家+市场，不再提供商号下拉', (
   assert.match(view, /<SearchableSelect[\s\S]*?:loading="filterOptionsLoading"/)
 })
 
+test('筛选栏改 flex 紧凑版式：日期吃剩余行宽，国家/市场按展示字数收紧', () => {
+  const view = fs.readFileSync(path.join(src, 'views', 'OverviewView.vue'), 'utf8')
+
+  // 与结算单列表同版式：flex 换行排布，不再用等分网格把国家/市场拉满整行。
+  assert.match(view, /\.overview-filter \{[^}]*display: flex;/)
+  assert.match(view, /\.overview-filter > \.date-range-filter \{ flex: 1 1 360px; \}/, '日期筛选吃满剩余行宽')
+  assert.match(view, /\.overview-filter > \.searchable-select \{ flex: 0 1 11rem;/, '国家/市场按内容宽收紧')
+  assert.doesNotMatch(view, /grid-template-columns: minmax\(280px/, '不应保留旧的等分网格')
+})
+
 test('卖得怎么样隐藏等级卡片，等级项不展示 AB 与 OTHER，总量口径不变', () => {
   const view = fs.readFileSync(path.join(src, 'views', 'OverviewView.vue'), 'utf8')
   const summary = fs.readFileSync(path.join(src, 'components', 'GradeSummary.vue'), 'utf8')

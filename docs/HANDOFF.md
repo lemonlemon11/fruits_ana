@@ -3,6 +3,22 @@
 Last updated：2026-09-29 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-29 晚 **总柜数显示 0 修复 + 销售总览筛选栏版式统一**。① 用户反馈总柜数
+> 显示 0：根因＝**后端 8000 旧进程未重启**——uvicorn（15:56 启动、无 --reload）内存里
+> 没有 17:36 加入的 `container_count`，前端（53000 已服务 17:54 新构建）按兜底逻辑显示
+> 0；实测登录后 `total` 仅三键。已按 start.sh 同参数重启（kill 572174 → setsid nohup
+> 新起 PID 627801，日志仍 tmp/backend.log），实测 `total.container_count = 15`，与
+> grade-breakdown 市场×品牌柜数合计 15 **完全一致**（两口径互相印证）。注意：**后端
+> 代码变更后必须重启 8000 才生效**；vite preview(53000) 按请求读磁盘 dist、无需重启。
+> ② 销售总览筛选栏「国家/市场占满一行」：根因＝结算单列表页事故前已改 flex 紧凑版式
+> 而总览仍是旧 grid 等分布局（两下拉各占 1fr 被拉满）。`OverviewView.vue` 改为与列表
+> 页统一的 flex 版式：日期筛选 `flex:1 1 360px` 吃满剩余行宽（内部快捷下拉固定 11rem、
+> 日历弹性），国家/市场 `flex:0 1 11rem; min-width:9rem`（按展示字数收紧），按钮贴
+> 内容宽，窄屏 flex-wrap 自然换行；1180 断点简化为间距微调。overview-filters 新增 1 项
+> 版式断言（flex 版式 + 11rem + 禁旧 minmax 网格）。**验证**：前端 310/310 test、
+> typecheck、build 通过；dist 产物 `OverviewView-Clv3OdpH.css` 含新版式规则、53000 已
+> 服务新构建；后端实测 container_count=15。详情页/对比页筛选栏如需同版式统一待用户确认。
+
 > 2026-09-29 **frontend/ 目录被外部清空事故 + 从会话记录全量恢复 + 四项 UI 调整**。①
 > **事故与恢复**：本日 ~16:49 `frontend/` 整目录被外部进程清空（本会话仅执行过读取/grep，
 > 未删除；16:52 有进程将其恢复为 HEAD 版本，node_modules/dist 未动），全部未提交前端

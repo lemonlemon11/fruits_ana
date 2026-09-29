@@ -258,7 +258,18 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .page-stack { gap: 18px; }
-.overview-filter { grid-template-columns: minmax(280px, 1.5fr) minmax(140px, 1fr) minmax(140px, 1fr) auto; }
+/* 筛选栏与结算单列表同版式（flex 紧凑排布）：日期筛选吃满剩余行宽（内部快捷下拉
+   固定 11rem、日历弹性），国家/市场下拉按展示文字量收紧宽度，按钮贴内容宽。 */
+.overview-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+  padding: 10px;
+}
+.overview-filter > .date-range-filter { flex: 1 1 360px; }
+.overview-filter > .searchable-select { flex: 0 1 11rem; min-width: 9rem; width: auto; }
+.overview-filter > .primary-button { flex: 0 0 auto; }
 .overview-trend-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -317,7 +328,7 @@ onBeforeUnmount(() => {
 .alert-pagination button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); }
 .alert-pagination button:disabled { cursor: not-allowed; opacity: .45; }
 @media (max-width: 1180px) {
-  .overview-filter { grid-template-columns: minmax(240px, 1.4fr) minmax(130px, 1fr) minmax(130px, 1fr) auto; }
+  .overview-filter { gap: 8px; padding: 8px; }
 }
 
 @media (max-width: 1020px) {
