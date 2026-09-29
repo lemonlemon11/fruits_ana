@@ -1,5 +1,11 @@
 # TODO
 
+> 待办（看板回退，可随时恢复）：**销售总览「一屏看板」已按用户指令回退**——真实页面
+> 恢复为 demo 改造前版式；完整布局存档于
+> `docs/superpowers/specs/2026-09-30-overview-one-screen-layout.md`，代码备份于分支
+> `backup/overview-one-screen-dashboard`（恢复：`git cherry-pick 64f0d92 3f7c9f2`）。
+> 若用户日后要恢复看板，按存档 spec cherry-pick 即可（dev-preview 53005 演示稿仍在）。
+
 > 待办（数据清理，需用户明确指示）：导入待确认（pending）草稿堆积 12 条——10 条为已
 > 入库 650 单同一文件 09-28~09-29 反复上传的残留，1 条 658 结算单（88 项问题）从未确认。
 > 清理涉及删除数据库记录，待用户确认后再动；也可考虑为复核页补「放弃」入口。

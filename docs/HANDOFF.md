@@ -3,6 +3,16 @@
 Last updated：2026-09-30 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-30（九）**按用户指令回退销售总览看板改版，布局完整存档**。用户要求回退到
+> 「按 demo 修改前」的真实页面版本：先建备份分支 **`backup/overview-one-screen-dashboard`**
+> （含 64f0d92 落地 + 3f7c9f2 压缩两提交），再 `git reset --hard 67f36bc` 撤销这两个
+> 提交——真实总览页恢复为改版前版式（GradeSummary 汇总条 + 旧每日销售金额折线 + 旧
+> 规格整表）；另一会话的 import-review 改动（67f36bc 及之前）不受影响。布局与全部
+> 设计决策存档于 `docs/superpowers/specs/2026-09-30-overview-one-screen-layout.md`
+> （结构/交互/CSS 系统/实测矩阵/文件清单/恢复方法）。回退后验证：314/314 test +
+> typecheck + build 全绿，dist 已重建（53000 按请求读 dist，无需重启）。dev-preview
+> 演示稿（53005）保留未动。恢复路径：`git cherry-pick 64f0d92 3f7c9f2`。
+
 > 2026-09-30（六）**「查看明细」只读页去掉弹窗形态，改整页展示（真根因修复）**。用户
 > 再反馈「不用弹窗了，整个页签页面显示」。排查发现此前所有轮次的真根因：
 > `/import-review` 虽是路由页签，但模板根是 `.review-modal`（fixed 全屏深色遮罩 +
