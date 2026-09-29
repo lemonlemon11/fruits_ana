@@ -148,6 +148,9 @@ test('列表每行都有导出入口', () => {
   // 查看明细并入操作下拉菜单（与导出 Excel/PDF 同一菜单），独立的查看明细按钮已删除。
   assert.match(viewSource, /<ElDropdownItem @click="openRecords\(row\)">/)
   assert.match(viewSource, /<span class="dropdown-caret"/)
+  // 查看明细新开浏览器 tab（window.open + noopener），列表页保持原地不跳转。
+  assert.match(viewSource, /function openRecords\(item: SettlementListItem\) \{[\s\S]*?window\.open\(/)
+  assert.doesNotMatch(viewSource, /router\.push\(\{ path: '\/import-review'/)
 })
 
 test('结算单列表空状态与其他页面一致使用 prominent，且不显示 null 范围提示', () => {

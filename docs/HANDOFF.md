@@ -3,6 +3,18 @@
 Last updated：2026-09-30 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-30（四）**结算单列表「查看明细」改为新开浏览器 tab**。用户明确要求「查看明细
+> 不用弹窗，用新开 tab 页的形式」：原实现 `router.push` 在当前页签内跳 `/import-review`，
+> 列表页被顶走；现改为 `window.open(router.resolve({…}).href, '_blank', 'noopener')`
+> 新开浏览器 tab 打开明细（readonly=1 纯文本记录态），列表留在原页签。可行性确认：
+> 会话走 `fruit_session` cookie + 前端 `credentials: 'include'`，新 tab 同源免登录；
+> 路由 `createWebHistory()` 无 base，`router.resolve().href` 直开即正确。数据导入页跳
+> 二次确认仍是 `router.push`（同流程内跳转），不受影响。**验证**：前端 **314/314** test
+> （farmer-ui-copy 断言改 window.open 形态、settlement-export 加新开断言 + doesNotMatch
+> router.push）、typecheck、build 通过，dist 已重建（53000 刷新生效）；无登录凭据未做
+> 浏览器实测。涉及文件：`frontend/src/views/SettlementListView.vue`、
+> `frontend/tests/farmer-ui-copy.test.mjs`、`frontend/tests/settlement-export.test.ts`。
+
 > 2026-09-30（三）**结算单列表「单号看不全」修复：单号列退出 fitWidth 压缩**。用户反馈
 > 单号列内容被省略号截断。根因（table-column-fit 回归测试里 1366 屏真实数据证实）：
 > fitWidth 压缩模式下各列从理想宽压向「表头下限」，单号理想宽 179px、下限仅 56px，
