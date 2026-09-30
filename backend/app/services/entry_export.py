@@ -729,7 +729,11 @@ PDF_EVEN = (248, 250, 249)         # #F8FAF9
 PDF_LINE = (221, 229, 225)         # #DDE5E1
 PDF_DIVIDER_END = (176, 204, 192)  # #B0CCC0
 
-# 部署机字体位置（yum 装的 google-noto-cjk-fonts 在第一个目录）。
+# 仓库内置 SC 子集字体（由 NotoSansCJK ttc 简体字面裁剪，度量与原字体一致），
+# 结算单 PDF 与 xlsx 水印渲染优先使用；Docker 镜像与裸机部署均无需安装系统字体包。
+_VENDOR_FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "fonts")
+
+# 系统字体回退位置（yum 装的 google-noto-cjk-fonts 在第一个目录）。
 _FONT_DIRS = (
     "/usr/share/fonts/google-noto-cjk",
     "/usr/share/fonts/opentype/noto",
@@ -738,13 +742,20 @@ _FONT_DIRS = (
 
 
 def _pdf_font(bold: bool, size_pt: float) -> ImageFont.FreeTypeFont:
-    """Noto Sans CJK（ttc 内 index=2 为简体）；缺字体时给出可操作的报错。"""
-    name = "NotoSansCJK-Bold.ttc" if bold else "NotoSansCJK-Regular.ttc"
+    """Noto Sans CJK 简体；优先仓库内置子集，其次系统 ttc（index=2 为简体）。"""
+    weight = "Bold" if bold else "Regular"
+    vendored = os.path.join(_VENDOR_FONT_DIR, f"NotoSansSC-{weight}.otf")
+    if os.path.exists(vendored):
+        return ImageFont.truetype(vendored, round(size_pt * PDF_SCALE))
+    name = f"NotoSansCJK-{weight}.ttc"
     for directory in _FONT_DIRS:
         path = os.path.join(directory, name)
         if os.path.exists(path):
             return ImageFont.truetype(path, round(size_pt * PDF_SCALE), index=2)
-    raise RuntimeError("服务器缺少中文字体（Noto Sans CJK），无法生成 PDF；请安装 google-noto-cjk-fonts")
+    raise RuntimeError(
+        "缺少中文字体：仓库内置 backend/app/assets/fonts/NotoSansSC-*.otf 缺失，"
+        "且系统未安装 Noto Sans CJK（google-noto-cjk-fonts / fonts-noto-cjk）"
+    )
 
 
 # ── 水印：xlsx 与 PDF 共用「顺立达SLD」斜向半透明文字 ──
