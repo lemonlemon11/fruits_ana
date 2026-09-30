@@ -3,6 +3,114 @@
 Last updated：2026-09-30 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-30（三十六）**在途改动整体入库并推送远端（用户要求「提交并推送」）**。
+> 工作区累积的多会话改动按主题拆 4 个提交：①结算/总览/导入在途功能（SettlementListItem
+> 与总览补 `payable_amount`、等级看板补 `market_sales`、详情补 `grade_details`、草稿
+> 修订改 `bulk_save_objects` 批量写入、新组件 `MoneyInput.vue`、导入确认页交互、
+> DataTable 确定性列宽、总览默认聚焦海吉星档口）；②SC 子集字体内置 +
+> `entry_export._pdf_font` 内置优先（ADR-055 代码侧）；③Docker 部署链（compose 剥离
+> admin 服务、上传/日志改宿主机 bind mount、Dockerfile 去 apt 层、images 脚本修复）；
+>④prod 迁移/回填 SQL 存档、`compare_schemas.py`、发版测试报告与文档更新。
+> 配套 `.gitignore` 补排 `.zcode/`（本地 AI 工具状态）、`logs/`（根目录运行日志）与
+> `frontend/dev-preview/overview-stall-20260930/real-data.js`（真实接口快照，按 53002
+> demo 会话决策仅留本地不入库）；`.zcodeignore`（本地工具读取排除清单）首次入库。
+> 验证：新增文件密钥扫描通过（`compare_schemas.py` 凭证走环境变量，SQL/报告无明文
+> 口令）；前端 test + typecheck 本地复跑通过；后端 pytest 未重跑，以同日发版测试报告
+> （326 项前端全过、后端 11 失败均为 HEAD 既有）为准。
+
+> 2026-09-30（三十五）**prod 数据回填 SQL 存档：导入结算单补国家=越南 / 品种=金枕**。
+> 用户要求生产库已导入的单子通过脚本补国家与品种。新脚本
+> `docs/testing/2026-09-30-prod-backfill-country-variety.sql`：口径与 ADR-041
+> 第 3 条及 dev 回填脚本 `backend/scripts/add_country_variety_schema.py` 完全
+> 一致——`import_batch.country='越南'`、`sale_record.variety='金枕'`，仅 NULL 行、
+> 不区分 source_type、不回写 grade_raw、幂等可重复执行。脚本含前置检查
+> （variety 列存在性，指向同日结构迁移脚本）、事务包裹、执行前后行数核对与
+> 分布抽查，验证异常时可将 COMMIT 改 ROLLBACK。**待用户在 prod 自行执行**；
+> 若同日结构迁移脚本尚未跑，必须先跑它再跑本脚本。仅新增文档文件，代码与
+> dev 库零改动，无测试项。
+
+> 2026-09-30（三十四）**去掉 Docker 构建的 apt 字体依赖：SC 子集字体内置仓库**。
+> 用户要求摆脱 fonts-noto-cjk（下载慢且大）。fonttools（venv 4.65）从本机
+> `/usr/share/fonts/google-noto-cjk/NotoSansCJK-*.ttc` 的简体字面（index=2）裁剪生成
+> `backend/app/assets/fonts/NotoSansSC-{Regular,Bold}.otf`（14+14MB，28,317 字形，
+> 覆盖 ASCII/拉丁/标点/全角/CJK 统一表意+扩展A+兼容区），随既有 `COPY backend/app`
+> 进镜像；`entry_export.py` `_pdf_font` 改为内置优先、系统目录回退（原三个系统目录
+> 与报错信息保留更新）；`Dockerfile.fruits-backend` 删除整个 apt 层（含并行会话刚加
+> 的 apt 阿里源 sed——apt 已不再使用；pip 阿里源保留）。**验证**：子集与原 ttc 度量
+> 逐串对比完全一致（顺立达SLD/宝贝-001/金枕A果 ¥8,577,383.00 等），常用字 cmap 无
+> 缺字；导出相关 pytest 31 passed / 1 failed（失败为 TODO 已登记的既有品牌列断言
+> 问题，与字体无关）。**未完成**：镜像重建被用户两次终止（不希望本机跑长构建），
+> 「无 apt 构建 + 容器内 vendored 字体渲染」未做容器级冒烟——用户将自行执行部署，
+> 重跑 `build-images.sh` 时顺带验证（预期 pip 层为唯一网络步骤）。决策详见
+> DECISIONS.md ADR-055。涉及文件：`backend/app/assets/fonts/*`（新增二进制）、
+> `backend/app/services/entry_export.py`、`deploy/docker/Dockerfile.fruits-backend`。
+
+> 2026-09-30（三十三）**现场部署前脚本链检查与修复（用户将按部署手册自行执行）**。
+> 全量走查 `images/scripts/` 八个脚本 + 手册一致性，修复三处问题：①`package.sh`
+> 补 `--exclude='fruits_ana/images/config/data'`——原逻辑会把本地试跑产生的上传/
+> 日志运行数据打进部署包（与 .env.docker 泄漏同类风险）；②`load-images.sh` 无
+> .tar 时由静默跳过改为报错退出（防止现场带着旧镜像继续跑）；③`check.sh` 端口
+> 检查加 netstat 回退与缺失提示（原缺 ss 时全部误报「空闲」），新增 MySQL 3306
+> 连通性信息检查。验证：八脚本 `bash -n` 通过；check.sh 实跑（端口/MySQL/镜像三
+> 段输出正确）；load-images.sh 空目录模拟报错退出码 1；package.sh 排除逻辑干跑
+> 确认 marker 与 .env.docker 均不入门。**部署演练中间态**：`.dockerignore` 补排
+> images/tmp 等 9 个非构建目录（build context 465MB→10.18MB）；两次 build-images.sh
+> 均因字体包下载停滞被用户终止（deb.debian.org ~31KB/s），**镜像未建成、images/
+> 下两个 tar 仍为 2026-09-22 旧版（无中文字体），现场部署前必须重新构建**；
+> Dockerfile.fruits-backend/web 的 apt/pip/npm 国内镜像源优化为**并行会话**所改
+> （apt+pip→aliyun，npm→npmmirror，方案一致未动），aliyun 源构建未跑完、
+> tuna 源一次性容器实测 56s 装完字体可作备选。**MySQL 认证结论**：python:3.11-slim
+> 仅 pymysql（无 cryptography）连 MySQL 8 默认 caching_sha2_password 实测成功
+> （容器默认启 SSL，走 SSL 通道无需 cryptography）；仅现场 MySQL 禁用 SSL 时才
+> 需补 cryptography 依赖。测试用 MySQL8 容器与本机 8000/53000 开发服务均已
+> 恢复原状（uvicorn --workers 2 / vite preview，双 200）。涉及文件：
+> `images/scripts/{check,load-images,package}.sh`、`.dockerignore`。
+
+> 2026-09-30（三十二）**deploy/docker 剥离管理端服务：本仓库只编排 fruits_ana 自己的
+> 前后端**。按用户要求，`deploy/docker/docker-compose.yml` 删除 `admin-backend` 与
+> `admin-web` 两个服务（原从兄弟仓库 `../../../fruits_ana_admin` 构建），现仅剩
+> `fruits-backend` + `fruits-web`；随之 `docker compose build` 不再依赖 fruits_ana_admin
+> 仓库在本机存在。`.env.docker.example` 删除 `FRUIT_ADMIN_COOKIE_SECURE` /
+> `FRUIT_ADMIN_SESSION_COOKIE` / `FRUIT_ADMIN_CORS_ORIGINS` 三个管理端变量（管理端
+> env 由其自身仓库维护）；`deploy/docker/README.md` 去掉管理端描述/54000/8001 端口/
+> admin CORS 配置项，并注明「管理端由 fruits_ana_admin 自身仓库独立部署」；根
+> `README.md` Docker 段「两个后端」措辞同步改为本系统前后端两容器。`.env.docker`
+> （真实密钥，gitignore）未动，其中残留的 FRUIT_ADMIN_* 变量已成无效配置、无副作用，
+> 现场可自行清理。离线包 `images/` 本就只含用户端两服务，无需改动。**验证**：
+> `docker compose config --services` 仅输出 fruits-backend/fruits-web，bind mount
+> 解析不变。管理端部署文件迁移属 fruits_ana_admin 仓库职责，本仓库不处理。
+
+> 2026-09-30（三十一）**Docker 部署：上传原件与日志由命名卷改为宿主机 bind mount**。
+> 用户要求打包镜像时把上传文件与 `backend/data/logs/fruits_ana.log` 映射到宿主机。
+> 两处 compose（`deploy/docker/docker-compose.yml` 与离线包 `images/config/docker-compose.yml`）
+> 的 `fruits-backend.volumes` 由命名卷 `fruits_uploads` 改为
+> `${FRUITS_DATA_DIR:-./data}/uploads:/app/backend/data/uploads` +
+> `${FRUITS_DATA_DIR:-./data}/logs:/app/backend/data/logs`（相对路径以 compose 文件所在
+> 目录为基准，即 `deploy/docker/data/` 与 `images/config/data/`），并删除顶层 volumes
+> 声明；Dockerfile 与后端代码零改动（上传/日志路径均模块锚定于 `/app/backend/data/`，
+> 与挂载点天然一致，日志另有 `FRUIT_ANALYSIS_LOG_DIR` 环境变量但无需启用）。配套：
+> `.gitignore` 追加两处 `data/`；`deploy/docker/README.md` 新增「数据持久化」节
+> （root 属主 / `down -v` 不影响 bind mount / `export FRUITS_DATA_DIR` 覆盖法，写
+> `.env.docker` 对挂载路径无效 / 旧命名卷迁移命令 `fruits-ana_fruits_uploads`）；
+> `images/部署手册.md` 第 9/11 节同步（旧卷名 `fruits-ana-offline_fruits_uploads`）；
+> 根 `README.md` Docker 段补一句数据落盘位置。**验证**：`docker compose config` 三项
+> 校验通过（deploy 默认路径、images 默认路径、`FRUITS_DATA_DIR=/opt/fruits_ana/data`
+> 覆盖均解析正确）；加载 `images/fruits-ana-backend.tar` 做一次性容器冒烟（挂载临时
+> 目录 + sqlite 内存占位，不连生产库）：`app.main` 导入成功且 `fruits_ana.log` 在宿主
+> 机挂载目录生成，测后已清理镜像与临时目录。**未做**：全栈起容器冒烟（本机
+> `.env.docker` 指向生产远程库，不宜在沙箱连库），现场 `docker compose up -d` 后按
+> README 验证上传落盘；admin-* 服务（属 fruits_ana_admin 仓库）未动。
+
+> 2026-09-30（三十）**dev→prod 结构对比与迁移 SQL 存档（发版准备）**。对 dev（120.48.117.234:13306）
+> 与 prod（阿里云 RDS 新加坡 3306）两份 Navicat 结构导出逐表比对：31 张表的表/索引/外键/CHECK 约束
+> 完全一致，唯一结构差异为 prod 缺 `sale_record.variety`（varchar(64) utf8mb4_0900_ai_ci NULL，无注释
+> /索引；`import_batch.country` prod 已存在；其余差异仅 AUTO_INCREMENT 计数，属数据层面不迁移）。
+> 按用户决策「只加列不回填」（不走 ADR-041 金枕/越南历史回填），生成 ALTER 语句存档于
+> `docs/testing/2026-09-30-prod-migration-sale-record-variety.sql`，列定义与 dev dump 及
+> models.py `SaleRecord.variety` 逐字对齐，`AFTER review_note` 还原 dev 列序。验证：SQL 未在
+> 任何库上执行（存档交付，由用户在 prod 自行执行，文件内附 SHOW CREATE TABLE 验证语句；后续可用
+> `backend/scripts/compare_schemas.py` 源=dev/目标=prod 复核 A 类差异清零）。
+
 > 2026-09-30（二十九）**53002 demo AI 结论卡改看板式排版（用户反馈「垂直排版不行」，视觉伴侣 pass）**。
 > 推翻上一版纵向小节流，改为横向压缩布局：整体行情 → 通栏 hero 条（浅绿底，4 条要点 2×2 网格 +
 > 「窗口合计」胶囊）→ A果/B果/其他 → 三列等高色卡（等级浅色底 + 同色描边，卡内圆点列表）→ 空等级

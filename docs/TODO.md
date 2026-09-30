@@ -1,5 +1,48 @@
 # TODO
 
+> 已完成（2026-09-30）：**中文字体内置仓库，构建不再 apt 下载**——从本机 Noto
+> ttc 简体字面裁剪 `backend/app/assets/fonts/NotoSansSC-{Regular,Bold}.otf`
+> （28MB，28,317 字形），`_pdf_font` 内置优先/系统回退，Dockerfile 删除 apt 层。
+> 度量与原字体逐串一致；导出 pytest 31 过/1 败（既有问题）。**容器级冒烟未做**
+> （构建被用户终止），重跑 build-images.sh 时验证——pip 层为唯一网络步骤。
+> 详见 DECISIONS.md ADR-055、HANDOFF 同日（三十四）。
+
+> 已完成（2026-09-30）：**部署脚本链检查修复（3 处）+ 构建提速**——`package.sh`
+> 排除 `config/data` 运行数据防打包泄漏；`load-images.sh` 无 tar 时报错退出；
+> `check.sh` 加 netstat 回退与 MySQL 3306 连通性检查；`.dockerignore` 补排
+> images/tmp 等（build context 465MB→10MB）。八脚本 bash -n + 实跑验证通过。
+> **注意：镜像尚未重建，images/ 下 tar 为 09-22 旧版，现场部署前必须重跑
+> build-images.sh**；实测 PyMySQL 连 MySQL 8 默认认证无需 cryptography
+> （SSL 通道），仅现场禁用 SSL 的 MySQL 才需补依赖。
+> 详见 `docs/HANDOFF.md` 同日（三十三）记录。
+
+> 已完成（2026-09-30）：**deploy/docker 剥离管理端服务**——按用户要求本仓库部署
+> 只编排 fruits_ana 自己的前后端：compose 删除 admin-backend/admin-web（原引
+> fruits_ana_admin 兄弟仓库，现已无该依赖），env 模板删除 FRUIT_ADMIN_* 三变量，
+> 两处 README 同步（管理端由其自身仓库独立部署）。`docker compose config`
+> 验证仅剩 fruits-backend/fruits-web。详见 `docs/HANDOFF.md` 同日（三十二）记录。
+
+> 已完成（2026-09-30）：**prod 回填 SQL 存档（国家=越南 / 品种=金枕）**——新脚本
+> `docs/testing/2026-09-30-prod-backfill-country-variety.sql`，口径同 ADR-041 / dev
+> 回填脚本（仅 NULL 行、幂等、不改 grade_raw、不区分 source_type），含前置检查 /
+> 事务 / 前后行数核对。**待用户在 prod 自行执行**（须在同日结构迁移脚本之后）。
+> 详见 `docs/HANDOFF.md` 同日（三十五）记录。
+
+> 已完成（2026-09-30）：**Docker 部署上传/日志映射宿主机**——两处 compose
+> （`deploy/docker/` 与离线包 `images/config/`）的 `fruits-backend` 由命名卷
+> `fruits_uploads` 改为 bind mount：`./data/uploads` 与 `./data/logs` 直接落宿主机
+> （可用 `export FRUITS_DATA_DIR=...` 覆盖），并补日志挂载（原先未挂载、容器重建即丢）；
+> `.gitignore`、两份部署文档、根 README 同步更新，含旧命名卷数据迁移命令。
+> `docker compose config` 三项校验 + 一次性容器冒烟（日志落宿主机）通过。
+> **待现场部署后按 README 验证上传文件落盘**。详见 `docs/HANDOFF.md` 同日（三十一）记录。
+
+> 已完成（2026-09-30）：**dev→prod 结构对比 + prod 迁移 SQL 存档**——两份 Navicat 结构
+> 导出逐表比对（31 张表），唯一结构差异为 prod 缺 `sale_record.variety`（varchar(64) NULL，
+> 无注释/索引；`import_batch.country` prod 已存在；其余仅 AUTO_INCREMENT 计数差异）。按用户
+> 决策「只加列不回填」，ALTER 语句存档于
+> `docs/testing/2026-09-30-prod-migration-sale-record-variety.sql`（附 SHOW CREATE TABLE
+> 验证），**待用户在 prod 自行执行**。详见 `docs/HANDOFF.md` 同日（三十）记录。
+
 > 已完成（2026-09-30）：**53002 demo 升级真实数据 + 五页完整版**——撤虚构数据，新增
 > `tmp/stall-demo/fetch_real_data.py` 只读拉取真实接口快照（real-data.js 仅留本地不入库），
 > demo 五页（销售总览/结算单列表/录单·导入/结算单详情/销售对比）按真实系统菜单互链，
@@ -9,8 +52,8 @@
 
 > 已完成（2026-09-30）：**上线前全量功能测试（主持人 + 5 并行测试员）**——三层验证：
 > 自动化基线（前端 326/326 + typecheck + build；后端 pytest 11 失败经 HEAD 对照证实全为
-> 既有、非在途改动引入）+ 接口用例 73 项（70 过/3 败/1 跳过）+ 前端 HTTP 资产层（无浏览器
-> 后端，GUI 视觉层降级如实记录）。核心链路全部真实走通、交叉核对零偏差；在途改动回归
+> 既有、非在途改动引入）+ 接口用例 73 项（70 过/3 败/1 跳过）+ 前端 HTTP 资产层 + **GUI 无头
+> Chromium 补测**（只读链路 21 项与写链路关键交互全过、pageerror=0，详见报告 2.9 节）。核心链路全部真实走通、交叉核对零偏差；在途改动回归
 > 专项全过（三新字段落地、修订 PUT 1.22s 历史 bug 确认修复）。0 Blocker / 3 Major / 5 Minor，
 > 结论「有条件可上线」。测试数据全程仅 T-TEST 前缀、测完清理零残留（含主持人补 discard
 > 2 个 409 阻断的 pending 任务）。报告：`docs/testing/2026-09-30-release-test-report.md`；

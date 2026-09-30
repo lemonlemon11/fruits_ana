@@ -14,12 +14,10 @@ deploy/docker/.env.docker
 # 本地工具状态与真实业务数据（不应提交）
 .superpowers/
 .superpowersigeria/
-.zcode/
 attachments/
 tickets/
 # 视觉伴侣本地数据：含真实结算单 / 真实结论，禁止入库（预览代码可以提交）
 frontend/dev-preview/fixture.json
-frontend/dev-preview/overview-stall-20260930/real-data.js
 frontend/dev-preview/grade-detail-data.js
 frontend/dev-preview/review-data.ts
 frontend/dev-preview/grade-tables-chart-demo.data.js
@@ -30,9 +28,8 @@ frontend/dev-preview/mobile-review/
 # 视觉伴侣截图输出：含真实经营数据，禁止入库
 frontend/dev-preview/.preview-20260914/
 
-# 本地运行日志（后端 uvicorn 输出 / 根目录 logs/），不提交
+# 本地运行日志（后端 uvicorn 输出），不提交
 backend/*.log
-logs/
 
 # 本地运行产物与临时目录：验证脚本 / 日志 / 截图，含真实经营数据
 tmp/
@@ -51,10 +48,6 @@ images/*.tar
 images/*.tar.gz
 images/config/.env.docker
 
-# Docker 宿主机映射的运行数据（上传原件 / 日志），不提交
-deploy/docker/data/
-images/config/data/
-
 # 配置备份文件
 *.bak-*
 
@@ -64,3 +57,33 @@ frontend/dev-preview/**/*.png
 
 # 客户回传的结算单模板原件（业务附件，与 attachments/ 同性质）
 docs/结算单模板样式-*.xlsx
+
+# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====
+.git/
+.hg/
+.svn/
+node_modules/
+bower_components/
+jspm_packages/
+site-packages/
+venv/
+coverage/
+htmlcov/
+lcov-report/
+cmakefiles/
+cmake-build-*/
+bazel-*/
+pods/
+deriveddata/
+storybook-static/
+playwright-report/
+test-results/
+allure-results/
+allure-report/
+cdk.out/
+*.dist-info/
+eggs/
+pip-wheel-metadata/
+wheels/
+# ----- ↑ 以上为 ZCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----
+# 自定义规则写在下方（本行提示可删除）
