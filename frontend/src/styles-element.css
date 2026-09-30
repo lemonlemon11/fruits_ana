@@ -1,5 +1,5 @@
 /* Element Plus 组件主题统一：把 EP 设计变量映射到全站令牌（墨绿主色、4px 圆角、
-   17px 可读性字号基线），保证 ElDialog / ElMessage / ElInput / ElPagination /
+   16px 标准字号基线），保证 ElDialog / ElMessage / ElInput / ElPagination /
    ElDrawer / ElSelect 与既有手写控件视觉一致。
    弹层类组件（dialog / message / drawer / select 下拉）渲染在 body 层，
    :root 变量可正常级联到它们。 */

@@ -500,7 +500,7 @@ onBeforeUnmount(() => {
 .manual-empty .secondary-button { min-width: 132px; }
 .draft-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .draft-resume .primary-button,
-.draft-resume .secondary-button { min-height: 38px; padding: 0 14px; font-size: .92rem; }
+.draft-resume .secondary-button { min-height: 2.24rem; padding: 0 14px; font-size: .92rem; }
 .uploading-mask {
   position: absolute;
   z-index: 10;

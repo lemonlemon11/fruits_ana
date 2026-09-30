@@ -40,8 +40,8 @@ test('字号偏好使用稳定存储键并只接受已知档位', () => {
   assert.equal(shellHeader.restoreFontSize('small'), 'small')
   assert.equal(shellHeader.restoreFontSize('standard'), 'standard')
   assert.equal(shellHeader.restoreFontSize('xlarge'), 'xlarge')
-  assert.equal(shellHeader.restoreFontSize('broken'), 'small')
-  assert.equal(shellHeader.restoreFontSize(null), 'small')
+  assert.equal(shellHeader.restoreFontSize('broken'), 'standard')
+  assert.equal(shellHeader.restoreFontSize(null), 'standard')
   assert.equal(shellHeader.fontScaleFor('small'), 0.9)
   assert.equal(shellHeader.fontScaleFor('standard'), 1)
   assert.equal(shellHeader.fontScaleFor('large'), 1.125)
@@ -81,8 +81,8 @@ test('header 提供字号选择并让全局根字号按偏好缩放', () => {
   assert.match(shell, /FONT_SIZE_OPTIONS/)
   assert.match(shell, /当前字号：\{\{ fontSizeOption\.label \}\}/)
   assert.match(globalStyles, /--font-scale:\s*1/)
-  assert.match(globalStyles, /calc\(17px \* var\(--font-scale\)\)/)
-  assert.match(globalStyles, /calc\(clamp\(15px, 0\.25rem \+ 0\.85vw, 17px\) \* var\(--font-scale\)\)/)
+  assert.match(globalStyles, /calc\(16px \* var\(--font-scale\)\)/)
+  assert.match(globalStyles, /calc\(clamp\(14px, 0\.25rem \+ 0\.85vw, 16px\) \* var\(--font-scale\)\)/)
 })
 
 test('桌面收起为自适应图标栏', () => {

@@ -188,7 +188,7 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
   卡片默认可见并自动以 `refresh=false` 先读缓存，命中缓存直接展示 `cached` 标记。
 - UI 组件库（2026-09-29 全量接入）：基础控件统一使用 Element Plus（`AppShell` 根部
   `ElConfigProvider(zhCn)` 提供中文文案），主题经 `styles-element.css` 把 EP 设计变量
-  映射到全站令牌（墨绿主色、4px 圆角、17px 字号基线），弹层（Dialog/Message/Drawer/
+  映射到全站令牌（墨绿主色、4px 圆角、16px 字号基线），弹层（Dialog/Message/Drawer/
   Select 下拉）渲染在 body 层也能继承主题。具体承载：
   - 弹窗 `ElDialog`：商号冲突、导入提交确认、批次问题确认、通知详情；
   - 全局消息 `ElMessage`：录单暂存/校验/提交结果提示；
@@ -262,8 +262,8 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 手机访问分流：`frontend/index.html` `<head>` 内联脚本按 UA（Android / iPhone / iPad /
   iPod / HarmonyOS / Mobile）整站 `location.replace` 跳转独立移动版站点
   （手机端由独立项目负责）；URL 带 `?desktop=1` 可强制留在桌面版（见 ADR-052）。
-- 桌面端全局字号基线用 `clamp()` 随视口宽度平滑缩放（15px–17px），主要控件、外壳与卡片尺寸
-  改为 `rem`。
+- 桌面端全局字号基线用 `clamp()` 随视口宽度平滑缩放（14px–16px，默认档「标准」=1，
+  顶部字号面板可调 小/标准/大/特大），主要控件、外壳与卡片尺寸改为 `rem`。
 
 ### Error Recovery（ADR-040）
 

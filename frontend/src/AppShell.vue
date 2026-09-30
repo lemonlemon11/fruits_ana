@@ -407,7 +407,7 @@ function readStoredFontSize(): FontSizePreference {
   try {
     return restoreFontSize(window.localStorage.getItem(FONT_SIZE_STORAGE_KEY))
   } catch {
-    return 'small'
+    return 'standard'
   }
 }
 

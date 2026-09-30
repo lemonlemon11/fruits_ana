@@ -37,7 +37,7 @@ export function restoreFontSize(value: string | null): FontSizePreference {
   if (FONT_SIZE_OPTIONS.some((option) => option.value === value)) {
     return value as FontSizePreference
   }
-  return 'small'
+  return 'standard'
 }
 
 export function fontScaleFor(value: FontSizePreference): number {

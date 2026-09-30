@@ -2,7 +2,7 @@
 .picker-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .picker-chips li {
   display: inline-flex; align-items: center; gap: 8px;
-  min-height: 44px; padding: 0 6px 0 14px;
+  min-height: 2.59rem; padding: 0 6px 0 14px;
   border: 1px solid var(--primary); border-radius: 999px;
   background: color-mix(in srgb, var(--primary-soft) 55%, white);
   font-size: .95rem;
@@ -25,7 +25,7 @@
 .picker-head-copy .section-note { margin: 0; }
 .picker-search { display: block; margin: 0 18px 10px; }
 .picker-search .el-input__wrapper {
-  min-height: 48px; padding: 0 14px;
+  min-height: 2.82rem; padding: 0 14px;
   border-radius: var(--radius-sm);
   background: var(--surface); color: var(--ink); font-size: 1rem;
 }
@@ -41,7 +41,7 @@
 .brand-list { display: grid; gap: 10px; }
 .brand-option {
   display: grid; grid-template-columns: 1fr auto; gap: 4px 10px;
-  width: 100%; min-height: 70px; padding: 12px 14px;
+  width: 100%; min-height: 4.12rem; padding: 12px 14px;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--surface); color: var(--ink); text-align: left; cursor: pointer;
 }
@@ -50,7 +50,7 @@
 .brand-option span { color: var(--primary-dark); font-weight: 800; }
 .brand-option small { grid-column: 1 / -1; color: var(--muted); overflow-wrap: anywhere; }
 .picker-back {
-  min-height: 44px; padding: 0; border: 0; background: transparent;
+  min-height: 2.59rem; padding: 0; border: 0; background: transparent;
   color: var(--primary-dark); font-size: .95rem; font-weight: 800; cursor: pointer;
 }
 .active-brand {
@@ -70,7 +70,7 @@
 .series-option {
   height: auto;
   align-items: flex-start;
-  min-height: 62px; margin-right: 0; padding: 9px 12px;
+  min-height: 3.65rem; margin-right: 0; padding: 9px 12px;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--surface);
   transition: border-color 150ms ease, background-color 150ms ease;
