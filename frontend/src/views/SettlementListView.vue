@@ -506,10 +506,8 @@ onBeforeUnmount(() => {
 /* 表格的 min-width 会把 .page-stack 的网格轨道顶到 900px，在 640–1177px 之间整页被撑出横向滚动；
    让网格项可收缩，宽度不够时交给 .table-wrap 自己内部滚动。 */
 .settlement-list-page > * { min-width: 0; }
-/* 顶部区块收紧，把高度让给列表：配合下方“整页一屏高”，分页始终留在可视区。 */
-.settlement-list-filter { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 10px; }
-.settlement-list-filter > :not(.primary-button) { flex: 1 1 220px; min-width: 220px; }
-.settlement-list-filter > .primary-button { flex: 0 0 auto; }
+/* 顶部区块收紧，把高度让给列表：配合下方“整页一屏高”，分页始终留在可视区。
+   筛选栏版式统一由全局 .filter-bar 基线提供（flex 换行 + 13rem 下拉基准）。 */
 .settlement-list-filter label { gap: 4px; font-size: .95rem; }
 .list-export-button { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .list-export-button:disabled,
@@ -692,7 +690,8 @@ onBeforeUnmount(() => {
 
 @media (max-width: 860px) {
   .settlement-list-filter { flex-direction: column; align-items: stretch; }
-  .settlement-list-filter > :not(.primary-button) { flex: 1 1 auto; min-width: 0; }
+  /* 只放宽下拉；日期块的最小宽度由 DateRangeFilter 组件自带，不再用 min-width:0 抵消。 */
+  .settlement-list-filter > .searchable-select { flex: 1 1 auto; min-width: 0; }
   .fixed-height-list { height: auto; min-height: 24rem; }
 }
 

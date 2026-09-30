@@ -258,18 +258,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .page-stack { gap: 18px; }
-/* 筛选栏与结算单列表同版式（flex 紧凑排布）：日期筛选吃满剩余行宽（内部快捷下拉
-   固定 11rem、日历弹性），国家/市场下拉按展示文字量收紧宽度，按钮贴内容宽。 */
-.overview-filter {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 10px;
-  padding: 10px;
-}
-.overview-filter > .date-range-filter { flex: 1 1 360px; }
-.overview-filter > .searchable-select { flex: 0 1 11rem; min-width: 9rem; width: auto; }
-.overview-filter > .primary-button { flex: 0 0 auto; }
+/* 筛选栏版式统一由全局 .filter-bar 基线提供（flex 换行 + 13rem 下拉基准），
+   本页只保留窄断点下的间距收紧（见文件末尾媒体查询）。 */
 .overview-trend-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

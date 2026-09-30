@@ -65,7 +65,8 @@
 .field.error .el-textarea .el-textarea__inner {
   box-shadow: 0 0 0 2px var(--danger) inset;
 }
-.field .el-input, .field .el-select, .field .el-textarea { width: 100%; }
+/* 日期编辑器根节点（.el-date-editor）补进 100% 白名单，避免每个表单视图各自 :deep 打补丁。 */
+.field .el-input, .field .el-select, .field .el-textarea, .field .el-date-editor { width: 100%; }
 
 /* 只读文本（原 .readonly-input 的替代展示） */
 .el-input.readonly-input .el-input__wrapper {

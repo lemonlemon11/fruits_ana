@@ -61,7 +61,13 @@ h3 { margin-bottom: 0; font-size: 1.2rem; line-height: 1.4; }
 .page-stack { display: grid; gap: 1.18rem; }
 .page-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 1.41rem; padding-bottom: 1.06rem; border-bottom: 1px solid var(--line-strong); }
 .page-header-actions { display: grid; justify-items: end; gap: .59rem; }
-.filter-bar { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)) auto; align-items: end; gap: .71rem; padding: .94rem; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+/* 筛选栏统一版式（四个筛选页共用）：flex 换行排布，日期筛选吃满剩余行宽
+   （内部快捷下拉固定 11rem、日历编辑器最小 19rem，见 DateRangeFilter），
+   下拉筛选按 13rem 舒适基准收紧、不随行宽拉伸，按钮贴内容宽。 */
+.filter-bar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.filter-bar > .date-range-filter { flex: 1 1 360px; }
+.filter-bar > .searchable-select { flex: 0 1 13rem; min-width: 11rem; width: auto; }
+.filter-bar > .primary-button { flex: 0 0 auto; }
 .filter-bar label, .compact-field { display: grid; gap: .41rem; color: var(--ink); font-size: 1.05rem; font-weight: 700; }
 .filter-bar input, .filter-bar select, .compact-field select { width: 100%; min-height: 3.06rem; font-size: 1.05rem; padding: 0 .65rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); }
 .compact-field { grid-template-columns: auto auto; align-items: center; }

@@ -3,6 +3,26 @@
 Last updated：2026-09-30 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-30（二十三）**筛选栏宽度四页统一 + 日期区间填充后显示不全修复**。用户反馈
+> 「筛选框有长有短、选完日期填充到输入框显示不全」。排查结论：① 同一组
+> SearchableSelect/DateRangeFilter 在四个筛选页用三套宽度规则（总览 `0 1 11rem`、
+> 列表 `1 1 220px` 拉伸、详情页仍是全局三轨网格 minmax(150px,1fr)、对比页专用两轨
+> 网格）；② DateRangeFilter 内 daterange 编辑器 `min-width:0` 可被压到极小（列表页
+> 日期块最小 220px，扣固定 11rem 快捷下拉后编辑器仅约 36px），15–16px 字号下完整
+> 显示「YYYY-MM-DD 至 YYYY-MM-DD」约需 300px，挤压即两侧截字。**用户确认两项**：
+> 下拉统一 13rem 舒适基准（208px、最窄 11rem）；四页全部统一 flex 版式。改动：
+> `DateRangeFilter.vue` 编辑器 `min-width:19rem`、外层根 `min-width:
+> calc(11rem + .5rem + 19rem)`（空间不足换行而非压缩；rem 随字号档同步缩放）；
+> `styles.css` 全局 `.filter-bar` 基线改 flex 换行 + 子项规则（日期 `1 1 360px`、
+> 下拉 `0 1 13rem; min-width 11rem`、按钮内容宽）；总览/列表/对比删本地分叉规则
+> （详情页无本地规则自动切 flex）；列表页 ≤860px 断点的 `min-width:0` 收窄到只作用
+> 下拉；`styles-element.css` 的 `.field` 100% 白名单补 `.el-date-editor`。
+> **验证**：前端 324/324 test、typecheck、build 通过。涉及文件：
+> `frontend/src/components/DateRangeFilter.vue`、`frontend/src/styles.css`、
+> `frontend/src/styles-element.css`、`frontend/src/views/OverviewView.vue`、
+> `frontend/src/views/SettlementListView.vue`、`frontend/src/views/SeriesComparisonView.vue`、
+> `frontend/tests/overview-filters.test.ts`、`frontend/tests/date-range-filter.test.ts`。
+
 > 2026-09-30（二十一）**字号基线再降一档：16px→15px**。用户看过 16px 效果后要求
 > 「再缩小一点」，按与上轮相同步长（-1px）把根字号 16px→15px、桌面 clamp
 > 14–16px→13–15px，默认档仍「标准」（各档随之变为约 13.5/15/16.9/18.8px）；

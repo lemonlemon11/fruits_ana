@@ -46,14 +46,25 @@ test('卖得怎么样筛选条改为国家+市场，不再提供商号下拉', (
   assert.match(view, /<SearchableSelect[\s\S]*?:loading="filterOptionsLoading"/)
 })
 
-test('筛选栏改 flex 紧凑版式：日期吃剩余行宽，国家/市场按展示字数收紧', () => {
+test('筛选栏统一为全局 flex 版式：日期吃剩余行宽，下拉按 13rem 舒适基准收紧', () => {
+  const styles = fs.readFileSync(path.join(src, 'styles.css'), 'utf8')
   const view = fs.readFileSync(path.join(src, 'views', 'OverviewView.vue'), 'utf8')
 
-  // 与结算单列表同版式：flex 换行排布，不再用等分网格把国家/市场拉满整行。
-  assert.match(view, /\.overview-filter \{[^}]*display: flex;/)
-  assert.match(view, /\.overview-filter > \.date-range-filter \{ flex: 1 1 360px; \}/, '日期筛选吃满剩余行宽')
-  assert.match(view, /\.overview-filter > \.searchable-select \{ flex: 0 1 11rem;/, '国家/市场按内容宽收紧')
+  // 统一版式下沉到全局 .filter-bar 基线（四个筛选页共用），不再各自为政：
+  // 日期筛选 flex 换行吃满剩余行宽，下拉固定 13rem 舒适基准、不随行宽拉伸。
+  assert.match(styles, /\.filter-bar \{ display: flex; flex-wrap: wrap;/)
+  assert.match(styles, /\.filter-bar > \.date-range-filter \{ flex: 1 1 360px; \}/)
+  assert.match(styles, /\.filter-bar > \.searchable-select \{ flex: 0 1 13rem; min-width: 11rem; width: auto; \}/)
+  assert.doesNotMatch(styles, /grid-template-columns: repeat\(3, minmax\(150px/, '不应保留旧三轨网格基线')
+  // 总览页不再保留本地宽度分叉（历史上总览 11rem、列表 220px、详情页三轨网格各自不同）。
+  assert.doesNotMatch(view, /\.overview-filter > \.date-range-filter/)
+  assert.doesNotMatch(view, /\.overview-filter > \.searchable-select/)
   assert.doesNotMatch(view, /grid-template-columns: minmax\(280px/, '不应保留旧的等分网格')
+  // 列表页/对比页同步吃全局基线，不再保留本地分叉（220px 弹性拉伸、专用两轨网格）。
+  const list = fs.readFileSync(path.join(src, 'views', 'SettlementListView.vue'), 'utf8')
+  const comparison = fs.readFileSync(path.join(src, 'views', 'SeriesComparisonView.vue'), 'utf8')
+  assert.doesNotMatch(list, /flex: 1 1 220px/)
+  assert.doesNotMatch(comparison, /\.comparison-filter \{ grid-template-columns:/)
 })
 
 test('卖得怎么样隐藏等级卡片，等级项不展示 AB 与 OTHER，总量口径不变', () => {

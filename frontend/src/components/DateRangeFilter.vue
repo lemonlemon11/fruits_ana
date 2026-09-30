@@ -165,11 +165,14 @@ function onQuickChange() {
 </template>
 
 <style scoped>
+/* 整块最小宽度 = 快捷下拉 11rem + gap .5rem + 日历编辑器 19rem：
+   全站字号基线 16px 下完整显示「YYYY-MM-DD 至 YYYY-MM-DD」编辑器约需 19rem，
+   筛选栏空间不足时按此宽度换行，而不是把日历压到截字。 */
 .date-range-filter {
   display: grid;
   gap: .41rem;
   width: 100%;
-  min-width: 0;
+  min-width: calc(11rem + .5rem + 19rem);
 }
 
 .date-range-label {
@@ -209,7 +212,7 @@ function onQuickChange() {
 
 .date-range-picker {
   flex: 1 1 auto;
-  min-width: 0;
+  min-width: 19rem;
   width: 100%;
 }
 

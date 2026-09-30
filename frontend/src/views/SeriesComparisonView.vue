@@ -204,7 +204,6 @@ onBeforeUnmount(() => {
 .series-page { gap: 18px; }
 .comparison-updating { margin: -8px 0 0; color: var(--primary-dark); font-size: .88rem; font-weight: 700; }
 .series-view-panel { display: grid; gap: 18px; }
-/* 日期筛选整块占一格自适应伸缩、按钮取内容宽（旧三轨模板会把按钮塞进 1fr 轨道拉伸、
-   日期编辑器被挤到占位符截字）。 */
-.comparison-filter { grid-template-columns: minmax(0, 1fr) auto; }
+/* 筛选栏版式统一由全局 .filter-bar 基线提供（flex 换行 + 13rem 下拉基准）：
+   日期筛选吃满剩余行宽、按钮贴内容宽，不再需要本页的专用网格覆盖。 */
 </style>

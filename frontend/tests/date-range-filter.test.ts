@@ -61,10 +61,14 @@ test('四个时间筛选页共用快捷选项加载器并接入年度/月度方�
   assert.match(util, /export function useQuickPeriods\(\)[\s\S]*?loadQuickPeriods[\s\S]*?catch/)
 })
 
-test('快捷下拉固定宽度、日历吃满剩余行宽：切换选项不改变输入框长度', () => {
+test('快捷下拉固定宽度、日历吃满剩余行宽且不截字', () => {
   // 快捷下拉固定宽度（原生 select 按最宽选项布局），日期范围选择器 flex:1 1 auto 吃满剩余行宽。
   assert.match(source, /\.date-range-quick \{\s*\n\s*flex: 0 0 auto;\s*\n\s*width: 11rem;/)
   assert.match(source, /\.date-range-picker \{\s*\n\s*flex: 1 1 auto;/)
+  // 日历编辑器最小 19rem：全站字号基线 16px 下「YYYY-MM-DD 至 YYYY-MM-DD」完整显示；
+  // 外层整块最小宽 = 快捷下拉 + gap + 编辑器，筛选栏空间不足时换行而不是压缩截字。
+  assert.match(source, /\.date-range-picker \{[\s\S]*?min-width: 19rem;/)
+  assert.match(source, /\.date-range-filter \{[\s\S]*?min-width: calc\(11rem \+ \.5rem \+ 19rem\);/)
 })
 
 test('每一单已删除统计周期组件，时间筛选只保留销售日期三方式', () => {
