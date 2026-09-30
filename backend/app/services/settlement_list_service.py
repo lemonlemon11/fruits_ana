@@ -8,7 +8,7 @@ from decimal import Decimal
 from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session
 
-from ..models import ImportBatch, SaleRecord
+from ..models import ImportBatch, SaleRecord, SettlementSummary
 from .analytics_core import GRADES, one_month_before, rounded
 from .merchant_no_naming import merchant_no_display
 from .order_no_naming import order_no_display
@@ -208,20 +208,35 @@ def _brand_totals(db: Session, query, aggregated) -> list[dict]:
     ]
 
 
+def _optional_number(value):
+    """与详情页 settlement 序列化一致的可空数值输出。"""
+
+    return round(float(value), 4) if value is not None else None
+
+
 def _settlement_items(db: Session, rows) -> list[dict]:
     batch_ids = {row.batch_id for row in rows if row.batch_id}
+    if not batch_ids:
+        return []
     batches = {
         batch.id: batch
         for batch in db.query(ImportBatch).filter(ImportBatch.id.in_(batch_ids)).all()
-    } if batch_ids else {}
+    }
+    # 应付金额与详情页同口径：直接读结算摘要表，无摘要行为空由前端回退。
+    summaries = {
+        summary.import_batch_id: summary
+        for summary in db.query(SettlementSummary)
+        .filter(SettlementSummary.import_batch_id.in_(batch_ids))
+        .all()
+    }
     return [
-        _settlement_item(row, batches[row.batch_id])
+        _settlement_item(row, batches[row.batch_id], summaries.get(row.batch_id))
         for row in rows
         if row.batch_id in batches
     ]
 
 
-def _settlement_item(agg, batch: ImportBatch) -> dict:
+def _settlement_item(agg, batch: ImportBatch, summary=None) -> dict:
     amount = _decimal(agg.sales_amount)
     quantity = _decimal(agg.total_quantity)
     return {
@@ -244,6 +259,9 @@ def _settlement_item(agg, batch: ImportBatch) -> dict:
         "sales_amount": rounded(amount),
         "total_quantity": rounded(quantity),
         "average_price": rounded(amount / quantity) if quantity else None,
+        "payable_amount": _optional_number(summary.payable_amount)
+        if summary is not None
+        else None,
         "confirmed_at": batch.confirmed_at,
         "grade_quantities": {
             grade.value: rounded(_decimal(getattr(agg, f"grade_{grade.value.lower()}")))

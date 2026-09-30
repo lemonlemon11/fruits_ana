@@ -162,6 +162,12 @@ async function loadFilterOptions() {
     filterOptions.value = options
     quickYears.value = options.years
     quickMonths.value = options.months
+    // 会议结论：PC 端默认聚焦海吉星档口。市场名来自后端数据，
+    // 用包含匹配避免硬编码全名；用户手动改过市场后不再覆盖。
+    if (!filters.market) {
+      const defaultStall = (options.markets ?? []).find((item) => item.name.includes('海吉星'))
+      if (defaultStall) filters.market = defaultStall.name
+    }
   } catch (caught) {
     requestErrors.filterOptions = errorMessage(caught)
   } finally {
@@ -169,7 +175,7 @@ async function loadFilterOptions() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 默认展示今年的数据（仅卖得怎么样，用户要求）；
   // 时间方式默认停在「自定义时间」，不因预填当年起止被回显成「按年度」（用户要求）。
   if (!filters.startDate && !filters.endDate) {
@@ -177,7 +183,9 @@ onMounted(() => {
     filters.startDate = bounds.start
     filters.endDate = bounds.end
   }
-  void loadFilterOptions()
+  // 先等筛选选项就绪再拉数据：默认档口（海吉星）在这一步落定，
+  // 避免先出「全部市场」结果再闪换一版。
+  await loadFilterOptions()
   void refresh()
 })
 onBeforeUnmount(() => {

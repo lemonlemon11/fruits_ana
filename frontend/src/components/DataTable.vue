@@ -244,7 +244,29 @@ function computeFittedWidths(
     entries.push({ key: column.key, ideal, floor: column.noShrink ? ideal : Math.min(ideal, headerNeed) })
   }
   if (!entries.length) return null
-  return fitColumnWidths(available - fixedTotal, entries)
+  const budget = available - fixedTotal
+  const granted = fitColumnWidths(budget, entries)
+  if (granted) return granted
+  if (budget <= 0) return null
+  // 连表头下限都放不下：压缩只会截断表头，回退横向滚动。
+  const totalFloor = entries.reduce((total, entry) => total + entry.floor, 0)
+  if (totalFloor > budget) return null
+  // 放得下也要输出确定性列宽（按理想宽比例分摊余量、恰好铺满容器）：
+  // 弹窗场景 EP 的弹性分配在挂载瞬间把容器量得偏大且不自愈，表体被撑出可视区、
+  // 末尾列被挤出——「放得下」不能交回 EP 弹性。
+  const totalIdeal = entries.reduce((total, entry) => total + entry.ideal, 0)
+  if (totalIdeal <= 0) return null
+  const stretched: Record<string, number> = {}
+  let used = 0
+  let widestKey = entries[0].key
+  for (const entry of entries) {
+    stretched[entry.key] = Math.max(Math.round((entry.ideal * budget) / totalIdeal), entry.floor)
+    used += stretched[entry.key]
+    if (stretched[entry.key] > stretched[widestKey]) widestKey = entry.key
+  }
+  // 取整误差补给最宽列，保证 Σ列宽 === 预算（铺满不留缝）。
+  stretched[widestKey] += budget - used
+  return stretched
 }
 
 function refitColumns() {

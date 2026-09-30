@@ -129,6 +129,8 @@ class SettlementListItem(BaseModel):
     sales_amount: float
     total_quantity: float
     average_price: float | None
+    # 应付金额（结算摘要口径），无摘要的结算单为空，前端回退显示销售金额。
+    payable_amount: float | None = None
     confirmed_at: datetime | None = None
     grade_quantities: dict[str, float]
     record_count: int

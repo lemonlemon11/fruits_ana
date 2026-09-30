@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from ..models import SettlementSummary
 from .analytics_core import (
     DEFAULT_THRESHOLDS,
     AnomalyThresholds,
@@ -84,12 +86,31 @@ def get_overview(
         }
         for item in daily_quantity_anomalies(filtered, thresholds)
     )
+    # 应付金额口径 = 窗口内各结算单摘要 payable_amount 之和（无摘要的结算单不计），
+    # 与结算单列表 / 详情页同源（SettlementSummary.payable_amount）。
+    window_batch_ids = {record.import_batch_id for record in filtered}
+    payable_total = None
+    if window_batch_ids:
+        summary_rows = (
+            db.query(SettlementSummary.payable_amount)
+            .filter(
+                SettlementSummary.import_batch_id.in_(window_batch_ids),
+                SettlementSummary.payable_amount.isnot(None),
+            )
+            .all()
+        )
+        if summary_rows:
+            payable_total = round(
+                float(sum((row.payable_amount for row in summary_rows), Decimal("0"))),
+                4,
+            )
     return {
         # 总柜数口径 = 结算单数（import_batch_id 去重，一柜两单不去重柜号），
         # 与市场销售分析柜数 / 趋势接口 container_count 一致；件数合计仍走 sales_quantity。
         "total": {
             **metrics(filtered),
             "container_count": len({record.import_batch_id for record in filtered}),
+            "payable_amount": payable_total,
         },
         "grades": grade_metrics(filtered),
         "trend": [

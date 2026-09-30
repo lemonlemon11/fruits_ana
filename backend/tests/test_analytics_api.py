@@ -82,6 +82,7 @@ def test_empty_overview_has_stable_shape(client):
         "sales_amount": 0.0,
         "weighted_avg_price": None,
         "container_count": 0,
+        "payable_amount": None,
     }
     assert body["grades"] == []
     assert body["trend"] == []

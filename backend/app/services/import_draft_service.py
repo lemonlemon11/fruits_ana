@@ -505,6 +505,7 @@ def update_import_draft(
     )
     old_basic = {field: old_payload.get(field) for field in basic_fields}
     new_basic = {field: payload.get(field) for field in basic_fields}
+    revisions: list[SettlementRevision] = []
     for revision in _revision_rows(
         old_basic, new_basic, "basic", None, old_prefix="old", new_prefix="new"
     ):
@@ -512,7 +513,7 @@ def update_import_draft(
         revision.version = draft.version
         revision.changed_by = user_id
         revision.reason = "二次确认页人工修改"
-        db.add(revision)
+        revisions.append(revision)
 
     for section in ("sales", "after_sales", "fees"):
         old_rows = old_payload.get(section) or []
@@ -528,7 +529,12 @@ def update_import_draft(
                 revision.version = draft.version
                 revision.changed_by = user_id
                 revision.reason = "二次确认页人工修改"
-                db.add(revision)
+                revisions.append(revision)
+    # 首次保存草稿时解析值→录入值的类型归一会产生数百条修订行；逐条 INSERT 在
+    # 远程库上按往返延迟线性放大（实测 ~500 条 ≈ 17s，前端 30s 超时叠加并发即报
+    # 「保存失败」）。改批量一次写入（executemany 单语句），行为不变。
+    if revisions:
+        db.bulk_save_objects(revisions)
     db.commit()
     return get_import_draft(db, job_token, draft_token)
 

@@ -96,7 +96,12 @@ test('fitWidth 列宽自适应：超宽按表头下限压缩铺满容器，放�
   assert.match(source, /const FIT_CELL_PAD = 26/)
   assert.match(source, /function measureHeaderWidths\(el: HTMLElement\)/)
   assert.match(source, /computeFittedWidths\(next, el\.clientWidth, measureHeaderWidths\(el\)\)/)
-  assert.match(source, /fitColumnWidths\(available - fixedTotal, entries\)/)
+  assert.match(source, /const budget = available - fixedTotal/)
+  assert.match(source, /const granted = fitColumnWidths\(budget, entries\)/)
+  // 放得下也输出确定性列宽（按理想宽比例摊余量铺满）：弹窗场景 EP 弹性分配
+  // 挂载瞬间把容器量得偏大且不自愈，不能把「放得下」交回 EP 弹性。
+  assert.match(source, /放得下也要输出确定性列宽/)
+  assert.match(source, /stretched\[widestKey\] \+= budget - used/)
   // 分配结果与内容宽同快照比较：容器或内容任一变化都重建表格。
   assert.match(source, /fittedWidths\.value = granted/)
   // 有分配结果时列用确定 width（EP 不再弹性分配），否则沿用 min-width。

@@ -23,6 +23,7 @@ import {
   type ImportReviewIssue,
 } from '../api/client'
 import DataTable, { type DataTableColumn } from '../components/DataTable.vue'
+import MoneyInput from '../components/MoneyInput.vue'
 import { computeEntryTotals, money, salesExceedsArrival } from '../utils/entryForm'
 import { cellClassFor, hasHardBlockIssue, rowClassFor } from '../utils/importReviewIssues'
 import { createLogger } from '../utils/logger'
@@ -88,16 +89,18 @@ const form = reactive<EntryPayload>({
 
 const saleColumns = computed<DataTableColumn<EntrySaleItem>[]>(() => centerColumns([
   { key: 'sourceRow', label: '文件行', value: (row) => row.sourceRow ?? '新增' },
-  { key: 'saleDate', label: '销售日期' },
+  // 列宽按内容自适应、不横向拖动：日期控件定宽（EP 默认 220px 固有宽会撑出容器）、
+  // 操作列定宽，其余列由 DataTable 按表头与内容测量，合计宽度落在容器内。
+  { key: 'saleDate', label: '销售日期', width: '120px' },
   { key: 'variety', label: '品种' },
   { key: 'grade', label: '等级' },
   { key: 'headCount', label: '规格（头数）' },
   { key: 'specKg', label: '规格（KG）' },
-  { key: 'remark', label: '备注' },
+  { key: 'remark', label: '备注', wrap: true },
   { key: 'salesQuantity', label: '数量（件）', numeric: true },
   { key: 'unitPrice', label: '单价（元）', numeric: true },
   { key: 'amount', label: '金额（元）', numeric: true, value: (row) => money(rowSalesAmount(row)) },
-  ...(isReadonly.value ? [] : [{ key: 'actions', label: '操作' }]),
+  ...(isReadonly.value ? [] : [{ key: 'actions', label: '操作', width: '72px' }]),
 ]))
 const afterSaleColumns = computed<DataTableColumn<EntryAfterSaleItem>[]>(() => centerColumns([
   { key: 'sourceRow', label: '文件行', value: (row) => row.sourceRow ?? '新增' },
@@ -118,14 +121,13 @@ const afterSaleRowKey = (_row: EntryAfterSaleItem, index: number) => `after-${in
 
 /** 只读「查看明细」合并展示：与结算单导出同口径（同日 / 品种 / 等级 / 规格头数 / KG /
  *  单价 / 备注一致的行并为一行），数量与原文件金额各自汇总；显示金额按 数量×单价
- *  重算，区块合计（totals 按原始行计算）不变。编辑态返回原始行。 */
+ *  重算，区块合计（totals 按原始行计算）不变。导入二次确认（编辑态）不合并——
+ *  文件里是什么行就展示什么行（用户 2026-09-30 定稿：导入时不合并，仅查看明细合并）。 */
 const displaySalesRows = computed<EntrySaleItem[]>(() => {
   if (!isReadonly.value) return form.sales
   const merged = new Map<string, EntrySaleItem>()
   for (const row of form.sales) {
-    const key = [row.saleDate, row.variety, row.grade, row.headCount, row.specKg, row.unitPrice, row.remark]
-      .map((value) => String(value ?? ''))
-      .join('\u0000')
+    const key = saleGroupKey(row)
     const hit = merged.get(key)
     if (hit) {
       hit.salesQuantity = Number(hit.salesQuantity || 0) + Number(row.salesQuantity || 0)
@@ -137,6 +139,12 @@ const displaySalesRows = computed<EntrySaleItem[]>(() => {
   return [...merged.values()]
 })
 const displaySalesCount = computed(() => (isReadonly.value ? displaySalesRows.value.length : form.sales.length))
+
+function saleGroupKey(row: EntrySaleItem): string {
+  return [row.saleDate, row.variety, row.grade, row.headCount, row.specKg, row.unitPrice, row.remark]
+    .map((value) => String(value ?? ''))
+    .join('\u0000')
+}
 
 /** 只读态表头与单元格内容居中（用户要求）；编辑态保持默认对齐（数值右对齐等）。 */
 function centerColumns<Row>(columns: DataTableColumn<Row>[]): DataTableColumn<Row>[] {
@@ -156,7 +164,6 @@ const hasHardBlockErrors = computed(() => hasHardBlockIssue(currentIssues.value)
 const salesExceedArrival = computed(() => salesExceedsArrival(form.arrivalQuantity, totals.value.totalPieces))
 const firstIssue = computed(() => errorIssues.value[0] ?? warningIssues.value[0] ?? null)
 const fileSummary = computed(() => draft.value?.payload.fileSummary ?? {})
-const warningSummaryLines = computed(() => warningIssues.value.slice(0, 6).map((item) => item.message))
 const SECTION_LABELS: Record<string, string> = {
   basic: '基本信息',
   sales: '销售明细',
@@ -252,7 +259,12 @@ function basicFieldHint(field: string): string {
   return basicFieldIssues(field).map((issue) => issue.message).join('；')
 }
 
+/** 已落地的草稿版本号：重校验响应网络乱序时丢弃旧版本，避免用旧 issues 覆盖新状态。 */
+let appliedDraftVersion = 0
+
 function applyDraft(value: ImportReviewDraft) {
+  appliedDraftVersion = value.version
+  revalidatePending = false
   draft.value = value
   const payload = value.payload
   Object.assign(form, {
@@ -327,31 +339,54 @@ async function loadDraft(token: string) {
 
 async function persistCurrentDraft(): Promise<ImportReviewDraft | null> {
   if (!draft.value) return null
+  cancelRevalidate()
   const value = await updateImportDraft(jobToken, draft.value.draftToken, payloadFromForm())
   applyDraft(value)
   return value
 }
 
 let revalidateTimer: number | undefined
+/** 有未重校验的编辑：失焦快速重审只在有改动时触发，避免点选单元格也发请求。 */
+let revalidatePending = false
+
+function scheduleRevalidate(delayMs: number) {
+  window.clearTimeout(revalidateTimer)
+  revalidateTimer = window.setTimeout(() => { void revalidateDraft() }, delayMs)
+}
+
+/** 取消挂起的自动重校验：保存 / 切换 / 还原前调用，避免重校验 PUT 与保存 PUT
+ *  并发叠车（远程库上每个 PUT 都不便宜，叠发会拖到前端 30s 超时报「保存失败」）。 */
+function cancelRevalidate() {
+  window.clearTimeout(revalidateTimer)
+}
 
 async function revalidateDraft() {
-  if (!draft.value || isReadonly.value) return
+  if (!draft.value || isReadonly.value || saving.value) return
   try {
     const value = await updateImportDraft(jobToken, draft.value.draftToken, payloadFromForm())
-    if (draft.value && draft.value.draftToken === value.draftToken) {
+    if (draft.value && draft.value.draftToken === value.draftToken && value.version >= appliedDraftVersion) {
+      appliedDraftVersion = value.version
       draft.value = value
+      revalidatePending = false
     }
   } catch {
     // 自动重校验失败时保留当前高亮，不打断用户编辑。
   }
 }
 
+/** 改完立马重审：单元格失焦（focusout 冒泡）即触发一次快速重校验，
+ *  比键盘输入的 450ms 防抖更快；焦点在单元格间连续移动时自动合并。 */
+function revalidateSoon() {
+  if (!draft.value || isReadonly.value || !revalidatePending) return
+  scheduleRevalidate(200)
+}
+
 watch(
   form,
   () => {
     if (!draft.value || isReadonly.value) return
-    window.clearTimeout(revalidateTimer)
-    revalidateTimer = window.setTimeout(() => { void revalidateDraft() }, 450)
+    revalidatePending = true
+    scheduleRevalidate(450)
   },
   { deep: true },
 )
@@ -705,14 +740,17 @@ onMounted(() => {
         <button class="modal-close" type="button" :aria-label="isReadonly ? '返回结算单列表' : '关闭二次确认'" :disabled="saving" @click="goBack">{{ isReadonly ? '返回列表' : '关闭' }}</button>
       </header>
 
-      <div class="review-body">
+      <div class="review-body" @focusout="revalidateSoon">
         <div v-if="loading" class="empty-card" role="status" aria-live="polite">{{ savingAction === 'switch' ? savingMessage : '正在加载复核数据…' }}</div>
         <div v-else-if="error" class="error-card">{{ error }}</div>
 
         <template v-else>
-      <div v-if="!isReadonly" class="file-toolbar">
-        <label>待确认文件</label>
+      <p v-if="saving" class="review-saving-status" role="status" aria-live="polite">{{ savingMessage }}</p>
+      <div v-else class="file-toolbar">
+        <label>结算单</label>
+        <!-- 多文件任务在此切换待确认文件；单文件不显示下拉，去掉重复的「待确认文件」头部。 -->
         <ElSelect
+          v-if="!isReadonly && (job?.drafts.length ?? 0) > 1"
           ref="fileSelectRef"
           :model-value="draft?.draftToken"
           :disabled="saving || loading"
@@ -729,11 +767,6 @@ onMounted(() => {
             :label="`${item.fileName} · 商号 ${item.merchantNo}`"
           />
         </ElSelect>
-        <span class="file-name">{{ draft?.fileName }}</span>
-      </div>
-      <p v-if="saving" class="review-saving-status" role="status" aria-live="polite">{{ savingMessage }}</p>
-      <div v-else class="file-toolbar">
-        <label>结算单</label>
         <span class="file-name">{{ draft?.fileName || form.merchantNo }}</span>
       </div>
 
@@ -840,8 +873,7 @@ onMounted(() => {
           :row-class="salesRowClass"
           bordered
           caption="销售明细二次确认"
-          min-width="1080px"
-          :fit-width="isReadonly"
+          fit-width
           empty-text="没有销售明细"
         >
           <template #cell-sourceRow="{ row }"><span class="source">{{ row.sourceRow ?? '新增' }}</span></template>
@@ -859,23 +891,23 @@ onMounted(() => {
             <span v-else class="cell-text">{{ row.saleDate || '—' }}</span>
           </template>
           <template #cell-variety="{ row }">
-            <ElInput v-model="row.variety" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'variety')" aria-label="品种" placeholder="如 金枕" v-if="!isReadonly" />
+            <ElInput v-if="!isReadonly" v-model="row.variety" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'variety')" aria-label="品种" placeholder="如 金枕" />
             <span v-else class="cell-text">{{ row.variety || '—' }}</span>
           </template>
           <template #cell-grade="{ row }">
-            <ElInput v-model="row.grade" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'grade')" aria-label="等级" placeholder="如 A、AB、BC" v-if="!isReadonly" />
+            <ElInput v-if="!isReadonly" v-model="row.grade" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'grade')" aria-label="等级" placeholder="如 A、AB、BC" />
             <span v-else class="cell-text">{{ row.grade || '—' }}</span>
           </template>
           <template #cell-headCount="{ row }">
-            <ElInput v-model="row.headCount" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'head_count')" aria-label="规格（头数）" placeholder="如 3/4" v-if="!isReadonly" />
+            <ElInput v-if="!isReadonly" v-model="row.headCount" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'head_count')" aria-label="规格（头数）" placeholder="如 3/4" />
             <span v-else class="cell-text">{{ row.headCount || '—' }}</span>
           </template>
           <template #cell-specKg="{ row }">
-            <ElInput v-model="row.specKg" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'spec_kg')" aria-label="规格（KG）" placeholder="如 10" v-if="!isReadonly" />
+            <ElInput v-if="!isReadonly" v-model="row.specKg" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'spec_kg')" aria-label="规格（KG）" placeholder="如 10" />
             <span v-else class="cell-text">{{ row.specKg || '—' }}</span>
           </template>
           <template #cell-remark="{ row }">
-            <ElInput v-model="row.remark" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'remark')" aria-label="备注" v-if="!isReadonly" />
+            <ElInput v-if="!isReadonly" v-model="row.remark" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'remark')" aria-label="备注" />
             <span v-else class="cell-text">{{ row.remark || '—' }}</span>
           </template>
           <template #cell-salesQuantity="{ row }">
@@ -883,7 +915,7 @@ onMounted(() => {
             <span v-else class="cell-text">{{ formatQuantity(Number(row.salesQuantity || 0)) }}</span>
           </template>
           <template #cell-unitPrice="{ row }">
-            <ElInput v-if="!isReadonly" v-model.number="row.unitPrice" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'unit_price')" aria-label="单价（元）" placeholder="空白按 0" />
+            <MoneyInput v-if="!isReadonly" v-model="row.unitPrice" :class="cellClass('sales', form.sales.indexOf(row) + 1, 'unit_price')" aria-label="单价（元）" placeholder="空白按 0" />
             <span v-else class="cell-text">{{ money(Number(row.unitPrice || 0)) }}</span>
           </template>
           <template #cell-amount="{ row }">
@@ -910,7 +942,7 @@ onMounted(() => {
           :row-class="afterSaleRowClass"
           bordered
           caption="售后明细二次确认"
-          min-width="640px"
+          fit-width
           empty-text="没有售后明细"
         >
           <template #cell-sourceRow="{ row }"><span class="source">{{ row.sourceRow ?? '新增' }}</span></template>
@@ -923,7 +955,7 @@ onMounted(() => {
             <span v-else class="cell-text">{{ row.summary || '—' }}</span>
           </template>
           <template #cell-amount="{ row }">
-            <ElInput v-if="!isReadonly" v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('after_sales', form.afterSales.indexOf(row) + 1)" aria-label="售后金额（元）" />
+            <MoneyInput v-if="!isReadonly" v-model="row.amount" :class="cellClass('after_sales', form.afterSales.indexOf(row) + 1)" aria-label="售后金额（元）" />
             <span v-else class="cell-text">{{ money(Number(row.amount || 0)) }}</span>
           </template>
           <template #cell-actions="{ row }"><button v-if="!isReadonly" class="delete-row" type="button" @click="removeAfterSale(form.afterSales.indexOf(row))">删除</button></template>
@@ -943,7 +975,7 @@ onMounted(() => {
           :row-class="feeRowClass"
           bordered
           caption="支出费用二次确认"
-          min-width="540px"
+          fit-width
           empty-text="没有费用明细"
         >
           <template #cell-sourceRow="{ row }"><span class="source">{{ row.sourceRow ?? '新增' }}</span></template>
@@ -952,7 +984,7 @@ onMounted(() => {
             <span v-else class="cell-text">{{ row.name || '—' }}</span>
           </template>
           <template #cell-amount="{ row }">
-            <ElInput v-if="!isReadonly" v-model.number="row.amount" type="number" min="0" step="0.01" inputmode="decimal" :class="cellClass('fees', form.fees.indexOf(row) + 1)" aria-label="费用金额（元）" />
+            <MoneyInput v-if="!isReadonly" v-model="row.amount" :class="cellClass('fees', form.fees.indexOf(row) + 1)" aria-label="费用金额（元）" />
             <span v-else class="cell-text">{{ money(Number(row.amount || 0)) }}</span>
           </template>
           <template #cell-actions="{ row }"><button v-if="!isReadonly" class="delete-row" type="button" @click="removeFee(form.fees.indexOf(row))">删除</button></template>
@@ -1016,9 +1048,20 @@ onMounted(() => {
             </tbody>
           </table>
         </div>
-        <div v-if="warningSummaryLines.length" class="confirm-issues">
+        <div v-if="warningIssues.length" class="confirm-issues">
           <p>待核对项</p>
-          <ul><li v-for="(line, index) in warningSummaryLines" :key="`${line}-${index}`">{{ line }}</li></ul>
+          <table class="issue-table warning">
+            <thead>
+              <tr><th>位置</th><th>字段</th><th>问题</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="(issue, index) in warningIssues" :key="`${issue.code}-${issue.row}-${issue.field}-${index}`">
+                <td>{{ issueLocation(issue) }}</td>
+                <td>{{ issueFieldLabel(issue) }}</td>
+                <td>{{ issue.message }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
         <p v-if="confirmDialog" class="dialog-text">{{ confirmDialog }}</p>
       </div>
@@ -1035,7 +1078,7 @@ onMounted(() => {
 
 <style scoped>
 .review-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: rgb(24 49 42 / 55%); overflow: hidden; }
-.review-dialog { position: relative; display: flex; flex-direction: column; width: min(1280px, 100%); height: min(920px, calc(100vh - 48px)); border-radius: 16px; background: var(--surface); box-shadow: 0 18px 60px rgb(0 0 0 / 24%); overflow: hidden; }
+.review-dialog { position: relative; display: flex; flex-direction: column; width: min(1560px, 100%); height: min(920px, calc(100vh - 48px)); border-radius: 16px; background: var(--surface); box-shadow: 0 18px 60px rgb(0 0 0 / 24%); overflow: hidden; }
 /* 只读「查看明细」＝整页形态：无遮罩、不限高，铺满页签页面宽度（宽屏不留两侧空白），
    随页面自然排版滚动；编辑态（导入二次确认）保持弹窗不变。 */
 .review-page { display: block; }
@@ -1120,6 +1163,7 @@ onMounted(() => {
 }
 .review-table :deep(.el-input__wrapper.is-disabled),
 .review-table :deep(.el-date-editor.el-input .el-input__wrapper.is-disabled) { background: var(--surface-soft); box-shadow: 0 0 0 1px var(--line) inset; }
+.review-table :deep(.el-date-editor.el-input) { width: 100%; }
 .review-table :deep(.el-date-editor.el-input .el-input__prefix) { display: none; }
 /* cell-error / cell-warning 落在 EP 控件根节点上，描边作用于内部 wrapper。 */
 .review-table .cell-error :deep(.el-input__wrapper),
@@ -1129,6 +1173,9 @@ onMounted(() => {
 .review-table :deep(tbody tr.row-invalid),
 .review-table :deep(tbody tr.row-invalid:hover) { background: #ffd9d6 !important; }
 .review-table :deep(tbody tr.row-invalid) td { box-shadow: inset 0 0 0 1px #f2b0ac; }
+/* 错误行整行标红在编辑态可见：EP 输入默认白底会盖住行底色，行内输入改为透出红底。 */
+.review-table :deep(tbody tr.row-invalid .el-input__wrapper),
+.review-table :deep(tbody tr.row-invalid .el-date-editor.el-input .el-input__wrapper) { background: #ffd9d6; }
 .source { color: var(--muted); font-size: .78rem; }
 .readonly-value { display: inline-flex; align-items: center; min-height: 2rem; color: var(--ink); white-space: nowrap; }
 .money-amount { color: var(--primary-dark); font-weight: 800; }
@@ -1142,7 +1189,7 @@ onMounted(() => {
 .summary-head, .summary-line { display: grid; grid-template-columns: 1.15fr 1fr 1fr; align-items: center; gap: 15px; padding: 11px 15px; border-bottom: 1px solid var(--line); }
 .summary-head { background: var(--surface-soft); color: var(--muted); font-size: .78rem; font-weight: 800; }
 .summary-line { font-size: .88rem; }
-.summary-line span:nth-child(n+2) { text-align: right; }
+/* 结算核对内容统一居左（用户要求）：文件填写 / 系统计算两列不再右对齐。 */
 .summary-line .original { color: var(--muted); }
 .summary-line strong { color: var(--primary-dark); }
 .summary-line.error { background: #fff4f3; box-shadow: inset 3px 0 var(--danger); }
@@ -1168,13 +1215,14 @@ onMounted(() => {
 .change-arrow { color: var(--muted); }
 .confirm-issues { margin-top: 10px; }
 .confirm-issues p { margin: 0 0 6px; font-weight: 800; }
-.confirm-issues ul { margin: 0; padding-left: 18px; color: var(--danger); }
-.confirm-issues li { margin: 3px 0; line-height: 1.5; }
 .issue-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .issue-table th, .issue-table td { padding: 6px 8px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
 .issue-table th { background: var(--primary-soft); color: var(--primary-dark); font-weight: 800; }
 .issue-table td { color: var(--danger); }
 .issue-table td:last-child { color: var(--ink); }
+/* 待核对项（warning 级差异）与错误同表结构，文字用警告色区分严重度 */
+.issue-table.warning td { color: var(--warning); }
+.issue-table.warning td:last-child { color: var(--ink); }
 @media (max-width: 900px) {
   .basic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

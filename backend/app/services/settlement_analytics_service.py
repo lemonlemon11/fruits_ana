@@ -31,6 +31,7 @@ from .analytics_core import (
 )
 from .order_no_naming import order_no_display, series_name
 from .merchant_no_naming import merchant_no_display
+from .grade_detail_service import grade_detail_metrics
 from .settlement_detail_service import record_payload
 
 
@@ -97,6 +98,16 @@ def get_grade_breakdown(
             continue
         market_name = batch.market or "未标注市场"
         market_brand_counts[(market_name, batch_brand(batch))] += 1
+    # 市场维度金额：老板要回答「下一柜发哪个市场」，只有柜数不够。
+    market_records: dict[str, list] = defaultdict(list)
+    for record in filtered:
+        batch = batches.get(record.import_batch_id)
+        market_records[(batch.market or "未标注市场") if batch is not None else "未标注市场"].append(record)
+    market_sales = [
+        {"market": market_name, **metrics(items)}
+        for market_name, items in market_records.items()
+    ]
+    market_sales.sort(key=lambda row: (-(row["sales_amount"] or 0), row["market"]))
     record_payloads = []
     if include_records:
         for record in filtered:
@@ -114,6 +125,7 @@ def get_grade_breakdown(
                 market_brand_counts.items(), key=lambda item: (-item[1], item[0])
             )
         ],
+        "market_sales": market_sales,
     }
 
 
@@ -400,6 +412,8 @@ def get_settlement_detail(
         "arrival_quantity": batch.arrival_quantity,
         "total": metrics(current),
         "grades": grade_metrics(current),
+        # 号别阶梯（ADR-013 桶口径）：移动端详情页「号别价格阶梯」卡的数据源。
+        "grade_details": grade_detail_metrics(current, batches),
         "trend": get_daily_trend(
             db, start_date=start_date, end_date=end_date, merchant_no=merchant_no
         ),

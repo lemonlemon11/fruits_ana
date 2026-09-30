@@ -143,6 +143,7 @@ def test_settlement_item_exposes_sales_metrics(client):
         "sales_amount": 160.0,
         "total_quantity": 8.0,
         "average_price": 20.0,
+        "payable_amount": None,
         "confirmed_at": "2026-09-09T09:30:00",
         "grade_quantities": {
             "A": 6.0,
