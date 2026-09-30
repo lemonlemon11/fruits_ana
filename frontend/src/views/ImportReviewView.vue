@@ -815,6 +815,7 @@ onMounted(() => {
           bordered
           caption="销售明细二次确认"
           min-width="1080px"
+          :fit-width="isReadonly"
           empty-text="没有销售明细"
         >
           <template #cell-sourceRow="{ row }"><span class="source">{{ row.sourceRow ?? '新增' }}</span></template>
@@ -1009,10 +1010,10 @@ onMounted(() => {
 <style scoped>
 .review-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: rgb(24 49 42 / 55%); overflow: hidden; }
 .review-dialog { position: relative; display: flex; flex-direction: column; width: min(1280px, 100%); height: min(920px, calc(100vh - 48px)); border-radius: 16px; background: var(--surface); box-shadow: 0 18px 60px rgb(0 0 0 / 24%); overflow: hidden; }
-/* 只读「查看明细」＝整页形态：无遮罩、不居中、不限高，随页签页面自然排版滚动；
-   编辑态（导入二次确认）保持弹窗不变。 */
+/* 只读「查看明细」＝整页形态：无遮罩、不限高，铺满页签页面宽度（宽屏不留两侧空白），
+   随页面自然排版滚动；编辑态（导入二次确认）保持弹窗不变。 */
 .review-page { display: block; }
-.review-page-panel { display: flex; flex-direction: column; width: min(1280px, 100%); margin: 0 auto; }
+.review-page-panel { display: flex; flex-direction: column; width: 100%; }
 .review-page-panel .review-head { padding: 0 4px 10px; border-bottom: 0; background: transparent; }
 .review-page-panel .review-body { flex: 0 0 auto; overflow: visible; padding: 0 0 4px; }
 .review-page-panel .review-foot { margin-top: 6px; border: 2px solid var(--line-strong); border-radius: var(--radius); }

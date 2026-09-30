@@ -36,10 +36,12 @@ test('查看明细（只读）整页展示：无遮罩无弹窗语义，编辑�
   assert.match(review, /:class="isReadonly \? 'review-page-panel mobile-form-page' : 'review-dialog mobile-form-page'"/)
   assert.match(review, /:role="isReadonly \? undefined : 'dialog'"/)
   assert.match(review, /:aria-modal="isReadonly \? undefined : 'true'"/)
-  // 整页形态样式：不限高、不内部滚动，页签页面正常排版。
+  // 整页形态样式：不限高、不内部滚动，铺满页签页面宽度（宽屏不留两侧空白）。
   assert.match(review, /\.review-page \{ display: block; \}/)
-  assert.match(review, /\.review-page-panel \{ display: flex; flex-direction: column; width: min\(1280px, 100%\); margin: 0 auto; \}/)
+  assert.match(review, /\.review-page-panel \{ display: flex; flex-direction: column; width: 100%; \}/)
   assert.match(review, /\.review-page-panel \.review-body \{ flex: 0 0 auto; overflow: visible;/)
+  // 只读态销售明细表启用列宽自适应：窄屏压缩铺满不横滚，编辑态保持稳定列宽。
+  assert.match(review, /:fit-width="isReadonly"/)
 })
 
 test('手工录单同步使用“数量（件）”文案', () => {
