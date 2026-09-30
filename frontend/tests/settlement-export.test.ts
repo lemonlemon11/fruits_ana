@@ -150,9 +150,11 @@ test('列表每行都有导出入口', () => {
   assert.match(viewSource, /<span class="dropdown-caret"/)
 })
 
-test('结算单列表空状态与其他页面一致使用 prominent，且不显示 null 范围提示', () => {
+test('结算单列表空状态与其他页面一致使用 prominent，日期范围提示与品牌汇总描述已删除', () => {
   assert.match(viewSource, /<div v-else-if="!settlements\.length" class="empty-state prominent">/)
-  assert.match(viewSource, /<p v-if="dateRange" class="range-note">\{\{ rangeHint \}\}<\/p>/)
+  // 用户要求删除描述文字：范围提示行（默认展示…往前一个月 / 当前查询范围）与品牌件数汇总行整块移除。
+  assert.doesNotMatch(viewSource, /range-note|rangeHint|当前查询范围|默认展示最新销售日期往前一个月/)
+  assert.doesNotMatch(viewSource, /brand-summary|brandTotals|品牌件数汇总|总货量/)
   assert.match(viewSource, /\.settlement-list-page \.panel > \.skeleton-block \{ min-height: 0; \}/)
   assert.doesNotMatch(viewSource, /\.settlement-list-page \.panel > \.empty-state \{ min-height: 0; \}/)
 })

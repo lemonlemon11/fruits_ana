@@ -16,7 +16,6 @@ import {
   settlementListExportUrl,
   settlementTemplateExportUrl,
   settlementTemplatePdfUrl,
-  type BrandTotal,
   type SettlementListItem,
   type SettlementPagination,
   type SettlementSortBy,
@@ -39,8 +38,6 @@ import { useQuickPeriods } from '../utils/quickPeriods'
 const filters = reactive({ startDate: '', endDate: '', merchantNo: '', brand: '' })
 const settlements = ref<SettlementListItem[]>([])
 const options = ref<SettlementListItem[]>([])
-const brandTotals = ref<BrandTotal[]>([])
-const dateRange = ref<{ startDate: string; endDate: string; isDefault: boolean } | null>(null)
 const loading = ref(true)
 const sorting = ref(false)
 const error = ref('')
@@ -62,20 +59,9 @@ let requestVersion = 0
 let activeController: AbortController | null = null
 const router = useRouter()
 
-const rangeHint = computed(() => {
-  if (!dateRange.value) return '暂无销售数据'
-  const { startDate, endDate, isDefault } = dateRange.value
-  return isDefault
-    ? `默认展示最新销售日期往前一个月：${startDate} 至 ${endDate}`
-    : `当前查询范围：${startDate} 至 ${endDate}`
-})
-
 const totalCount = computed(() => pagination.value?.total ?? settlements.value.length)
 const totalPages = computed(() => pagination.value?.pages ?? 1)
 const deleteBusy = computed(() => Boolean(deletingMerchantNo.value))
-const totalFilteredQuantity = computed(() =>
-  brandTotals.value.reduce((total, row) => total + row.totalQuantity, 0),
-)
 /** 导出进行中（列表导出或任意行的 Excel/PDF）：整个列表盖遮罩，防重复点击与误触其他操作。 */
 const exportingCount = computed(() => exportingKeys.value.size)
 const exportingAnything = computed(() => exportingKeys.value.size > 0)
@@ -266,9 +252,7 @@ async function refresh(options: { resetPage?: boolean; preserveRows?: boolean } 
     }, { signal: controller.signal })
     if (version !== requestVersion) return
     settlements.value = data.settlements
-    dateRange.value = data.dateRange
     pagination.value = data.pagination
-    brandTotals.value = data.brandTotals
     if (data.pagination) page.value = data.pagination.page
     mergeScopeGrades(data.settlements)
   } catch (caught) {
@@ -292,8 +276,6 @@ async function bootstrap() {
     if (version !== requestVersion) return
     options.value = data.settlements
     settlements.value = data.settlements.slice(0, pageSize.value)
-    dateRange.value = data.dateRange
-    brandTotals.value = data.brandTotals
     const total = data.settlements.length
     pagination.value = {
       total,
@@ -378,13 +360,6 @@ onBeforeUnmount(() => {
       <button class="primary-button" type="submit" :disabled="loading || sorting">{{ loading ? '正在查询' : sorting ? '正在排序' : '查看结果' }}</button>
     </form>
 
-    <p v-if="dateRange" class="range-note">{{ rangeHint }}</p>
-    <div v-if="brandTotals.length" class="brand-summary" aria-label="品牌件数汇总">
-      <span class="brand-summary-total">总货量 <b>{{ formatNumber(totalFilteredQuantity) }}</b> 件</span>
-      <span v-for="row in brandTotals" :key="row.brand" class="brand-summary-item">
-        {{ row.brand }} <b>{{ formatNumber(row.totalQuantity) }}</b> 件
-      </span>
-    </div>
     <p v-if="deleteError" class="delete-error" role="alert">{{ deleteError }}</p>
     <p v-if="exportError" class="export-feedback is-error" role="alert">{{ exportError }}</p>
     <p v-else-if="exportNotice" class="export-feedback" role="status" aria-live="polite">{{ exportNotice }}</p>
@@ -536,10 +511,6 @@ onBeforeUnmount(() => {
 .settlement-list-filter > :not(.primary-button) { flex: 1 1 220px; min-width: 220px; }
 .settlement-list-filter > .primary-button { flex: 0 0 auto; }
 .settlement-list-filter label { gap: 4px; font-size: .95rem; }
-.range-note { margin: 0; color: var(--muted); font-size: .84rem; }
-.brand-summary { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; color: var(--muted); font-size: .84rem; }
-.brand-summary b { color: var(--primary-dark); font-variant-numeric: tabular-nums; }
-.brand-summary-item { white-space: nowrap; }
 .list-export-button { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .list-export-button:disabled,
 .export-row-link:disabled { cursor: wait; opacity: .65; }

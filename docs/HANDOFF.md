@@ -3,6 +3,21 @@
 Last updated：2026-09-30 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-30（十四）**结算单列表删除两行描述文字（默认日期范围提示 + 品牌件数汇总）**。
+> 用户先核对默认口径（默认窗口＝最新销售日期往前一个自然月，连库实测 2026-08-19 至
+> 2026-09-19 / 总货量 29,771 件 / 晴牌 2,011 / 香香 27,760，与库内 15 张 success 结算单
+> 全量一致，无需改动），随后要求这两行描述「都删除掉」。实现：
+> `SettlementListView.vue` 移除 `range-note` 提示行（默认/自定义两分支文案）与
+> `brand-summary` 品牌汇总行（总货量/晴牌/香香），连带删除 `dateRange`/`brandTotals`
+> 状态、`rangeHint`/`totalFilteredQuantity` 计算属性、4 条 CSS 与 `BrandTotal` 导入；
+> 后端 `date_range`/`brand_totals` 字段保留（API 契约不动，前端不再渲染）。
+> **验证**：本次相关 settlement-export **11/11**、typecheck、build 通过，dist 已重建
+> （53000 刷新生效，产物内已无「默认展示最新销售日期往前一个月」「总货量」字样）；
+> 全量 **313/316**——3 个失败均在 `import-review-copy.test.mjs`，系并行会话在途的
+> ImportReviewView 合并行重构（工作区未提交改动）所致：stash 全部在途改动后 316/316
+> 全绿，已证实与本次无关。涉及文件：`frontend/src/views/SettlementListView.vue`、
+> `frontend/tests/settlement-export.test.ts`。
+
 > 2026-09-30（十三）**销售总览数据呈现不足评估报告（供应链老板视角，图文标记）**。按
 > 用户要求以老板视角（快看行情 + 分级定价）评审当前（回退后）总览页：产出
 > `docs/reviews/2026-09-30-overview-gap-review.md` + 三张红框标注图
