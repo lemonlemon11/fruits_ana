@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>结算单列表 demo（真实数据 · 53002）</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <section class="card" aria-label="结算单列表">
+        <div class="list-toolbar">
+          <h3 style="margin:0;font-size:15px;">结算单列表</h3>
+          <span class="list-count" id="list-count"></span>
+          <span class="list-count" id="brand-count"></span>
+          <span style="margin-left:auto;"></span>
+          <button type="button" class="btn-ghost" disabled title="demo 未接导出接口">导出列表 (xlsx)</button>
+        </div>
+        <table class="data-table list-table" id="list-table">
+          <thead id="list-head"></thead>
+          <tbody id="list-body"></tbody>
+        </table>
+        <div class="pagination-row" id="pager"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./real-data.js"></script>
+  <script src="./app-core.js"></script>
+  <script src="./list.js"></script>
+</body>
+</html>

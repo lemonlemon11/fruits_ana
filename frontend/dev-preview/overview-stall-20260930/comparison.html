@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>销售对比 demo（真实数据 · 53002）</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <section class="card" aria-label="选择结算单">
+        <header class="card-head">
+          <h3>选择结算单</h3>
+          <span class="card-note" id="picker-note"></span>
+          <span class="card-note" id="picked-count" style="margin-left:auto;"></span>
+        </header>
+        <div class="picker-panel">
+          <div class="picker-head" id="brand-tabs"></div>
+          <div class="pick-grid" id="pick-grid"></div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="所选结算单总览">
+        <header class="card-head">
+          <h3>所选结算单总览</h3>
+          <span class="card-note">各等级件数与占比随勾选即时重算</span>
+        </header>
+        <table class="data-table" id="ov-table">
+          <thead id="ov-head"></thead>
+          <tbody id="ov-body"></tbody>
+          <tfoot id="ov-foot"></tfoot>
+        </table>
+      </section>
+
+      <section class="card chart-card" aria-label="等级均价对比">
+        <header class="card-head">
+          <h3>等级均价对比</h3>
+          <span class="card-note">每等级一条线 · 元/件（其他等级不进图）</span>
+        </header>
+        <div class="chart chart-tall" id="price-chart"></div>
+      </section>
+
+      <section class="card" aria-label="AI 分析结论">
+        <header class="card-head">
+          <h3>AI 分析结论</h3>
+          <span class="ai-badge" id="ai-badge"></span>
+          <span class="ai-model" id="ai-model"></span>
+        </header>
+        <div class="ai-card-body" id="ai-body"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./echarts.min.js"></script>
+  <script src="./real-data.js"></script>
+  <script src="./app-core.js"></script>
+  <script src="./comparison.js"></script>
+</body>
+</html>

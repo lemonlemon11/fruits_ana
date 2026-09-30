@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>结算单详情 demo（真实数据 · 53002）</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <section class="card" aria-label="基础信息">
+        <div class="fact-grid" id="fact-grid"></div>
+      </section>
+
+      <section class="card" aria-label="销售表现">
+        <header class="card-head">
+          <h3 id="perf-title">销售表现</h3>
+          <span class="card-note">经营指标与系统同口径（应付 = 货款 − 费用）</span>
+        </header>
+        <div class="metric-strip" id="metric-strip"></div>
+      </section>
+
+      <section class="card chart-card" aria-label="按日均价走势">
+        <header class="card-head">
+          <h3 id="price-chart-title">按日均价走势</h3>
+          <span class="card-note">柱 = 当日件数（左轴） · 折线 = 每件均价（右轴）</span>
+        </header>
+        <div class="chart chart-tall" id="price-chart"></div>
+      </section>
+
+      <section class="card" aria-label="规格件数与均价">
+        <header class="card-head">
+          <h3 id="spec-title">规格件数与均价</h3>
+          <span class="card-note">一行 = 品牌 × 等级 × 头数 × KG × 备注</span>
+        </header>
+        <table class="data-table" id="spec-table">
+          <thead>
+            <tr><th>品牌</th><th>等级</th><th>头数</th><th>KG</th><th>备注</th><th>总件数</th><th class="num">件数占比</th><th class="num">每件均价</th></tr>
+          </thead>
+          <tbody id="spec-body"></tbody>
+          <tfoot id="spec-foot"></tfoot>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <script src="./echarts.min.js"></script>
+  <script src="./real-data.js"></script>
+  <script src="./app-core.js"></script>
+  <script src="./detail.js"></script>
+</body>
+</html>

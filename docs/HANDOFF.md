@@ -3,6 +3,69 @@
 Last updated：2026-09-30 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-30（二十七）**53002 demo 升级：真实接口数据 + 五页完整版（视觉伴侣验收通过）**。
+> 应用户要求撤掉虚构数据（红线：只改 demo 文件夹、不改后端接口、不碰用户端）：新增
+> `tmp/stall-demo/fetch_real_data.py`（tmp/ 不入库）以只读方式登录 127.0.0.1:8000 拉取真实
+> 接口快照——按档口（全部/海吉星/江南）各拉 overview/trend/grade-breakdown，另取 settlements
+> 列表、settlement-comparison、香香 15 张 series-comparison、16 张逐单详情、imports 批次与
+> 问题明细、entry 字典、AI 结论（refresh=false 读缓存，未触发生成）——写入
+> `frontend/dev-preview/overview-stall-20260930/real-data.js`（真实经营数据，仅留本地
+> **永不 git add**，未改 .gitignore；页面缺失该文件时显示生成指引）。demo 五页共用新外壳
+> `app-core.js`（侧栏按真实系统菜单分组互链）：①销售总览=档口三级瀑布吃真实数据（16 柜 /
+> ¥8,577,383 / 31,749 件 / ¥270.16，档口筛选=本地换数据集）②结算单列表（真实 11 列+排序/
+> 分页/查看明细跳详情，导出/删除置灰标注 demo 未接）③结算单详情（16 张可切，基础信息 8 格+
+> 经营指标 6 格+按日均价柱线双轴+规格表小计合计）④销售对比（香香勾选本地重算+等级均价折线+
+> AI 真实缓存结论）⑤录单/导入（模式卡+质量概览+16 条真实批次+手工录单表单骨架，不写库）。
+> 业务代码/后端/配置零改动；虚构 data.js 已删除。**验证**：Playwright 七态截图
+> （`tmp/stall-demo-shots/v2-*.png`）console error 0、横向溢出 0，页面数字与接口原始 JSON
+> 逐项核对一致（应付 ¥536,710=568,940−12,040−20,190 等交叉可复算）；视觉伴侣两评审（5+3 张）
+> 首轮 8 pass / 1 fail——对比页勾选后「已选 N 张」计数未同步（已修+复验 8 张同步），两条可选项
+> （AI 卡注明全量口径、详情图标签偏移）一并处理。涉及文件：demo 文件夹内 index/list/detail/
+> comparison/entry-import 五组 html+js、app-core.js、styles.css、`frontend/dev-preview/README.md`。
+
+> 2026-09-30（二十六）**上线前全量功能测试完成：有条件可上线（0 Blocker / 3 Major / 5 Minor），在途改动零回归**。
+> 主持人组织 5 个并行接口测试员 + 自动化基线 + 前端 HTTP 层验证（本会话无浏览器后端，GUI 视觉层降级为
+> 单测锁定 + HTTP 验证，报告中已如实记录）。**结果**：接口用例 73 项 70 过/3 败；前端 326/326 +
+> typecheck + build 通过；后端 pytest 11 失败**全部为既有**（10 个缺附件 `结算单模板样式-测试数据 1/2/3.xlsx`
+> 连带 + 1 个 test_exports 断言漂移，经 git worktree 干净 HEAD 对照证实与在途改动无关——修正此前
+> 「8 个失败全因缺附件」的记录口径）。**在途改动回归专项全过**：payable_amount/market_sales/grade_details
+> 三新字段落地且与 xlsx 导出零偏差；导入修订 PUT 实测 1.22s（历史 17-19s bug 确认修复）。**Major 缺陷**
+> 均在导入校验语义：D1 含缺漏行真实单 confirm 硬阻断且 force 不放行（需产品确认口径）、D2 未知等级
+> 静默归 OTHER 无问题项、D4 needs_review 待核对标记在新导入链路未实现；Minor：D3 缺单价金额行静默 0 元、
+> D5 修订留痕噪音（一次 PUT 77-95 行）、OBS-2 前端列表类型未消费 payable_amount（在途改动前端收尾项）、
+> OBS-3 分页越界静默钳制、OBS-4 空窗口 payable_amount null 与 0 口径不一致。**数据安全**：全程仅动
+> T-TEST 前缀测试数据（基于 650 真实单生成 5 变体），测完已清理并独立复查零残留；真实 16 单与 12 条
+> 既有 pending 草稿未动；test 账号保留。完整报告：`docs/testing/2026-09-30-release-test-report.md`；
+> 测试资产：`tmp/e2e-test-files/`（生成脚本 + expected.json 可复用）。
+
+> 2026-09-30（二十五）**二次确认弹窗表格仍要拖动：fitWidth 补「放得下也确定性」+ 三表
+> 全启用 + 弹窗加宽**。用户截图（11 列销售表末列被挤出、表内横滚）证实（十八）的
+> 「收紧列宽」不够：DataTable 注释早有记载——EP 表格在弹窗场景**挂载瞬间把容器量得
+> 偏大且不自愈**，弹性分配把表体撑出可视区。根治三件套：① `DataTable.computeFittedWidths`
+> 在 fitColumnWidths 返回 null 时区分两种情形——「放得下」改为按理想宽比例摊余量输出
+> **确定性列宽恰好铺满容器**（取整误差补给最宽列），不再交回 EP 弹性；「连表头都放不下」
+> 才回退横滚（`tableColumnFit.ts` 的 util 本身未动，其 null 语义与既有测试不变）。
+> ② 二次确认页**三张表（销售/售后/费用）无条件启用 `fit-width`**（原来只读才开、且售后
+> /费用没开），删除 min-width 640/540；确定性列宽来自 DataTable 自身根元素实测宽 +
+> ResizeObserver 跟随，对 EP 的坏测量免疫。③ 弹窗 1280→**1560px**（min(1560px,100%)），
+> 11 列更从容。**验证**：前端 **326/326** test（data-table fit 断言更新 + import-review
+> 新增「三表 fit-width / 弹窗 1560」锁定）、typecheck、build 通过，dist 已重建（53000
+> 刷新生效）；浏览器实测不可用（环境无浏览器后端 `__no_browser_backend__`，曾建临时
+> 账号 tmp_browser_fit 后删除）；静态依据：确定性列宽数学上恒等于容器宽（Σ列宽===预算
+> 由最宽列补差保证），且列宽重建由自身 RO 驱动。涉及文件：
+> `frontend/src/components/DataTable.vue`、`frontend/src/views/ImportReviewView.vue`、
+> `frontend/tests/data-table.test.ts`、`frontend/tests/import-review-copy.test.mjs`。
+
+> 2026-09-30（二十四）**导入二次确认框：待核对项改为与错误行同款列表表格**。原「待核对项」
+> 区在确认弹窗里是 `<ul>` 摘要行（只取前 6 条 message，丢位置/字段信息）；用户要求
+> 「待核对项也用列表展示」。改为复用「提交校验未通过的行」同款 `issue-table` 三列表格
+> （位置 / 字段 / 问题），数据源由截断的 `warningSummaryLines` 改为全量 `warningIssues`
+> （与错误区不截断一致），复用 `issueLocation` / `issueFieldLabel` 补齐位置与字段中文
+> 标签；新增 `.issue-table.warning` 变体，问题文字用 `--warning`（错误仍 `--danger`）
+> 区分严重度，问题详情列保持 `--ink`。删除随之失去引用的 `warningSummaryLines`
+> computed 与 `.confirm-issues ul/li` 死样式。**验证**：前端 326/326 test、typecheck、
+> build 通过。涉及文件：`frontend/src/views/ImportReviewView.vue`。
+
 > 2026-09-30（二十三）**筛选栏宽度四页统一 + 日期区间填充后显示不全修复**。用户反馈
 > 「筛选框有长有短、选完日期填充到输入框显示不全」。排查结论：① 同一组
 > SearchableSelect/DateRangeFilter 在四个筛选页用三套宽度规则（总览 `0 1 11rem`、
@@ -22,6 +85,28 @@ Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 > `frontend/src/styles-element.css`、`frontend/src/views/OverviewView.vue`、
 > `frontend/src/views/SettlementListView.vue`、`frontend/src/views/SeriesComparisonView.vue`、
 > `frontend/tests/overview-filters.test.ts`、`frontend/tests/date-range-filter.test.ts`。
+
+> 2026-09-30（二十二）**导入二次确认两件事：结算核对居左 + 「确认提交报错」根因修复**。
+> ① 结算核对区内容统一居左：删除 `.summary-line span:nth-child(n+2) { text-align: right; }`
+> （文件填写 / 系统计算两列不再右对齐，编辑与只读两态同步生效）。
+> ② 点「确认提交」报错的完整证据链：应用日志显示 PUT 草稿接口单次要 **17~19 秒**
+> （16968/17469/19182ms），且点确认时「失焦重校验 + 保存」并发叠出 3 个 PUT，超过
+> 前端 30s 超时即报「保存失败，无法提交」。慢的根因：解析器存的原始 payload 全是
+> **字符串**（sales_quantity "20"/unit_price "260"）且带 `raw_row_text`，前端首次保存
+> 回传的是**数值**且无该键 → 首次 PUT 每行每字段都判「变」→ 一次生成 ~500 条修订行
+> （draft 74 实测 v2 一次 596 条），后端逐条 `db.add` INSERT × 远程库 47ms 往返 ≈ 20s。
+> 修复两层：后端 `update_import_draft` 修订改 `db.bulk_save_objects` 批量一次写入
+> （行为不变）；前端 `persistCurrentDraft` 前先 `cancelRevalidate()` 取消挂起的重校验
+> 定时器、`revalidateDraft` 增加 `saving` 守卫，保存不再叠车。**验证**：按用户指定用
+> `attachments/650结算单香香L011-RXRK03(1)(1)(1).xlsx` 端到端实测（建任务→数值化首存→
+> 二存→discard 清理）：首次 PUT **0.84s**、二次 **0.56s**（原 17~19s，≥20 倍提速），
+> 无测试残留；后端 pytest 8 个失败均为缺 `测试数据 1/2/3.xlsx` 附件的环境问题（stash
+> 对照失败集合完全一致，与本次改动无关）；后端 8000 已重启加载修复（注意：重启同时
+> 加载了并行会话未提交的 payable_amount 等改动，其自身测试通过）。前端 324 项中
+> 323 过、1 败（`overview-filters.test.ts` 筛选栏断言）系并行会话 OverviewView/
+> SeriesComparisonView 在途改动所致，与本次无关；typecheck、build 通过，dist 已重建。
+> 涉及文件：`backend/app/services/import_draft_service.py`、
+> `frontend/src/views/ImportReviewView.vue`、`frontend/tests/import-review-copy.test.mjs`。
 
 > 2026-09-30（二十一）**字号基线再降一档：16px→15px**。用户看过 16px 效果后要求
 > 「再缩小一点」，按与上轮相同步长（-1px）把根字号 16px→15px、桌面 clamp
