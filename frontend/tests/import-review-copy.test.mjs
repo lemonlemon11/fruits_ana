@@ -48,6 +48,13 @@ test('查看明细销售明细按导出同口径合并展示，表头与单元�
   assert.match(review, /const feeColumns = computed<DataTableColumn<EntryFeeItem>\[\]>\(\(\) => centerColumns\(\[/)
 })
 
+test('查看明细不显示「只读查看」状态提示条（用户要求删除）', () => {
+  // 状态条只服务导入二次确认（问题计数 / 定位问题），只读态整块不渲染。
+  assert.match(review, /<div v-if="!isReadonly" class="status-panel"/)
+  assert.doesNotMatch(review, /已入库结算单 · 只读查看/)
+  assert.doesNotMatch(review, /该页面仅用于查看，不能修改或重新提交/)
+})
+
 test('查看明细（只读）整页展示：无遮罩无弹窗语义，编辑态保持弹窗', () => {
   // 根容器按只读 / 编辑分流：只读＝普通页面流（随页签页面滚动），编辑＝原弹窗遮罩。
   assert.match(review, /:class="isReadonly \? 'review-page' : 'review-modal'"/)

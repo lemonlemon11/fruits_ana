@@ -737,14 +737,13 @@ onMounted(() => {
         <span class="file-name">{{ draft?.fileName || form.merchantNo }}</span>
       </div>
 
-      <div class="status-panel" :class="{ ok: !hasErrors && !hasWarnings, 'status-panel--readonly': isReadonly }">
+      <!-- 状态提示只服务导入二次确认（问题计数 / 定位）；只读查看不显示。 -->
+      <div v-if="!isReadonly" class="status-panel" :class="{ ok: !hasErrors && !hasWarnings }">
         <div>
-          <strong v-if="isReadonly">已入库结算单 · 只读查看</strong>
-          <strong v-else>{{ hasErrors ? `${errorIssues.length} 项需先补全 · ` : '' }}{{ hasWarnings ? `${warningIssues.length} 项差异待核对` : (hasErrors ? '' : '录入值与计算值已对齐') }}</strong>
-          <p v-if="isReadonly">该页面仅用于查看，不能修改或重新提交。</p>
-          <p v-else-if="firstIssue">{{ firstIssue.message }}</p>
+          <strong>{{ hasErrors ? `${errorIssues.length} 项需先补全 · ` : '' }}{{ hasWarnings ? `${warningIssues.length} 项差异待核对` : (hasErrors ? '' : '录入值与计算值已对齐') }}</strong>
+          <p v-if="firstIssue">{{ firstIssue.message }}</p>
         </div>
-        <button v-if="!isReadonly && (hasErrors || hasWarnings)" type="button" @click="focusFirstIssue">定位问题 ↓</button>
+        <button v-if="hasErrors || hasWarnings" type="button" @click="focusFirstIssue">定位问题 ↓</button>
       </div>
 
       <nav class="jump-nav" aria-label="表单分区">
