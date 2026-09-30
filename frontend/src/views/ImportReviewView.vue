@@ -86,7 +86,7 @@ const form = reactive<EntryPayload>({
   fees: [],
 })
 
-const saleColumns = computed<DataTableColumn<EntrySaleItem>[]>(() => [
+const saleColumns = computed<DataTableColumn<EntrySaleItem>[]>(() => centerColumns([
   { key: 'sourceRow', label: '文件行', value: (row) => row.sourceRow ?? '新增' },
   { key: 'saleDate', label: '销售日期' },
   { key: 'variety', label: '品种' },
@@ -98,23 +98,50 @@ const saleColumns = computed<DataTableColumn<EntrySaleItem>[]>(() => [
   { key: 'unitPrice', label: '单价（元）', numeric: true },
   { key: 'amount', label: '金额（元）', numeric: true, value: (row) => money(rowSalesAmount(row)) },
   ...(isReadonly.value ? [] : [{ key: 'actions', label: '操作' }]),
-])
-const afterSaleColumns = computed<DataTableColumn<EntryAfterSaleItem>[]>(() => [
+]))
+const afterSaleColumns = computed<DataTableColumn<EntryAfterSaleItem>[]>(() => centerColumns([
   { key: 'sourceRow', label: '文件行', value: (row) => row.sourceRow ?? '新增' },
   { key: 'content', label: '内容' },
   { key: 'summary', label: '摘要' },
   { key: 'amount', label: '金额（元）', numeric: true },
   ...(isReadonly.value ? [] : [{ key: 'actions', label: '操作' }]),
-])
-const feeColumns = computed<DataTableColumn<EntryFeeItem>[]>(() => [
+]))
+const feeColumns = computed<DataTableColumn<EntryFeeItem>[]>(() => centerColumns([
   { key: 'sourceRow', label: '文件行', value: (row) => row.sourceRow ?? '新增' },
   { key: 'name', label: '摘要' },
   { key: 'amount', label: '金额（元）', numeric: true },
   ...(isReadonly.value ? [] : [{ key: 'actions', label: '操作' }]),
-])
+]))
 
 const saleRowKey = (_row: EntrySaleItem, index: number) => `sale-${index}`
 const afterSaleRowKey = (_row: EntryAfterSaleItem, index: number) => `after-${index}`
+
+/** 只读「查看明细」合并展示：与结算单导出同口径（同日 / 品种 / 等级 / 规格头数 / KG /
+ *  单价 / 备注一致的行并为一行），数量与原文件金额各自汇总；显示金额按 数量×单价
+ *  重算，区块合计（totals 按原始行计算）不变。编辑态返回原始行。 */
+const displaySalesRows = computed<EntrySaleItem[]>(() => {
+  if (!isReadonly.value) return form.sales
+  const merged = new Map<string, EntrySaleItem>()
+  for (const row of form.sales) {
+    const key = [row.saleDate, row.variety, row.grade, row.headCount, row.specKg, row.unitPrice, row.remark]
+      .map((value) => String(value ?? ''))
+      .join('\u0000')
+    const hit = merged.get(key)
+    if (hit) {
+      hit.salesQuantity = Number(hit.salesQuantity || 0) + Number(row.salesQuantity || 0)
+      hit.amount = Number(hit.amount || 0) + Number(row.amount || 0)
+    } else {
+      merged.set(key, { ...row })
+    }
+  }
+  return [...merged.values()]
+})
+const displaySalesCount = computed(() => (isReadonly.value ? displaySalesRows.value.length : form.sales.length))
+
+/** 只读态表头与单元格内容居中（用户要求）；编辑态保持默认对齐（数值右对齐等）。 */
+function centerColumns<Row>(columns: DataTableColumn<Row>[]): DataTableColumn<Row>[] {
+  return isReadonly.value ? columns.map((column) => ({ ...column, align: 'center' as const })) : columns
+}
 const feeRowKey = (_row: EntryFeeItem, index: number) => `fee-${index}`
 
 const totals = computed(() => computeEntryTotals(form.sales, form.afterSales, form.fees, form.arrivalQuantity))
@@ -804,12 +831,12 @@ onMounted(() => {
       </section>
 
       <section class="block" id="sales">
-        <div class="block-title"><h2>销售明细 <small>· {{ form.sales.length }} 行</small></h2><button v-if="!isReadonly" class="outline" type="button" @click.stop="addSale">添加销售行</button></div>
+        <div class="block-title"><h2>销售明细 <small>· {{ displaySalesCount }} 行</small></h2><button v-if="!isReadonly" class="outline" type="button" @click.stop="addSale">添加销售行</button></div>
         <div class="block-body">
         <DataTable
           class="review-table sale-table"
           :columns="saleColumns"
-          :rows="form.sales"
+          :rows="displaySalesRows"
           :row-key="saleRowKey"
           :row-class="salesRowClass"
           bordered

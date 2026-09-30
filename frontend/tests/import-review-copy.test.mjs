@@ -30,6 +30,24 @@ test('只读查看明细以纯文本呈现记录，不再满屏灰色禁用输�
   assert.match(review, /aria-label="数量（件）"/)
 })
 
+test('查看明细销售明细按导出同口径合并展示，表头与单元格居中', () => {
+  // 合并键与后端导出 _merge_sales_rows 一致：同日/品种/等级/规格头数/KG/单价/备注。
+  assert.match(review, /const displaySalesRows = computed<EntrySaleItem\[\]>\(\(\) => \{/)
+  assert.match(review, /\[row\.saleDate, row\.variety, row\.grade, row\.headCount, row\.specKg, row\.unitPrice, row\.remark\]/)
+  // 数量与原文件金额各自汇总；显示金额按 数量×单价 重算，合计走原始行 totals。
+  assert.match(review, /hit\.salesQuantity = Number\(hit\.salesQuantity \|\| 0\) \+ Number\(row\.salesQuantity \|\| 0\)/)
+  assert.match(review, /hit\.amount = Number\(hit\.amount \|\| 0\) \+ Number\(row\.amount \|\| 0\)/)
+  // 表格绑定合并行，行数随只读态显示合并后计数。
+  assert.match(review, /:rows="displaySalesRows"/)
+  assert.match(review, /const displaySalesCount = computed/)
+  // 只读态三张表（销售/售后/支出费用）表头与单元格居中，编辑态保持默认对齐。
+  assert.match(review, /function centerColumns<Row>\(columns: DataTableColumn<Row>\[\]\): DataTableColumn<Row>\[\] \{/)
+  assert.match(review, /columns\.map\(\(column\) => \(\{ \.\.\.column, align: 'center' as const \}\)\)/)
+  assert.match(review, /const saleColumns = computed<DataTableColumn<EntrySaleItem>\[\]>\(\(\) => centerColumns\(\[/)
+  assert.match(review, /const afterSaleColumns = computed<DataTableColumn<EntryAfterSaleItem>\[\]>\(\(\) => centerColumns\(\[/)
+  assert.match(review, /const feeColumns = computed<DataTableColumn<EntryFeeItem>\[\]>\(\(\) => centerColumns\(\[/)
+})
+
 test('查看明细（只读）整页展示：无遮罩无弹窗语义，编辑态保持弹窗', () => {
   // 根容器按只读 / 编辑分流：只读＝普通页面流（随页签页面滚动），编辑＝原弹窗遮罩。
   assert.match(review, /:class="isReadonly \? 'review-page' : 'review-modal'"/)
