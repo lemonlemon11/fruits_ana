@@ -3,6 +3,89 @@
 Last updated：2026-09-30 (CST)
 Written by：ZCode（内容由当前工作区实测生成，非对话记忆）
 
+> 2026-09-30（二十一）**字号基线再降一档：16px→15px**。用户看过 16px 效果后要求
+> 「再缩小一点」，按与上轮相同步长（-1px）把根字号 16px→15px、桌面 clamp
+> 14–16px→13–15px，默认档仍「标准」（各档随之变为约 13.5/15/16.9/18.8px）；
+> px→rem 换算、档位机制均不动（rem 自动跟随）。同步 styles.css/element/dashboard
+> 注释、shell-header.test.ts 根字号正则断言、ARCHITECTURE.md。**验证**：前端
+> 324/324 test（含另一在途任务的 2 项新增）、typecheck、build 通过，dist CSS 实测
+> `calc(15px*var(--font-scale))` 与 `clamp(13px,…,15px)` 生效。涉及文件为（十九）
+> 子集：`frontend/src/styles.css`、`frontend/src/styles-element.css`、
+> `frontend/src/styles-dashboard.css`、`frontend/tests/shell-header.test.ts`、
+> `docs/ARCHITECTURE.md`。
+
+> 2026-09-30（二十）**销售总览「档口数据」改版 demo 挂 53002（视觉伴侣两轮验收通过，待用户评审）**。
+> 按用户上传视觉稿样式 + 老板手绘思维模型重做 demo：**年（总柜数·金额/数量）→ 月（月柜数）→
+> 日（日柜数）三级同屏瀑布**，其下保留等级件数与均价、档口×品牌销售分析、规格销售明细三区块；
+> 侧栏按老板手绘系统划分（销售总览 / 销售分析 / 录单·统计，未实现项灰显「规划中」）。
+> 虚构数据（2026-01-02~09-20 共 15 柜）口径自洽：柜数=结算单数（ADR-053），等级/规格叶行按
+> （档口×品牌）对齐柜真值，任意档口筛选下 KPI/月/日/等级/规格五层交叉一致（A 3,200 / B 4,100 /
+> C 2,521 件分市场逐级可加总）。交互：档口下拉全区块联动、月层按柜数/金额/件数切换、日层
+> 金额/件数/日柜数切换、规格卡品牌/等级筛选 + 「查看全部规格」展开。**验证**：Playwright 三态
+> 截图（1920 / 1440 / 海吉星筛选态，`tmp/stall-demo-shots/`）console error 0、横向溢出 0；
+> 视觉伴侣首轮 4 必修项（单档口等级规格未随筛选重算、规格同名重复成行、月层按金额蓝柱 +
+> 月度概览最高/最低并列矛盾、1440 KPI 数字叠压迷你柱）全部修复，第二轮三态 verdict 全 pass。
+> 业务代码零改动；demo 自包含（自带 echarts 副本），启动：
+> `python3 -m http.server 53002 --bind 0.0.0.0 --directory frontend/dev-preview/overview-stall-20260930`。
+> 涉及文件：`frontend/dev-preview/overview-stall-20260930/`（index.html / styles.css / app.js /
+> data.js / echarts.min.js）、`frontend/dev-preview/README.md`。
+
+> 2026-09-30（十九）**全站字号基线 17px→16px：撤果农放大基线，默认档改「标准」**。
+> 用户反馈界面字体太大（当初为果农可读性放大，现已不需要），确认两项决定：基准降到
+> 16px 标准网页字号、顶部字号面板（小/标准/大/特大）保留。改动集中且最小：全站字号
+> 均 rem 表达（289 处），只改 `styles.css` 根字号 `17px→16px` 与桌面 clamp
+> `15–17px→14–16px` 即整体缩放；默认档 fallback `'small'→'standard'`
+> （`shellHeader.ts`/`AppShell.vue`，localStorage 键不变，老用户存的选择仍有效，档位
+> 随新基准变为约 14.4/16/18/20px）；px 写死的控件高度转 rem 保持等比
+> （`styles-dashboard.css` 44px→2.59rem×2、`SettlementPicker.css` 44/48/70/62px→
+> 2.59/2.82/4.12/3.65rem、`ImportView.vue` 草稿恢复按钮 38px→2.24rem；
+> PublicPreviewView 自成体系 px 公开预览页与 Register/ForgotPassword 的 13px 辅助
+> 小字不动）。注释/文档同步：`styles.css`/`styles-element.css`/`styles-dashboard.css`
+> 的 17px 表述、`ARCHITECTURE.md` 两处。**验证**：前端 322/322 test（含
+> shell-header.test.ts 的 fallback 期望值与根字号正则断言更新）、typecheck、build 通过，
+> dist CSS 实测 `calc(16px*var(--font-scale))` 与 `clamp(14px,…,16px)` 及各 rem 高度
+> 均已生效；dev server 截图抽查因本会话浏览器后端不可用未执行，以构建产物确定性校验
+> 代替。涉及文件：`frontend/src/styles.css`、`frontend/src/utils/shellHeader.ts`、
+> `frontend/src/AppShell.vue`、`frontend/src/components/SettlementPicker.css`、
+> `frontend/src/styles-dashboard.css`、`frontend/src/styles-element.css`、
+> `frontend/src/views/ImportView.vue`、`frontend/tests/shell-header.test.ts`、
+> `docs/ARCHITECTURE.md`。
+
+> 2026-09-30（十八）**导入二次确认定稿：不合并行，文件什么行就展示什么行（撤编辑态合并）**。
+> 用户先要求「导入时不合并」，随即误以为搞错让我还原，最终定稿「导入的文件是什么就
+> 展示什么，但数据要看全、不能左右拖动」。据此把（十五）里给编辑态加的同键行合并机制
+> 整块撤掉：`displaySalesRows` 编辑态直接返回 `form.sales` 原始行，删除 mergeSalesRows/
+> SaleGroupRow/组行展开（toggleSaleGroup/含错误强制展开）等全部机制与对应 CSS、
+> 「合并相同行/逐行显示」切换按钮；**合并仅保留在只读「查看明细」与结算单导出口径**
+> （ADR-054 加修订注记收窄范围）。看全不拖动：销售表去掉 `min-width="1080px"` 强制
+> （列宽全部按内容测量），销售日期列定宽 128→120px、操作列 88→72px，日期控件
+> `width:100%` 修正 220px 固有宽——列宽合计约 1120px，落进弹窗内容宽（≥1280 视口约
+> 1248px）内不横滚。其余五项改造不受影响（单「结算单」头部、错误行红底透出、失焦
+> 200ms 重审 + 版本守卫、MoneyInput 两位小数）。**验证**：前端 **322/322** test
+> （合并相关断言改写为「导入不合并」锁定项：无 mergeSalesRows/SaleGroupRow/
+> min-width 1080）、typecheck、build 通过，dist 已重建。涉及文件：
+> `frontend/src/views/ImportReviewView.vue`、
+> `frontend/tests/import-review-copy.test.mjs`。
+
+> 2026-09-30（十七）**导入页手工录单空态：按钮在左、说明在右、与上传卡按钮同宽**。
+> 用户两轮反馈：①「还没有暂存的手工单」文字与「手工录单」按钮上下堆叠，要求移到
+> 按钮旁边；② 二稿后指出与左卡「选择结算单」按钮宽度不一致，且说明文字应放在按钮
+> 右边（与左卡排版一致）。最终实现（`ImportView.vue`）：空态 DOM 改为按钮在前、
+> 文字在后；`.manual-empty` 在共享规则（与 `.draft-resume` 共用的纵向 grid）之上
+> 覆盖为 flex 行（gap 16 / padding 16 / min-height 92，对齐 `.file-picker-panel`
+> 面板节奏）；删除 `.manual-empty .secondary-button` 小尺寸覆盖（38px 高 → 标准
+> 大按钮）并加 `min-width:132px`，与 `.file-picker-panel .primary-button` 同宽同高；
+> 说明文字 .88rem → .86rem 与左卡提示一致；`.draft-resume` 草稿分支不受影响。
+> **验证**：前端 322/322 test、typecheck、build 通过，dist 已重建（53000 刷新生效）；
+> 按 dev-preview 惯例建静态预览
+> `frontend/dev-preview/manual-empty-inline-20260930/`（复刻双卡真实 CSS 与设计
+> 令牌），headless Chromium 截图，visual-judge 逐项验收：两按钮 132×49 完全一致、
+> 两面板顶底边逐像素对齐、文字在按钮右侧且间距一致（16px）、无重叠截断。备注：过程中
+> 并行会话在途的 `ImportReviewView.vue`（`saleGroupKey` 重复声明）一度造成 1 项测试
+> 失败与 build 阻塞，其修复（即（十八）合并机制回退）后全量恢复全绿，与本卡片改动
+> 无关。涉及文件：`frontend/src/views/ImportView.vue`、
+> `frontend/dev-preview/manual-empty-inline-20260930/`（新增）。
+
 > 2026-09-30（十六）**销售总览 × 结算单详情「重点数据」评审会方案**。用户要求组织
 > 会议讨论「哪些数据需要重点显示」并给方案。产出
 > `docs/reviews/2026-09-30-key-data-display-meeting.md`：会议信息 + 90 分钟议程 +

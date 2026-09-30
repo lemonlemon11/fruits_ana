@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>销售总览 · 档口销售数据 demo（视觉伴侣 53002）</title>
+  <!-- 档口数据改版 demo：按老板思维模型重构——年（总柜数·金额/数量）→ 月（月柜数）→ 日（日柜数）
+       三级同屏瀑布；视觉语言参照用户提供视觉稿（浅色侧栏 / KPI 大数卡 / 墨绿主色）。
+       虚构数据，口径自洽（柜数 = 结算单数，ADR-053）。 -->
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><i></i></span>
+        <div class="brand-text"><strong>SLD</strong><span>水果市场销售分析</span></div>
+      </div>
+      <nav class="nav" aria-label="主导航">
+        <div class="nav-group">
+          <div class="nav-group-title">销售总览</div>
+          <a class="nav-item active" href="#" aria-current="page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5"/></svg>
+            档口销售数据
+          </a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-title">销售分析</div>
+          <a class="nav-item disabled" href="#" tabindex="-1" title="demo 未实现">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-8M22 19H2"/></svg>
+            销售平台分析<span class="soon">规划中</span>
+          </a>
+          <a class="nav-item disabled" href="#" tabindex="-1" title="demo 未实现">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            销售单对比<span class="soon">规划中</span>
+          </a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-title">录单 · 统计</div>
+          <a class="nav-item disabled" href="#" tabindex="-1" title="demo 未实现">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            录单 / 导出<span class="soon">规划中</span>
+          </a>
+          <a class="nav-item disabled" href="#" tabindex="-1" title="demo 未实现">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>
+            联 ERP<span class="soon">规划中</span>
+          </a>
+          <a class="nav-item disabled" href="#" tabindex="-1" title="demo 未实现">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3h12M6 8h12l3 5-9 8-9-8z"/><path d="M12 8v13"/></svg>
+            收 / 支<span class="soon">规划中</span>
+          </a>
+        </div>
+      </nav>
+      <footer class="sidebar-foot">
+        <span class="foot-badge">demo v1.0 · 虚构数据</span>
+        <span>视觉伴侣 53002 · 2026-09-30</span>
+      </footer>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="title-wrap">
+          <h1>销售总览</h1>
+          <p>档口销售数据 · 年 / 月 / 日柜数与金额、数量一览</p>
+        </div>
+        <div class="filters">
+          <div class="chip date-chip" role="group" aria-label="销售日期">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
+            <span class="chip-label">销售日期</span>
+            <strong>2026/01/02 → 2026/09/20</strong>
+          </div>
+          <label class="chip select-chip">
+            <span class="chip-label">国家</span>
+            <select id="f-country" aria-label="国家">
+              <option selected>越南</option>
+            </select>
+          </label>
+          <label class="chip select-chip">
+            <span class="chip-label">档口</span>
+            <select id="f-market" aria-label="档口（市场）">
+              <option value="all" selected>全部档口</option>
+              <option value="广州江南">广州江南</option>
+              <option value="长沙海吉星">长沙海吉星</option>
+              <option value="武汉白沙洲">武汉白沙洲</option>
+            </select>
+          </label>
+          <button type="button" class="apply-btn" id="f-apply">应用</button>
+          <button type="button" class="more-btn" title="更多筛选（demo 未实现）" aria-label="更多筛选">⋯</button>
+        </div>
+      </header>
+
+      <!-- 年层：档口销售数据大数带 -->
+      <section class="year-band" aria-label="年度档口销售数据">
+        <div class="year-band-head">
+          <span class="tier tier-year">年</span>
+          <h2>2026 年 · 档口销售数据</h2>
+          <span class="year-context" id="year-context"></span>
+        </div>
+        <div class="kpi-grid" id="kpi-grid"><!-- JS 注入四格 KPI --></div>
+      </section>
+
+      <!-- 月层：月柜数与销售 -->
+      <div class="row monthly-row">
+        <section class="card chart-card monthly-card" aria-label="月度档口销售">
+          <header class="card-head">
+            <span class="tier">月</span>
+            <h3>月柜数与销售</h3>
+            <span class="card-note" id="monthly-unit"></span>
+            <div class="seg" id="monthly-seg" role="group" aria-label="月度指标切换"></div>
+          </header>
+          <div class="chart" id="monthly-chart"></div>
+        </section>
+        <aside class="card rail-card" id="monthly-rail" aria-label="月度概览"></aside>
+      </div>
+
+      <!-- 日层：日柜数与销售趋势 -->
+      <section class="card chart-card daily-card" aria-label="每日档口销售趋势">
+        <header class="card-head">
+          <span class="tier">日</span>
+          <h3>日柜数与销售趋势</h3>
+          <span class="card-note" id="daily-unit"></span>
+          <div class="seg" id="daily-seg" role="group" aria-label="每日指标切换"></div>
+        </header>
+        <div class="daily-body">
+          <div class="chart chart-tall" id="daily-chart"></div>
+          <aside class="rail" id="daily-rail" aria-label="销售概览"></aside>
+        </div>
+      </section>
+
+      <div class="row grade-row">
+        <section class="card grade-card" aria-label="等级件数与均价">
+          <header class="card-head">
+            <h3>等级件数与均价</h3>
+            <span class="card-note">C 果（含 BC）</span>
+          </header>
+          <table class="data-table" id="grade-table">
+            <thead>
+              <tr><th>等级</th><th class="num">件数</th><th class="num">销售金额</th><th>占比</th><th class="num">件均价</th></tr>
+            </thead>
+            <tbody id="grade-body"></tbody>
+          </table>
+        </section>
+
+        <section class="card mb-card" aria-label="档口与品牌销售分析">
+          <header class="card-head">
+            <h3>档口 × 品牌销售分析</h3>
+            <span class="card-note">柜数 = 结算单数</span>
+            <div class="seg" id="mb-seg" role="group" aria-label="档口品牌指标切换"></div>
+          </header>
+          <table class="data-table" id="mb-table">
+            <thead id="mb-head"></thead>
+            <tbody id="mb-body"></tbody>
+          </table>
+        </section>
+      </div>
+
+      <!-- 规格销售明细 -->
+      <section class="card spec-card" aria-label="规格销售明细">
+        <header class="card-head">
+          <h3>规格销售明细</h3>
+          <span class="card-note">各等级下的主要规格销售与价格</span>
+          <div class="spec-tools">
+            <label class="spec-filter">
+              <span>品牌</span>
+              <select id="spec-brand-filter" aria-label="规格品牌筛选">
+                <option value="all" selected>全部品牌</option>
+                <option value="晴牌">晴牌</option>
+                <option value="香香果">香香果</option>
+                <option value="钻牌">钻牌</option>
+              </select>
+            </label>
+            <label class="spec-filter">
+              <span>等级</span>
+              <select id="spec-grade-filter" aria-label="规格等级筛选">
+                <option value="all" selected>全部等级</option>
+                <option value="A">A果</option>
+                <option value="B">B果</option>
+                <option value="C">C果（含BC）</option>
+              </select>
+            </label>
+          </div>
+        </header>
+        <div class="spec-grid" id="spec-grid"><!-- JS 注入三列 --></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./echarts.min.js"></script>
+  <script src="./data.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
