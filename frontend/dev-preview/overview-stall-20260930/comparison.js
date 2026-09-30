@@ -211,35 +211,67 @@
         sections.push(cur);
       }
     });
-    var emptyBuf = [];
-    function flushEmpty() {
-      if (!emptyBuf.length) return;
+
+    function bullets(items) {
+      return '<ul class="ai-bullets">' + items.map(function (it) {
+        return '<li>' + highlightNums(C.esc(it)) + '</li>';
+      }).join('') + '</ul>';
+    }
+
+    /* 看板式布局：整体行情通栏 hero → 等级卡三列并排 → 暂无数据行 → 留意建议横排 */
+    var hero = null, insight = null, grades = [], emptyBuf = [];
+    sections.forEach(function (sec) {
+      var title = sec.title.replace(/\s/g, '');
+      if (title === '整体行情') { hero = sec; return; }
+      if (title === '可以留意的地方') { insight = sec; return; }
+      if ((sec.items.length === 1 && sec.items[0] === '暂无数据') || sec.items.length === 0) {
+        emptyBuf.push(sec.title);
+        return;
+      }
+      grades.push(sec);
+    });
+
+    if (hero) {
+      var h = C.el('div', 'ai-hero');
+      h.innerHTML =
+        '<div class="ai-hero-title"><span class="ai-section-dot" style="background:#14532D"></span><span class="ai-section-title">' + C.esc(hero.title) + '</span>' +
+        '<span class="ai-hero-tag">窗口合计</span></div>' + bullets(hero.items);
+      body.appendChild(h);
+    }
+
+    if (grades.length) {
+      var wrap = C.el('div', 'ai-cards');
+      grades.forEach(function (sec) {
+        var color = aiSectionColor(sec.title);
+        var card = C.el('div', 'ai-grade-card');
+        card.style.setProperty('--card-color', color);
+        card.style.setProperty('--card-soft', color + '14');
+        card.style.setProperty('--card-line', color + '33');
+        card.innerHTML =
+          '<div class="ai-grade-head"><span class="ai-section-dot" style="background:' + color + '"></span>' +
+          '<span class="ai-section-title">' + C.esc(sec.title) + '</span></div>' + bullets(sec.items);
+        wrap.appendChild(card);
+      });
+      body.appendChild(wrap);
+    }
+
+    if (emptyBuf.length) {
       var row = C.el('div', 'ai-empty-row');
       row.innerHTML = '<span class="ai-empty-label">暂无数据</span>' + emptyBuf.map(function (t) {
         return '<span class="ai-empty-chip">' + C.esc(t) + '</span>';
       }).join('');
       body.appendChild(row);
-      emptyBuf = [];
     }
-    sections.forEach(function (sec) {
-      if ((sec.items.length === 1 && sec.items[0] === '暂无数据') || sec.items.length === 0) {
-        emptyBuf.push(sec.title);
-        return;
-      }
-      flushEmpty();
-      var title = sec.title.replace(/\s/g, '');
-      var isInsight = title === '可以留意的地方';
-      var headHtml = isInsight
-        ? '<span class="ai-insight-badge">留意</span><span class="ai-section-title">' + C.esc(sec.title) + '</span>'
-        : '<span class="ai-section-dot" style="background:' + aiSectionColor(sec.title) + '"></span><span class="ai-section-title">' + C.esc(sec.title) + '</span>';
-      var block = C.el('div', 'ai-section');
-      block.innerHTML = '<div class="ai-section-head">' + headHtml + '</div>' +
-        '<ul class="ai-bullets">' + sec.items.map(function (it) {
-          return '<li>' + highlightNums(C.esc(it)) + '</li>';
-        }).join('') + '</ul>';
-      body.appendChild(block);
-    });
-    flushEmpty();
+
+    if (insight && insight.items.length) {
+      var box = C.el('div', 'ai-insight');
+      box.innerHTML =
+        '<div class="ai-hero-title ai-insight-head"><span class="ai-insight-badge">留意</span><span class="ai-section-title">' + C.esc(insight.title) + '</span></div>' +
+        '<ol class="ai-insight-list">' + insight.items.map(function (it, i) {
+          return '<li><span class="ai-insight-no">' + (i + 1) + '</span><span>' + highlightNums(C.esc(it)) + '</span></li>';
+        }).join('') + '</ol>';
+      body.appendChild(box);
+    }
   }
 
   function renderAi() {
