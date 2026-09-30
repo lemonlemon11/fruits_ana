@@ -424,3 +424,25 @@ button, select { font-family: inherit; }
   .settle-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .fact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* AI 结论结构化排版 */
+.ai-section { padding: 13px 0 11px; border-bottom: 1px dashed #edf2ee; }
+.ai-section:first-child { padding-top: 2px; }
+.ai-section:last-child { border-bottom: none; padding-bottom: 2px; }
+.ai-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.ai-section-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.ai-section-title { font-weight: 700; font-size: 13.5px; color: var(--ink); }
+.ai-insight-badge {
+  background: #fdf0dd; color: #b26a08; font-size: 11px; font-weight: 700;
+  border-radius: 6px; padding: 2px 8px; flex: none; letter-spacing: 0.08em;
+}
+.ai-bullets { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.ai-bullets li { position: relative; padding-left: 16px; font-size: 13px; line-height: 1.75; color: var(--ink); }
+.ai-bullets li::before {
+  content: ''; position: absolute; left: 4px; top: 0.75em;
+  width: 5px; height: 5px; border-radius: 50%; background: #c9d6cd;
+}
+.ai-num { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--primary-deep); }
+.ai-empty-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 0; }
+.ai-empty-label { color: var(--muted); font-size: 12px; }
+.ai-empty-chip { background: #f2f5f3; border-radius: 99px; padding: 2px 12px; font-size: 11.5px; color: var(--ink-2); }

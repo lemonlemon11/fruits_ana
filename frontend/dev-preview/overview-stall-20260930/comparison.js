@@ -175,6 +175,73 @@
     }, { notMerge: true });
   }
 
+  /* AI 结论结构化渲染：小节标题行 → 色点标题 + 圆点列表；空等级合并成一行紧凑提示；
+   * 数字（带单位）加粗强调。原始文本来自真实模型缓存，解析只做排版不做内容改写。 */
+  var AI_SECTION_COLORS = {
+    整体行情: '#14532D', A: '#1E7A4F', B: '#D9820B', C: '#D64545',
+    AB: '#8A5CD4', BC: '#B3543F', D: '#4C9A80', E: '#5B8A72', F: '#8A94A1', 其他: '#8A94A1',
+  };
+  function aiSectionColor(title) {
+    var t = title.replace(/\s/g, '');
+    if (AI_SECTION_COLORS[t] != null && t === '整体行情') return AI_SECTION_COLORS[t];
+    var m = t.match(/^(AB|BC|A|B|C|D|E|F|其他)果/);
+    if (m) return AI_SECTION_COLORS[m[1]] || '#64748B';
+    return '#64748B';
+  }
+  function highlightNums(escaped) {
+    return escaped.replace(/(\d[\d,]*(?:\.\d+)?)( ?)(件|元|%|张|柜|个百分点|行)/g, function (_, num, space, unit) {
+      var parts = num.split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return '<b class="ai-num">' + parts.join('.') + '</b>' + space + unit;
+    });
+  }
+  function renderAiBody(raw) {
+    var body = document.getElementById('ai-body');
+    body.innerHTML = '';
+    var sections = [];
+    var cur = null;
+    raw.split(/\r?\n/).forEach(function (line) {
+      var t = line.trim();
+      if (!t) return;
+      if (t.charAt(0) === '-') {
+        if (!cur) { cur = { title: '结论', items: [] }; sections.push(cur); }
+        cur.items.push(t.replace(/^[-•]\s*/, ''));
+      } else {
+        cur = { title: t, items: [] };
+        sections.push(cur);
+      }
+    });
+    var emptyBuf = [];
+    function flushEmpty() {
+      if (!emptyBuf.length) return;
+      var row = C.el('div', 'ai-empty-row');
+      row.innerHTML = '<span class="ai-empty-label">暂无数据</span>' + emptyBuf.map(function (t) {
+        return '<span class="ai-empty-chip">' + C.esc(t) + '</span>';
+      }).join('');
+      body.appendChild(row);
+      emptyBuf = [];
+    }
+    sections.forEach(function (sec) {
+      if ((sec.items.length === 1 && sec.items[0] === '暂无数据') || sec.items.length === 0) {
+        emptyBuf.push(sec.title);
+        return;
+      }
+      flushEmpty();
+      var title = sec.title.replace(/\s/g, '');
+      var isInsight = title === '可以留意的地方';
+      var headHtml = isInsight
+        ? '<span class="ai-insight-badge">留意</span><span class="ai-section-title">' + C.esc(sec.title) + '</span>'
+        : '<span class="ai-section-dot" style="background:' + aiSectionColor(sec.title) + '"></span><span class="ai-section-title">' + C.esc(sec.title) + '</span>';
+      var block = C.el('div', 'ai-section');
+      block.innerHTML = '<div class="ai-section-head">' + headHtml + '</div>' +
+        '<ul class="ai-bullets">' + sec.items.map(function (it) {
+          return '<li>' + highlightNums(C.esc(it)) + '</li>';
+        }).join('') + '</ul>';
+      body.appendChild(block);
+    });
+    flushEmpty();
+  }
+
   function renderAi() {
     var ai = D.aiAnalysis;
     var badge = document.getElementById('ai-badge');
@@ -183,7 +250,7 @@
     if (ai && ai.content) {
       badge.textContent = '真实模型结论' + (ai.cached ? ' · 缓存命中' : ' · 本次生成');
       model.textContent = '模型 ' + (ai.model || '–') + ' · 数据窗口 ' + (D.apiWindow.start + ' ~ ' + D.apiWindow.end) + ' · 全量口径，不随勾选变化';
-      body.textContent = ai.content;
+      renderAiBody(ai.content);
     } else {
       badge.textContent = '暂无缓存结论';
       model.textContent = '';
