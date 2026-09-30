@@ -67,7 +67,7 @@ th:first-child, td:first-child { text-align: left; }
 /* 表格统一观感（2026-09-10）：统一字号，表头分层、隔行浅底、悬停高亮、合计行加粗。
    选择器带上 .table-wrap 是为了盖住组件内 scoped 的同名规则，避免各表表头深浅、字号不一。 */
 /* 字号统一：系列对比 / 公开预览的表被 scoped 的 .85rem 压小，和其余页面的 1.05rem 差出一档，
-   同一份数据在不同页面字号不一致；这里统一到 1rem（=16px，全站正文基线）。 */
+   同一份数据在不同页面字号不一致；这里统一到 1rem（=15px，全站正文基线）。 */
 .table-wrap table th,
 .table-wrap table td { font-size: 1rem; }
 /* 表头：浅底 + 加粗 + 深色文字，和正文行拉开层次。 */

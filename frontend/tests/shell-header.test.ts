@@ -81,8 +81,8 @@ test('header 提供字号选择并让全局根字号按偏好缩放', () => {
   assert.match(shell, /FONT_SIZE_OPTIONS/)
   assert.match(shell, /当前字号：\{\{ fontSizeOption\.label \}\}/)
   assert.match(globalStyles, /--font-scale:\s*1/)
-  assert.match(globalStyles, /calc\(16px \* var\(--font-scale\)\)/)
-  assert.match(globalStyles, /calc\(clamp\(14px, 0\.25rem \+ 0\.85vw, 16px\) \* var\(--font-scale\)\)/)
+  assert.match(globalStyles, /calc\(15px \* var\(--font-scale\)\)/)
+  assert.match(globalStyles, /calc\(clamp\(13px, 0\.25rem \+ 0\.85vw, 15px\) \* var\(--font-scale\)\)/)
 })
 
 test('桌面收起为自适应图标栏', () => {

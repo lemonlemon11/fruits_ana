@@ -262,7 +262,7 @@ Filesystem: backend/data/uploads/  原始上传文件（已 gitignore）
 - 手机访问分流：`frontend/index.html` `<head>` 内联脚本按 UA（Android / iPhone / iPad /
   iPod / HarmonyOS / Mobile）整站 `location.replace` 跳转独立移动版站点
   （手机端由独立项目负责）；URL 带 `?desktop=1` 可强制留在桌面版（见 ADR-052）。
-- 桌面端全局字号基线用 `clamp()` 随视口宽度平滑缩放（14px–16px，默认档「标准」=1，
+- 桌面端全局字号基线用 `clamp()` 随视口宽度平滑缩放（13px–15px，默认档「标准」=1，
   顶部字号面板可调 小/标准/大/特大），主要控件、外壳与卡片尺寸改为 `rem`。
 
 ### Error Recovery（ADR-040）
