@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>录单导入 · 双卡片布局（按钮宽度一致 + 说明文字在按钮右侧）预览</title>
+  <!-- 静态预览：复刻 ImportView.vue 顶部两张入口卡片，
+       左「上传结算单」file-picker-panel（基准），右「手工录单」manual-empty 空态
+       （按钮在左、说明文字在按钮右，按钮与左侧同宽同高）。
+       样式取自 ImportView.vue scoped CSS + styles.css 设计令牌，非真实数据。 -->
+  <style>
+    :root {
+      --ink: #1f2923;
+      --muted: #56635b;
+      --line: #c8d2cd;
+      --line-strong: #8aa095;
+      --surface: #f7faf8;
+      --surface-soft: #e8eee9;
+      --primary: #17663f;
+      --primary-dark: #104a2f;
+      --primary-soft: #dcece2;
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --shadow: none;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px; background: #eef3ef; color: var(--ink); font: 400 16px/1.5 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+    .entry-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; max-width: 1600px; }
+    .mode-card { min-width: 0; padding: 18px; border: 1px solid var(--line); border-top: 3px solid var(--primary); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow); }
+    .mode-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .mode-card-head h2 { margin: 0; font-size: 1.05rem; }
+    .mode-card-head span { color: var(--muted); font-size: .78rem; white-space: nowrap; }
+    .mode-desc { margin: 8px 0 14px; color: var(--muted); font-size: .86rem; line-height: 1.5; }
+    .file-picker-panel { display: flex; min-height: 92px; align-items: center; gap: 16px; padding: 16px; border: 1px solid var(--line-strong); background: var(--surface-soft); }
+    .file-picker-panel > span { color: var(--muted); font-size: .86rem; line-height: 1.5; }
+    .manual-empty { display: grid; gap: 9px; min-height: 124px; align-content: center; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); }
+    .manual-empty.is-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 92px; padding: 16px; }
+    .manual-empty span { color: var(--muted); font-size: .86rem; line-height: 1.5; }
+    .primary-button, .secondary-button { display: inline-flex; align-items: center; justify-content: center; min-height: 3.06rem; border-radius: var(--radius-sm); font-size: 1.1rem; font-weight: 700; text-decoration: none; cursor: pointer; }
+    .primary-button { padding: 0 .94rem; border: 1px solid var(--primary); background: var(--primary); color: #fff; }
+    .secondary-button { padding: 0 .94rem; border: 1px solid var(--line-strong); background: var(--surface); color: var(--primary-dark); }
+    .file-picker-panel .primary-button { min-width: 132px; }
+    .manual-empty.is-row .secondary-button { min-width: 132px; }
+  </style>
+</head>
+<body>
+  <main class="entry-modes">
+    <article class="mode-card">
+      <div class="mode-card-head">
+        <h2>上传结算单</h2>
+        <span>仅支持表格文件上传</span>
+      </div>
+      <p class="mode-desc">拖入文件会自动解析并生成待确认草稿，导入记录就在下方查看。</p>
+      <div class="file-picker-panel">
+        <button class="primary-button" type="button">选择结算单</button>
+        <span>仅支持 Excel 表格文件，可一次选择多个</span>
+      </div>
+    </article>
+    <article class="mode-card manual-mode">
+      <div class="mode-card-head">
+        <h2>手工录单</h2>
+        <span>无表格或现场补录</span>
+      </div>
+      <p class="mode-desc">按结算单模板逐项填写，保存后生成结算单。</p>
+      <div class="manual-empty is-row">
+        <button class="secondary-button" type="button">手工录单</button>
+        <span>还没有暂存的手工单</span>
+      </div>
+    </article>
+  </main>
+</body>
+</html>

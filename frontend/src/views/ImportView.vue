@@ -389,8 +389,8 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div v-else class="manual-empty">
-          <span>还没有暂存的手工单</span>
           <button class="secondary-button" type="button" @click="goManualEntry">手工录单</button>
+          <span>还没有暂存的手工单</span>
         </div>
       </article>
 
@@ -495,12 +495,12 @@ onBeforeUnmount(() => {
 .draft-badge { padding: 3px 8px; border-radius: 999px; background: #fff4dc; color: #8a5b00; font-size: .76rem; font-weight: 800; }
 .draft-resume strong { overflow-wrap: anywhere; font-size: .98rem; }
 .draft-resume small { color: var(--muted); font-size: .82rem; line-height: 1.5; }
-.manual-empty { justify-items: start; }
-.manual-empty span { color: var(--muted); font-size: .88rem; }
+.manual-empty { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 92px; padding: 16px; }
+.manual-empty span { color: var(--muted); font-size: .86rem; line-height: 1.5; }
+.manual-empty .secondary-button { min-width: 132px; }
 .draft-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .draft-resume .primary-button,
-.draft-resume .secondary-button,
-.manual-empty .secondary-button { min-height: 38px; padding: 0 14px; font-size: .92rem; }
+.draft-resume .secondary-button { min-height: 38px; padding: 0 14px; font-size: .92rem; }
 .uploading-mask {
   position: absolute;
   z-index: 10;
