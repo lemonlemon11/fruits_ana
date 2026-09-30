@@ -9,6 +9,7 @@ OUT="$WORKSPACE/fruits_ana_deploy_${STAMP}.tar.gz"
 tar -czf "$OUT" \
   -C "$WORKSPACE" \
   --exclude='fruits_ana/images/config/.env.docker' \
+  --exclude='fruits_ana/images/config/data' \
   fruits_ana/images
 
 echo "已生成用户端部署包: $OUT"

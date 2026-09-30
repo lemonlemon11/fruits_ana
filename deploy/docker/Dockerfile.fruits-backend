@@ -6,17 +6,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app/backend
 
-# 结算单 PDF 由 PIL 渲染图片生成，容器内需要中文（Noto CJK）字体。
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends fonts-noto-cjk \
-    && rm -rf /var/lib/apt/lists/*
-
+# 结算单 PDF / xlsx 水印的中文字体已内置：backend/app/assets/fonts/NotoSansSC-*.otf
+# 随下方 COPY backend/app 进镜像，无需 apt 安装 fonts-noto-cjk（57MB 下载慢且体积大）。
+# pip 走阿里云镜像源：境内构建网络下官方源过慢。
 COPY backend/pyproject.toml ./
 COPY backend/app ./app
 COPY backend/scripts ./scripts
 
-RUN python -m pip install --upgrade pip \
-    && pip install .
+RUN python -m pip install --upgrade pip -i https://mirrors.aliyun.com/pypi/simple/ \
+    && pip install -i https://mirrors.aliyun.com/pypi/simple/ .
 
 EXPOSE 8000
 

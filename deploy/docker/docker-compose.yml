@@ -10,37 +10,17 @@ services:
       - .env.docker
     network_mode: host
     restart: unless-stopped
+    # 上传原件与日志映射到宿主机（相对路径以本 compose 文件所在目录为基准，
+    # 默认 ./data；如需自定义，先 export FRUITS_DATA_DIR=/绝对路径 再执行 compose）
     volumes:
-      - fruits_uploads:/app/backend/data/uploads
+      - ${FRUITS_DATA_DIR:-./data}/uploads:/app/backend/data/uploads
+      - ${FRUITS_DATA_DIR:-./data}/logs:/app/backend/data/logs
     healthcheck:
       test:
         - CMD
         - python
         - -c
         - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)
-      interval: 10s
-      timeout: 3s
-      retries: 10
-      start_period: 20s
-
-  admin-backend:
-    build:
-      context: ../../../fruits_ana_admin
-      dockerfile: deploy/docker/Dockerfile.admin-backend
-    image: fruits-ana-admin-backend:local
-    env_file:
-      - .env.docker
-    network_mode: host
-    restart: unless-stopped
-    depends_on:
-      fruits-backend:
-        condition: service_healthy
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)
       interval: 10s
       timeout: 3s
       retries: 10
@@ -67,28 +47,3 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-
-  admin-web:
-    build:
-      context: ../../../fruits_ana_admin
-      dockerfile: deploy/docker/Dockerfile.admin-web
-    image: fruits-ana-admin-web:local
-    network_mode: host
-    restart: unless-stopped
-    depends_on:
-      admin-backend:
-        condition: service_healthy
-    healthcheck:
-      test:
-        - CMD
-        - wget
-        - -q
-        - --spider
-        - http://127.0.0.1:54000/
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-volumes:
-  fruits_uploads:

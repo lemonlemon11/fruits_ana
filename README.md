@@ -55,9 +55,13 @@ npm --prefix frontend run dev -- --host 0.0.0.0 --port 53000 --strictPort
 
 ## 现场 Docker 部署
 
-现场服务器已安装独立 MySQL 时，可只容器化两个后端与 Nginx 前端，不使用 MySQL
-容器。部署文件位于 `deploy/docker/`，包含 Docker Compose、Dockerfile、Nginx
-配置与 `.env.docker.example`；完整步骤见 `deploy/docker/README.md`。
+现场服务器已安装独立 MySQL 时，可只容器化本系统的后端与 Nginx 前端两个容器，
+不使用 MySQL 容器。部署文件位于 `deploy/docker/`，包含 Docker Compose、
+Dockerfile、Nginx 配置与 `.env.docker.example`；完整步骤见
+`deploy/docker/README.md`。本仓库只编排 fruits_ana 自己的服务，管理端
+`fruits_ana_admin` 由其自身仓库独立部署。
+上传原件与运行日志通过 bind mount 落在宿主机 `deploy/docker/data/{uploads,logs}`
+（可用 `FRUITS_DATA_DIR` 环境变量改到其他路径）。
 
 ## 导入文件
 

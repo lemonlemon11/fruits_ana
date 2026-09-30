@@ -12,3 +12,13 @@ deploy/docker/.env.docker
 docs
 attachments
 tickets
+# 镜像 tar 与本地产物不参与构建（曾使 build context 膨胀到 465MB）
+images
+tmp
+.zcode
+.zcodeignore
+design
+demo-enterprise
+demo-menu-redesign
+demo-spec-table
+problem

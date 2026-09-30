@@ -8,8 +8,11 @@ services:
       - .env.docker
     network_mode: host
     restart: unless-stopped
+    # 上传原件与日志映射到宿主机（相对路径以本 compose 文件所在目录为基准，
+    # 默认 ./data；如需自定义，先 export FRUITS_DATA_DIR=/绝对路径 再执行 compose）
     volumes:
-      - fruits_uploads:/app/backend/data/uploads
+      - ${FRUITS_DATA_DIR:-./data}/uploads:/app/backend/data/uploads
+      - ${FRUITS_DATA_DIR:-./data}/logs:/app/backend/data/logs
     healthcheck:
       test:
         - CMD
@@ -40,6 +43,3 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-
-volumes:
-  fruits_uploads:
